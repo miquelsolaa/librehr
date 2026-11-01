@@ -1772,6 +1772,622 @@
           "items",
           "unreadCount"
         ]
+      },
+      "TimeEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "eventType": {
+            "type": "string",
+            "enum": [
+              "clock_in",
+              "clock_out",
+              "break_start",
+              "break_end",
+              "correction"
+            ]
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "recordedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "source": {
+            "type": "string"
+          },
+          "actorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "refEventId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "prevHash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hash": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "employeeId",
+          "eventType",
+          "occurredAt",
+          "recordedAt",
+          "source",
+          "actorId",
+          "hash"
+        ]
+      },
+      "ClockRequest": {
+        "type": "object",
+        "properties": {
+          "eventType": {
+            "type": "string",
+            "enum": [
+              "clock_in",
+              "clock_out",
+              "break_start",
+              "break_end"
+            ]
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "web",
+              "mobile"
+            ],
+            "default": "web"
+          },
+          "notes": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "eventType"
+        ]
+      },
+      "ClockStatusResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "clocked_in",
+              "on_break",
+              "clocked_out"
+            ]
+          },
+          "lastEvent": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "employeeId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "eventType": {
+                "type": "string",
+                "enum": [
+                  "clock_in",
+                  "clock_out",
+                  "break_start",
+                  "break_end",
+                  "correction"
+                ]
+              },
+              "occurredAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "recordedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "source": {
+                "type": "string"
+              },
+              "actorId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "refEventId": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uuid"
+              },
+              "reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "prevHash": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "hash": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "employeeId",
+              "eventType",
+              "occurredAt",
+              "recordedAt",
+              "source",
+              "actorId",
+              "hash"
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "lastEvent"
+        ]
+      },
+      "PeriodTimesheetResponse": {
+        "type": "object",
+        "properties": {
+          "days": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "date": {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                },
+                "dayOfWeek": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 7
+                },
+                "sessions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "clockIn": {
+                        "type": "string"
+                      },
+                      "clockOut": {
+                        "type": "string"
+                      },
+                      "isOpen": {
+                        "type": "boolean"
+                      },
+                      "breaks": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "breakStart": {
+                              "type": "string"
+                            },
+                            "breakEnd": {
+                              "type": "string"
+                            },
+                            "durationMinutes": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "breakStart",
+                            "durationMinutes"
+                          ]
+                        }
+                      },
+                      "grossDurationMinutes": {
+                        "type": "number"
+                      },
+                      "totalBreakMinutes": {
+                        "type": "number"
+                      },
+                      "netWorkedDurationMinutes": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "clockIn",
+                      "isOpen",
+                      "breaks",
+                      "grossDurationMinutes",
+                      "totalBreakMinutes",
+                      "netWorkedDurationMinutes"
+                    ]
+                  }
+                },
+                "totalWorkedMinutes": {
+                  "type": "number"
+                },
+                "totalBreakMinutes": {
+                  "type": "number"
+                },
+                "expectedHours": {
+                  "type": "number"
+                },
+                "overtimeMinutes": {
+                  "type": "number"
+                },
+                "hasAnomaly": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "date",
+                "dayOfWeek",
+                "sessions",
+                "totalWorkedMinutes",
+                "totalBreakMinutes",
+                "expectedHours",
+                "overtimeMinutes",
+                "hasAnomaly"
+              ]
+            }
+          },
+          "totalWorkedMinutes": {
+            "type": "number"
+          },
+          "totalBreakMinutes": {
+            "type": "number"
+          },
+          "totalExpectedHours": {
+            "type": "number"
+          },
+          "totalOvertimeMinutes": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "days",
+          "totalWorkedMinutes",
+          "totalBreakMinutes",
+          "totalExpectedHours",
+          "totalOvertimeMinutes"
+        ]
+      },
+      "CreateTimeCorrection": {
+        "type": "object",
+        "properties": {
+          "refEventId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "proposedEventType": {
+            "type": "string",
+            "enum": [
+              "clock_in",
+              "clock_out",
+              "break_start",
+              "break_end",
+              "correction"
+            ]
+          },
+          "proposedOccurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 5
+          }
+        },
+        "required": [
+          "proposedEventType",
+          "proposedOccurredAt",
+          "reason"
+        ]
+      },
+      "DecideTimeCorrection": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "approve",
+              "reject"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision"
+        ]
+      },
+      "TimeCorrectionItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeeName": {
+            "type": "string"
+          },
+          "refEventId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "proposedEventType": {
+            "type": "string",
+            "enum": [
+              "clock_in",
+              "clock_out",
+              "break_start",
+              "break_end",
+              "correction"
+            ]
+          },
+          "proposedOccurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "rejected"
+            ]
+          },
+          "approverId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "approverName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "decidedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "decisionReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdEventId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "employeeId",
+          "proposedEventType",
+          "proposedOccurredAt",
+          "reason",
+          "status",
+          "createdAt"
+        ]
+      },
+      "OfficialExportResponse": {
+        "type": "object",
+        "properties": {
+          "metadata": {
+            "type": "object",
+            "properties": {
+              "organizationId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "organizationName": {
+                "type": "string"
+              },
+              "employeeId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "employeeName": {
+                "type": "string"
+              },
+              "periodStart": {
+                "type": "string"
+              },
+              "periodEnd": {
+                "type": "string"
+              },
+              "generatedAt": {
+                "type": "string"
+              },
+              "generatorActorId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "organizationId",
+              "organizationName",
+              "employeeId",
+              "employeeName",
+              "periodStart",
+              "periodEnd",
+              "generatedAt",
+              "generatorActorId"
+            ]
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "date": {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                },
+                "dayOfWeek": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 7
+                },
+                "sessions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "clockIn": {
+                        "type": "string"
+                      },
+                      "clockOut": {
+                        "type": "string"
+                      },
+                      "isOpen": {
+                        "type": "boolean"
+                      },
+                      "breaks": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "breakStart": {
+                              "type": "string"
+                            },
+                            "breakEnd": {
+                              "type": "string"
+                            },
+                            "durationMinutes": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "breakStart",
+                            "durationMinutes"
+                          ]
+                        }
+                      },
+                      "grossDurationMinutes": {
+                        "type": "number"
+                      },
+                      "totalBreakMinutes": {
+                        "type": "number"
+                      },
+                      "netWorkedDurationMinutes": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "clockIn",
+                      "isOpen",
+                      "breaks",
+                      "grossDurationMinutes",
+                      "totalBreakMinutes",
+                      "netWorkedDurationMinutes"
+                    ]
+                  }
+                },
+                "totalWorkedMinutes": {
+                  "type": "number"
+                },
+                "totalBreakMinutes": {
+                  "type": "number"
+                },
+                "expectedHours": {
+                  "type": "number"
+                },
+                "overtimeMinutes": {
+                  "type": "number"
+                },
+                "hasAnomaly": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "date",
+                "dayOfWeek",
+                "sessions",
+                "totalWorkedMinutes",
+                "totalBreakMinutes",
+                "expectedHours",
+                "overtimeMinutes",
+                "hasAnomaly"
+              ]
+            }
+          },
+          "totalWorkedMinutes": {
+            "type": "number"
+          },
+          "totalOvertimeMinutes": {
+            "type": "number"
+          },
+          "documentContentHash": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "metadata",
+          "days",
+          "totalWorkedMinutes",
+          "totalOvertimeMinutes",
+          "documentContentHash"
+        ]
       }
     },
     "parameters": {}

@@ -42,6 +42,16 @@ import type {
 import type {
   NotificationListResponse,
 } from '../src/notifications.js';
+import type {
+  TimeEvent,
+  ClockRequest,
+  ClockStatusResponse,
+  PeriodTimesheetResponse,
+  CreateTimeCorrection,
+  DecideTimeCorrection,
+  TimeCorrectionItem,
+  OfficialExportResponse,
+} from '../src/time.js';
 import type { ProblemDetails } from '../src/errors.js';
 
 export interface ApiClientOptions {
@@ -277,6 +287,58 @@ export class OpenHrApiClient {
   async markNotificationRead(id: string): Promise<{ success: boolean }> {
     return this.request<{ success: boolean }>(`/v1/notifications/${id}/read`, {
       method: 'PATCH',
+    });
+  }
+
+  // Time tracking (M3)
+  async getClockStatus(): Promise<ClockStatusResponse> {
+    return this.request<ClockStatusResponse>('/v1/time/current-status');
+  }
+
+  async clock(data: ClockRequest): Promise<TimeEvent> {
+    return this.request<TimeEvent>('/v1/time/clock', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getTimesheet(params: { startDate: string; endDate: string; employeeId?: string }): Promise<PeriodTimesheetResponse> {
+    const searchParams = new URLSearchParams({
+      startDate: params.startDate,
+      endDate: params.endDate,
+    });
+    if (params.employeeId) searchParams.set('employeeId', params.employeeId);
+    return this.request<PeriodTimesheetResponse>(`/v1/time/timesheet?${searchParams.toString()}`);
+  }
+
+  async getOfficialExport(params: { startDate: string; endDate: string; employeeId?: string }): Promise<OfficialExportResponse> {
+    const searchParams = new URLSearchParams({
+      startDate: params.startDate,
+      endDate: params.endDate,
+    });
+    if (params.employeeId) searchParams.set('employeeId', params.employeeId);
+    return this.request<OfficialExportResponse>(`/v1/time/export?${searchParams.toString()}`);
+  }
+
+  async listTimeCorrections(params?: { employeeId?: string; status?: string }): Promise<TimeCorrectionItem[]> {
+    const searchParams = new URLSearchParams();
+    if (params?.employeeId) searchParams.set('employeeId', params.employeeId);
+    if (params?.status) searchParams.set('status', params.status);
+    const qs = searchParams.toString();
+    return this.request<TimeCorrectionItem[]>(`/v1/time/corrections${qs ? '?' + qs : ''}`);
+  }
+
+  async createTimeCorrection(data: CreateTimeCorrection): Promise<TimeCorrectionItem> {
+    return this.request<TimeCorrectionItem>('/v1/time/corrections', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async decideTimeCorrection(id: string, data: DecideTimeCorrection): Promise<TimeCorrectionItem> {
+    return this.request<TimeCorrectionItem>(`/v1/time/corrections/${id}/decide`, {
+      method: 'POST',
+      body: JSON.stringify(data),
     });
   }
 }
