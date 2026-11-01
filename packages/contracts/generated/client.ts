@@ -52,6 +52,20 @@ import type {
   TimeCorrectionItem,
   OfficialExportResponse,
 } from '../src/time.js';
+import type {
+  DocumentItem,
+  CreateDocumentRequest,
+  BulkPayslipReport,
+  BulkPayslipUploadRequest,
+} from '../src/documents.js';
+import type {
+  ChecklistTemplate,
+  CreateChecklistTemplate,
+  ChecklistInstance,
+  InstantiateChecklist,
+  EmployeeImportValidationResponse,
+  DataSubjectExportResponse,
+} from '../src/lifecycle.js';
 import type { ProblemDetails } from '../src/errors.js';
 
 export interface ApiClientOptions {
@@ -67,7 +81,7 @@ export class OpenHrApiClient {
 
   constructor(options: ApiClientOptions) {
     this.baseUrl = options.baseUrl.replace(/\/+$/, '');
-    this.fetchFn = options.fetchFn ?? ((...args: Parameters<typeof fetch>) => globalThis.fetch(...args));
+    this.fetchFn = options.fetchFn ?? fetch;
     this.getHeaders = options.getHeaders;
   }
 
@@ -340,5 +354,85 @@ export class OpenHrApiClient {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  }
+
+  // Documents (M4)
+  async listDocuments(params?: { employeeId?: string; category?: string; isCompanyWide?: boolean }): Promise<DocumentItem[]> {
+    const searchParams = new URLSearchParams();
+    if (params?.employeeId) searchParams.set('employeeId', params.employeeId);
+    if (params?.category) searchParams.set('category', params.category);
+    if (params?.isCompanyWide !== undefined) searchParams.set('isCompanyWide', String(params.isCompanyWide));
+    const qs = searchParams.toString();
+    return this.request<DocumentItem[]>(`/v1/documents${qs ? '?' + qs : ''}`);
+  }
+
+  async uploadDocument(data: CreateDocumentRequest): Promise<DocumentItem> {
+    return this.request<DocumentItem>('/v1/documents', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteDocument(id: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/v1/documents/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async uploadBulkPayslips(data: BulkPayslipUploadRequest): Promise<BulkPayslipReport> {
+    return this.request<BulkPayslipReport>('/v1/documents/payslips/bulk', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Checklists & Lifecycle (M4)
+  async listChecklistTemplates(type?: string): Promise<ChecklistTemplate[]> {
+    const searchParams = new URLSearchParams();
+    if (type) searchParams.set('type', type);
+    const qs = searchParams.toString();
+    return this.request<ChecklistTemplate[]>(`/v1/checklists/templates${qs ? '?' + qs : ''}`);
+  }
+
+  async createChecklistTemplate(data: CreateChecklistTemplate): Promise<ChecklistTemplate> {
+    return this.request<ChecklistTemplate>('/v1/checklists/templates', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async listChecklistInstances(params?: { employeeId?: string; status?: string }): Promise<ChecklistInstance[]> {
+    const searchParams = new URLSearchParams();
+    if (params?.employeeId) searchParams.set('employeeId', params.employeeId);
+    if (params?.status) searchParams.set('status', params.status);
+    const qs = searchParams.toString();
+    return this.request<ChecklistInstance[]>(`/v1/checklists/instances${qs ? '?' + qs : ''}`);
+  }
+
+  async instantiateChecklist(data: InstantiateChecklist): Promise<ChecklistInstance> {
+    return this.request<ChecklistInstance>('/v1/checklists/instances', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async toggleChecklistTask(taskId: string, isCompleted: boolean): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(`/v1/checklists/tasks/${taskId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isCompleted }),
+    });
+  }
+
+  // Employee Bulk Import (M4)
+  async importEmployeesCsv(csvContent: string, dryRun: boolean = false): Promise<EmployeeImportValidationResponse> {
+    return this.request<EmployeeImportValidationResponse>('/v1/employees/import', {
+      method: 'POST',
+      body: JSON.stringify({ csvContent, dryRun }),
+    });
+  }
+
+  // GDPR DSR Export (M4)
+  async getDataSubjectExport(employeeId: string): Promise<DataSubjectExportResponse> {
+    return this.request<DataSubjectExportResponse>(`/v1/employees/${employeeId}/dsr-export`);
   }
 }

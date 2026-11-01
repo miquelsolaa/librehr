@@ -67,6 +67,20 @@ import {
   TimeCorrectionItemSchema,
   OfficialExportResponseSchema,
 } from "../src/time.js";
+import {
+  DocumentItemSchema,
+  CreateDocumentRequestSchema,
+  BulkPayslipReportSchema,
+  BulkPayslipUploadRequestSchema,
+} from "../src/documents.js";
+import {
+  ChecklistTemplateSchema,
+  CreateChecklistTemplateSchema,
+  ChecklistInstanceSchema,
+  InstantiateChecklistSchema,
+  EmployeeImportValidationResponseSchema,
+  DataSubjectExportResponseSchema,
+} from "../src/lifecycle.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const registry = new OpenAPIRegistry();
@@ -116,6 +130,19 @@ registry.register("CreateTimeCorrection", CreateTimeCorrectionSchema);
 registry.register("DecideTimeCorrection", DecideTimeCorrectionSchema);
 registry.register("TimeCorrectionItem", TimeCorrectionItemSchema);
 registry.register("OfficialExportResponse", OfficialExportResponseSchema);
+registry.register("DocumentItem", DocumentItemSchema);
+registry.register("CreateDocumentRequest", CreateDocumentRequestSchema);
+registry.register("BulkPayslipReport", BulkPayslipReportSchema);
+registry.register("BulkPayslipUploadRequest", BulkPayslipUploadRequestSchema);
+registry.register("ChecklistTemplate", ChecklistTemplateSchema);
+registry.register("CreateChecklistTemplate", CreateChecklistTemplateSchema);
+registry.register("ChecklistInstance", ChecklistInstanceSchema);
+registry.register("InstantiateChecklist", InstantiateChecklistSchema);
+registry.register(
+  "EmployeeImportValidationResponse",
+  EmployeeImportValidationResponseSchema,
+);
+registry.register("DataSubjectExportResponse", DataSubjectExportResponseSchema);
 
 // Register endpoints
 registry.registerPath({
@@ -596,6 +623,195 @@ registry.registerPath({
   },
 });
 
+// Documents (M4)
+registry.registerPath({
+  method: "get",
+  path: "/v1/documents",
+  summary: "List accessible documents",
+  responses: {
+    200: {
+      description: "List of documents",
+      content: { "application/json": { schema: z.array(DocumentItemSchema) } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/documents",
+  summary: "Upload a new document or version",
+  request: {
+    body: {
+      content: { "application/json": { schema: CreateDocumentRequestSchema } },
+    },
+  },
+  responses: {
+    201: {
+      description: "Document uploaded",
+      content: { "application/json": { schema: DocumentItemSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "delete",
+  path: "/v1/documents/{id}",
+  summary: "Soft delete a document",
+  responses: {
+    200: {
+      description: "Document deleted",
+      content: {
+        "application/json": { schema: z.object({ success: z.boolean() }) },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/documents/payslips/bulk",
+  summary: "Bulk upload payslips with auto-matching",
+  request: {
+    body: {
+      content: {
+        "application/json": { schema: BulkPayslipUploadRequestSchema },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Bulk payslip processing report",
+      content: { "application/json": { schema: BulkPayslipReportSchema } },
+    },
+  },
+});
+
+// Checklists & Lifecycle (M4)
+registry.registerPath({
+  method: "get",
+  path: "/v1/checklists/templates",
+  summary: "List checklist templates",
+  responses: {
+    200: {
+      description: "Checklist templates",
+      content: {
+        "application/json": { schema: z.array(ChecklistTemplateSchema) },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/checklists/templates",
+  summary: "Create a checklist template",
+  request: {
+    body: {
+      content: {
+        "application/json": { schema: CreateChecklistTemplateSchema },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "Checklist template created",
+      content: { "application/json": { schema: ChecklistTemplateSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/v1/checklists/instances",
+  summary: "List checklist instances",
+  responses: {
+    200: {
+      description: "Checklist instances",
+      content: {
+        "application/json": { schema: z.array(ChecklistInstanceSchema) },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/checklists/instances",
+  summary: "Instantiate a checklist for employee",
+  request: {
+    body: {
+      content: { "application/json": { schema: InstantiateChecklistSchema } },
+    },
+  },
+  responses: {
+    201: {
+      description: "Checklist instance created",
+      content: { "application/json": { schema: ChecklistInstanceSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "patch",
+  path: "/v1/checklists/tasks/{id}",
+  summary: "Toggle checklist task completion status",
+  request: {
+    body: {
+      content: {
+        "application/json": { schema: z.object({ isCompleted: z.boolean() }) },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Task updated",
+      content: { "application/json": { schema: z.record(z.unknown()) } },
+    },
+  },
+});
+
+// Employee Bulk Import (M4)
+registry.registerPath({
+  method: "post",
+  path: "/v1/employees/import",
+  summary: "Atomic CSV employee import with validation",
+  request: {
+    body: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            csvContent: z.string(),
+            dryRun: z.boolean().default(false),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Import report",
+      content: {
+        "application/json": { schema: EmployeeImportValidationResponseSchema },
+      },
+    },
+  },
+});
+
+// GDPR DSR Export (M4)
+registry.registerPath({
+  method: "get",
+  path: "/v1/employees/{id}/dsr-export",
+  summary: "Export all personal data for employee under GDPR Art. 15/20",
+  responses: {
+    200: {
+      description: "Full machine-readable DSR export",
+      content: {
+        "application/json": { schema: DataSubjectExportResponseSchema },
+      },
+    },
+  },
+});
+
 const generator = new OpenApiGeneratorV31(registry.definitions);
 const openApiDoc = generator.generateDocument({
   openapi: "3.1.0",
@@ -674,6 +890,20 @@ import type {
   TimeCorrectionItem,
   OfficialExportResponse,
 } from '../src/time.js';
+import type {
+  DocumentItem,
+  CreateDocumentRequest,
+  BulkPayslipReport,
+  BulkPayslipUploadRequest,
+} from '../src/documents.js';
+import type {
+  ChecklistTemplate,
+  CreateChecklistTemplate,
+  ChecklistInstance,
+  InstantiateChecklist,
+  EmployeeImportValidationResponse,
+  DataSubjectExportResponse,
+} from '../src/lifecycle.js';
 import type { ProblemDetails } from '../src/errors.js';
 
 export interface ApiClientOptions {
@@ -962,6 +1192,86 @@ export class OpenHrApiClient {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  }
+
+  // Documents (M4)
+  async listDocuments(params?: { employeeId?: string; category?: string; isCompanyWide?: boolean }): Promise<DocumentItem[]> {
+    const searchParams = new URLSearchParams();
+    if (params?.employeeId) searchParams.set('employeeId', params.employeeId);
+    if (params?.category) searchParams.set('category', params.category);
+    if (params?.isCompanyWide !== undefined) searchParams.set('isCompanyWide', String(params.isCompanyWide));
+    const qs = searchParams.toString();
+    return this.request<DocumentItem[]>(\`/v1/documents\${qs ? '?' + qs : ''}\`);
+  }
+
+  async uploadDocument(data: CreateDocumentRequest): Promise<DocumentItem> {
+    return this.request<DocumentItem>('/v1/documents', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteDocument(id: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(\`/v1/documents/\${id}\`, {
+      method: 'DELETE',
+    });
+  }
+
+  async uploadBulkPayslips(data: BulkPayslipUploadRequest): Promise<BulkPayslipReport> {
+    return this.request<BulkPayslipReport>('/v1/documents/payslips/bulk', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Checklists & Lifecycle (M4)
+  async listChecklistTemplates(type?: string): Promise<ChecklistTemplate[]> {
+    const searchParams = new URLSearchParams();
+    if (type) searchParams.set('type', type);
+    const qs = searchParams.toString();
+    return this.request<ChecklistTemplate[]>(\`/v1/checklists/templates\${qs ? '?' + qs : ''}\`);
+  }
+
+  async createChecklistTemplate(data: CreateChecklistTemplate): Promise<ChecklistTemplate> {
+    return this.request<ChecklistTemplate>('/v1/checklists/templates', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async listChecklistInstances(params?: { employeeId?: string; status?: string }): Promise<ChecklistInstance[]> {
+    const searchParams = new URLSearchParams();
+    if (params?.employeeId) searchParams.set('employeeId', params.employeeId);
+    if (params?.status) searchParams.set('status', params.status);
+    const qs = searchParams.toString();
+    return this.request<ChecklistInstance[]>(\`/v1/checklists/instances\${qs ? '?' + qs : ''}\`);
+  }
+
+  async instantiateChecklist(data: InstantiateChecklist): Promise<ChecklistInstance> {
+    return this.request<ChecklistInstance>('/v1/checklists/instances', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async toggleChecklistTask(taskId: string, isCompleted: boolean): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(\`/v1/checklists/tasks/\${taskId}\`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isCompleted }),
+    });
+  }
+
+  // Employee Bulk Import (M4)
+  async importEmployeesCsv(csvContent: string, dryRun: boolean = false): Promise<EmployeeImportValidationResponse> {
+    return this.request<EmployeeImportValidationResponse>('/v1/employees/import', {
+      method: 'POST',
+      body: JSON.stringify({ csvContent, dryRun }),
+    });
+  }
+
+  // GDPR DSR Export (M4)
+  async getDataSubjectExport(employeeId: string): Promise<DataSubjectExportResponse> {
+    return this.request<DataSubjectExportResponse>(\`/v1/employees/\${employeeId}/dsr-export\`);
   }
 }
 `;
