@@ -39,6 +39,9 @@ export interface CreateLegalEntityData {
 }
 
 export class LocationRepository {
+  findMany = this.findLocations.bind(this);
+  create = this.createLocation.bind(this);
+
   async findLocations(tx: TenantTx): Promise<LocationRow[]> {
     return tx<LocationRow[]>`
       SELECT id, organization_id as "organizationId", legal_entity_id as "legalEntityId",

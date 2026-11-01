@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { Hono } from "hono";
 import type { Sql } from "postgres";
 import type { AuthPort } from "./ports/auth.js";
+import type { MailPort } from "./ports/mail.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
 import { loggerMiddleware } from "./middleware/logger.js";
 import { securityHeadersMiddleware } from "./middleware/security-headers.js";
@@ -14,12 +15,19 @@ import { createHealthRoutes } from "./routes/health.js";
 import { createAuthRoutes } from "./routes/auth.js";
 import { createMeRoutes } from "./routes/me.js";
 import { createOrgRoutes } from "./routes/org.js";
+import { createEmployeeRoutes } from "./routes/employees.js";
+import { createDepartmentRoutes } from "./routes/departments.js";
+import { createLocationRoutes } from "./routes/locations.js";
+import { createInvitationRoutes } from "./routes/invitations.js";
+import { createSetupRoutes } from "./routes/setup.js";
+import { createAuditRoutes } from "./routes/audit.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export interface AppDependencies {
   sql: Sql;
   authPort: AuthPort;
+  mailPort?: MailPort | undefined;
 }
 
 export function createApp(deps: AppDependencies) {
@@ -60,6 +68,15 @@ export function createApp(deps: AppDependencies) {
   app.route("/v1/auth", createAuthRoutes(deps.authPort));
   app.route("/v1", createMeRoutes(deps.sql));
   app.route("/v1", createOrgRoutes(deps.sql));
+  app.route("/v1", createEmployeeRoutes(deps.sql));
+  app.route("/v1", createDepartmentRoutes(deps.sql));
+  app.route("/v1", createLocationRoutes(deps.sql));
+  app.route(
+    "/v1",
+    createInvitationRoutes(deps.sql, deps.authPort, deps.mailPort),
+  );
+  app.route("/v1", createSetupRoutes(deps.sql));
+  app.route("/v1", createAuditRoutes(deps.sql));
 
   // 5. RFC 9457 Problem Details Error Handler
   app.onError(errorHandler);
