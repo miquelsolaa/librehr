@@ -1,0 +1,37 @@
+{
+  "name": "@openhr/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema/index.ts",
+    "./with-tenant": "./src/with-tenant.ts",
+    "./crypto/*": "./src/crypto/*.ts",
+    "./repositories/*": "./src/repositories/*.ts"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.39.3",
+    "postgres": "^3.4.5"
+  },
+  "devDependencies": {
+    "@openhr/config": "workspace:*",
+    "@types/node": "^22.13.4",
+    "drizzle-kit": "^0.30.4",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src test seeds",
+    "test": "vitest run",
+    "test:int": "vitest run test/*.int.test.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/migrate.ts",
+    "db:seed": "tsx seeds/dev.ts",
+    "db:reset": "tsx seeds/reset.ts"
+  }
+}

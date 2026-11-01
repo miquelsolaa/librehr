@@ -1,0 +1,7 @@
+{
+  "extends": "@openhr/config/tsconfig/node.json",
+  "compilerOptions": {
+    "rootDir": "."
+  },
+  "include": ["src/**/*"]
+}

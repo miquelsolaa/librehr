@@ -1,0 +1,34 @@
+{
+  "name": "@openhr/config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "tsconfig",
+    "eslint",
+    "prettier",
+    "tailwind"
+  ],
+  "exports": {
+    "./tsconfig/*": "./tsconfig/*",
+    "./eslint/base": "./eslint/base.js",
+    "./eslint/next": "./eslint/next.js",
+    "./eslint/node": "./eslint/node.js",
+    "./eslint/*": "./eslint/*",
+    "./prettier": "./prettier/index.js",
+    "./tailwind": "./tailwind/preset.ts"
+  },
+  "dependencies": {
+    "@eslint/js": "^9.20.0",
+    "eslint-plugin-import-x": "^4.6.1",
+    "typescript-eslint": "^8.24.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.20.0",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
+  },
+  "scripts": {
+    "test": "vitest run"
+  }
+}

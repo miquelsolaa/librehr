@@ -1,0 +1,46 @@
+{
+  "name": "openhr-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.5.2",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "infra:up": "docker compose -f infra/compose/docker-compose.dev.yml up -d",
+    "db:migrate": "pnpm --filter @openhr/db db:migrate",
+    "db:reset": "pnpm --filter @openhr/db db:reset",
+    "db:seed": "pnpm --filter @openhr/db db:seed",
+    "db:generate": "pnpm --filter @openhr/db db:generate",
+    "typecheck": "turbo run typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
+    "test": "turbo run test",
+    "test:int": "turbo run test:int",
+    "test:e2e": "pnpm --filter web test:e2e",
+    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm test:int && pnpm i18n:check && turbo run build",
+    "contracts:generate": "pnpm --filter @openhr/contracts generate",
+    "i18n:check": "pnpm --filter @openhr/i18n check",
+    "doctor": "tsx infra/scripts/doctor.ts",
+    "stubs:list": "tsx scripts/stubs-list.ts",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.12",
+    "@commitlint/cli": "^19.7.1",
+    "@commitlint/config-conventional": "^19.7.1",
+    "@eslint/js": "^9.20.0",
+    "@openhr/config": "workspace:*",
+    "eslint": "^9.20.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.4.3",
+    "prettier": "^3.5.1",
+    "turbo": "^2.4.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.24.0"
+  }
+}

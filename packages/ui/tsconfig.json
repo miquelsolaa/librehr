@@ -1,0 +1,7 @@
+{
+  "extends": "@openhr/config/tsconfig/react-library.json",
+  "compilerOptions": {
+    "rootDir": "."
+  },
+  "include": ["src/**/*", "stories/**/*"]
+}

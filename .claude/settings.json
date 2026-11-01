@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "pnpm *",
+      "git status",
+      "git diff*",
+      "git log*",
+      "git add*",
+      "git commit*",
+      "docker compose *"
+    ],
+    "deny": ["cat .env*", "read .env*", "read infra/secrets/**", "read data/**"]
+  },
+  "hooks": {
+    "post_edit": "pnpm prettier --write",
+    "pre_commit": "pnpm lint-staged"
+  }
+}

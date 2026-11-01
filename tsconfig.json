@@ -1,0 +1,7 @@
+{
+  "extends": "@openhr/config/tsconfig/base.json",
+  "compilerOptions": {
+    "baseUrl": "."
+  },
+  "include": ["scripts/**/*.ts"]
+}

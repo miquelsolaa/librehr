@@ -1,0 +1,7 @@
+#!/bin/sh
+pnpm exec commitlint --edit "$1" || exit 1
+
+if ! grep -q "^Signed-off-by: " "$1"; then
+  echo "Error: DCO Sign-off required. Use 'git commit -s' or include 'Signed-off-by: Name <email>' in your commit message."
+  exit 1
+fi

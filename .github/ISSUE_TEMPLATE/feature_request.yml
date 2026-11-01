@@ -1,0 +1,25 @@
+name: Feature Request
+description: Propose an addition or improvement to OpenHR
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem & User Goal
+      description: Which persona (see PERSONA.md) does this help, and what job-to-be-done is addressed?
+    validations:
+      required: true
+  - type: textarea
+    id: proposed_solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the solution, citing any applicable Spanish or EU law / convention (CLEANROOM.md).
+    validations:
+      required: true
+  - type: checkboxes
+    id: compliance_cleanroom
+    attributes:
+      label: Clean-room Compliance
+      options:
+        - label: This request is based on public law, domain standards, or original ideas, NOT copied from a competitor.
+          required: true

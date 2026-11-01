@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build artifacts
+dist/
+build/
+.next/
+out/
+storybook-static/
+coverage/
+.turbo/
+*.tsbuildinfo
+
+# Environment and secrets (strictly forbidden to commit)
+.env
+.env.*
+!.env.example
+infra/secrets/
+data/
+
+# Testing and browser artifacts
+test-results/
+playwright-report/
+blob-report/
+
+# OS and Editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# Scratch and logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+.claude/scratch/*
+!.claude/scratch/.gitignore

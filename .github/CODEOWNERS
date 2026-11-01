@@ -1,0 +1,11 @@
+# Global default
+* @openhr/maintainers
+
+# Security, Tenancy, and Compliance critical areas (Two approvals required)
+/packages/db/src/rls/          @openhr/maintainers @openhr/security
+/packages/db/migrations/       @openhr/maintainers @openhr/security
+/packages/db/src/crypto/       @openhr/maintainers @openhr/security
+/apps/api/src/policies/        @openhr/maintainers @openhr/security
+/apps/api/src/adapters/better-auth.ts @openhr/maintainers @openhr/security
+/CLEANROOM.md                  @openhr/maintainers @openhr/legal
+/COMPLIANCE.md                 @openhr/maintainers @openhr/legal

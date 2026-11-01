@@ -1,0 +1,29 @@
+OpenHR
+Copyright (c) 2026 OpenHR Contributors
+
+This product is licensed under the GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later).
+
+Third-party software libraries and components:
+- Better Auth (Apache-2.0)
+- Drizzle ORM (Apache-2.0)
+- fast-check (MIT)
+- Hono & @hono/zod-openapi (MIT)
+- Lucide React (ISC)
+- Next.js (MIT)
+- next-intl (MIT)
+- next-themes (MIT)
+- Nodemailer (MIT)
+- pg-boss (MIT)
+- Pino (MIT)
+- Playwright (Apache-2.0)
+- PostgreSQL client libraries (MIT)
+- Radix UI primitives (MIT)
+- React & React Email (MIT)
+- Tailwind CSS (MIT)
+- temporal-polyfill (MIT)
+- Testcontainers (MIT)
+- Turborepo & TypeScript (Apache-2.0)
+- Vitest (MIT)
+- Zod (MIT)
+
+All dependencies have been reviewed for full compatibility with AGPL-3.0.

@@ -1,0 +1,35 @@
+{
+  "name": "@openhr/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "dependencies": {
+    "@openhr/core": "workspace:*",
+    "@openhr/db": "workspace:*",
+    "@openhr/emails": "workspace:*",
+    "nodemailer": "^6.10.0",
+    "pg-boss": "^10.1.5",
+    "pino": "^9.6.0",
+    "pino-pretty": "^13.0.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@openhr/config": "workspace:*",
+    "@openhr/testing": "workspace:*",
+    "@types/node": "^22.13.4",
+    "@types/nodemailer": "^6.4.17",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src test",
+    "test": "vitest run",
+    "test:int": "vitest run test/*.int.test.ts",
+    "start": "node dist/index.js"
+  }
+}

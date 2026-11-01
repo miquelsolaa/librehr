@@ -1,0 +1,35 @@
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --surface: 220 20% 98%;
+    --surface-raised: 0 0% 100%;
+    --foreground: 222 25% 12%;
+    --muted-foreground: 220 10% 38%;
+    --border: 220 14% 90%;
+    --primary: 172 66% 28%;
+    --primary-foreground: 0 0% 100%;
+    --accent: 172 40% 94%;
+    --success: 142 76% 36%;
+    --warning: 38 92% 50%;
+    --danger: 0 84% 60%;
+    --info: 217 91% 60%;
+    --focus-ring: 172 70% 35%;
+  }
+
+  .dark {
+    --background: 222 18% 8%;
+    --surface: 222 16% 11%;
+    --surface-raised: 222 16% 14%;
+    --foreground: 210 20% 96%;
+    --muted-foreground: 215 12% 70%;
+    --border: 222 12% 20%;
+    --primary: 172 60% 45%;
+    --primary-foreground: 222 25% 8%;
+    --accent: 172 30% 16%;
+    --success: 142 70% 45%;
+    --warning: 38 90% 55%;
+    --danger: 0 75% 55%;
+    --info: 217 90% 65%;
+    --focus-ring: 172 70% 60%;
+  }
+}

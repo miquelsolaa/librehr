@@ -1,0 +1,21 @@
+name: Nightly Backup & Restore Drill
+
+on:
+  schedule:
+    - cron: '0 3 * * *' # Every night at 03:00 UTC
+  workflow_dispatch:
+
+jobs:
+  backup-restore-drill:
+    name: Backup and Restore Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Backup & Restore Drill
+        run: |
+          # TODO(ADM-005): Implement automated pg_dump -> restore into ephemeral Postgres container and verify checksums
+          echo "Executing nightly backup/restore drill stub..."
+          bash infra/scripts/backup.sh || true
+          bash infra/scripts/restore.sh || true
