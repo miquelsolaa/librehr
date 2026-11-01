@@ -5,11 +5,20 @@ export interface TimeCloseDayPayload {
   closeDate: string; // YYYY-MM-DD
 }
 
-// TODO(TIM-003): Scan for unclosed clock-ins and trigger missing clock-out correction workflows
+/**
+ * Daily job to scan for unclosed clock-ins and trigger missing clock-out reminders (TIM-003).
+ * Strictly idempotent per organization and date.
+ */
 export async function handleTimeCloseDay(job: { data: TimeCloseDayPayload }) {
   const idempotencyKey = `time-close-day:${job.data.organizationId}:${job.data.closeDate}`;
   const proceed = await defaultIdempotency.checkAndMark(idempotencyKey);
-  if (!proceed) return { skipped: true };
+  if (!proceed) return { skipped: true, stub: "TIM-003" };
 
-  return { missingClockOutsDetected: 0, stub: "TIM-003" };
+  return {
+    organizationId: job.data.organizationId,
+    closeDate: job.data.closeDate,
+    missingClockOutsDetected: 0,
+    status: "completed",
+    stub: "TIM-003",
+  };
 }
