@@ -138,7 +138,7 @@ export interface BrandMarkProps extends React.SVGProps<SVGSVGElement> {
   size?: number | string;
 }
 
-export const OpenHRMark = React.forwardRef<SVGSVGElement, BrandMarkProps>(
+export const LibreHRMark = React.forwardRef<SVGSVGElement, BrandMarkProps>(
   ({ size = 32, className, ...props }, ref) => (
     <svg
       ref={ref}
@@ -160,23 +160,24 @@ export const OpenHRMark = React.forwardRef<SVGSVGElement, BrandMarkProps>(
     </svg>
   ),
 );
-OpenHRMark.displayName = "OpenHRMark";
+LibreHRMark.displayName = "LibreHRMark";
+export const OpenHRMark = LibreHRMark;
 
 export interface BrandLogoProps extends React.SVGProps<SVGSVGElement> {
   height?: number | string;
 }
 
-export const OpenHRLogo = React.forwardRef<SVGSVGElement, BrandLogoProps>(
+export const LibreHRLogo = React.forwardRef<SVGSVGElement, BrandLogoProps>(
   ({ height = 32, className, ...props }, ref) => (
     <svg
       ref={ref}
       xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 310 64"
+      viewBox="0 0 350 64"
       height={height}
       className={className}
       {...props}
     >
-      <g>
+      <g transform="translate(4, 0)">
         <path
           d="M 44.5 14.5 A 22 22 0 1 0 53 35"
           stroke="currentColor"
@@ -186,15 +187,17 @@ export const OpenHRLogo = React.forwardRef<SVGSVGElement, BrandLogoProps>(
         />
         <circle cx="32" cy="32" r="7.5" fill="currentColor" />
       </g>
-      <g fill="currentColor">
-        <path d="M 96 13 C 84.95 13 76 21.95 76 33 C 76 44.05 84.95 53 96 53 C 107.05 53 116 44.05 116 33 C 116 21.95 107.05 13 96 13 Z M 96 18.5 C 104.01 18.5 110.5 24.99 110.5 33 C 110.5 41.01 104.01 47.5 96 47.5 C 87.99 47.5 81.5 41.01 81.5 33 C 81.5 24.99 87.99 18.5 96 18.5 Z" />
-        <path d="M 123 23 L 128.5 23 L 128.5 27.2 C 130.8 24.2 134.6 22.5 139.2 22.5 C 147.8 22.5 154 29.2 154 38.5 C 154 47.8 147.8 54.5 139.2 54.5 C 134.6 54.5 130.8 52.8 128.5 49.8 L 128.5 63 L 123 63 Z M 138.5 27.8 C 132.6 27.8 128.5 32.5 128.5 38.5 C 128.5 44.5 132.6 49.2 138.5 49.2 C 144.4 49.2 148.5 44.5 148.5 38.5 C 148.5 32.5 144.4 27.8 138.5 27.8 Z" />
-        <path d="M 172 22.5 C 162.2 22.5 155 29.8 155 39 C 155 48.2 162.2 54.5 172.5 54.5 C 179.2 54.5 184.5 51.2 187 45.5 L 181.5 43.5 C 180 47 176.5 49.2 172.5 49.2 C 166.8 49.2 161.8 45.5 160.6 39.8 L 188.5 39.8 C 188.7 38.8 188.7 37.8 188.7 36.8 C 188.7 28.5 181.8 22.5 172 22.5 Z M 160.8 35.5 C 162 30.8 166.2 27.5 172 27.5 C 177.8 27.5 182.2 30.8 183 35.5 Z" />
-        <path d="M 195 23 L 200.5 23 L 200.5 27.8 C 202.8 24.5 206.8 22.5 212 22.5 C 220 22.5 224 27.2 224 35.5 L 224 53 L 218.5 53 L 218.5 36.5 C 218.5 30.8 215.5 27.8 210.5 27.8 C 204.8 27.8 200.5 32 200.5 38.5 L 200.5 53 L 195 53 Z" />
-        <path d="M 237 13 L 243 13 L 243 30 L 261 30 L 261 13 L 267 13 L 267 53 L 261 53 L 261 35.5 L 243 35.5 L 243 53 L 237 53 Z" />
-        <path d="M 277 13 L 293.5 13 C 300.5 13 305.5 17.5 305.5 24.5 C 305.5 30 301.8 33.8 296 35.2 L 307 53 L 300 53 L 290 36 L 283 36 L 283 53 L 277 53 Z M 283 18.5 L 283 31 L 293 31 C 297 31 299.5 28.5 299.5 24.8 C 299.5 21 297 18.5 293 18.5 Z" />
+      <g fill="currentColor" transform="translate(76, 0)">
+        <path d="M 12 13 L 18 13 L 18 47.5 L 38 47.5 L 38 53 L 12 53 Z" />
+        <path d="M 47 23 L 52.5 23 L 52.5 53 L 47 53 Z M 49.75 12.5 C 51.4 12.5 52.75 13.85 52.75 15.5 C 52.75 17.15 49.4 18.5 49.75 18.5 C 48.1 18.5 46.75 17.15 46.75 15.5 C 46.75 13.85 48.1 12.5 49.75 12.5 Z" />
+        <path d="M 62 13 L 67.5 13 L 67.5 27.2 C 69.8 24.2 73.6 22.5 78.2 22.5 C 86.8 22.5 93 29.2 93 38.5 C 93 47.8 86.8 54.5 78.2 54.5 C 73.6 54.5 69.8 52.8 67.5 49.8 L 67.5 53 L 62 53 Z M 77.5 27.8 C 71.6 27.8 67.5 32.5 67.5 38.5 C 67.5 44.5 71.6 49.2 77.5 49.2 C 83.4 49.2 87.5 44.5 87.5 38.5 C 87.5 32.5 83.4 27.8 77.5 27.8 Z" />
+        <path d="M 101 23 L 106.5 23 L 106.5 28.5 C 108.8 24.8 112.8 22.5 118 22.5 C 120 22.5 122 23 123.5 24 L 121.5 29.2 C 120.2 28.2 116.8 27.8 116.8 27.8 C 111.8 27.8 106.5 32 106.5 38.5 L 106.5 53 L 101 53 Z" />
+        <path d="M 143 22.5 C 133.2 22.5 126 29.8 126 39 C 126 48.2 133.2 54.5 143.5 54.5 C 150.2 54.5 155.5 51.2 158 45.5 L 152.5 43.5 C 151 47 147.5 49.2 143.5 49.2 C 137.8 49.2 132.8 45.5 131.6 39.8 L 159.5 39.8 C 159.7 38.8 159.7 37.8 159.7 36.8 C 159.7 28.5 152.8 22.5 143 22.5 Z M 131.8 35.5 C 133 30.8 137.2 27.5 143 27.5 C 148.8 27.5 153.2 30.8 154 35.5 Z" />
+        <path d="M 173 13 L 179 13 L 179 30 L 197 30 L 197 13 L 203 13 L 203 53 L 197 53 L 197 35.5 L 179 35.5 L 179 53 L 173 53 Z" />
+        <path d="M 213 13 L 229.5 13 C 236.5 13 241.5 17.5 241.5 24.5 C 241.5 30 237.8 33.8 232 35.2 L 243 53 L 236 53 L 226 36 L 219 36 L 219 53 L 213 53 Z M 219 18.5 L 219 31 L 229 31 C 233 31 235.5 28.5 235.5 24.8 C 235.5 21 233 18.5 229 18.5 Z" />
       </g>
     </svg>
   ),
 );
-OpenHRLogo.displayName = "OpenHRLogo";
+LibreHRLogo.displayName = "LibreHRLogo";
+export const OpenHRLogo = LibreHRLogo;

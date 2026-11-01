@@ -1,11 +1,11 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("OpenHR Web Shell Smoke Tests", () => {
+test.describe("LibreHR Web Shell Smoke Tests", () => {
   test("loads the application shell at /ca/home in Catalan by default", async ({
     page,
   }) => {
     await page.goto("/ca/home");
-    await expect(page).toHaveTitle(/OpenHR/);
+    await expect(page).toHaveTitle(/LibreHR/);
     await expect(page.locator("h1")).toBeVisible();
   });
 

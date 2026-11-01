@@ -1,6 +1,6 @@
 {
   "common": {
-    "appName": "OpenHR",
+    "appName": "LibreHR",
     "loading": "Cargando...",
     "save": "Guardar",
     "cancel": "Cancelar",
@@ -16,7 +16,7 @@
     "required": "(requerido)"
   },
   "auth": {
-    "signInTitle": "Iniciar sesión en OpenHR",
+    "signInTitle": "Iniciar sesión en LibreHR",
     "signInDescription": "Introduce tus credenciales para acceder a tu espacio.",
     "emailLabel": "Correo electrónico",
     "emailPlaceholder": "tu.nombre@empresa.es",
@@ -117,7 +117,7 @@
     "region": "Comunidad Autónoma / Región"
   },
   "setup": {
-    "title": "Bienvenido a OpenHR",
+    "title": "Bienvenido a LibreHR",
     "subtitle": "Completa este asistente inicial para configurar tu organización y la cuenta administradora.",
     "step1": "1. Organización",
     "step2": "2. Centro de Trabajo",
@@ -132,12 +132,12 @@
     "locationName": "Nombre del centro de trabajo principal",
     "locationCity": "Ciudad",
     "locationRegion": "Comunidad Autónoma",
-    "submit": "Finalizar Configuración y Lanzar OpenHR",
+    "submit": "Finalizar Configuración y Lanzar LibreHR",
     "success": "¡Organización configurada con éxito! Redirigiendo a inicio de sesión..."
   },
   "invitations": {
     "title": "Aceptar Invitación",
-    "description": "Has sido invitado a unirte a {orgName} en OpenHR.",
+    "description": "Has sido invitado a unirte a {orgName} en LibreHR.",
     "invitedAs": "Has sido invitado con rol: {role}",
     "nameLabel": "Tu nombre completo",
     "passwordLabel": "Crea una contraseña",

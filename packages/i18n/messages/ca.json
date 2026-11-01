@@ -1,6 +1,6 @@
 {
   "common": {
-    "appName": "OpenHR",
+    "appName": "LibreHR",
     "loading": "Carregant...",
     "save": "Desar",
     "cancel": "Cancel·lar",
@@ -16,7 +16,7 @@
     "required": "(requerit)"
   },
   "auth": {
-    "signInTitle": "Iniciar sessió a OpenHR",
+    "signInTitle": "Iniciar sessió a LibreHR",
     "signInDescription": "Introdueix les teves credencials per accedir al teu espai.",
     "emailLabel": "Correu electrònic",
     "emailPlaceholder": "el.teu.nom@empresa.cat",
@@ -117,7 +117,7 @@
     "region": "Comunitat Autònoma / Regió"
   },
   "setup": {
-    "title": "Benvingut a OpenHR",
+    "title": "Benvingut a LibreHR",
     "subtitle": "Completa aquest assistent inicial per configurar la teva organització i el compte administrador.",
     "step1": "1. Organització",
     "step2": "2. Centre de Treball",
@@ -132,12 +132,12 @@
     "locationName": "Nom del centre de treball principal",
     "locationCity": "Ciutat",
     "locationRegion": "Comunitat Autònoma",
-    "submit": "Finalitzar Configuració i Llançar OpenHR",
+    "submit": "Finalitzar Configuració i Llançar LibreHR",
     "success": "Organització configurada amb èxit! Redirigint a l'inici de sessió..."
   },
   "invitations": {
     "title": "Acceptar Invitació",
-    "description": "Has estat convidat a unir-te a {orgName} a OpenHR.",
+    "description": "Has estat convidat a unir-te a {orgName} a LibreHR.",
     "invitedAs": "Has estat convidat com a: {role}",
     "nameLabel": "El teu nom complet",
     "passwordLabel": "Crea una contrasenya",

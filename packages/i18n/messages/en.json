@@ -1,6 +1,6 @@
 {
   "common": {
-    "appName": "OpenHR",
+    "appName": "LibreHR",
     "loading": "Loading...",
     "save": "Save",
     "cancel": "Cancel",
@@ -16,7 +16,7 @@
     "required": "(required)"
   },
   "auth": {
-    "signInTitle": "Sign in to OpenHR",
+    "signInTitle": "Sign in to LibreHR",
     "signInDescription": "Enter your credentials to access your workspace.",
     "emailLabel": "Email address",
     "emailPlaceholder": "your.name@company.com",
@@ -117,7 +117,7 @@
     "region": "Autonomous Community / Region"
   },
   "setup": {
-    "title": "Welcome to OpenHR",
+    "title": "Welcome to LibreHR",
     "subtitle": "Complete this first-run setup wizard to configure your organization and administrator account.",
     "step1": "1. Organization",
     "step2": "2. Work Center",
@@ -132,12 +132,12 @@
     "locationName": "Primary work center name",
     "locationCity": "City",
     "locationRegion": "Region / Autonomous community",
-    "submit": "Finish Setup & Launch OpenHR",
+    "submit": "Finish Setup & Launch LibreHR",
     "success": "Organization configured successfully! Redirecting to sign in..."
   },
   "invitations": {
     "title": "Accept Invitation",
-    "description": "You have been invited to join {orgName} on OpenHR.",
+    "description": "You have been invited to join {orgName} on LibreHR.",
     "invitedAs": "You have been invited as: {role}",
     "nameLabel": "Your full name",
     "passwordLabel": "Create a password",

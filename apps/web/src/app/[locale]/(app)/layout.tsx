@@ -98,7 +98,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <Sidebar
         items={navItems}
         currentPath={pathname}
-        orgName="OpenHR Corp"
+        orgName="LibreHR Corp"
         footer={
           <div className="flex items-center gap-3">
             <Avatar name={userName} size="sm" />

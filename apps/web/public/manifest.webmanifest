@@ -1,6 +1,6 @@
 {
-  "name": "OpenHR",
-  "short_name": "OpenHR",
+  "name": "LibreHR",
+  "short_name": "LibreHR",
   "description": "Open-source, self-hostable HRIS for European SMBs",
   "start_url": "/ca/home",
   "display": "standalone",

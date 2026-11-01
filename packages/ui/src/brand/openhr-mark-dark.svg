@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none">
-  <!-- OpenHR "L'Arc" Mark: Open Meridian Ring & Inner Radiant Core -->
+  <!-- LibreHR "L'Arc" Mark: Open Meridian Ring & Inner Radiant Core -->
   <path d="M 44.5 14.5 A 22 22 0 1 0 53 35" stroke="#4ecbb6" stroke-width="6" stroke-linecap="round"/>
   <circle cx="32" cy="32" r="7.5" fill="#4ecbb6"/>
 </svg>

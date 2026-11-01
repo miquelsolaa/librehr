@@ -1,4 +1,4 @@
-# OpenHR Brand Identity Guidelines
+# LibreHR Brand Identity Guidelines
 
 > **License:** The brand marks, logos, iconography, and image assets in this repository are licensed under **Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)**. The software code implementing them is licensed under **AGPL-3.0**.
 
@@ -50,11 +50,7 @@ During the brand identity process, three distinct conceptual directions were exp
 
 ## 2. Brand Architecture & Name
 
-- **Current Working Name:** **OpenHR**
-- **Alternative Candidates (pending trademark clearance):**
-  1. **Meridia HR** (from _meridian_ — midday, solar cycle, southern European light).
-  2. **Hearth HR** (from the central communal fireplace — warmth, trust, people).
-  3. **Lumen HR** (clarity and transparency in statutory records).
+- **Brand Name:** **LibreHR** (Emphasizing freedom, self-sovereignty, and European open-source AGPL stewardship).
 
 ---
 
@@ -64,7 +60,7 @@ The primary mark is constructed on a 64×64 pixel master grid:
 
 - **Outer Arc:** Radius $R = 22\text{px}$, stroke width $W = 6\text{px}$, rounded stroke caps. The arc begins at $(44.5, 14.5)$ and sweeps clockwise $290^\circ$ to $(53, 35)$, leaving an upper-right aperture of $70^\circ$.
 - **Inner Nucleus:** Centered circle at $(32, 32)$ with radius $r = 7.5\text{px}$.
-- **Wordmark:** Hand-crafted vector letterforms for `OpenHR` (`packages/ui/src/brand/openhr-wordmark.svg`), converted into pure bezier paths with zero external web fonts or CDN runtime dependencies.
+- **Wordmark:** Hand-crafted vector letterforms for `LibreHR` (`packages/ui/src/brand/librehr-wordmark.svg`), converted into pure bezier paths with zero external web fonts or CDN runtime dependencies.
 
 ---
 
@@ -84,10 +80,10 @@ The primary mark is constructed on a 64×64 pixel master grid:
 
 ### Brand Assets (`packages/ui/src/brand/`)
 
-- `openhr-mark.svg` / `openhr-mark-dark.svg` / `openhr-mark-monochrome.svg`: Standalone 64×64 mark.
-- `openhr-wordmark.svg` / `openhr-wordmark-dark.svg` / `openhr-wordmark-monochrome.svg`: Vector letterforms.
-- `openhr-lockup-horizontal.svg` / `openhr-lockup-horizontal-dark.svg`: Primary horizontal lockup (310×64).
-- `openhr-lockup-stacked.svg` / `openhr-lockup-stacked-dark.svg`: Stacked lockup (220×140).
+- `librehr-mark.svg` / `librehr-mark-dark.svg` / `librehr-mark-monochrome.svg`: Standalone 64×64 mark.
+- `librehr-wordmark.svg` / `librehr-wordmark-dark.svg` / `librehr-wordmark-monochrome.svg`: Vector letterforms.
+- `librehr-lockup-horizontal.svg` / `librehr-lockup-horizontal-dark.svg`: Primary horizontal lockup (350×64).
+- `librehr-lockup-stacked.svg` / `librehr-lockup-stacked-dark.svg`: Stacked lockup (260×170).
 
 ### Web & PWA Assets (`apps/web/public/`)
 
@@ -122,7 +118,7 @@ Custom 24×24 grid, 1.75 stroke, rounded cap icons matching Lucide design langua
   - Navigation / header: 32×32 px.
   - Lockup with wordmark: minimum height 28 px.
 - **Do's:**
-  - Always use the official SVGs or `@openhr/ui` React icon components (`<OpenHRMark />`, `<OpenHRLogo />`).
+  - Always use the official SVGs or `@openhr/ui` React icon components (`<LibreHRMark />`, `<LibreHRLogo />`).
   - Ensure high contrast: use Mediterranean Pine on light backgrounds and Luminous Sage on dark backgrounds.
 - **Don'ts:**
   - Do not rotate the arc; the aperture must always face the upper-right meridian.

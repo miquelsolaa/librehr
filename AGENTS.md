@@ -1,7 +1,7 @@
 # AGENTS.md
 
 Instructions for AI coding agents (Claude Code, Codex, Cursor, Copilot, etc.) and human contributors working in this repository.
-Working name: **OpenHR** (placeholder; rename after a trademark check).
+Project name: **LibreHR** (formerly OpenHR).
 
 > Read order for any non-trivial task: `AGENTS.md` -> `PRD.md` -> `ARCHITECTURE.md` -> the doc relevant to your area
 > (`DESIGN.md`, `COMPLIANCE.md`, `REVIEW.md`). If these conflict, the order of precedence is:
@@ -9,7 +9,7 @@ Working name: **OpenHR** (placeholder; rename after a trademark check).
 
 ## 1. Project snapshot
 
-OpenHR is an open-source (AGPL-3.0), self-hostable Human Resources Information System for European SMBs, starting with Spain.
+LibreHR is an open-source (AGPL-3.0), self-hostable Human Resources Information System for European SMBs, starting with Spain.
 Core modules: employees and org structure, time off, time tracking (jornada), documents, onboarding/offboarding, reports/exports.
 It is multi-tenant ready (many organizations per instance) and single-tenant friendly (one `docker compose up`).
 

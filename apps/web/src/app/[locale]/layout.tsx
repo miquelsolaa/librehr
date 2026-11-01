@@ -6,7 +6,7 @@ import { ThemeProvider } from "../../components/theme-provider";
 import "../globals.css";
 
 export const metadata: Metadata = {
-  title: "OpenHR",
+  title: "LibreHR",
   description: "Open-source, self-hostable HRIS for European SMBs",
   manifest: "/manifest.webmanifest",
   icons: {
@@ -20,16 +20,16 @@ export const metadata: Metadata = {
     ],
   },
   openGraph: {
-    title: "OpenHR",
+    title: "LibreHR",
     description: "Open-source, self-hostable HRIS for European SMBs",
     url: "https://github.com/miquelsolaa/openhr",
-    siteName: "OpenHR",
+    siteName: "LibreHR",
     images: [
       {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "OpenHR — Open-Source HRIS for European SMBs",
+        alt: "LibreHR — Open-Source HRIS for European SMBs",
       },
     ],
     locale: "en_US",

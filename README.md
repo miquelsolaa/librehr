@@ -13,7 +13,7 @@
 <br />
 <div align="center">
   <a href="https://github.com/miquelsolaa/openhr">
-    <img src="docs/images/banner.png" alt="OpenHR — Open-Source HRIS for European SMBs" width="100%">
+    <img src="docs/images/banner.png" alt="LibreHR — Open-Source HRIS for European SMBs" width="100%">
   </a>
 
   <p align="center">
@@ -75,12 +75,12 @@
 
 ## About The Project
 
-[![OpenHR Dashboard Preview][dashboard-light-screenshot]](https://github.com/miquelsolaa/openhr)
+[![LibreHR Dashboard Preview][dashboard-light-screenshot]](https://github.com/miquelsolaa/openhr)
 
 > [!IMPORTANT]
-> **Clean-Room Guarantee:** OpenHR is designed and built strictly from first principles, public statutory law, and generic domain expertise. It is not affiliated with, nor copied from, any commercial HR vendor. See [`CLEANROOM.md`](CLEANROOM.md).
+> **Clean-Room Guarantee:** LibreHR is designed and built strictly from first principles, public statutory law, and generic domain expertise. It is not affiliated with, nor copied from, any commercial HR vendor. See [`CLEANROOM.md`](CLEANROOM.md).
 
-OpenHR is an open-source HRIS purpose-built to free European SMBs from proprietary vendor lock-in, recurring per-seat fees, and compliance anxiety. While most existing HR platforms are either US-centric SaaS solutions or legacy enterprise software, OpenHR provides modern, pleasant software built directly around European privacy and labor mandates:
+LibreHR is an open-source HRIS purpose-built to free European SMBs from proprietary vendor lock-in, recurring per-seat fees, and compliance anxiety. While most existing HR platforms are either US-centric SaaS solutions or legacy enterprise software, LibreHR provides modern, pleasant software built directly around European privacy and labor mandates:
 
 - **Statutory Working Time Compliance:** Native support for mandatory daily time tracking (_registro de jornada_, Real Decreto-ley 8/2019) with immutable append-only records and SHA-256 tamper-evident hash chaining.
 - **First-Class European Leave Management:** Ledger-based leave tracking (no mutable balance columns), half-days, location-based public holiday calendars (national, regional, and municipal), and strict statutory carry-over policies.
@@ -117,7 +117,7 @@ OpenHR is an open-source HRIS purpose-built to free European SMBs from proprieta
 
 ### Architecture Overview
 
-OpenHR separates presentation, orchestration, background workers, and domain calculations across a strict dependency boundary:
+LibreHR separates presentation, orchestration, background workers, and domain calculations across a strict dependency boundary:
 
 ```mermaid
 graph TD
@@ -319,7 +319,7 @@ See the full [ROADMAP.md](ROADMAP.md) and [PRD.md](PRD.md) for detailed requirem
 
 Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
 
-Because OpenHR manages sensitive employment data and adheres to European legal standards, all contributions must respect our architectural boundaries and clean-room policy:
+Because LibreHR manages sensitive employment data and adheres to European legal standards, all contributions must respect our architectural boundaries and clean-room policy:
 
 1. Fork the Project
 2. Create your Feature Branch (`git checkout -b feat/amazing-feature`)

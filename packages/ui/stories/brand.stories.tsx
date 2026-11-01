@@ -1,8 +1,8 @@
 import * as React from "react";
 import type { Meta, StoryObj } from "@storybook/react";
 import {
-  OpenHRMark,
-  OpenHRLogo,
+  LibreHRMark,
+  LibreHRLogo,
   IconEmployees,
   IconOrgChart,
   IconTimeOff,
@@ -19,13 +19,13 @@ const BrandPage: React.FC = () => {
       {/* Header */}
       <div className="border-b border-slate-200 dark:border-slate-800 pb-8">
         <span className="text-xs font-semibold tracking-wider text-emerald-700 dark:text-emerald-400 uppercase">
-          OpenHR Design System
+          LibreHR Design System
         </span>
         <h1 className="text-4xl font-extrabold tracking-tight mt-2 text-slate-900 dark:text-white">
           Brand Identity &amp; Guidelines
         </h1>
         <p className="mt-3 text-lg text-slate-600 dark:text-slate-400">
-          The visual identity of OpenHR is built on &ldquo;L&rsquo;Arc&rdquo;
+          The visual identity of LibreHR is built on &ldquo;L&rsquo;Arc&rdquo;
           (The Open Meridian &amp; Radiant Hearth). It conveys human warmth,
           transparency, continuous presence, and craftsmanship.
         </p>
@@ -50,9 +50,9 @@ const BrandPage: React.FC = () => {
               Light Canvas (Mediterranean Pine #1a564b)
             </span>
             <div className="flex items-center gap-6 py-4">
-              <OpenHRMark size={56} className="text-[#1a564b]" />
+              <LibreHRMark size={56} className="text-[#1a564b]" />
               <div className="h-10 w-px bg-slate-200" />
-              <OpenHRLogo height={42} className="text-[#1a564b]" />
+              <LibreHRLogo height={42} className="text-[#1a564b]" />
             </div>
             <p className="text-xs text-slate-500 font-mono">
               Mark: 64x64 viewBox • Primary: hsl(168, 54%, 22%)
@@ -65,14 +65,9 @@ const BrandPage: React.FC = () => {
               Dark Canvas (Luminous Sage #4ecbb6)
             </span>
             <div className="flex items-center gap-6 py-4">
-              <OpenHRMark size={56} className="text-[#4ecbb6]" />
+              <LibreHRMark size={56} className="text-[#4ecbb6]" />
               <div className="h-10 w-px bg-slate-800" />
-              <div className="flex items-center gap-3">
-                <OpenHRMark size={42} className="text-[#4ecbb6]" />
-                <span className="text-2xl font-bold tracking-tight text-white font-sans">
-                  Open<span className="font-extrabold tracking-normal">HR</span>
-                </span>
-              </div>
+              <LibreHRLogo height={42} className="text-[#4ecbb6]" />
             </div>
             <p className="text-xs text-slate-400 font-mono">
               Mark: 64x64 viewBox • Primary Dark: hsl(168, 55%, 55%)
@@ -99,7 +94,7 @@ const BrandPage: React.FC = () => {
               <span className="absolute top-2 text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
                 min clear space = 0.5r
               </span>
-              <OpenHRMark
+              <LibreHRMark
                 size={64}
                 className="text-[#1a564b] dark:text-[#4ecbb6]"
               />
@@ -115,7 +110,7 @@ const BrandPage: React.FC = () => {
             </h3>
             <div className="flex items-center gap-6 pt-2">
               <div className="flex flex-col items-center gap-2">
-                <OpenHRMark
+                <LibreHRMark
                   size={16}
                   className="text-[#1a564b] dark:text-[#4ecbb6]"
                 />
@@ -124,7 +119,7 @@ const BrandPage: React.FC = () => {
                 </span>
               </div>
               <div className="flex flex-col items-center gap-2">
-                <OpenHRMark
+                <LibreHRMark
                   size={24}
                   className="text-[#1a564b] dark:text-[#4ecbb6]"
                 />
@@ -133,7 +128,7 @@ const BrandPage: React.FC = () => {
                 </span>
               </div>
               <div className="flex flex-col items-center gap-2">
-                <OpenHRMark
+                <LibreHRMark
                   size={32}
                   className="text-[#1a564b] dark:text-[#4ecbb6]"
                 />
@@ -142,7 +137,7 @@ const BrandPage: React.FC = () => {
                 </span>
               </div>
               <div className="flex flex-col items-center gap-2">
-                <OpenHRMark
+                <LibreHRMark
                   size={48}
                   className="text-[#1a564b] dark:text-[#4ecbb6]"
                 />
@@ -233,7 +228,7 @@ const BrandPage: React.FC = () => {
             4. Brand Rules: Do&rsquo;s and Don&rsquo;ts
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Preserve the integrity and recognition of the OpenHR mark.
+            Preserve the integrity and recognition of the LibreHR mark.
           </p>
         </div>
 
