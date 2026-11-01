@@ -78,4 +78,34 @@ describe("Contracts schemas", () => {
     });
     expect(validInvite.success).toBe(true);
   });
+
+  it("validates leave request and notification contracts (M2)", async () => {
+    const { CreateLeaveRequestSchema, DecideLeaveRequestSchema } =
+      await import("../src/leave.js");
+    const { NotificationItemSchema } = await import("../src/notifications.js");
+
+    const validReq = CreateLeaveRequestSchema.safeParse({
+      leaveTypeId: "00000000-0000-0000-0000-000000000001",
+      startDate: "2026-08-03",
+      endDate: "2026-08-14",
+      halfDayStart: false,
+      halfDayEnd: false,
+    });
+    expect(validReq.success).toBe(true);
+
+    const validDecide = DecideLeaveRequestSchema.safeParse({
+      decision: "approve",
+    });
+    expect(validDecide.success).toBe(true);
+
+    const validNotification = NotificationItemSchema.safeParse({
+      id: "00000000-0000-0000-0000-000000000002",
+      title: "Leave approved",
+      body: "Your leave request for August was approved",
+      category: "leave_decision",
+      read: false,
+      createdAt: new Date().toISOString(),
+    });
+    expect(validNotification.success).toBe(true);
+  });
 });

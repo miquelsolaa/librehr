@@ -1,9 +1,146 @@
 import { z } from "zod";
 
-// TODO(LEA-001): Leave contracts
-export const LeaveRequestSummarySchema = z.object({
+export const LeaveTypeSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  code: z.string(),
+  isPaid: z.boolean(),
+  requiresApproval: z.boolean(),
+  halfDaysAllowed: z.boolean(),
+  countsWorkingDays: z.boolean(),
+  color: z.string(),
+});
+export type LeaveType = z.infer<typeof LeaveTypeSchema>;
+
+export const CreateLeaveTypeRequestSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  code: z.string().min(1, "Code is required"),
+  isPaid: z.boolean().default(true),
+  requiresApproval: z.boolean().default(true),
+  halfDaysAllowed: z.boolean().default(true),
+  countsWorkingDays: z.boolean().default(true),
+  color: z.string().default("#3b82f6"),
+});
+export type CreateLeaveTypeRequest = z.infer<
+  typeof CreateLeaveTypeRequestSchema
+>;
+
+export const LeavePolicySchema = z.object({
+  id: z.string().uuid(),
+  leaveTypeId: z.string().uuid(),
+  name: z.string(),
+  annualAllowanceDays: z.number(),
+  accrualMethod: z.enum(["upfront", "monthly", "daily"]),
+  carryoverMaxDays: z.number(),
+  carryoverExpiryMonths: z.number(),
+  allowNegativeBalance: z.boolean(),
+});
+export type LeavePolicy = z.infer<typeof LeavePolicySchema>;
+
+export const LeaveLedgerEntrySchema = z.object({
   id: z.string().uuid(),
   employeeId: z.string().uuid(),
+  entryType: z.string(),
+  amount: z.number(),
+  unit: z.string(),
+  sourceRef: z.string().nullable().optional(),
+  note: z.string().nullable().optional(),
+  effectiveDate: z.string(),
+  createdAt: z.string().datetime(),
+});
+export type LeaveLedgerEntry = z.infer<typeof LeaveLedgerEntrySchema>;
+
+export const LeaveBalanceSummarySchema = z.object({
+  currentBalance: z.number(),
+  totalAccrued: z.number(),
+  totalUsed: z.number(),
+  totalCarryover: z.number(),
+  totalAdjustments: z.number(),
+  entries: z.array(LeaveLedgerEntrySchema),
+});
+export type LeaveBalanceSummary = z.infer<typeof LeaveBalanceSummarySchema>;
+
+export const LeaveRequestStatusSchema = z.enum([
+  "pending",
+  "approved",
+  "rejected",
+  "cancelled",
+]);
+export type LeaveRequestStatus = z.infer<typeof LeaveRequestStatusSchema>;
+
+export const LeaveRequestSchema = z.object({
+  id: z.string().uuid(),
+  employeeId: z.string().uuid(),
+  employeeName: z.string().optional(),
+  leaveTypeId: z.string().uuid(),
+  leaveTypeName: z.string().optional(),
+  leaveTypeCode: z.string().optional(),
+  leaveTypeColor: z.string().optional(),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  halfDayStart: z.boolean(),
+  halfDayEnd: z.boolean(),
+  workingDays: z.number(),
+  status: LeaveRequestStatusSchema,
+  notes: z.string().nullable().optional(),
+  approverId: z.string().uuid().nullable().optional(),
+  approverName: z.string().nullable().optional(),
+  decidedAt: z.string().datetime().nullable().optional(),
+  decisionReason: z.string().nullable().optional(),
+  createdAt: z.string().datetime(),
+});
+export type LeaveRequest = z.infer<typeof LeaveRequestSchema>;
+
+export const CreateLeaveRequestSchema = z.object({
+  employeeId: z.string().uuid().optional(), // HR can specify on behalf (LEA-010)
+  leaveTypeId: z.string().uuid(),
+  startDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Format must be YYYY-MM-DD"),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Format must be YYYY-MM-DD"),
+  halfDayStart: z.boolean().default(false),
+  halfDayEnd: z.boolean().default(false),
+  notes: z.string().optional(),
+});
+export type CreateLeaveRequest = z.infer<typeof CreateLeaveRequestSchema>;
+
+export const DecideLeaveRequestSchema = z.object({
+  decision: z.enum(["approve", "reject"]),
+  reason: z.string().optional(),
+});
+export type DecideLeaveRequest = z.infer<typeof DecideLeaveRequestSchema>;
+
+export const AdjustBalanceRequestSchema = z.object({
+  employeeId: z.string().uuid(),
+  amount: z.number(),
+  note: z.string().min(3, "Mandatory reason for audit trail is required"),
+  effectiveDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+});
+export type AdjustBalanceRequest = z.infer<typeof AdjustBalanceRequestSchema>;
+
+export const HolidaySchema = z.object({
+  id: z.string().uuid(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  name: z.string(),
+  scope: z.string(),
+});
+export type Holiday = z.infer<typeof HolidaySchema>;
+
+export const TeamAbsenceSchema = z.object({
+  requestId: z.string().uuid(),
+  employeeId: z.string().uuid(),
+  employeeName: z.string(),
+  departmentId: z.string().uuid().nullable().optional(),
+  departmentName: z.string().nullable().optional(),
   startDate: z.string(),
   endDate: z.string(),
+  halfDayStart: z.boolean(),
+  halfDayEnd: z.boolean(),
+  leaveTypeCode: z.string(),
+  leaveTypeName: z.string(),
+  status: z.string(),
 });
+export type TeamAbsence = z.infer<typeof TeamAbsenceSchema>;

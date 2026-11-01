@@ -1155,6 +1155,623 @@
           "orgName",
           "expiresAt"
         ]
+      },
+      "LeaveType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "isPaid": {
+            "type": "boolean"
+          },
+          "requiresApproval": {
+            "type": "boolean"
+          },
+          "halfDaysAllowed": {
+            "type": "boolean"
+          },
+          "countsWorkingDays": {
+            "type": "boolean"
+          },
+          "color": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "code",
+          "isPaid",
+          "requiresApproval",
+          "halfDaysAllowed",
+          "countsWorkingDays",
+          "color"
+        ]
+      },
+      "CreateLeaveTypeRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "isPaid": {
+            "type": "boolean",
+            "default": true
+          },
+          "requiresApproval": {
+            "type": "boolean",
+            "default": true
+          },
+          "halfDaysAllowed": {
+            "type": "boolean",
+            "default": true
+          },
+          "countsWorkingDays": {
+            "type": "boolean",
+            "default": true
+          },
+          "color": {
+            "type": "string",
+            "default": "#3b82f6"
+          }
+        },
+        "required": [
+          "name",
+          "code"
+        ]
+      },
+      "LeavePolicy": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "leaveTypeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "annualAllowanceDays": {
+            "type": "number"
+          },
+          "accrualMethod": {
+            "type": "string",
+            "enum": [
+              "upfront",
+              "monthly",
+              "daily"
+            ]
+          },
+          "carryoverMaxDays": {
+            "type": "number"
+          },
+          "carryoverExpiryMonths": {
+            "type": "number"
+          },
+          "allowNegativeBalance": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "leaveTypeId",
+          "name",
+          "annualAllowanceDays",
+          "accrualMethod",
+          "carryoverMaxDays",
+          "carryoverExpiryMonths",
+          "allowNegativeBalance"
+        ]
+      },
+      "LeaveBalanceSummary": {
+        "type": "object",
+        "properties": {
+          "currentBalance": {
+            "type": "number"
+          },
+          "totalAccrued": {
+            "type": "number"
+          },
+          "totalUsed": {
+            "type": "number"
+          },
+          "totalCarryover": {
+            "type": "number"
+          },
+          "totalAdjustments": {
+            "type": "number"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "employeeId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "entryType": {
+                  "type": "string"
+                },
+                "amount": {
+                  "type": "number"
+                },
+                "unit": {
+                  "type": "string"
+                },
+                "sourceRef": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "note": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "effectiveDate": {
+                  "type": "string"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "id",
+                "employeeId",
+                "entryType",
+                "amount",
+                "unit",
+                "effectiveDate",
+                "createdAt"
+              ]
+            }
+          }
+        },
+        "required": [
+          "currentBalance",
+          "totalAccrued",
+          "totalUsed",
+          "totalCarryover",
+          "totalAdjustments",
+          "entries"
+        ]
+      },
+      "LeaveLedgerEntry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "entryType": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "sourceRef": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "effectiveDate": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "employeeId",
+          "entryType",
+          "amount",
+          "unit",
+          "effectiveDate",
+          "createdAt"
+        ]
+      },
+      "LeaveRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeeName": {
+            "type": "string"
+          },
+          "leaveTypeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "leaveTypeName": {
+            "type": "string"
+          },
+          "leaveTypeCode": {
+            "type": "string"
+          },
+          "leaveTypeColor": {
+            "type": "string"
+          },
+          "startDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "endDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "halfDayStart": {
+            "type": "boolean"
+          },
+          "halfDayEnd": {
+            "type": "boolean"
+          },
+          "workingDays": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "rejected",
+              "cancelled"
+            ]
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "approverId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "approverName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "decidedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "decisionReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "employeeId",
+          "leaveTypeId",
+          "startDate",
+          "endDate",
+          "halfDayStart",
+          "halfDayEnd",
+          "workingDays",
+          "status",
+          "createdAt"
+        ]
+      },
+      "CreateLeaveRequest": {
+        "type": "object",
+        "properties": {
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "leaveTypeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "startDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "endDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "halfDayStart": {
+            "type": "boolean",
+            "default": false
+          },
+          "halfDayEnd": {
+            "type": "boolean",
+            "default": false
+          },
+          "notes": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "leaveTypeId",
+          "startDate",
+          "endDate"
+        ]
+      },
+      "DecideLeaveRequest": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "approve",
+              "reject"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision"
+        ]
+      },
+      "AdjustBalanceRequest": {
+        "type": "object",
+        "properties": {
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "note": {
+            "type": "string",
+            "minLength": 3
+          },
+          "effectiveDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          }
+        },
+        "required": [
+          "employeeId",
+          "amount",
+          "note"
+        ]
+      },
+      "Holiday": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "date": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "date",
+          "name",
+          "scope"
+        ]
+      },
+      "TeamAbsence": {
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeeName": {
+            "type": "string"
+          },
+          "departmentId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "departmentName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "startDate": {
+            "type": "string"
+          },
+          "endDate": {
+            "type": "string"
+          },
+          "halfDayStart": {
+            "type": "boolean"
+          },
+          "halfDayEnd": {
+            "type": "boolean"
+          },
+          "leaveTypeCode": {
+            "type": "string"
+          },
+          "leaveTypeName": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestId",
+          "employeeId",
+          "employeeName",
+          "startDate",
+          "endDate",
+          "halfDayStart",
+          "halfDayEnd",
+          "leaveTypeCode",
+          "leaveTypeName",
+          "status"
+        ]
+      },
+      "NotificationItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "link": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "read": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "body",
+          "category",
+          "read",
+          "createdAt"
+        ]
+      },
+      "NotificationListResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "body": {
+                  "type": "string"
+                },
+                "category": {
+                  "type": "string"
+                },
+                "link": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "read": {
+                  "type": "boolean"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "body",
+                "category",
+                "read",
+                "createdAt"
+              ]
+            }
+          },
+          "unreadCount": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "unreadCount"
+        ]
       }
     },
     "parameters": {}
@@ -3436,6 +4053,1098 @@
                   "required": [
                     "user",
                     "expiresAt"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/leave/types": {
+      "get": {
+        "summary": "List leave types configured for organization",
+        "responses": {
+          "200": {
+            "description": "List of leave types",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "code": {
+                        "type": "string"
+                      },
+                      "isPaid": {
+                        "type": "boolean"
+                      },
+                      "requiresApproval": {
+                        "type": "boolean"
+                      },
+                      "halfDaysAllowed": {
+                        "type": "boolean"
+                      },
+                      "countsWorkingDays": {
+                        "type": "boolean"
+                      },
+                      "color": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name",
+                      "code",
+                      "isPaid",
+                      "requiresApproval",
+                      "halfDaysAllowed",
+                      "countsWorkingDays",
+                      "color"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new leave type",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "code": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "isPaid": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "requiresApproval": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "halfDaysAllowed": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "countsWorkingDays": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "color": {
+                    "type": "string",
+                    "default": "#3b82f6"
+                  }
+                },
+                "required": [
+                  "name",
+                  "code"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Leave type created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "isPaid": {
+                      "type": "boolean"
+                    },
+                    "requiresApproval": {
+                      "type": "boolean"
+                    },
+                    "halfDaysAllowed": {
+                      "type": "boolean"
+                    },
+                    "countsWorkingDays": {
+                      "type": "boolean"
+                    },
+                    "color": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "code",
+                    "isPaid",
+                    "requiresApproval",
+                    "halfDaysAllowed",
+                    "countsWorkingDays",
+                    "color"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/leave/balance": {
+      "get": {
+        "summary": "Get current employee leave balance and ledger history",
+        "responses": {
+          "200": {
+            "description": "Balance summary and ledger timeline",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "currentBalance": {
+                      "type": "number"
+                    },
+                    "totalAccrued": {
+                      "type": "number"
+                    },
+                    "totalUsed": {
+                      "type": "number"
+                    },
+                    "totalCarryover": {
+                      "type": "number"
+                    },
+                    "totalAdjustments": {
+                      "type": "number"
+                    },
+                    "entries": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "employeeId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "entryType": {
+                            "type": "string"
+                          },
+                          "amount": {
+                            "type": "number"
+                          },
+                          "unit": {
+                            "type": "string"
+                          },
+                          "sourceRef": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "note": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "effectiveDate": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "employeeId",
+                          "entryType",
+                          "amount",
+                          "unit",
+                          "effectiveDate",
+                          "createdAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "currentBalance",
+                    "totalAccrued",
+                    "totalUsed",
+                    "totalCarryover",
+                    "totalAdjustments",
+                    "entries"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/leave/requests": {
+      "get": {
+        "summary": "List leave requests",
+        "responses": {
+          "200": {
+            "description": "List of leave requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "employeeId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "employeeName": {
+                        "type": "string"
+                      },
+                      "leaveTypeId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "leaveTypeName": {
+                        "type": "string"
+                      },
+                      "leaveTypeCode": {
+                        "type": "string"
+                      },
+                      "leaveTypeColor": {
+                        "type": "string"
+                      },
+                      "startDate": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                      },
+                      "endDate": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                      },
+                      "halfDayStart": {
+                        "type": "boolean"
+                      },
+                      "halfDayEnd": {
+                        "type": "boolean"
+                      },
+                      "workingDays": {
+                        "type": "number"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "pending",
+                          "approved",
+                          "rejected",
+                          "cancelled"
+                        ]
+                      },
+                      "notes": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "approverId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "format": "uuid"
+                      },
+                      "approverName": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "decidedAt": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "format": "date-time"
+                      },
+                      "decisionReason": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "employeeId",
+                      "leaveTypeId",
+                      "startDate",
+                      "endDate",
+                      "halfDayStart",
+                      "halfDayEnd",
+                      "workingDays",
+                      "status",
+                      "createdAt"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Submit a new leave request",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "employeeId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "leaveTypeId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "startDate": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "endDate": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "halfDayStart": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "halfDayEnd": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "notes": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "leaveTypeId",
+                  "startDate",
+                  "endDate"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Leave request submitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "employeeId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "employeeName": {
+                      "type": "string"
+                    },
+                    "leaveTypeId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "leaveTypeName": {
+                      "type": "string"
+                    },
+                    "leaveTypeCode": {
+                      "type": "string"
+                    },
+                    "leaveTypeColor": {
+                      "type": "string"
+                    },
+                    "startDate": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "endDate": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "halfDayStart": {
+                      "type": "boolean"
+                    },
+                    "halfDayEnd": {
+                      "type": "boolean"
+                    },
+                    "workingDays": {
+                      "type": "number"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "approved",
+                        "rejected",
+                        "cancelled"
+                      ]
+                    },
+                    "notes": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "approverId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uuid"
+                    },
+                    "approverName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "decidedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "decisionReason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "employeeId",
+                    "leaveTypeId",
+                    "startDate",
+                    "endDate",
+                    "halfDayStart",
+                    "halfDayEnd",
+                    "workingDays",
+                    "status",
+                    "createdAt"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/leave/requests/{id}/decide": {
+      "post": {
+        "summary": "Approve or reject a pending leave request",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "decision": {
+                    "type": "string",
+                    "enum": [
+                      "approve",
+                      "reject"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "decision"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Leave request status updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "employeeId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "employeeName": {
+                      "type": "string"
+                    },
+                    "leaveTypeId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "leaveTypeName": {
+                      "type": "string"
+                    },
+                    "leaveTypeCode": {
+                      "type": "string"
+                    },
+                    "leaveTypeColor": {
+                      "type": "string"
+                    },
+                    "startDate": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "endDate": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "halfDayStart": {
+                      "type": "boolean"
+                    },
+                    "halfDayEnd": {
+                      "type": "boolean"
+                    },
+                    "workingDays": {
+                      "type": "number"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "approved",
+                        "rejected",
+                        "cancelled"
+                      ]
+                    },
+                    "notes": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "approverId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uuid"
+                    },
+                    "approverName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "decidedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "decisionReason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "employeeId",
+                    "leaveTypeId",
+                    "startDate",
+                    "endDate",
+                    "halfDayStart",
+                    "halfDayEnd",
+                    "workingDays",
+                    "status",
+                    "createdAt"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/leave/requests/{id}/cancel": {
+      "post": {
+        "summary": "Cancel a leave request with compensating ledger reversal",
+        "responses": {
+          "200": {
+            "description": "Leave request cancelled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "employeeId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "employeeName": {
+                      "type": "string"
+                    },
+                    "leaveTypeId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "leaveTypeName": {
+                      "type": "string"
+                    },
+                    "leaveTypeCode": {
+                      "type": "string"
+                    },
+                    "leaveTypeColor": {
+                      "type": "string"
+                    },
+                    "startDate": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "endDate": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "halfDayStart": {
+                      "type": "boolean"
+                    },
+                    "halfDayEnd": {
+                      "type": "boolean"
+                    },
+                    "workingDays": {
+                      "type": "number"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "approved",
+                        "rejected",
+                        "cancelled"
+                      ]
+                    },
+                    "notes": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "approverId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uuid"
+                    },
+                    "approverName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "decidedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "decisionReason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "employeeId",
+                    "leaveTypeId",
+                    "startDate",
+                    "endDate",
+                    "halfDayStart",
+                    "halfDayEnd",
+                    "workingDays",
+                    "status",
+                    "createdAt"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/leave/adjust": {
+      "post": {
+        "summary": "HR manual balance adjustment on behalf of employee (audited)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "employeeId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "amount": {
+                    "type": "number"
+                  },
+                  "note": {
+                    "type": "string",
+                    "minLength": 3
+                  },
+                  "effectiveDate": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  }
+                },
+                "required": [
+                  "employeeId",
+                  "amount",
+                  "note"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Compensating ledger entry created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "employeeId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "entryType": {
+                      "type": "string"
+                    },
+                    "amount": {
+                      "type": "number"
+                    },
+                    "unit": {
+                      "type": "string"
+                    },
+                    "sourceRef": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "note": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "effectiveDate": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "employeeId",
+                    "entryType",
+                    "amount",
+                    "unit",
+                    "effectiveDate",
+                    "createdAt"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/calendar/holidays": {
+      "get": {
+        "summary": "Get holidays for location and year",
+        "responses": {
+          "200": {
+            "description": "List of holidays",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "date": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "scope": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "date",
+                      "name",
+                      "scope"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/calendar/team-absences": {
+      "get": {
+        "summary": "Get team absence schedule respecting GDPR privacy rules",
+        "responses": {
+          "200": {
+            "description": "Team absence schedule",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "requestId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "employeeId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "employeeName": {
+                        "type": "string"
+                      },
+                      "departmentId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "format": "uuid"
+                      },
+                      "departmentName": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "startDate": {
+                        "type": "string"
+                      },
+                      "endDate": {
+                        "type": "string"
+                      },
+                      "halfDayStart": {
+                        "type": "boolean"
+                      },
+                      "halfDayEnd": {
+                        "type": "boolean"
+                      },
+                      "leaveTypeCode": {
+                        "type": "string"
+                      },
+                      "leaveTypeName": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "requestId",
+                      "employeeId",
+                      "employeeName",
+                      "startDate",
+                      "endDate",
+                      "halfDayStart",
+                      "halfDayEnd",
+                      "leaveTypeCode",
+                      "leaveTypeName",
+                      "status"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/notifications": {
+      "get": {
+        "summary": "Get in-app notifications for authenticated user",
+        "responses": {
+          "200": {
+            "description": "Notification list and unread count",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "category": {
+                            "type": "string"
+                          },
+                          "link": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "read": {
+                            "type": "boolean"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "title",
+                          "body",
+                          "category",
+                          "read",
+                          "createdAt"
+                        ]
+                      }
+                    },
+                    "unreadCount": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "unreadCount"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/notifications/{id}/read": {
+      "patch": {
+        "summary": "Mark notification as read",
+        "responses": {
+          "200": {
+            "description": "Notification updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success"
                   ]
                 }
               }

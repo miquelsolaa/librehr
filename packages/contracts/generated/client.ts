@@ -27,6 +27,21 @@ import type {
   InvitationDetails,
   AcceptInvitationRequest,
 } from '../src/invitations.js';
+import type {
+  LeaveType,
+  CreateLeaveTypeRequest,
+  LeaveBalanceSummary,
+  LeaveLedgerEntry,
+  LeaveRequest,
+  CreateLeaveRequest,
+  DecideLeaveRequest,
+  AdjustBalanceRequest,
+  Holiday,
+  TeamAbsence,
+} from '../src/leave.js';
+import type {
+  NotificationListResponse,
+} from '../src/notifications.js';
 import type { ProblemDetails } from '../src/errors.js';
 
 export interface ApiClientOptions {
@@ -186,6 +201,82 @@ export class OpenHrApiClient {
     return this.request<SessionResponse>('/v1/invitations/accept', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  }
+
+  // Time off & Leave (M2)
+  async listLeaveTypes(): Promise<LeaveType[]> {
+    return this.request<LeaveType[]>('/v1/leave/types');
+  }
+
+  async createLeaveType(data: CreateLeaveTypeRequest): Promise<LeaveType> {
+    return this.request<LeaveType>('/v1/leave/types', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getLeaveBalance(employeeId?: string): Promise<LeaveBalanceSummary> {
+    const qs = employeeId ? `?employeeId=${employeeId}` : '';
+    return this.request<LeaveBalanceSummary>(`/v1/leave/balance${qs}`);
+  }
+
+  async listLeaveRequests(params?: { employeeId?: string; status?: string; year?: number }): Promise<LeaveRequest[]> {
+    const searchParams = new URLSearchParams();
+    if (params?.employeeId) searchParams.set('employeeId', params.employeeId);
+    if (params?.status) searchParams.set('status', params.status);
+    if (params?.year) searchParams.set('year', String(params.year));
+    const qs = searchParams.toString();
+    return this.request<LeaveRequest[]>(`/v1/leave/requests${qs ? '?' + qs : ''}`);
+  }
+
+  async createLeaveRequest(data: CreateLeaveRequest): Promise<LeaveRequest> {
+    return this.request<LeaveRequest>('/v1/leave/requests', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async decideLeaveRequest(id: string, data: DecideLeaveRequest): Promise<LeaveRequest> {
+    return this.request<LeaveRequest>(`/v1/leave/requests/${id}/decide`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async cancelLeaveRequest(id: string): Promise<LeaveRequest> {
+    return this.request<LeaveRequest>(`/v1/leave/requests/${id}/cancel`, {
+      method: 'POST',
+    });
+  }
+
+  async adjustLeaveBalance(data: AdjustBalanceRequest): Promise<LeaveLedgerEntry> {
+    return this.request<LeaveLedgerEntry>('/v1/leave/adjust', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async listHolidays(params: { locationId: string; year: number }): Promise<Holiday[]> {
+    return this.request<Holiday[]>(`/v1/calendar/holidays?locationId=${params.locationId}&year=${params.year}`);
+  }
+
+  async listTeamAbsences(params: { startDate: string; endDate: string; departmentId?: string }): Promise<TeamAbsence[]> {
+    const searchParams = new URLSearchParams({
+      startDate: params.startDate,
+      endDate: params.endDate,
+    });
+    if (params.departmentId) searchParams.set('departmentId', params.departmentId);
+    return this.request<TeamAbsence[]>(`/v1/calendar/team-absences?${searchParams.toString()}`);
+  }
+
+  async listNotifications(): Promise<NotificationListResponse> {
+    return this.request<NotificationListResponse>('/v1/notifications');
+  }
+
+  async markNotificationRead(id: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/v1/notifications/${id}/read`, {
+      method: 'PATCH',
     });
   }
 }

@@ -40,6 +40,23 @@ import {
   AcceptInvitationRequestSchema,
   InvitationDetailsSchema,
 } from "../src/invitations.js";
+import {
+  LeaveTypeSchema,
+  CreateLeaveTypeRequestSchema,
+  LeavePolicySchema,
+  LeaveBalanceSummarySchema,
+  LeaveLedgerEntrySchema,
+  LeaveRequestSchema,
+  CreateLeaveRequestSchema,
+  DecideLeaveRequestSchema,
+  AdjustBalanceRequestSchema,
+  HolidaySchema,
+  TeamAbsenceSchema,
+} from "../src/leave.js";
+import {
+  NotificationItemSchema,
+  NotificationListResponseSchema,
+} from "../src/notifications.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const registry = new OpenAPIRegistry();
@@ -68,15 +85,26 @@ registry.register("CreateInvitationRequest", CreateInvitationRequestSchema);
 registry.register("InvitationResponse", InvitationResponseSchema);
 registry.register("AcceptInvitationRequest", AcceptInvitationRequestSchema);
 registry.register("InvitationDetails", InvitationDetailsSchema);
+registry.register("LeaveType", LeaveTypeSchema);
+registry.register("CreateLeaveTypeRequest", CreateLeaveTypeRequestSchema);
+registry.register("LeavePolicy", LeavePolicySchema);
+registry.register("LeaveBalanceSummary", LeaveBalanceSummarySchema);
+registry.register("LeaveLedgerEntry", LeaveLedgerEntrySchema);
+registry.register("LeaveRequest", LeaveRequestSchema);
+registry.register("CreateLeaveRequest", CreateLeaveRequestSchema);
+registry.register("DecideLeaveRequest", DecideLeaveRequestSchema);
+registry.register("AdjustBalanceRequest", AdjustBalanceRequestSchema);
+registry.register("Holiday", HolidaySchema);
+registry.register("TeamAbsence", TeamAbsenceSchema);
+registry.register("NotificationItem", NotificationItemSchema);
+registry.register("NotificationListResponse", NotificationListResponseSchema);
 
 // Register endpoints
 registry.registerPath({
   method: "get",
   path: "/healthz",
   summary: "Liveness check",
-  responses: {
-    200: { description: "API is healthy and alive" },
-  },
+  responses: { 200: { description: "API is healthy and alive" } },
 });
 
 registry.registerPath({
@@ -94,9 +122,7 @@ registry.registerPath({
   path: "/v1/auth/sign-in",
   summary: "Authenticate with email and password",
   request: {
-    body: {
-      content: { "application/json": { schema: SignInRequestSchema } },
-    },
+    body: { content: { "application/json": { schema: SignInRequestSchema } } },
   },
   responses: {
     200: {
@@ -253,11 +279,7 @@ registry.registerPath({
   responses: {
     200: {
       description: "List of departments",
-      content: {
-        "application/json": {
-          schema: z.array(DepartmentSchema),
-        },
-      },
+      content: { "application/json": { schema: z.array(DepartmentSchema) } },
     },
   },
 });
@@ -288,11 +310,7 @@ registry.registerPath({
   responses: {
     200: {
       description: "List of locations",
-      content: {
-        "application/json": {
-          schema: z.array(LocationSchema),
-        },
-      },
+      content: { "application/json": { schema: z.array(LocationSchema) } },
     },
   },
 });
@@ -389,6 +407,177 @@ registry.registerPath({
   },
 });
 
+// Leave & Time off (M2)
+registry.registerPath({
+  method: "get",
+  path: "/v1/leave/types",
+  summary: "List leave types configured for organization",
+  responses: {
+    200: {
+      description: "List of leave types",
+      content: { "application/json": { schema: z.array(LeaveTypeSchema) } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/leave/types",
+  summary: "Create a new leave type",
+  request: {
+    body: {
+      content: { "application/json": { schema: CreateLeaveTypeRequestSchema } },
+    },
+  },
+  responses: {
+    201: {
+      description: "Leave type created",
+      content: { "application/json": { schema: LeaveTypeSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/v1/leave/balance",
+  summary: "Get current employee leave balance and ledger history",
+  responses: {
+    200: {
+      description: "Balance summary and ledger timeline",
+      content: { "application/json": { schema: LeaveBalanceSummarySchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/v1/leave/requests",
+  summary: "List leave requests",
+  responses: {
+    200: {
+      description: "List of leave requests",
+      content: { "application/json": { schema: z.array(LeaveRequestSchema) } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/leave/requests",
+  summary: "Submit a new leave request",
+  request: {
+    body: {
+      content: { "application/json": { schema: CreateLeaveRequestSchema } },
+    },
+  },
+  responses: {
+    201: {
+      description: "Leave request submitted",
+      content: { "application/json": { schema: LeaveRequestSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/leave/requests/{id}/decide",
+  summary: "Approve or reject a pending leave request",
+  request: {
+    body: {
+      content: { "application/json": { schema: DecideLeaveRequestSchema } },
+    },
+  },
+  responses: {
+    200: {
+      description: "Leave request status updated",
+      content: { "application/json": { schema: LeaveRequestSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/leave/requests/{id}/cancel",
+  summary: "Cancel a leave request with compensating ledger reversal",
+  responses: {
+    200: {
+      description: "Leave request cancelled",
+      content: { "application/json": { schema: LeaveRequestSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/leave/adjust",
+  summary: "HR manual balance adjustment on behalf of employee (audited)",
+  request: {
+    body: {
+      content: { "application/json": { schema: AdjustBalanceRequestSchema } },
+    },
+  },
+  responses: {
+    201: {
+      description: "Compensating ledger entry created",
+      content: { "application/json": { schema: LeaveLedgerEntrySchema } },
+    },
+  },
+});
+
+// Calendar (M2)
+registry.registerPath({
+  method: "get",
+  path: "/v1/calendar/holidays",
+  summary: "Get holidays for location and year",
+  responses: {
+    200: {
+      description: "List of holidays",
+      content: { "application/json": { schema: z.array(HolidaySchema) } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/v1/calendar/team-absences",
+  summary: "Get team absence schedule respecting GDPR privacy rules",
+  responses: {
+    200: {
+      description: "Team absence schedule",
+      content: { "application/json": { schema: z.array(TeamAbsenceSchema) } },
+    },
+  },
+});
+
+// Notifications (M2)
+registry.registerPath({
+  method: "get",
+  path: "/v1/notifications",
+  summary: "Get in-app notifications for authenticated user",
+  responses: {
+    200: {
+      description: "Notification list and unread count",
+      content: {
+        "application/json": { schema: NotificationListResponseSchema },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "patch",
+  path: "/v1/notifications/{id}/read",
+  summary: "Mark notification as read",
+  responses: {
+    200: {
+      description: "Notification updated",
+      content: {
+        "application/json": { schema: z.object({ success: z.boolean() }) },
+      },
+    },
+  },
+});
+
 const generator = new OpenApiGeneratorV31(registry.definitions);
 const openApiDoc = generator.generateDocument({
   openapi: "3.1.0",
@@ -442,6 +631,21 @@ import type {
   InvitationDetails,
   AcceptInvitationRequest,
 } from '../src/invitations.js';
+import type {
+  LeaveType,
+  CreateLeaveTypeRequest,
+  LeaveBalanceSummary,
+  LeaveLedgerEntry,
+  LeaveRequest,
+  CreateLeaveRequest,
+  DecideLeaveRequest,
+  AdjustBalanceRequest,
+  Holiday,
+  TeamAbsence,
+} from '../src/leave.js';
+import type {
+  NotificationListResponse,
+} from '../src/notifications.js';
 import type { ProblemDetails } from '../src/errors.js';
 
 export interface ApiClientOptions {
@@ -601,6 +805,82 @@ export class OpenHrApiClient {
     return this.request<SessionResponse>('/v1/invitations/accept', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  }
+
+  // Time off & Leave (M2)
+  async listLeaveTypes(): Promise<LeaveType[]> {
+    return this.request<LeaveType[]>('/v1/leave/types');
+  }
+
+  async createLeaveType(data: CreateLeaveTypeRequest): Promise<LeaveType> {
+    return this.request<LeaveType>('/v1/leave/types', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getLeaveBalance(employeeId?: string): Promise<LeaveBalanceSummary> {
+    const qs = employeeId ? \`?employeeId=\${employeeId}\` : '';
+    return this.request<LeaveBalanceSummary>(\`/v1/leave/balance\${qs}\`);
+  }
+
+  async listLeaveRequests(params?: { employeeId?: string; status?: string; year?: number }): Promise<LeaveRequest[]> {
+    const searchParams = new URLSearchParams();
+    if (params?.employeeId) searchParams.set('employeeId', params.employeeId);
+    if (params?.status) searchParams.set('status', params.status);
+    if (params?.year) searchParams.set('year', String(params.year));
+    const qs = searchParams.toString();
+    return this.request<LeaveRequest[]>(\`/v1/leave/requests\${qs ? '?' + qs : ''}\`);
+  }
+
+  async createLeaveRequest(data: CreateLeaveRequest): Promise<LeaveRequest> {
+    return this.request<LeaveRequest>('/v1/leave/requests', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async decideLeaveRequest(id: string, data: DecideLeaveRequest): Promise<LeaveRequest> {
+    return this.request<LeaveRequest>(\`/v1/leave/requests/\${id}/decide\`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async cancelLeaveRequest(id: string): Promise<LeaveRequest> {
+    return this.request<LeaveRequest>(\`/v1/leave/requests/\${id}/cancel\`, {
+      method: 'POST',
+    });
+  }
+
+  async adjustLeaveBalance(data: AdjustBalanceRequest): Promise<LeaveLedgerEntry> {
+    return this.request<LeaveLedgerEntry>('/v1/leave/adjust', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async listHolidays(params: { locationId: string; year: number }): Promise<Holiday[]> {
+    return this.request<Holiday[]>(\`/v1/calendar/holidays?locationId=\${params.locationId}&year=\${params.year}\`);
+  }
+
+  async listTeamAbsences(params: { startDate: string; endDate: string; departmentId?: string }): Promise<TeamAbsence[]> {
+    const searchParams = new URLSearchParams({
+      startDate: params.startDate,
+      endDate: params.endDate,
+    });
+    if (params.departmentId) searchParams.set('departmentId', params.departmentId);
+    return this.request<TeamAbsence[]>(\`/v1/calendar/team-absences?\${searchParams.toString()}\`);
+  }
+
+  async listNotifications(): Promise<NotificationListResponse> {
+    return this.request<NotificationListResponse>('/v1/notifications');
+  }
+
+  async markNotificationRead(id: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(\`/v1/notifications/\${id}/read\`, {
+      method: 'PATCH',
     });
   }
 }
