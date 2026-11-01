@@ -8,3 +8,6 @@ export * from "./audit.repository.js";
 export * from "./leave.repository.js";
 export * from "./holiday.repository.js";
 export * from "./notification.repository.js";
+export * from "./time.repository.js";
+export * from "./schedule.repository.js";
+export * from "./time-correction.repository.js";

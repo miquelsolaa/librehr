@@ -154,6 +154,26 @@ export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
             (${orgId}, ${calRows[0].id}, '2026-12-25', 'Navidad', 'national')
         `;
       }
+
+      // 8. Seed Default 40h Working Schedule & Rules (TIM-005)
+      const schedRows = await tx<{ id: string }[]>`
+        INSERT INTO "schedules" ("organization_id", "name", "type", "weekly_hours", "minimum_daily_rest_hours", "is_default")
+        VALUES (${orgId}, 'General 40h (Mon-Fri)', 'fixed', 40.00, 12.0, true)
+        RETURNING "id"
+      `;
+
+      if (schedRows[0]) {
+        const schedId = schedRows[0].id;
+        await tx`
+          INSERT INTO "schedule_rules" ("organization_id", "schedule_id", "day_of_week", "expected_hours", "core_start_minutes", "core_end_minutes", "break_minutes")
+          VALUES
+            (${orgId}, ${schedId}, 1, 8.00, 540, 1020, 60),
+            (${orgId}, ${schedId}, 2, 8.00, 540, 1020, 60),
+            (${orgId}, ${schedId}, 3, 8.00, 540, 1020, 60),
+            (${orgId}, ${schedId}, 4, 8.00, 540, 1020, 60),
+            (${orgId}, ${schedId}, 5, 8.00, 540, 1020, 60)
+        `;
+      }
     });
 
     process.stdout.write("Dev database seeded successfully.\n");

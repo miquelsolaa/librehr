@@ -1,4 +1,14 @@
-import { pgTable, text, uuid, timestamp, index } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  uuid,
+  timestamp,
+  index,
+  integer,
+  numeric,
+  boolean,
+  date,
+} from "drizzle-orm/pg-core";
 import { primaryId, organizationIdCol } from "./common.js";
 import { organizations } from "./platform.js";
 import { employees } from "./people.js";
@@ -38,20 +48,131 @@ export const timeEvents = pgTable(
   ],
 );
 
-// TODO(TIM-005): Working-time schedules configuration table
-export const schedulesStub = { table: "schedules", requirementId: "TIM-005" };
+// TIM-005: Working-time schedules configuration table
+export const schedules = pgTable(
+  "schedules",
+  {
+    id: primaryId(),
+    organizationId: organizationIdCol().references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    name: text("name").notNull(),
+    type: text("type").notNull().default("fixed"), // fixed, flexible, shift
+    weeklyHours: numeric("weekly_hours", { precision: 5, scale: 2 })
+      .notNull()
+      .default("40.00"),
+    minimumDailyRestHours: numeric("minimum_daily_rest_hours", {
+      precision: 4,
+      scale: 1,
+    })
+      .notNull()
+      .default("12.0"),
+    isDefault: boolean("is_default").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [index("schedules_org_idx").on(table.organizationId)],
+);
 
-// TODO(TIM-005): Working-time schedule daily rules table
-export const scheduleRulesStub = {
-  table: "schedule_rules",
-  requirementId: "TIM-005",
-};
+// TIM-005: Daily schedule rules
+export const scheduleRules = pgTable(
+  "schedule_rules",
+  {
+    id: primaryId(),
+    organizationId: organizationIdCol().references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    scheduleId: uuid("schedule_id")
+      .notNull()
+      .references(() => schedules.id, { onDelete: "cascade" }),
+    dayOfWeek: integer("day_of_week").notNull(), // 1 (Mon) - 7 (Sun)
+    expectedHours: numeric("expected_hours", { precision: 4, scale: 2 })
+      .notNull()
+      .default("8.00"),
+    coreStartMinutes: integer("core_start_minutes"),
+    coreEndMinutes: integer("core_end_minutes"),
+    breakMinutes: integer("break_minutes").default(60),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [index("schedule_rules_schedule_idx").on(table.scheduleId)],
+);
 
-// TODO(TIM-003): Forgotten clock-out correction requests workflow
-export const timeCorrectionRequestsStub = {
-  table: "time_correction_requests",
-  requirementId: "TIM-003",
-};
+// TIM-005: Employee schedule assignment
+export const employeeSchedules = pgTable(
+  "employee_schedules",
+  {
+    id: primaryId(),
+    organizationId: organizationIdCol().references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    scheduleId: uuid("schedule_id")
+      .notNull()
+      .references(() => schedules.id, { onDelete: "cascade" }),
+    effectiveFrom: date("effective_from").notNull(),
+    effectiveTo: date("effective_to"),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("employee_schedules_employee_idx").on(table.employeeId),
+    index("employee_schedules_schedule_idx").on(table.scheduleId),
+  ],
+);
+
+// TIM-003: Forgotten clock-out & correction requests workflow
+export const timeCorrections = pgTable(
+  "time_corrections",
+  {
+    id: primaryId(),
+    organizationId: organizationIdCol().references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    refEventId: uuid("ref_event_id").references(() => timeEvents.id, {
+      onDelete: "set null",
+    }),
+    proposedEventType: text("proposed_event_type").notNull(),
+    proposedOccurredAt: timestamp("proposed_occurred_at", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
+    reason: text("reason").notNull(),
+    status: text("status").notNull().default("pending"), // pending, approved, rejected
+    approverId: uuid("approver_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    decidedAt: timestamp("decided_at", { withTimezone: true, mode: "date" }),
+    decisionReason: text("decision_reason"),
+    createdEventId: uuid("created_event_id").references(() => timeEvents.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("time_corrections_org_idx").on(table.organizationId),
+    index("time_corrections_employee_idx").on(table.employeeId),
+  ],
+);
 
 // TODO(TIM-006): Time export reports for Labour Inspectorate
 export const timeExportsStub = {
