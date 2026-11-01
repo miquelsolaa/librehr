@@ -1,24 +1,216 @@
 "use client";
 
+import * as React from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { EmptyState } from "@openhr/ui";
-import { Clock } from "lucide-react";
+import { Button } from "@openhr/ui";
+import {
+  Clock,
+  FileText,
+  CheckCircle2,
+  AlertTriangle,
+  Coffee,
+} from "lucide-react";
+import { getStoredSession } from "@/lib/auth";
+import { getApiClient } from "@/lib/api-client";
+import type { PeriodTimesheetResponse } from "@openhr/contracts";
 
-// TODO(TIM-001): Workday tracking, clocking events, and hours records
-export default function TimePage() {
-  const tHome = useTranslations("home");
-  const tNav = useTranslations("nav");
+export default function TimeTrackingPage() {
+  const params = useParams();
+  const locale = (params?.["locale"] as string | undefined) ?? "ca";
+
+  const t = useTranslations("timeTracking");
+
+  const [timesheet, setTimesheet] =
+    React.useState<PeriodTimesheetResponse | null>(null);
+  const [loading, setLoading] = React.useState(true);
+
+  const fetchTimesheet = React.useCallback(async () => {
+    const session = getStoredSession();
+    if (!session?.token) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+        .toISOString()
+        .slice(0, 10);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+        .toISOString()
+        .slice(0, 10);
+
+      const client = getApiClient(session.token);
+      const res = await client.getTimesheet({
+        startDate: startOfMonth,
+        endDate: endOfMonth,
+      });
+
+      setTimesheet(res);
+    } catch {
+      // Fallback
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    void fetchTimesheet();
+  }, [fetchTimesheet]);
+
+  const formatMinutes = (mins: number) => {
+    const abs = Math.abs(mins);
+    const h = Math.floor(abs / 60);
+    const m = abs % 60;
+    const sign = mins < 0 ? "-" : "";
+    return `${sign}${h}h ${m}m`;
+  };
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold tracking-tight text-foreground">
-        {tNav("time")}
-      </h1>
-      <EmptyState
-        icon={<Clock className="h-6 w-6" />}
-        title={tHome("emptyModuleTitle")}
-        description={tHome("emptyModuleDescription")}
-      />
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            {t("title")}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t("subtitle")}</p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Link href={`/${locale}/time/corrections`}>
+            <Button variant="outline" className="gap-2">
+              <CheckCircle2 className="h-4 w-4" />
+              {t("correctionsTitle")}
+            </Button>
+          </Link>
+
+          <Link href={`/${locale}/time/export`}>
+            <Button variant="default" className="gap-2">
+              <FileText className="h-4 w-4" />
+              {t("exportTitle")}
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Monthly Summary KPI Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-sm font-medium">{t("periodWorked")}</span>
+            <Clock className="h-4 w-4 text-primary" />
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-2xl font-extrabold tracking-tight text-foreground">
+              {loading
+                ? "..."
+                : formatMinutes(timesheet?.totalWorkedMinutes ?? 0)}
+            </span>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-sm font-medium">{t("todayBreak")}</span>
+            <Coffee className="h-4 w-4 text-amber-600" />
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-2xl font-extrabold tracking-tight text-foreground">
+              {loading
+                ? "..."
+                : formatMinutes(timesheet?.totalBreakMinutes ?? 0)}
+            </span>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-sm font-medium">{t("expected")}</span>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-2xl font-extrabold tracking-tight text-foreground">
+              {loading ? "..." : `${timesheet?.totalExpectedHours ?? 0}h`}
+            </span>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-sm font-medium">{t("periodOvertime")}</span>
+            <AlertTriangle className="h-4 w-4 text-indigo-600" />
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-2xl font-extrabold tracking-tight text-foreground">
+              {loading
+                ? "..."
+                : formatMinutes(timesheet?.totalOvertimeMinutes ?? 0)}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Timesheet Days Table */}
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-4">
+        <h2 className="text-lg font-semibold text-foreground">
+          {t("timesheetTitle")}
+        </h2>
+
+        {!timesheet || timesheet.days.length === 0 ? (
+          <div className="py-12 text-center text-sm text-muted-foreground">
+            No work events logged for this period.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-border text-xs font-semibold uppercase text-muted-foreground">
+                <tr>
+                  <th className="pb-3">{t("date")}</th>
+                  <th className="pb-3">{t("worked")}</th>
+                  <th className="pb-3">{t("breaks")}</th>
+                  <th className="pb-3">{t("expected")}</th>
+                  <th className="pb-3">{t("overtime")}</th>
+                  <th className="pb-3 text-right">{t("actions")}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {timesheet.days.map((d) => (
+                  <tr key={d.date} className="hover:bg-muted/30">
+                    <td className="py-3 font-medium text-foreground">
+                      {d.date}
+                    </td>
+                    <td className="py-3 text-muted-foreground">
+                      {formatMinutes(d.totalWorkedMinutes)}
+                    </td>
+                    <td className="py-3 text-muted-foreground">
+                      {formatMinutes(d.totalBreakMinutes)}
+                    </td>
+                    <td className="py-3 text-muted-foreground">
+                      {d.expectedHours}h
+                    </td>
+                    <td
+                      className={`py-3 font-semibold ${d.overtimeMinutes < 0 ? "text-amber-600" : "text-emerald-600"}`}
+                    >
+                      {formatMinutes(d.overtimeMinutes)}
+                    </td>
+                    <td className="py-3 text-right">
+                      <Link
+                        href={`/${locale}/time/corrections?date=${d.date}`}
+                        className="text-xs font-medium text-primary hover:underline"
+                      >
+                        {t("proposeCorrection")}
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
