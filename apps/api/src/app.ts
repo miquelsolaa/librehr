@@ -21,6 +21,9 @@ import { createLocationRoutes } from "./routes/locations.js";
 import { createInvitationRoutes } from "./routes/invitations.js";
 import { createSetupRoutes } from "./routes/setup.js";
 import { createAuditRoutes } from "./routes/audit.js";
+import { createLeaveRoutes } from "./routes/leave.js";
+import { createCalendarRoutes } from "./routes/calendar.js";
+import { createNotificationRoutes } from "./routes/notifications.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -77,6 +80,9 @@ export function createApp(deps: AppDependencies) {
   );
   app.route("/v1", createSetupRoutes(deps.sql));
   app.route("/v1", createAuditRoutes(deps.sql));
+  app.route("/v1", createLeaveRoutes(deps.sql, deps.mailPort));
+  app.route("/v1", createCalendarRoutes(deps.sql));
+  app.route("/v1", createNotificationRoutes(deps.sql));
 
   // 5. RFC 9457 Problem Details Error Handler
   app.onError(errorHandler);

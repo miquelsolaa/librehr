@@ -1,5 +1,5 @@
 export type LeaveEntryType =
-  "accrual" | "usage" | "adjustment" | "carryover" | "expiry";
+  "accrual" | "usage" | "adjustment" | "carryover" | "expiry" | "reversal";
 
 export interface LeaveLedgerEntry {
   id: string;

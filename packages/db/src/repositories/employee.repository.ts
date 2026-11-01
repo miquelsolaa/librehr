@@ -94,6 +94,17 @@ export interface UpdateEmployeeData {
 }
 
 export class EmployeeRepository {
+  async findByUserId(
+    tx: TenantTx,
+    userId: string,
+  ): Promise<EmployeeProfile | null> {
+    const rows = await tx<{ id: string }[]>`
+      SELECT id FROM employees WHERE user_id = ${userId} LIMIT 1
+    `;
+    if (!rows[0]) return null;
+    return this.findById(tx, rows[0].id);
+  }
+
   async findById(tx: TenantTx, id: string): Promise<EmployeeProfile | null> {
     const rows = await tx<
       (EmployeeRow & {
