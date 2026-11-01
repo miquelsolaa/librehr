@@ -174,6 +174,25 @@ export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
             (${orgId}, ${schedId}, 5, 8.00, 540, 1020, 60)
         `;
       }
+
+      // 9. Seed Standard Onboarding Checklist Template (ONB-001)
+      const onbRows = await tx<{ id: string }[]>`
+        INSERT INTO "checklist_templates" ("organization_id", "name", "type", "description")
+        VALUES (${orgId}, 'Standard Employee Onboarding', 'onboarding', 'Essential tasks for welcoming new employees')
+        RETURNING "id"
+      `;
+
+      if (onbRows[0]) {
+        const onbId = onbRows[0].id;
+        await tx`
+          INSERT INTO "checklist_template_tasks" ("organization_id", "template_id", "title", "description", "assigned_role", "due_offset_days", "order_index")
+          VALUES
+            (${orgId}, ${onbId}, 'Upload signed employment contract', 'Sign and upload digital contract', 'employee', -3, 0),
+            (${orgId}, ${onbId}, 'Prepare IT workstation and credentials', 'Configure laptop, email, and 2FA', 'admin', -2, 1),
+            (${orgId}, ${onbId}, 'Team introduction and welcome coffee', 'Introduce to manager and direct teammates', 'manager', 0, 2),
+            (${orgId}, ${onbId}, 'Review employee handbook and health & safety policy', 'Read and acknowledge handbook', 'employee', 3, 3)
+        `;
+      }
     });
 
     process.stdout.write("Dev database seeded successfully.\n");

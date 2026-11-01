@@ -20,6 +20,13 @@ export const TENANT_TABLES = [
   "schedule_rules",
   "employee_schedules",
   "time_corrections",
+  "documents",
+  "document_versions",
+  "document_acknowledgements",
+  "checklist_templates",
+  "checklist_template_tasks",
+  "checklist_instances",
+  "checklist_tasks",
   "audit_log",
 ] as const;
 
