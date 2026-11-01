@@ -2,7 +2,9 @@
 export const TENANT_TABLES = [
   "legal_entities",
   "locations",
+  "departments",
   "memberships",
+  "invitations",
   "employees",
   "employments",
   "leave_ledger",

@@ -64,11 +64,34 @@ export const memberships = pgTable(
   ],
 );
 
-// TODO(AUTH-005): Invitations table for admin onboarding flow
-export const invitationsStub = {
-  table: "invitations",
-  requirementId: "AUTH-005",
-};
+export const invitations = pgTable(
+  "invitations",
+  {
+    id: primaryId(),
+    organizationId: organizationIdCol().references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    email: text("email").notNull(),
+    role: text("role").notNull().default("employee"),
+    token: text("token").notNull().unique(),
+    expiresAt: timestamp("expires_at", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
+    invitedById: uuid("invited_by_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    acceptedAt: timestamp("accepted_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    index("invitations_token_idx").on(table.token),
+    index("invitations_org_idx").on(table.organizationId),
+  ],
+);
 
 // TODO(ADM-006): API Personal Access Tokens table
 export const apiTokensStub = {

@@ -31,18 +31,32 @@ export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
       const entityId = entityRows[0]?.["id"] as string;
 
       // 3. Create Location
-      await tx`
+      const locRows = await tx`
         INSERT INTO "locations" ("organization_id", "legal_entity_id", "name", "country", "region", "city", "timezone")
         VALUES (${orgId}, ${entityId}, 'Barcelona Diagonal', 'ES', 'CT', 'Barcelona', 'Europe/Madrid')
+        RETURNING "id"
       `;
+      const locationId = locRows[0]?.["id"] as string;
 
-      // 4. Create Users (Admin, Manager, Employee)
+      // 4. Create Departments
+      const deptRows = await tx<{ id: string; name: string }[]>`
+        INSERT INTO "departments" ("organization_id", "name")
+        VALUES (${orgId}, 'Engineering'), (${orgId}, 'Operations'), (${orgId}, 'People & Culture')
+        RETURNING "id", "name"
+      `;
+      const engDeptId =
+        deptRows.find((d) => d.name === "Engineering")?.id ?? "";
+
+      // 5. Create Users & Employees (Admin, Manager, Employee)
+
       // Password hash for 'Password123!' (dummy dev hash or scrypt)
       const usersData = [
         { email: "admin@openhr.local", name: "Marta Soler", role: "admin" },
         { email: "manager@openhr.local", name: "Pere Vila", role: "manager" },
         { email: "employee@openhr.local", name: "Laia Puig", role: "employee" },
       ];
+
+      let managerEmpId: string | null = null;
 
       for (const u of usersData) {
         const userRows = await tx`
@@ -64,12 +78,23 @@ export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
         const nameParts = u.name.split(" ");
         const firstName = nameParts[0] ?? "User";
         const lastName = nameParts[1] ?? "";
+        const managerId = u.role === "employee" ? managerEmpId : null;
+
         const empRows = await tx`
-          INSERT INTO "employees" ("organization_id", "user_id", "first_name", "last_name", "email", "status")
-          VALUES (${orgId}, ${userId}, ${firstName}, ${lastName}, ${u.email}, 'active')
+          INSERT INTO "employees" (
+            "organization_id", "user_id", "department_id", "manager_id", "location_id",
+            "first_name", "last_name", "email", "status"
+          )
+          VALUES (
+            ${orgId}, ${userId}, ${engDeptId}, ${managerId}, ${locationId},
+            ${firstName}, ${lastName}, ${u.email}, 'active'
+          )
           RETURNING "id"
         `;
         const empId = empRows[0]?.["id"] as string;
+        if (u.role === "manager") {
+          managerEmpId = empId;
+        }
 
         // Employment
         await tx`

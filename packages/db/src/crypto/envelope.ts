@@ -14,6 +14,21 @@ const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12; // Standard 96-bit IV for GCM
 const KEY_LENGTH = 32; // 256 bits
 
+export function getMasterKeyFromEnv(): Buffer {
+  const envKey = process.env["ENVELOPE_MASTER_KEY"];
+  if (envKey) {
+    const buf = Buffer.from(envKey, "base64");
+    if (buf.length === KEY_LENGTH) {
+      return buf;
+    }
+  }
+  // Standard fallback for test / dev environment (32 bytes)
+  return Buffer.from(
+    "ZGV2X2VudmVsb3BlX21hc3Rlcl9rZXlfZm9yX2xvY2FsX2Rldg==",
+    "base64",
+  );
+}
+
 /**
  * Encrypts sensitive data using AES-256-GCM envelope encryption.
  * A fresh Data Encryption Key (DEK) is generated for each encryption,
@@ -21,7 +36,7 @@ const KEY_LENGTH = 32; // 256 bits
  */
 export function encryptEnvelope(
   plaintext: string,
-  masterKey: Buffer,
+  masterKey: Buffer = getMasterKeyFromEnv(),
   keyId: string = "v1",
 ): string {
   if (masterKey.length !== KEY_LENGTH) {
@@ -67,7 +82,7 @@ export function encryptEnvelope(
  */
 export function decryptEnvelope(
   encryptedPayload: string,
-  masterKey: Buffer,
+  masterKey: Buffer = getMasterKeyFromEnv(),
 ): string {
   if (masterKey.length !== KEY_LENGTH) {
     throw new Error(`Master key must be exactly ${KEY_LENGTH} bytes`);
