@@ -2,7 +2,10 @@
   "extends": "@openhr/config/tsconfig/node.json",
   "compilerOptions": {
     "rootDir": ".",
+    "outDir": "./dist",
+    "declarationDir": "./dist",
     "jsx": "react-jsx"
   },
-  "include": ["src/**/*", "test/**/*"]
+  "include": ["src/**/*", "test/**/*"],
+  "exclude": ["dist", "node_modules"]
 }

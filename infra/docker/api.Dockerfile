@@ -1,0 +1,31 @@
+# Multi-stage Dockerfile for @openhr/api
+FROM node:22-alpine AS base
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable && corepack prepare pnpm@10.5.2 --activate
+
+FROM base AS builder
+WORKDIR /app
+COPY pnpm-lock.yaml package.json pnpm-workspace.yaml turbo.json ./
+COPY packages ./packages
+COPY apps/api ./apps/api
+RUN pnpm install --frozen-lockfile
+RUN pnpm --filter @openhr/api build
+
+FROM base AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 openhr
+USER openhr
+
+COPY --from=builder --chown=openhr:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=openhr:nodejs /app/packages ./packages
+COPY --from=builder --chown=openhr:nodejs /app/apps/api ./apps/api
+
+EXPOSE 3001
+ENV PORT=3001
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3001/healthz || exit 1
+
+CMD ["node", "apps/api/dist/index.js"]

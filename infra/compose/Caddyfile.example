@@ -1,0 +1,36 @@
+# OpenHR Production Caddy Reverse Proxy Example
+# Replace {$DOMAIN} with your actual production FQDN, e.g. hr.company.com
+
+{$DOMAIN:localhost} {
+    encode gzip zstd
+
+    # API and health endpoints proxying
+    handle /api/healthz* {
+        reverse_proxy web:3000
+    }
+
+    handle /v1/* {
+        reverse_proxy api:3001
+    }
+
+    handle /healthz {
+        reverse_proxy api:3001
+    }
+
+    handle /readyz {
+        reverse_proxy api:3001
+    }
+
+    # Frontend web application
+    handle /* {
+        reverse_proxy web:3000
+    }
+
+    # Security headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+}

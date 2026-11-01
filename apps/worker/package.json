@@ -32,7 +32,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src test",
     "test": "vitest run",
-    "test:int": "vitest run test/*.int.test.ts",
+    "test:int": "vitest run test",
     "start": "node dist/index.js"
   }
 }

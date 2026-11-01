@@ -1,7 +1,10 @@
 {
   "extends": "@openhr/config/tsconfig/node.json",
   "compilerOptions": {
-    "rootDir": "."
+    "rootDir": ".",
+    "outDir": "./dist",
+    "declarationDir": "./dist"
   },
-  "include": ["src/**/*", "test/**/*"]
+  "include": ["src/**/*", "test/**/*"],
+  "exclude": ["dist", "node_modules"]
 }
