@@ -22,8 +22,8 @@ export const ListEmployeesQuerySchema = z.object({
   departmentId: z.string().uuid().optional(),
   locationId: z.string().uuid().optional(),
   status: EmployeeStatusSchema.optional(),
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  page: z.coerce.number().int().min(1).optional(),
+  pageSize: z.coerce.number().int().min(1).max(100).optional(),
 });
 export type ListEmployeesQuery = z.infer<typeof ListEmployeesQuerySchema>;
 
