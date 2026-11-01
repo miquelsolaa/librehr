@@ -5,6 +5,8 @@ import { Hono } from "hono";
 import type { Sql } from "postgres";
 import type { AuthPort } from "./ports/auth.js";
 import type { MailPort } from "./ports/mail.js";
+import type { StoragePort } from "./ports/storage.js";
+import { LocalStorageAdapter } from "./adapters/storage-local.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
 import { loggerMiddleware } from "./middleware/logger.js";
 import { securityHeadersMiddleware } from "./middleware/security-headers.js";
@@ -27,6 +29,10 @@ import { createNotificationRoutes } from "./routes/notifications.js";
 import { createTimeRoutes } from "./routes/time.js";
 import { createTimeCorrectionRoutes } from "./routes/time-corrections.js";
 import { createScheduleRoutes } from "./routes/schedules.js";
+import { createDocumentRoutes } from "./routes/documents.js";
+import { createChecklistRoutes } from "./routes/checklists.js";
+import { createEmployeeImportRoutes } from "./routes/employee-import.js";
+import { createDsrRoutes } from "./routes/dsr.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -34,6 +40,7 @@ export interface AppDependencies {
   sql: Sql;
   authPort: AuthPort;
   mailPort?: MailPort | undefined;
+  storagePort?: StoragePort | undefined;
 }
 
 export function createApp(deps: AppDependencies) {
@@ -89,6 +96,13 @@ export function createApp(deps: AppDependencies) {
   app.route("/v1", createTimeRoutes(deps.sql));
   app.route("/v1", createTimeCorrectionRoutes(deps.sql));
   app.route("/v1", createScheduleRoutes(deps.sql));
+
+  // M4 Modules
+  const storagePort = deps.storagePort ?? new LocalStorageAdapter();
+  app.route("/v1", createDocumentRoutes(deps.sql, storagePort));
+  app.route("/v1", createChecklistRoutes(deps.sql));
+  app.route("/v1", createEmployeeImportRoutes(deps.sql));
+  app.route("/v1", createDsrRoutes(deps.sql));
 
   // 5. RFC 9457 Problem Details Error Handler
   app.onError(errorHandler);
