@@ -4,3 +4,5 @@ export * from "./time/index.js";
 export * from "./ports/clock.js";
 export * from "./identity/index.js";
 export * from "./org/index.js";
+export * from "./documents/index.js";
+export * from "./lifecycle/index.js";
