@@ -10,8 +10,8 @@
   },
   "dependencies": {
     "@openhr/core": "workspace:*",
-    "@openhr/db": "workspace:*",
     "@testcontainers/postgresql": "^10.18.0",
+    "postgres": "^3.4.5",
     "testcontainers": "^10.18.0"
   },
   "devDependencies": {

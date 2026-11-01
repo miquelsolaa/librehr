@@ -306,6 +306,9 @@ importers:
       '@openhr/config':
         specifier: workspace:*
         version: link:../config
+      '@openhr/testing':
+        specifier: workspace:*
+        version: link:../testing
       '@types/node':
         specifier: ^22.13.4
         version: 22.20.5
@@ -382,12 +385,12 @@ importers:
       '@openhr/core':
         specifier: workspace:*
         version: link:../core
-      '@openhr/db':
-        specifier: workspace:*
-        version: link:../db
       '@testcontainers/postgresql':
         specifier: ^10.18.0
         version: 10.28.0
+      postgres:
+        specifier: ^3.4.5
+        version: 3.4.9
       testcontainers:
         specifier: ^10.18.0
         version: 10.28.0
