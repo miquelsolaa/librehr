@@ -151,5 +151,40 @@
     "roleAdmin": "Administrator",
     "sendInvite": "Send Invitation",
     "inviteSent": "Invitation sent successfully!"
+  },
+  "timeOff": {
+    "title": "Time Off & Leave",
+    "subtitle": "Track your statutory leave balances, submit absence requests, and see team schedules.",
+    "currentBalance": "Remaining Balance",
+    "totalAccrued": "Total Accrued",
+    "totalUsed": "Used to Date",
+    "totalCarryover": "Carryover",
+    "requestLeave": "Request Time Off",
+    "teamCalendar": "Team Absence Calendar",
+    "requestsTitle": "My Leave Requests",
+    "noRequests": "No leave requests found.",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "workingDays": "Working Days",
+    "leaveType": "Leave Type",
+    "status": "Status",
+    "actions": "Actions",
+    "cancel": "Cancel Request",
+    "confirmCancel": "Are you sure you want to cancel this request?",
+    "requestFormTitle": "New Time Off Request",
+    "halfDayStart": "Half-day start",
+    "halfDayEnd": "Half-day end",
+    "notes": "Notes (optional)",
+    "submitRequest": "Submit Request",
+    "requestSuccess": "Leave request submitted successfully!",
+    "calendarTitle": "Team Schedule & Absences",
+    "calendarSubtitle": "View scheduled team leaves and statutory public holidays.",
+    "filterDepartment": "All Departments"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "No new notifications",
+    "markRead": "Mark as read",
+    "unreadCount": "{count} unread notifications"
   }
 }

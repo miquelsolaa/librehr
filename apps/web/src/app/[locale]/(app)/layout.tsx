@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { ThemeToggle } from "../../../components/theme-toggle";
 import { LanguageSwitcher } from "../../../components/language-switcher";
+import { NotificationBell } from "../../../components/notification-bell";
 import { getStoredSession } from "@/lib/auth";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -111,6 +112,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <Topbar
           actions={
             <div className="flex items-center gap-2">
+              <NotificationBell />
               <LanguageSwitcher />
               <ThemeToggle />
             </div>

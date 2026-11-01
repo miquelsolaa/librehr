@@ -1,0 +1,183 @@
+"use client";
+
+import * as React from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { Button } from "@openhr/ui";
+import {
+  ArrowLeft,
+  Users,
+  Calendar as CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import { getStoredSession } from "@/lib/auth";
+import { getApiClient } from "@/lib/api-client";
+import type { TeamAbsence } from "@openhr/contracts";
+
+export default function TeamCalendarPage() {
+  const params = useParams();
+  const locale = (params?.["locale"] as string | undefined) ?? "ca";
+
+  const t = useTranslations("timeOff");
+
+  const [absences, setAbsences] = React.useState<TeamAbsence[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [currentMonth, setCurrentMonth] = React.useState(new Date());
+
+  const fetchAbsences = React.useCallback(async () => {
+    const session = getStoredSession();
+    if (!session?.token) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const startOfMonth = new Date(
+        currentMonth.getFullYear(),
+        currentMonth.getMonth(),
+        1,
+      )
+        .toISOString()
+        .slice(0, 10);
+
+      const endOfMonth = new Date(
+        currentMonth.getFullYear(),
+        currentMonth.getMonth() + 1,
+        0,
+      )
+        .toISOString()
+        .slice(0, 10);
+
+      const client = getApiClient(session.token);
+      const res = await client.listTeamAbsences({
+        startDate: startOfMonth,
+        endDate: endOfMonth,
+      });
+
+      setAbsences(res);
+    } catch {
+      // Fallback
+    } finally {
+      setLoading(false);
+    }
+  }, [currentMonth]);
+
+  React.useEffect(() => {
+    void fetchAbsences();
+  }, [fetchAbsences]);
+
+  const prevMonth = () => {
+    setCurrentMonth(
+      new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1),
+    );
+  };
+
+  const nextMonth = () => {
+    setCurrentMonth(
+      new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1),
+    );
+  };
+
+  const monthName = currentMonth.toLocaleDateString(locale, {
+    month: "long",
+    year: "numeric",
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-2">
+        <Link
+          href={`/${locale}/time-off`}
+          className="flex items-center text-sm font-medium text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="mr-1 h-4 w-4" />
+          Back to Time Off
+        </Link>
+      </div>
+
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            {t("calendarTitle")}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t("calendarSubtitle")}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={prevMonth} className="p-2">
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="min-w-36 text-center text-sm font-semibold capitalize text-foreground">
+            {monthName}
+          </span>
+          <Button variant="outline" onClick={nextMonth} className="p-2">
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-border">
+          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <Users className="h-4 w-4 text-primary" />
+            Scheduled Absences ({absences.length})
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Privacy: Statutory details masked for non-manager roles (GDPR Art.
+            9)
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="py-12 text-center text-sm text-muted-foreground">
+            Loading team schedule...
+          </div>
+        ) : absences.length === 0 ? (
+          <div className="py-12 text-center text-sm text-muted-foreground">
+            No absences scheduled for this month.
+          </div>
+        ) : (
+          <div className="divide-y divide-border">
+            {absences.map((a) => (
+              <div
+                key={a.requestId}
+                className="flex items-center justify-between py-3 hover:bg-muted/30 px-2 rounded-lg"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                    {a.employeeName.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      {a.employeeName}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {a.departmentName || "General"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                    {a.leaveTypeName}
+                  </span>
+                  <div className="text-right text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1 font-medium text-foreground">
+                      <CalendarIcon className="h-3 w-3" />
+                      {a.startDate}{" "}
+                      {a.startDate !== a.endDate ? `to ${a.endDate}` : ""}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

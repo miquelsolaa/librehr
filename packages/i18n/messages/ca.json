@@ -151,5 +151,40 @@
     "roleAdmin": "Administrador",
     "sendInvite": "Enviar Invitació",
     "inviteSent": "Invitació enviada correctament!"
+  },
+  "timeOff": {
+    "title": "Vacances i Absències",
+    "subtitle": "Consulta els teus saldos de vacances, sol·licita permisos i revisa el calendari de l'equip.",
+    "currentBalance": "Saldo Disponible",
+    "totalAccrued": "Total Meritat",
+    "totalUsed": "Consumit",
+    "totalCarryover": "Romanent d'any anterior",
+    "requestLeave": "Sol·licitar Permís",
+    "teamCalendar": "Calendari de l'Equip",
+    "requestsTitle": "Les Meves Sol·licituds de Permís",
+    "noRequests": "No hi ha sol·licituds registrades.",
+    "startDate": "Data Inici",
+    "endDate": "Data Fi",
+    "workingDays": "Dies Laborables",
+    "leaveType": "Tipus de Permís",
+    "status": "Estat",
+    "actions": "Accions",
+    "cancel": "Cancel·lar Sol·licitud",
+    "confirmCancel": "Segur que vols cancel·lar aquesta sol·licitud?",
+    "requestFormTitle": "Nova Sol·licitud de Permís",
+    "halfDayStart": "Mitja jornada a l'inici",
+    "halfDayEnd": "Mitja jornada al final",
+    "notes": "Notes (opcional)",
+    "submitRequest": "Enviar Sol·licitud",
+    "requestSuccess": "Sol·licitud enviada correctament!",
+    "calendarTitle": "Calendari d'Equip i Festius",
+    "calendarSubtitle": "Visualitza absències programades i festius oficials.",
+    "filterDepartment": "Tots els departaments"
+  },
+  "notifications": {
+    "title": "Notificacions",
+    "empty": "No tens notificacions pendents",
+    "markRead": "Marcar com a llegida",
+    "unreadCount": "{count} notificacions no llegides"
   }
 }

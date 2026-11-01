@@ -151,5 +151,40 @@
     "roleAdmin": "Administrador",
     "sendInvite": "Enviar Invitación",
     "inviteSent": "¡Invitación enviada correctamente!"
+  },
+  "timeOff": {
+    "title": "Vacaciones y Ausencias",
+    "subtitle": "Consulta tus saldos de vacaciones, solicita permisos y revisa el calendario del equipo.",
+    "currentBalance": "Saldo Disponible",
+    "totalAccrued": "Total Devengado",
+    "totalUsed": "Consumido",
+    "totalCarryover": "Arrastre de año anterior",
+    "requestLeave": "Solicitar Permiso",
+    "teamCalendar": "Calendario del Equipo",
+    "requestsTitle": "Mis Solicitudes de Permiso",
+    "noRequests": "No hay solicitudes registradas.",
+    "startDate": "Fecha Inicio",
+    "endDate": "Fecha Fin",
+    "workingDays": "Días Laborables",
+    "leaveType": "Tipo de Permiso",
+    "status": "Estado",
+    "actions": "Acciones",
+    "cancel": "Cancelar Solicitud",
+    "confirmCancel": "¿Seguro que deseas cancelar esta solicitud?",
+    "requestFormTitle": "Nueva Solicitud de Permiso",
+    "halfDayStart": "Media jornada al inicio",
+    "halfDayEnd": "Media jornada al final",
+    "notes": "Notas (opcional)",
+    "submitRequest": "Enviar Solicitud",
+    "requestSuccess": "¡Solicitud enviada correctamente!",
+    "calendarTitle": "Calendario de Equipo y Festivos",
+    "calendarSubtitle": "Visualiza ausencias programadas y festivos oficiales.",
+    "filterDepartment": "Todos los departamentos"
+  },
+  "notifications": {
+    "title": "Notificaciones",
+    "empty": "No tienes notificaciones pendientes",
+    "markRead": "Marcar como leída",
+    "unreadCount": "{count} notificaciones no leídas"
   }
 }
