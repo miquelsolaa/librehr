@@ -1,5 +1,6 @@
 import * as React from "react";
 import { cn } from "../lib/cn.js";
+import { OpenHRMark } from "../icons/index.js";
 
 export interface NavItem {
   href: string;
@@ -35,9 +36,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     >
       <div className="flex h-16 items-center gap-3 border-b border-border px-6">
         {logo ?? (
-          <div className="flex h-8 w-8 items-center justify-center rounded bg-primary text-primary-foreground font-bold text-sm">
-            OH
-          </div>
+          <OpenHRMark size={32} className="text-primary flex-shrink-0" />
         )}
         <div className="flex flex-col overflow-hidden">
           <span className="truncate text-sm font-semibold text-foreground">

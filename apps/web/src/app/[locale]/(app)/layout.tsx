@@ -3,17 +3,21 @@
 import * as React from "react";
 import { usePathname, useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Sidebar, Topbar, BottomNav, Avatar, type NavItem } from "@openhr/ui";
 import {
-  Home,
-  Users,
-  Calendar,
-  Clock,
-  FileText,
-  UserCheck,
-  BarChart3,
-  Settings,
-} from "lucide-react";
+  Sidebar,
+  Topbar,
+  BottomNav,
+  Avatar,
+  type NavItem,
+  IconEmployees,
+  IconTimeOff,
+  IconClockIn,
+  IconDocuments,
+  IconOnboarding,
+  IconReports,
+  IconSettings,
+} from "@openhr/ui";
+import { Home } from "lucide-react";
 import { ThemeToggle } from "../../../components/theme-toggle";
 import { LanguageSwitcher } from "../../../components/language-switcher";
 import { NotificationBell } from "../../../components/notification-bell";
@@ -45,37 +49,37 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     {
       href: `/${locale}/people`,
       label: tNav("people"),
-      icon: <Users className="h-4 w-4" />,
+      icon: <IconEmployees size={16} />,
     },
     {
       href: `/${locale}/time-off`,
       label: tNav("timeOff"),
-      icon: <Calendar className="h-4 w-4" />,
+      icon: <IconTimeOff size={16} />,
     },
     {
       href: `/${locale}/time`,
       label: tNav("time"),
-      icon: <Clock className="h-4 w-4" />,
+      icon: <IconClockIn size={16} />,
     },
     {
       href: `/${locale}/documents`,
       label: tNav("documents"),
-      icon: <FileText className="h-4 w-4" />,
+      icon: <IconDocuments size={16} />,
     },
     {
       href: `/${locale}/onboarding`,
       label: tNav("onboarding"),
-      icon: <UserCheck className="h-4 w-4" />,
+      icon: <IconOnboarding size={16} />,
     },
     {
       href: `/${locale}/reports`,
       label: tNav("reports"),
-      icon: <BarChart3 className="h-4 w-4" />,
+      icon: <IconReports size={16} />,
     },
     {
       href: `/${locale}/settings`,
       label: tNav("settings"),
-      icon: <Settings className="h-4 w-4" />,
+      icon: <IconSettings size={16} />,
     },
   ];
 

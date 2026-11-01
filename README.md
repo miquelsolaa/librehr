@@ -13,15 +13,15 @@
 <br />
 <div align="center">
   <a href="https://github.com/miquelsolaa/openhr">
-    <img src="apps/web/public/icons/icon-192.svg" alt="OpenHR Logo" width="80" height="80">
+    <img src="docs/images/banner.png" alt="OpenHR — Open-Source HRIS for European SMBs" width="100%">
   </a>
-
-  <h3 align="center">OpenHR</h3>
 
   <p align="center">
     Open-source (AGPL-3.0), self-hostable, multi-tenant Human Resources Information System (HRIS) designed for European SMBs, starting with Spain and Catalonia.
     <br />
     <a href="docs/index.md"><strong>Explore the docs »</strong></a>
+    &middot;
+    <a href="docs/brand.md">Brand Assets</a>
     <br />
     <br />
     <a href="http://localhost:3000">View Demo</a>

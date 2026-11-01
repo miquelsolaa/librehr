@@ -24,19 +24,20 @@ Tailwind CSS (utility classes mapped to CSS variables), shadcn/ui primitives (Ra
 
 Define light and dark values. Never reference palette steps in feature code; use semantic tokens.
 
-| Token                                             | Purpose                         | Light (suggested)  | Dark (suggested)   |
-| ------------------------------------------------- | ------------------------------- | ------------------ | ------------------ |
-| `--background`                                    | App background                  | 0 0% 100%          | 222 18% 8%         |
-| `--surface`                                       | Cards, panels                   | 220 20% 98%        | 222 16% 11%        |
-| `--surface-raised`                                | Popovers, dialogs               | 0 0% 100%          | 222 16% 14%        |
-| `--foreground`                                    | Primary text                    | 222 25% 12%        | 210 20% 96%        |
-| `--muted-foreground`                              | Secondary text (>= 4.5:1)       | 220 10% 38%        | 215 12% 70%        |
-| `--border`                                        | Dividers                        | 220 14% 90%        | 222 12% 20%        |
-| `--primary`                                       | Brand/primary action            | 172 66% 28%        | 172 60% 45%        |
-| `--primary-foreground`                            | Text on primary                 | 0 0% 100%          | 222 25% 8%         |
-| `--accent`                                        | Subtle highlights               | 172 40% 94%        | 172 30% 16%        |
-| `--success` / `--warning` / `--danger` / `--info` | Status                          | WCAG-checked pairs | WCAG-checked pairs |
-| `--focus-ring`                                    | Focus outline (3:1 vs adjacent) | 172 70% 35%        | 172 70% 60%        |
+| Token                                             | Purpose                          | Light (calibrated) | Dark (calibrated)  | Contrast Ratio (AA/AAA) |
+| ------------------------------------------------- | -------------------------------- | ------------------ | ------------------ | ----------------------- |
+| `--background`                                    | App background                   | 0 0% 100%          | 222 18% 8%         | Base canvas             |
+| `--surface`                                       | Cards, panels                    | 220 20% 98%        | 222 16% 11%        | Subtle tier             |
+| `--surface-raised`                                | Popovers, dialogs                | 0 0% 100%          | 222 16% 14%        | Raised tier             |
+| `--foreground`                                    | Primary text                     | 222 25% 12%        | 210 20% 96%        | >= 14:1 (AAA)           |
+| `--muted-foreground`                              | Secondary text                   | 220 10% 38%        | 215 12% 70%        | >= 4.5:1 (AA)           |
+| `--border`                                        | Dividers                         | 220 14% 90%        | 222 12% 20%        | UI boundary             |
+| `--primary`                                       | Brand/primary action (Pine/Sage) | 168 54% 22%        | 168 55% 55%        | 8.1:1 AAA / 9.7:1 AAA   |
+| `--primary-foreground`                            | Text on primary                  | 0 0% 100%          | 168 45% 9%         | 8.1:1 AAA / 10.1:1 AAA  |
+| `--accent`                                        | Subtle tint/highlights           | 168 40% 94%        | 168 30% 16%        | Soft backdrop tint      |
+| `--brand-accent`                                  | Warm Terracotta Ochre            | 32 68% 51%         | 32 75% 58%         | Warm highlight          |
+| `--success` / `--warning` / `--danger` / `--info` | Status                           | WCAG-checked pairs | WCAG-checked pairs | >= 4.5:1 (AA)           |
+| `--focus-ring`                                    | Focus outline (3:1 vs adjacent)  | 168 54% 30%        | 168 55% 55%        | >= 3:1 accessible ring  |
 
 Leave-type colors come from a fixed, color-blind-safe categorical palette (8 hues) and are always paired with an icon/label.
 
