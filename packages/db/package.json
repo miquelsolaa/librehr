@@ -9,6 +9,7 @@
     ".": "./src/index.ts",
     "./schema": "./src/schema/index.ts",
     "./with-tenant": "./src/with-tenant.ts",
+    "./migrate": "./src/migrate.ts",
     "./crypto/*": "./src/crypto/*.ts",
     "./repositories/*": "./src/repositories/*.ts"
   },

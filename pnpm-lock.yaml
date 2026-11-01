@@ -80,6 +80,9 @@ importers:
       pino-pretty:
         specifier: ^13.0.0
         version: 13.2.0
+      postgres:
+        specifier: ^3.4.5
+        version: 3.4.9
       zod:
         specifier: ^3.24.2
         version: 3.25.76
