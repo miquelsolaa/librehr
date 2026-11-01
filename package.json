@@ -21,6 +21,7 @@
     "test": "turbo run test",
     "test:int": "turbo run test:int",
     "test:e2e": "pnpm --filter web test:e2e",
+    "build": "turbo run build",
     "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm test:int && pnpm i18n:check && turbo run build",
     "contracts:generate": "pnpm --filter @openhr/contracts generate",
     "i18n:check": "pnpm --filter @openhr/i18n check",
