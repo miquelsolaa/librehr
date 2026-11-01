@@ -1,7 +1,6 @@
-import type { Config } from "tailwindcss";
-
-export const openhrTailwindPreset: Partial<Config> = {
+export const openhrTailwindPreset = {
   darkMode: ["class"],
+
   theme: {
     extend: {
       colors: {

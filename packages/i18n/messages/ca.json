@@ -1,0 +1,55 @@
+{
+  "common": {
+    "appName": "OpenHR",
+    "loading": "Carregant...",
+    "save": "Desar",
+    "cancel": "Cancel·lar",
+    "confirm": "Confirmar",
+    "delete": "Eliminar",
+    "search": "Cercar",
+    "theme": {
+      "light": "Clar",
+      "dark": "Fosc",
+      "system": "Sistema"
+    },
+    "language": "Idioma",
+    "required": "(obligatori)"
+  },
+  "auth": {
+    "signInTitle": "Inicia sessió a OpenHR",
+    "signInDescription": "Introdueix les teves credencials per accedir al teu espai.",
+    "emailLabel": "Correu electrònic",
+    "emailPlaceholder": "el.teu.nom@empresa.cat",
+    "passwordLabel": "Contrasenya",
+    "passwordPlaceholder": "••••••••",
+    "signInButton": "Inicia sessió",
+    "signOut": "Tanca la sessió",
+    "invalidCredentials": "El correu o la contrasenya no són correctes."
+  },
+  "nav": {
+    "home": "Inici",
+    "people": "Equip",
+    "timeOff": "Vacances",
+    "time": "Jornada",
+    "documents": "Documents",
+    "onboarding": "Acollida",
+    "reports": "Informes",
+    "settings": "Configuració"
+  },
+  "errors": {
+    "generic": "S'ha produït un error inesperat.",
+    "notFound": "No s'ha trobat el recurs sol·licitat.",
+    "unauthorized": "Cal iniciar sessió per accedir-hi.",
+    "forbidden": "No tens permís per realitzar aquesta acció."
+  },
+  "home": {
+    "welcome": "Hola, {name}",
+    "organization": "Organització: {orgName}",
+    "apiHealth": "Estat de l'API: {status}",
+    "quickActions": "Accions ràpides",
+    "clockIn": "Registrar entrada",
+    "requestLeave": "Demanar vacances",
+    "emptyModuleTitle": "Mòdul en construcció",
+    "emptyModuleDescription": "Aquesta funcionalitat s'activarà en les properes fites segons el full de ruta."
+  }
+}

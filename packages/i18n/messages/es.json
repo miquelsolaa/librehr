@@ -1,0 +1,55 @@
+{
+  "common": {
+    "appName": "OpenHR",
+    "loading": "Cargando...",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "delete": "Eliminar",
+    "search": "Buscar",
+    "theme": {
+      "light": "Claro",
+      "dark": "Oscuro",
+      "system": "Sistema"
+    },
+    "language": "Idioma",
+    "required": "(requerido)"
+  },
+  "auth": {
+    "signInTitle": "Iniciar sesión en OpenHR",
+    "signInDescription": "Introduce tus credenciales para acceder a tu espacio.",
+    "emailLabel": "Correo electrónico",
+    "emailPlaceholder": "tu.nombre@empresa.es",
+    "passwordLabel": "Contraseña",
+    "passwordPlaceholder": "••••••••",
+    "signInButton": "Iniciar sesión",
+    "signOut": "Cerrar sesión",
+    "invalidCredentials": "El correo o la contraseña no son correctos."
+  },
+  "nav": {
+    "home": "Inicio",
+    "people": "Equipo",
+    "timeOff": "Vacaciones",
+    "time": "Jornada",
+    "documents": "Documentos",
+    "onboarding": "Acogida",
+    "reports": "Informes",
+    "settings": "Configuración"
+  },
+  "errors": {
+    "generic": "Se ha producido un error inesperado.",
+    "notFound": "No se ha encontrado el recurso solicitado.",
+    "unauthorized": "Es necesario iniciar sesión para acceder.",
+    "forbidden": "No tienes permiso para realizar esta acción."
+  },
+  "home": {
+    "welcome": "Hola, {name}",
+    "organization": "Organización: {orgName}",
+    "apiHealth": "Estado de la API: {status}",
+    "quickActions": "Acciones rápidas",
+    "clockIn": "Fichar entrada",
+    "requestLeave": "Solicitar vacaciones",
+    "emptyModuleTitle": "Módulo en construcción",
+    "emptyModuleDescription": "Esta funcionalidad se habilitará en los próximos hitos según la hoja de ruta."
+  }
+}

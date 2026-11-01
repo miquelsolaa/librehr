@@ -1,0 +1,55 @@
+{
+  "common": {
+    "appName": "OpenHR",
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "search": "Search",
+    "theme": {
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    },
+    "language": "Language",
+    "required": "(required)"
+  },
+  "auth": {
+    "signInTitle": "Sign in to OpenHR",
+    "signInDescription": "Enter your credentials to access your workspace.",
+    "emailLabel": "Email address",
+    "emailPlaceholder": "your.name@company.com",
+    "passwordLabel": "Password",
+    "passwordPlaceholder": "••••••••",
+    "signInButton": "Sign in",
+    "signOut": "Sign out",
+    "invalidCredentials": "The email or password provided is incorrect."
+  },
+  "nav": {
+    "home": "Home",
+    "people": "People",
+    "timeOff": "Time off",
+    "time": "Time tracking",
+    "documents": "Documents",
+    "onboarding": "Onboarding",
+    "reports": "Reports",
+    "settings": "Settings"
+  },
+  "errors": {
+    "generic": "An unexpected error occurred.",
+    "notFound": "The requested resource could not be found.",
+    "unauthorized": "Sign in is required to access this resource.",
+    "forbidden": "You do not have permission to perform this action."
+  },
+  "home": {
+    "welcome": "Hello, {name}",
+    "organization": "Organization: {orgName}",
+    "apiHealth": "API Status: {status}",
+    "quickActions": "Quick actions",
+    "clockIn": "Clock in",
+    "requestLeave": "Request time off",
+    "emptyModuleTitle": "Module under construction",
+    "emptyModuleDescription": "This functionality will be enabled in upcoming milestones according to the roadmap."
+  }
+}
