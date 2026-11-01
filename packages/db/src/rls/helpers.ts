@@ -8,6 +8,13 @@ export const TENANT_TABLES = [
   "employees",
   "employments",
   "leave_ledger",
+  "leave_types",
+  "leave_policies",
+  "leave_policy_assignments",
+  "holiday_calendars",
+  "holidays",
+  "leave_requests",
+  "notifications",
   "time_events",
   "audit_log",
 ] as const;

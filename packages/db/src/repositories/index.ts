@@ -5,3 +5,6 @@ export * from "./department.repository.js";
 export * from "./location.repository.js";
 export * from "./invitation.repository.js";
 export * from "./audit.repository.js";
+export * from "./leave.repository.js";
+export * from "./holiday.repository.js";
+export * from "./notification.repository.js";
