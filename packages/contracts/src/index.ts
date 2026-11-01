@@ -2,6 +2,7 @@ export * from "./common.js";
 export * from "./errors.js";
 export * from "./auth.js";
 export * from "./org.js";
+export * from "./invitations.js";
 export * from "./permissions.js";
 export * from "./employees.js";
 export * from "./leave.js";
