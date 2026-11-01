@@ -12,7 +12,7 @@
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
-  <a href="https://github.com/openhr-project/openhr">
+  <a href="https://github.com/miquelsolaa/openhr">
     <img src="apps/web/public/icons/icon-192.svg" alt="OpenHR Logo" width="80" height="80">
   </a>
 
@@ -26,9 +26,9 @@
     <br />
     <a href="http://localhost:3000">View Demo</a>
     &middot;
-    <a href="https://github.com/openhr-project/openhr/issues/new?labels=bug">Report Bug</a>
+    <a href="https://github.com/miquelsolaa/openhr/issues/new?labels=bug">Report Bug</a>
     &middot;
-    <a href="https://github.com/openhr-project/openhr/issues/new?labels=enhancement">Request Feature</a>
+    <a href="https://github.com/miquelsolaa/openhr/issues/new?labels=enhancement">Request Feature</a>
     &middot;
     <a href="docs/guides/self-hosting.md">Self-Hosting Guide</a>
   </p>
@@ -75,6 +75,8 @@
 
 ## About The Project
 
+[![OpenHR Dashboard Preview][dashboard-light-screenshot]](https://github.com/miquelsolaa/openhr)
+
 > [!IMPORTANT]
 > **Clean-Room Guarantee:** OpenHR is designed and built strictly from first principles, public statutory law, and generic domain expertise. It is not affiliated with, nor copied from, any commercial HR vendor. See [`CLEANROOM.md`](CLEANROOM.md).
 
@@ -84,6 +86,32 @@ OpenHR is an open-source HRIS purpose-built to free European SMBs from proprieta
 - **First-Class European Leave Management:** Ledger-based leave tracking (no mutable balance columns), half-days, location-based public holiday calendars (national, regional, and municipal), and strict statutory carry-over policies.
 - **Privacy & GDPR by Design:** Fine-grained PostgreSQL Row-Level Security (RLS) ensuring strict multi-tenant isolation, AES-256-GCM envelope encryption for sensitive fields, structured ROPA templates, and zero third-party telemetry.
 - **Trilingual Native Experience:** Fully symmetric language support across Catalan (`ca`), Spanish (`es`), and English (`en`).
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+### Screenshots
+
+<div align="center">
+
+#### Modern Dashboard & Dark Mode
+
+|                                    Light Theme                                    |                                   Dark Theme                                   |
+| :-------------------------------------------------------------------------------: | :----------------------------------------------------------------------------: |
+| [![Dashboard Light][dashboard-light-screenshot]](docs/images/dashboard-light.png) | [![Dashboard Dark][dashboard-dark-screenshot]](docs/images/dashboard-dark.png) |
+
+#### Employee Management & Time Off
+
+|                        Employee Directory                        |                      Statutory Leave & Balances                      |
+| :--------------------------------------------------------------: | :------------------------------------------------------------------: |
+| [![People Directory][people-screenshot]](docs/images/people.png) | [![Time Off & Leave][time-off-screenshot]](docs/images/time-off.png) |
+
+#### First-Run Experience
+
+|                    Setup & Legal Entity Wizard                    |                   Clean Authentication                    |
+| :---------------------------------------------------------------: | :-------------------------------------------------------: |
+| [![Setup Wizard][setup-screenshot]](docs/images/setup-wizard.png) | [![Sign In][sign-in-screenshot]](docs/images/sign-in.png) |
+
+</div>
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -340,18 +368,24 @@ Distributed under the **GNU Affero General Public License v3.0 or later (AGPL-3.
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
 
-[contributors-shield]: https://img.shields.io/github/contributors/openhr-project/openhr.svg?style=for-the-badge
-[contributors-url]: https://github.com/openhr-project/openhr/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/openhr-project/openhr.svg?style=for-the-badge
-[forks-url]: https://github.com/openhr-project/openhr/network/members
-[stars-shield]: https://img.shields.io/github/stars/openhr-project/openhr.svg?style=for-the-badge
-[stars-url]: https://github.com/openhr-project/openhr/stargazers
-[issues-shield]: https://img.shields.io/github/issues/openhr-project/openhr.svg?style=for-the-badge
-[issues-url]: https://github.com/openhr-project/openhr/issues
+[contributors-shield]: https://img.shields.io/github/contributors/miquelsolaa/openhr.svg?style=for-the-badge
+[contributors-url]: https://github.com/miquelsolaa/openhr/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/miquelsolaa/openhr.svg?style=for-the-badge
+[forks-url]: https://github.com/miquelsolaa/openhr/network/members
+[stars-shield]: https://img.shields.io/github/stars/miquelsolaa/openhr.svg?style=for-the-badge
+[stars-url]: https://github.com/miquelsolaa/openhr/stargazers
+[issues-shield]: https://img.shields.io/github/issues/miquelsolaa/openhr.svg?style=for-the-badge
+[issues-url]: https://github.com/miquelsolaa/openhr/issues
 [license-shield]: https://img.shields.io/badge/License-AGPL_v3-blue.svg?style=for-the-badge
 [license-url]: https://www.gnu.org/licenses/agpl-3.0
-[ci-shield]: https://img.shields.io/github/actions/workflow/status/openhr-project/openhr/ci.yml?branch=main&style=for-the-badge&label=CI
-[ci-url]: https://github.com/openhr-project/openhr/actions
+[ci-shield]: https://img.shields.io/github/actions/workflow/status/miquelsolaa/openhr/ci.yml?branch=main&style=for-the-badge&label=CI
+[ci-url]: https://github.com/miquelsolaa/openhr/actions
+[dashboard-light-screenshot]: docs/images/dashboard-light.png
+[dashboard-dark-screenshot]: docs/images/dashboard-dark.png
+[setup-screenshot]: docs/images/setup-wizard.png
+[time-off-screenshot]: docs/images/time-off.png
+[people-screenshot]: docs/images/people.png
+[sign-in-screenshot]: docs/images/sign-in.png
 [Next.js]: https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white
 [Next-url]: https://nextjs.org/
 [TypeScript]: https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white
