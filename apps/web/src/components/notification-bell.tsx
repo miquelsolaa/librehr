@@ -49,6 +49,20 @@ export function NotificationBell() {
     }
   };
 
+  const markAllRead = async () => {
+    const session = getStoredSession();
+    if (!session?.token) return;
+
+    try {
+      const client = getApiClient(session.token);
+      await client.markAllNotificationsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      setUnreadCount(0);
+    } catch {
+      // Ignore
+    }
+  };
+
   return (
     <div className="relative">
       <button
@@ -71,9 +85,20 @@ export function NotificationBell() {
             <h4 className="text-sm font-semibold text-foreground">
               {t("title")}
             </h4>
-            <span className="text-xs text-muted-foreground">
-              {t("unreadCount", { count: unreadCount })}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                {t("unreadCount", { count: unreadCount })}
+              </span>
+              {unreadCount > 0 && (
+                <button
+                  type="button"
+                  onClick={markAllRead}
+                  className="text-[11px] text-primary hover:underline font-medium"
+                >
+                  Mark all read
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="mt-2 max-h-64 overflow-y-auto space-y-2">

@@ -49,6 +49,23 @@ export default function DocumentsPage() {
   );
   const [bulkProcessing, setBulkProcessing] = React.useState(false);
 
+  // Document acknowledgements (DOC-006)
+  const [acknowledgedDocs, setAcknowledgedDocs] = React.useState<Set<string>>(
+    new Set(),
+  );
+
+  const handleAcknowledge = async (docId: string) => {
+    const session = getStoredSession();
+    if (!session?.token) return;
+    try {
+      const client = getApiClient(session.token);
+      await client.acknowledgeDocument(docId);
+      setAcknowledgedDocs((prev) => new Set([...prev, docId]));
+    } catch {
+      // handled
+    }
+  };
+
   const fetchDocuments = React.useCallback(async () => {
     const session = getStoredSession();
     if (!session?.token) {
@@ -349,6 +366,24 @@ export default function DocumentsPage() {
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-2">
+                            {(doc.category === "company_policies" ||
+                              !doc.employeeName) &&
+                              (acknowledgedDocs.has(doc.id) ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 bg-emerald-500/10 px-2 py-1 rounded font-medium">
+                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                  <span>Acknowledged</span>
+                                </span>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-xs gap-1 text-primary border-primary/30 hover:bg-primary/10"
+                                  onClick={() => handleAcknowledge(doc.id)}
+                                >
+                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                  <span>Acknowledge</span>
+                                </Button>
+                              ))}
                             <Button
                               variant="ghost"
                               size="sm"

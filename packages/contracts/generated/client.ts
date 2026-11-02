@@ -326,6 +326,23 @@ export class LibreHrApiClient {
     });
   }
 
+  async markAllNotificationsRead(): Promise<{ success: boolean; count: number }> {
+    return this.request<{ success: boolean; count: number }>('/v1/notifications/read-all', {
+      method: 'POST',
+    });
+  }
+
+  // Document Acknowledgement (DOC-006)
+  async acknowledgeDocument(id: string): Promise<{ success: boolean; acknowledgedAt: string }> {
+    return this.request<{ success: boolean; acknowledgedAt: string }>(`/v1/documents/${id}/acknowledge`, {
+      method: 'POST',
+    });
+  }
+
+  async getDocumentAcknowledgements(id: string): Promise<{ id: string; employeeId: string; employeeName: string; acknowledgedAt: string }[]> {
+    return this.request<{ id: string; employeeId: string; employeeName: string; acknowledgedAt: string }[]>(`/v1/documents/${id}/acknowledgements`);
+  }
+
   // Time tracking (M3)
   async getClockStatus(): Promise<ClockStatusResponse> {
     return this.request<ClockStatusResponse>('/v1/time/current-status');

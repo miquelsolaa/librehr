@@ -6,13 +6,50 @@ This plan outlines the systematic implementation of all remaining **P1 (Should-H
 
 ## Phase Overview
 
-| Phase       | Focus Area                                         | PRD Target Requirements                    | Primary Deliverables                                                                                                              |
-| ----------- | -------------------------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| **Phase 1** | **Org Structure & Employee Self-Service**          | `ORG-004`, `ORG-005`, `EMP-002`, `EMP-005` | Visual interactive Org Chart, Custom Fields system (definitions & values), Emergency Contacts, and Employee Profile Self-Service. |
-| **Phase 2** | **In-App Notifications & Document Acknowledgment** | `NOT-002`, `DOC-006`                       | In-app notification center (topbar bell, unread count, badge, notification drawer/feed), Policy read receipts & timestamps.       |
-| **Phase 3** | **Advanced Working Time & Kiosk Mode**             | `TIM-010`, `TIM-008`, `TIM-012`            | Tablet Kiosk Mode with quick PIN/QR clock-in (`/kiosk`), Read-only Labour Inspector role, Time bank / compensatory overtime rest. |
-| **Phase 4** | **Advanced Leave & Team Coverage**                 | `LEA-007`, `LEA-008`                       | Team coverage threshold warnings/blocks, Manager absence delegate approval chains.                                                |
-| **Phase 5** | **Enterprise Auth & Security Hardening**           | `AUTH-003`, `AUTH-004`, `DOC-007`          | Organization-level enforced 2FA TOTP, OIDC Enterprise SSO (Google/Microsoft), Document templates with merge fields.               |
+| Phase       | Focus Area                                         | PRD Target Requirements                    | Primary Deliverables                                                                                                              | Status          |
+| ----------- | -------------------------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| **Phase 1** | **Org Structure & Employee Self-Service**          | `ORG-004`, `ORG-005`, `EMP-002`, `EMP-005` | Visual interactive Org Chart, Custom Fields system (definitions & values), Emergency Contacts, and Employee Profile Self-Service. | **Completed**   |
+| **Phase 2** | **In-App Notifications & Document Acknowledgment** | `NOT-002`, `DOC-006`                       | In-app notification center (topbar bell, unread count, badge, notification drawer/feed), Policy read receipts & timestamps.       | **Completed**   |
+| **Phase 3** | **Advanced Working Time & Kiosk Mode**             | `TIM-010`, `TIM-008`, `TIM-012`            | Tablet Kiosk Mode with quick PIN/QR clock-in (`/kiosk`), Read-only Labour Inspector role, Time bank / compensatory overtime rest. | **In Progress** |
+| **Phase 4** | **Advanced Leave & Team Coverage**                 | `LEA-007`, `LEA-008`                       | Team coverage threshold warnings/blocks, Manager absence delegate approval chains.                                                | Planned         |
+| **Phase 5** | **Enterprise Auth & Security Hardening**           | `AUTH-003`, `AUTH-004`, `DOC-007`          | Organization-level enforced 2FA TOTP, OIDC Enterprise SSO (Google/Microsoft), Document templates with merge fields.               | Planned         |
+
+---
+
+## Detailed Specification: Phase 2 (In-App Notifications & Document Acknowledgment) - COMPLETED
+
+### 1. Requirements in Scope
+
+- **`NOT-002` (P1): In-App Notification Center**
+  - Notification bell in header showing live unread count badge.
+  - Dropdown drawer listing recent notification items (leave status changes, policy updates, assigned tasks).
+  - Ability to click an individual notification to mark as read and navigate.
+  - "Mark all as read" batch endpoint `POST /v1/notifications/read-all`.
+- **`DOC-006` (P1): Policy Acknowledgment & Read Receipts**
+  - Track read-receipt timestamps for company policies and mandatory handbooks.
+  - Endpoint `POST /v1/documents/:id/acknowledge` for employees to acknowledge policies.
+  - Endpoint `GET /v1/documents/:id/acknowledgements` for HR/admins to audit receipt compliance.
+  - UI action on document cards to sign/acknowledge with acknowledged badge and status indicator.
+
+---
+
+## Detailed Specification: Phase 3 (Advanced Working Time & Kiosk Mode) - IN PROGRESS
+
+### 1. Requirements in Scope
+
+- **`TIM-010` (P1): Tablet Kiosk Clock-in Mode**
+  - Dedicated shared tablet kiosk interface at `/kiosk` with PIN keypad.
+  - Fast clock in / clock out without requiring personal smartphone or full web session.
+  - Kiosk session authenticated by an authorized organization device token.
+  - PIN verification and event recording directly to append-only `time_events`.
+- **`TIM-008` (P1): Labour Inspector (Inspección de Trabajo) Role**
+  - Dedicated read-only role `auditor` / `inspector` with scoped access exclusively to working time records (`time_events`, `daily_summaries`, timesheets) and mandatory 4-year retention logs.
+  - Disallows viewing unrelated personal employee records (medical leave reasons, salaries, banking info).
+  - One-click official export generation for compliance audits.
+- **`TIM-012` (P1): Time Bank & Compensatory Overtime Rest**
+  - Calculation and tracking of overtime hours accumulated in an employee's time bank.
+  - Option to designate overtime as compensatory paid rest instead of monetary payout.
+  - Ledger balance tracking compensatory rest availability and consumption.
 
 ---
 

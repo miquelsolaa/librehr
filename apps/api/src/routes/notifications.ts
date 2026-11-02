@@ -64,5 +64,20 @@ export function createNotificationRoutes(sql: Sql) {
     return c.json({ success: true, id: notificationId });
   });
 
+  // 3. POST /notifications/read-all - Mark all user notifications as read
+  router.post("/notifications/read-all", requireAuth, async (c) => {
+    const user = (c.get as (key: string) => unknown)("user") as AuthUser;
+
+    const count = await withTenant(
+      sql,
+      { organizationId: user.organizationId, userId: user.id },
+      async (tx) => {
+        return notificationRepo.markAllAsRead(tx, user.id);
+      },
+    );
+
+    return c.json({ success: true, count });
+  });
+
   return router;
 }

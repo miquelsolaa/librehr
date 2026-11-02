@@ -167,4 +167,46 @@ export class DocumentRepository {
     const res = await tx`DELETE FROM documents WHERE id = ${id}`;
     return res.count > 0;
   }
+
+  async acknowledge(
+    tx: TenantTx,
+    documentId: string,
+    employeeId: string,
+  ): Promise<{ id: string; acknowledgedAt: Date }> {
+    const rows = await tx<{ id: string; acknowledgedAt: Date }[]>`
+      INSERT INTO document_acknowledgements (document_id, employee_id)
+      VALUES (${documentId}, ${employeeId})
+      RETURNING id, acknowledged_at as "acknowledgedAt"
+    `;
+    return rows[0]!;
+  }
+
+  async getAcknowledgements(
+    tx: TenantTx,
+    documentId: string,
+  ): Promise<
+    {
+      id: string;
+      employeeId: string;
+      employeeName: string;
+      acknowledgedAt: Date;
+    }[]
+  > {
+    return tx<
+      {
+        id: string;
+        employeeId: string;
+        employeeName: string;
+        acknowledgedAt: Date;
+      }[]
+    >`
+      SELECT da.id, da.employee_id as "employeeId",
+             CONCAT(e.first_name, ' ', e.last_name) as "employeeName",
+             da.acknowledged_at as "acknowledgedAt"
+      FROM document_acknowledgements da
+      JOIN employees e ON e.id = da.employee_id
+      WHERE da.document_id = ${documentId}
+      ORDER BY da.acknowledged_at DESC
+    `;
+  }
 }

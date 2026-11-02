@@ -505,5 +505,64 @@ export function createDocumentRoutes(sql: Sql, storagePort: StoragePort) {
     return c.json(report);
   });
 
+  // DOC-006: Acknowledge document policy / read receipt
+  router.post("/documents/:id/acknowledge", requireAuth, async (c) => {
+    const user = (c.get as (key: string) => unknown)("user") as AuthUser;
+    const documentId = c.req.param("id");
+
+    const ack = await withTenant(
+      sql,
+      { organizationId: user.organizationId, userId: user.id },
+      async (tx) => {
+        const emp = await empRepo.findByUserId(tx, user.id);
+        if (!emp) return null;
+
+        const res = await docRepo.acknowledge(tx, documentId, emp.id);
+
+        await auditRepo.log(tx, {
+          actorId: user.id,
+          action: "document.acknowledged",
+          resourceType: "document",
+          resourceId: documentId,
+          metadata: { employeeId: emp.id, acknowledgedAt: res.acknowledgedAt },
+        });
+
+        return res;
+      },
+    );
+
+    if (!ack) {
+      const problem = createProblemDetails({
+        status: 404,
+        title: "Not Found",
+        detail: "Employee profile not found for user",
+        code: "EMPLOYEE_NOT_FOUND",
+      });
+      return c.json(problem, 404, {
+        "Content-Type": "application/problem+json",
+      });
+    }
+
+    return c.json({
+      success: true,
+      acknowledgedAt: ack.acknowledgedAt.toISOString(),
+    });
+  });
+
+  router.get("/documents/:id/acknowledgements", requireAuth, async (c) => {
+    const user = (c.get as (key: string) => unknown)("user") as AuthUser;
+    const documentId = c.req.param("id");
+
+    const acks = await withTenant(
+      sql,
+      { organizationId: user.organizationId, userId: user.id },
+      async (tx) => {
+        return docRepo.getAcknowledgements(tx, documentId);
+      },
+    );
+
+    return c.json(acks);
+  });
+
   return router;
 }

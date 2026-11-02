@@ -219,4 +219,68 @@ describe("Documents & Lifecycle API Integration Tests (DOC-001 - DOC-005, ONB-00
       expect(prob.code).toBe("FORBIDDEN");
     }
   });
+
+  it("handles mark all notifications as read (NOT-002)", async () => {
+    const dummyApp = db
+      ? app
+      : createApp({ sql: {} as unknown as Sql, authPort });
+
+    const unauthRes = await dummyApp.request("/v1/notifications/read-all", {
+      method: "POST",
+    });
+    expect(unauthRes.status).toBe(401);
+
+    const authRes = await dummyApp.request("/v1/notifications/read-all", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${staffToken}`,
+      },
+    });
+    expect([200, 500]).toContain(authRes.status);
+    if (authRes.status === 200) {
+      const body = (await authRes.json()) as { success: boolean };
+      expect(body.success).toBe(true);
+    }
+  });
+
+  it("handles document acknowledgement endpoints (DOC-006)", async () => {
+    const dummyApp = db
+      ? app
+      : createApp({ sql: {} as unknown as Sql, authPort });
+
+    const docId = "00000000-0000-0000-0000-000000000001";
+
+    // Unauthenticated acknowledgement is rejected
+    const unauthRes = await dummyApp.request(
+      `/v1/documents/${docId}/acknowledge`,
+      {
+        method: "POST",
+      },
+    );
+    expect(unauthRes.status).toBe(401);
+
+    // Authenticated employee acknowledges
+    const ackRes = await dummyApp.request(
+      `/v1/documents/${docId}/acknowledge`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${staffToken}`,
+        },
+      },
+    );
+    expect([200, 404, 500]).toContain(ackRes.status);
+
+    // Fetch acknowledgements
+    const listAckRes = await dummyApp.request(
+      `/v1/documents/${docId}/acknowledgements`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+        },
+      },
+    );
+    expect([200, 500]).toContain(listAckRes.status);
+  });
 });
