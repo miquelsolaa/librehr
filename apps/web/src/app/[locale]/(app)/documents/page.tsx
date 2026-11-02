@@ -11,6 +11,9 @@ import {
   CheckCircle2,
   AlertCircle,
   FileSpreadsheet,
+  FileSignature,
+  Plus,
+  Wand2,
 } from "lucide-react";
 import { Button } from "@librehr/ui";
 import { getStoredSession } from "@/lib/auth";
@@ -19,6 +22,8 @@ import type {
   DocumentItem,
   DocumentCategory,
   BulkPayslipReport,
+  DocumentTemplate,
+  EmployeeListItem,
 } from "@librehr/contracts";
 
 export default function DocumentsPage() {
@@ -27,9 +32,9 @@ export default function DocumentsPage() {
   const [documents, setDocuments] = React.useState<DocumentItem[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [categoryFilter, setCategoryFilter] = React.useState<string>("all");
-  const [activeTab, setActiveTab] = React.useState<"list" | "upload" | "bulk">(
-    "list",
-  );
+  const [activeTab, setActiveTab] = React.useState<
+    "list" | "upload" | "bulk" | "templates"
+  >("list");
 
   // Single upload state
   const [title, setTitle] = React.useState("");
@@ -48,6 +53,27 @@ export default function DocumentsPage() {
     null,
   );
   const [bulkProcessing, setBulkProcessing] = React.useState(false);
+
+  // Document templates state (DOC-007)
+  const [templates, setTemplates] = React.useState<DocumentTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = React.useState(false);
+  const [isNewTemplateOpen, setIsNewTemplateOpen] = React.useState(false);
+  const [newTemplateName, setNewTemplateName] = React.useState("");
+  const [newTemplateCategory, setNewTemplateCategory] =
+    React.useState("certificates");
+  const [newTemplateContent, setNewTemplateContent] = React.useState("");
+  const [isGeneratingOpen, setIsGeneratingOpen] = React.useState(false);
+  const [selectedTemplate, setSelectedTemplate] =
+    React.useState<DocumentTemplate | null>(null);
+  const [employeesList, setEmployeesList] = React.useState<EmployeeListItem[]>(
+    [],
+  );
+  const [selectedEmployeeId, setSelectedEmployeeId] = React.useState("");
+  const [renderedPreview, setRenderedPreview] = React.useState<string | null>(
+    null,
+  );
+  const [saveAsDoc, setSaveAsDoc] = React.useState(true);
+  const [isTemplateSubmitting, setIsTemplateSubmitting] = React.useState(false);
 
   // Document acknowledgements (DOC-006)
   const [acknowledgedDocs, setAcknowledgedDocs] = React.useState<Set<string>>(
@@ -87,9 +113,103 @@ export default function DocumentsPage() {
     }
   }, [categoryFilter]);
 
+  const fetchTemplates = React.useCallback(async () => {
+    const session = getStoredSession();
+    if (!session?.token) return;
+    try {
+      setTemplatesLoading(true);
+      const client = getApiClient(session.token);
+      const [tList, empRes] = await Promise.all([
+        client.listDocumentTemplates(),
+        client.listEmployees({ pageSize: 100 }),
+      ]);
+      setTemplates(tList);
+      setEmployeesList(empRes.items);
+      if (empRes.items.length > 0 && !selectedEmployeeId) {
+        setSelectedEmployeeId(empRes.items[0]!.id);
+      }
+    } catch (err) {
+      console.error("Failed to load document templates", err);
+    } finally {
+      setTemplatesLoading(false);
+    }
+  }, [selectedEmployeeId]);
+
   React.useEffect(() => {
     void fetchDocuments();
   }, [fetchDocuments]);
+
+  React.useEffect(() => {
+    if (activeTab === "templates") {
+      void fetchTemplates();
+    }
+  }, [activeTab, fetchTemplates]);
+
+  const handleCreateTemplate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const session = getStoredSession();
+    if (!session?.token || !newTemplateName || !newTemplateContent) return;
+
+    try {
+      setIsTemplateSubmitting(true);
+      const client = getApiClient(session.token);
+      await client.createDocumentTemplate({
+        name: newTemplateName.trim(),
+        category: newTemplateCategory,
+        content: newTemplateContent,
+      });
+
+      setIsNewTemplateOpen(false);
+      setNewTemplateName("");
+      setNewTemplateContent("");
+      setSuccessMsg(t("templateCreatedSuccess"));
+      void fetchTemplates();
+    } catch {
+      setErrorMsg(t("templateCreateError"));
+    } finally {
+      setIsTemplateSubmitting(false);
+    }
+  };
+
+  const handleRenderPreview = async () => {
+    if (!selectedTemplate || !selectedEmployeeId) return;
+    const session = getStoredSession();
+    if (!session?.token) return;
+
+    try {
+      setIsTemplateSubmitting(true);
+      const client = getApiClient(session.token);
+      const res = await client.renderDocumentTemplate(selectedTemplate.id, {
+        employeeId: selectedEmployeeId,
+        saveAsDocument: saveAsDoc,
+      });
+
+      setRenderedPreview(res.renderedContent);
+      if (saveAsDoc && res.documentId) {
+        setSuccessMsg(t("documentGeneratedSuccess"));
+        void fetchDocuments();
+      }
+    } catch {
+      setErrorMsg(t("documentGenerateError"));
+    } finally {
+      setIsTemplateSubmitting(false);
+    }
+  };
+
+  const handleDeleteTemplate = async (templateId: string) => {
+    if (!window.confirm(t("deleteTemplateConfirm"))) return;
+    const session = getStoredSession();
+    if (!session?.token) return;
+
+    try {
+      const client = getApiClient(session.token);
+      await client.deleteDocumentTemplate(templateId);
+      void fetchTemplates();
+      setSuccessMsg(t("templateDeletedSuccess"));
+    } catch {
+      setErrorMsg(t("templateDeleteError"));
+    }
+  };
 
   const handleFileUpload = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -268,6 +388,14 @@ export default function DocumentsPage() {
           >
             <FileSpreadsheet className="h-4 w-4 mr-1.5" />
             {t("bulkPayslips")}
+          </Button>
+          <Button
+            variant={activeTab === "templates" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setActiveTab("templates")}
+          >
+            <FileSignature className="h-4 w-4 mr-1.5" />
+            {t("templatesTab")}
           </Button>
         </div>
       </div>
@@ -578,6 +706,328 @@ export default function DocumentsPage() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Templates Tab (DOC-007) */}
+      {activeTab === "templates" && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">
+                {t("templatesListTitle")}
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                {t("templatesListSubtitle")}
+              </p>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => setIsNewTemplateOpen(true)}
+              className="flex items-center gap-1.5"
+            >
+              <Plus className="h-4 w-4" />
+              {t("newTemplateButton")}
+            </Button>
+          </div>
+
+          {templatesLoading ? (
+            <div className="py-12 text-center text-sm text-muted-foreground">
+              {t("loadingTemplates")}
+            </div>
+          ) : templates.length === 0 ? (
+            <div className="rounded-card border border-dashed border-border p-12 text-center space-y-3">
+              <FileSignature className="mx-auto h-10 w-10 text-muted-foreground/60" />
+              <h3 className="text-sm font-semibold text-foreground">
+                {t("noTemplatesTitle")}
+              </h3>
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                {t("noTemplatesDescription")}
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setNewTemplateName("Certificat d'Empresa / Work Certificate");
+                  setNewTemplateCategory("certificates");
+                  setNewTemplateContent(
+                    `# Certificat d'Empresa\n\nPer la present es certifica que **{{employee.name}}** amb DNI/NIE **{{employee.dni}}** treballa a **{{organization.name}}** com a **{{employee.job_title}}** al departament de **{{employee.department}}** des del **{{employee.hire_date}}**.\n\nData d'emissió: {{current_date}}`,
+                  );
+                  setIsNewTemplateOpen(true);
+                }}
+              >
+                {t("loadSampleTemplate")}
+              </Button>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {templates.map((tpl) => (
+                <div
+                  key={tpl.id}
+                  className="rounded-card border border-border bg-surface p-5 shadow-xs flex flex-col justify-between space-y-4 hover:border-primary/40 transition-colors"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-semibold text-foreground text-sm line-clamp-1">
+                        {tpl.name}
+                      </h3>
+                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary shrink-0 uppercase tracking-wider">
+                        {tpl.category}
+                      </span>
+                    </div>
+                    {tpl.description && (
+                      <p className="text-xs text-muted-foreground line-clamp-2">
+                        {tpl.description}
+                      </p>
+                    )}
+                    <pre className="rounded bg-background p-2 font-mono text-[11px] text-muted-foreground max-h-24 overflow-hidden border border-border/50">
+                      {tpl.content}
+                    </pre>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-border">
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setSelectedTemplate(tpl);
+                        setRenderedPreview(null);
+                        setIsGeneratingOpen(true);
+                      }}
+                      className="flex items-center gap-1.5 text-xs h-8"
+                    >
+                      <Wand2 className="h-3.5 w-3.5" />
+                      {t("generateFromTemplate")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleDeleteTemplate(tpl.id)}
+                      className="h-8 text-danger hover:bg-danger/10 border-danger/20 p-2"
+                      title={t("deleteTemplate")}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* New Template Modal */}
+          {isNewTemplateOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+              <div className="w-full max-w-2xl rounded-card border border-border bg-background p-6 shadow-xl space-y-5 animate-in fade-in zoom-in-95">
+                <div>
+                  <h3 className="text-lg font-bold text-foreground">
+                    {t("createNewTemplateTitle")}
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {t("createNewTemplateSubtitle")}
+                  </p>
+                </div>
+
+                <form onSubmit={handleCreateTemplate} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-foreground mb-1">
+                        {t("templateNameLabel")} *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={newTemplateName}
+                        onChange={(e) => setNewTemplateName(e.target.value)}
+                        placeholder="Ex: Contract Extension Letter"
+                        className="w-full rounded-input border border-border bg-surface px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-foreground mb-1">
+                        {t("category")} *
+                      </label>
+                      <select
+                        value={newTemplateCategory}
+                        onChange={(e) => setNewTemplateCategory(e.target.value)}
+                        className="w-full rounded-input border border-border bg-surface px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary"
+                      >
+                        <option value="contracts">Contracts</option>
+                        <option value="certificates">Certificates</option>
+                        <option value="company_policies">
+                          Company Policies
+                        </option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-medium text-foreground">
+                        {t("templateContentMarkdown")} *
+                      </label>
+                      <span className="text-[10px] text-muted-foreground">
+                        Supports Markdown & merge tags
+                      </span>
+                    </div>
+                    <textarea
+                      required
+                      rows={8}
+                      value={newTemplateContent}
+                      onChange={(e) => setNewTemplateContent(e.target.value)}
+                      placeholder="# Letter Title&#10;&#10;Dear {{employee.name}},&#10;&#10;We hereby confirm your employment at {{organization.name}}..."
+                      className="w-full rounded-input border border-border bg-surface p-3 font-mono text-xs text-foreground focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+
+                  {/* Cheat sheet of merge fields */}
+                  <div className="rounded-input border border-border bg-surface p-3 text-xs space-y-1.5">
+                    <div className="font-semibold text-foreground text-[11px] uppercase tracking-wider">
+                      {t("availableMergeFields")}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 font-mono text-[11px] text-primary">
+                      {[
+                        "{{employee.name}}",
+                        "{{employee.dni}}",
+                        "{{employee.job_title}}",
+                        "{{employee.department}}",
+                        "{{employee.hire_date}}",
+                        "{{employee.email}}",
+                        "{{organization.name}}",
+                        "{{current_date}}",
+                      ].map((tag) => (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() =>
+                            setNewTemplateContent((prev) => `${prev} ${tag}`)
+                          }
+                          className="rounded bg-background px-1.5 py-0.5 border border-border hover:border-primary/50 cursor-pointer"
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsNewTemplateOpen(false)}
+                      disabled={isTemplateSubmitting}
+                    >
+                      {t("cancel")}
+                    </Button>
+                    <Button type="submit" isLoading={isTemplateSubmitting}>
+                      {t("saveTemplateButton")}
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Generate Document Modal */}
+          {isGeneratingOpen && selectedTemplate && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+              <div className="w-full max-w-2xl rounded-card border border-border bg-background p-6 shadow-xl space-y-5 animate-in fade-in zoom-in-95">
+                <div>
+                  <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                    <Wand2 className="h-5 w-5 text-primary" />
+                    {t("generateModalTitle")}: {selectedTemplate.name}
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {t("generateModalSubtitle")}
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-medium text-foreground mb-1">
+                      {t("selectEmployee")} *
+                    </label>
+                    <select
+                      value={selectedEmployeeId}
+                      onChange={(e) => {
+                        setSelectedEmployeeId(e.target.value);
+                        setRenderedPreview(null);
+                      }}
+                      className="w-full rounded-input border border-border bg-surface px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary"
+                    >
+                      {employeesList.map((emp) => (
+                        <option key={emp.id} value={emp.id}>
+                          {emp.firstName} {emp.lastName} —{" "}
+                          {emp.jobTitle ?? emp.departmentName ?? emp.email}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-input border border-border bg-surface p-3">
+                    <div>
+                      <div className="text-xs font-medium text-foreground">
+                        {t("saveAsDocumentCheckbox")}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {t("saveAsDocumentHint")}
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={saveAsDoc}
+                      onChange={(e) => setSaveAsDoc(e.target.checked)}
+                      className="h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Rendered Preview Box */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-medium text-foreground">
+                        {t("renderedPreview")}
+                      </label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRenderPreview}
+                        isLoading={isTemplateSubmitting}
+                        className="h-7 text-xs"
+                      >
+                        {t("previewMergeButton")}
+                      </Button>
+                    </div>
+                    <div className="rounded-input border border-border bg-surface p-4 font-mono text-xs text-foreground max-h-56 overflow-y-auto whitespace-pre-wrap select-all">
+                      {renderedPreview ?? t("previewPlaceholder")}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2 border-t border-border">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setIsGeneratingOpen(false);
+                        setSelectedTemplate(null);
+                        setRenderedPreview(null);
+                      }}
+                    >
+                      {t("close")}
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={handleRenderPreview}
+                      isLoading={isTemplateSubmitting}
+                    >
+                      {saveAsDoc
+                        ? t("generateAndSaveButton")
+                        : t("generatePreviewButton")}
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
           )}

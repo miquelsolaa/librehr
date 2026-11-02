@@ -71,6 +71,9 @@
           "password": {
             "type": "string",
             "minLength": 8
+          },
+          "twoFactorCode": {
+            "type": "string"
           }
         },
         "required": [
@@ -101,6 +104,9 @@
               "organizationId": {
                 "type": "string",
                 "format": "uuid"
+              },
+              "twoFactorEnabled": {
+                "type": "boolean"
               }
             },
             "required": [
@@ -144,6 +150,9 @@
               "organizationId": {
                 "type": "string",
                 "format": "uuid"
+              },
+              "twoFactorEnabled": {
+                "type": "boolean"
               }
             },
             "required": [
@@ -172,6 +181,9 @@
               },
               "timezone": {
                 "type": "string"
+              },
+              "requireTwoFactor": {
+                "type": "boolean"
               }
             },
             "required": [
@@ -4025,6 +4037,9 @@
                   "password": {
                     "type": "string",
                     "minLength": 8
+                  },
+                  "twoFactorCode": {
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -4063,6 +4078,9 @@
                         "organizationId": {
                           "type": "string",
                           "format": "uuid"
+                        },
+                        "twoFactorEnabled": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -4232,6 +4250,9 @@
                         "organizationId": {
                           "type": "string",
                           "format": "uuid"
+                        },
+                        "twoFactorEnabled": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -4260,6 +4281,9 @@
                         },
                         "timezone": {
                           "type": "string"
+                        },
+                        "requireTwoFactor": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -6245,6 +6269,9 @@
                         "organizationId": {
                           "type": "string",
                           "format": "uuid"
+                        },
+                        "twoFactorEnabled": {
+                          "type": "boolean"
                         }
                       },
                       "required": [

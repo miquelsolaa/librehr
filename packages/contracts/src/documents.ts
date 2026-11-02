@@ -76,3 +76,44 @@ export const BulkPayslipUploadRequestSchema = z.object({
 export type BulkPayslipUploadRequest = z.infer<
   typeof BulkPayslipUploadRequestSchema
 >;
+
+// DOC-007: Document Templates
+export const DocumentTemplateSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  category: z.string(),
+  description: z.string().nullable().optional(),
+  content: z.string(),
+  createdById: z.string().uuid(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+export type DocumentTemplate = z.infer<typeof DocumentTemplateSchema>;
+
+export const CreateDocumentTemplateSchema = z.object({
+  name: z.string().min(1, "Template name is required"),
+  category: z.string().min(1, "Category is required"),
+  description: z.string().optional(),
+  content: z.string().min(1, "Template content is required"),
+});
+export type CreateDocumentTemplate = z.infer<
+  typeof CreateDocumentTemplateSchema
+>;
+
+export const RenderDocumentTemplateRequestSchema = z.object({
+  employeeId: z.string().uuid(),
+  saveAsDocument: z.boolean().default(false),
+  title: z.string().optional(),
+  customFields: z.record(z.union([z.string(), z.number()])).optional(),
+});
+export type RenderDocumentTemplateRequest = z.infer<
+  typeof RenderDocumentTemplateRequestSchema
+>;
+
+export const RenderDocumentTemplateResponseSchema = z.object({
+  renderedContent: z.string(),
+  documentId: z.string().uuid().optional(),
+});
+export type RenderDocumentTemplateResponse = z.infer<
+  typeof RenderDocumentTemplateResponseSchema
+>;

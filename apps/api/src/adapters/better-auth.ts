@@ -22,9 +22,10 @@ export class BetterAuthAdapter implements AuthPort {
         name: string;
         role: string;
         organization_id: string;
+        two_factor_enabled: boolean;
       }[]
     >`
-      SELECT u.id, u.email, u.name, m.role, m.organization_id
+      SELECT u.id, u.email, u.name, m.role, m.organization_id, COALESCE(u.two_factor_enabled, false) as two_factor_enabled
       FROM users u
       JOIN memberships m ON m.user_id = u.id
       WHERE u.email = ${email}
@@ -40,6 +41,7 @@ export class BetterAuthAdapter implements AuthPort {
       name: user.name,
       role: user.role,
       organizationId: user.organization_id,
+      twoFactorEnabled: user.two_factor_enabled,
     };
   }
 
@@ -67,10 +69,11 @@ export class BetterAuthAdapter implements AuthPort {
         name: string;
         role: string;
         organization_id: string;
+        two_factor_enabled: boolean;
         expires_at: Date;
       }[]
     >`
-      SELECT u.id, u.email, u.name, m.role, m.organization_id, s.expires_at
+      SELECT u.id, u.email, u.name, m.role, m.organization_id, COALESCE(u.two_factor_enabled, false) as two_factor_enabled, s.expires_at
       FROM sessions s
       JOIN users u ON u.id = s.user_id
       JOIN memberships m ON m.user_id = u.id
@@ -88,6 +91,7 @@ export class BetterAuthAdapter implements AuthPort {
         name: row.name,
         role: row.role,
         organizationId: row.organization_id,
+        twoFactorEnabled: row.two_factor_enabled,
       },
       token,
       expiresAt: new Date(row.expires_at),

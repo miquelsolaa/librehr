@@ -36,6 +36,8 @@ import { createDsrRoutes } from "./routes/dsr.js";
 import { createReportRoutes } from "./routes/reports.js";
 import { createTokenRoutes } from "./routes/tokens.js";
 import { createCustomFieldRoutes } from "./routes/custom-fields.js";
+import { createSsoRoutes } from "./routes/sso.js";
+import { createSettingsSecurityRoutes } from "./routes/settings-security.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -81,7 +83,7 @@ export function createApp(deps: AppDependencies) {
   });
 
   // 4. API v1 Modules
-  app.route("/v1/auth", createAuthRoutes(deps.authPort));
+  app.route("/v1/auth", createAuthRoutes(deps.authPort, deps.sql));
   app.route("/v1", createMeRoutes(deps.sql));
   app.route("/v1", createOrgRoutes(deps.sql));
   app.route("/v1", createEmployeeRoutes(deps.sql));
@@ -109,6 +111,8 @@ export function createApp(deps: AppDependencies) {
   app.route("/v1", createReportRoutes(deps.sql));
   app.route("/v1", createTokenRoutes(deps.sql));
   app.route("/v1", createCustomFieldRoutes(deps.sql));
+  app.route("/v1", createSsoRoutes(deps.sql));
+  app.route("/v1", createSettingsSecurityRoutes(deps.sql));
 
   // 5. RFC 9457 Problem Details Error Handler
   app.onError(errorHandler);

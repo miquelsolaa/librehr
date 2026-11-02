@@ -18,9 +18,10 @@ export function createMeRoutes(sql: Sql) {
         slug: string;
         default_locale: string;
         timezone: string;
+        require_two_factor: boolean;
       }[]
     >`
-      SELECT id, name, slug, default_locale, timezone
+      SELECT id, name, slug, default_locale, timezone, COALESCE(require_two_factor, false) as require_two_factor
       FROM organizations
       WHERE id = ${user.organizationId}
       LIMIT 1
@@ -51,6 +52,7 @@ export function createMeRoutes(sql: Sql) {
         slug: org.slug,
         defaultLocale: org.default_locale,
         timezone: org.timezone,
+        requireTwoFactor: org.require_two_factor,
       },
       permissions,
     });

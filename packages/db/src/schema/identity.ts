@@ -19,6 +19,11 @@ export const users = pgTable(
     name: text("name").notNull(),
     passwordHash: text("password_hash"),
     emailVerified: boolean("email_verified").default(false).notNull(),
+    twoFactorEnabled: boolean("two_factor_enabled").default(false).notNull(),
+    twoFactorSecret: text("two_factor_secret"),
+    twoFactorRecoveryCodes: jsonb("two_factor_recovery_codes").$type<
+      string[]
+    >(),
     ...timestamps,
   },
   (table) => [index("users_email_idx").on(table.email)],
@@ -117,5 +122,27 @@ export const personalAccessTokens = pgTable(
     index("pat_org_idx").on(table.organizationId),
     index("pat_user_idx").on(table.userId),
     index("pat_token_hash_idx").on(table.tokenHash),
+  ],
+);
+
+export const ssoConfigurations = pgTable(
+  "sso_configurations",
+  {
+    id: primaryId(),
+    organizationId: organizationIdCol().references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    provider: text("provider").notNull(), // google, microsoft, generic_oidc
+    clientId: text("client_id").notNull(),
+    clientSecret: text("client_secret").notNull(),
+    issuerUrl: text("issuer_url").notNull(),
+    enabled: boolean("enabled").default(true).notNull(),
+    enforceSso: boolean("enforce_sso").default(false).notNull(),
+    allowedDomains: jsonb("allowed_domains").$type<string[]>().notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    index("sso_org_idx").on(table.organizationId),
+    index("sso_provider_idx").on(table.provider),
   ],
 );

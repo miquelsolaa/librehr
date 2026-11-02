@@ -96,3 +96,29 @@ export const documentAcknowledgements = pgTable(
     index("document_acks_employee_idx").on(table.employeeId),
   ],
 );
+
+// DOC-007: Document templates with merge fields (contracts, certificates, letters)
+export const documentTemplates = pgTable(
+  "document_templates",
+  {
+    id: primaryId(),
+    organizationId: organizationIdCol().references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    name: text("name").notNull(),
+    category: text("category").notNull(), // contracts, certificates, letters, policies, other
+    description: text("description"),
+    content: text("content").notNull(), // Template text / markdown with {{tags}}
+    createdById: uuid("created_by_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("doc_templates_org_idx").on(table.organizationId),
+    index("doc_templates_category_idx").on(table.category),
+  ],
+);

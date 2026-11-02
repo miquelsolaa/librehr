@@ -18,3 +18,4 @@ export * from "./token.repository.js";
 export * from "./report.repository.js";
 export * from "./custom-field.repository.js";
 export * from "./emergency-contact.repository.js";
+export * from "./sso.repository.js";

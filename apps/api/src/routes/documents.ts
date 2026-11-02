@@ -6,12 +6,19 @@ import {
   createProblemDetails,
   CreateDocumentRequestSchema,
   BulkPayslipUploadRequestSchema,
+  CreateDocumentTemplateSchema,
+  RenderDocumentTemplateRequestSchema,
 } from "@librehr/contracts";
-import { validateDocumentFile, matchBulkPayslips } from "@librehr/core";
+import {
+  validateDocumentFile,
+  matchBulkPayslips,
+  renderDocumentTemplate,
+} from "@librehr/core";
 import {
   withTenant,
   DocumentRepository,
   EmployeeRepository,
+  OrganizationRepository,
   AuditRepository,
   encryptEnvelope,
   decryptEnvelope,
@@ -24,6 +31,7 @@ export function createDocumentRoutes(sql: Sql, storagePort: StoragePort) {
   const router = new Hono();
   const docRepo = new DocumentRepository();
   const empRepo = new EmployeeRepository();
+  const orgRepo = new OrganizationRepository();
   const auditRepo = new AuditRepository();
 
   // 1. GET /documents - List accessible documents
@@ -562,6 +570,264 @@ export function createDocumentRoutes(sql: Sql, storagePort: StoragePort) {
     );
 
     return c.json(acks);
+  });
+
+  // DOC-007: Document Templates & Merge Generation
+  router.get("/documents/templates", requireAuth, async (c) => {
+    const user = (c.get as (key: string) => unknown)("user") as AuthUser;
+    const category = c.req.query("category");
+
+    const templates = await withTenant(
+      sql,
+      { organizationId: user.organizationId, userId: user.id },
+      async (tx) => {
+        return docRepo.listTemplates(tx, category);
+      },
+    );
+
+    return c.json(
+      templates.map((t) => ({
+        ...t,
+        createdAt: t.createdAt.toISOString(),
+        updatedAt: t.updatedAt.toISOString(),
+      })),
+    );
+  });
+
+  router.post("/documents/templates", requireAuth, async (c) => {
+    const user = (c.get as (key: string) => unknown)("user") as AuthUser;
+
+    if (user.role !== "admin" && user.role !== "hr_admin") {
+      return c.json(
+        createProblemDetails({
+          status: 403,
+          title: "Forbidden",
+          detail: "Only administrators and HR can manage document templates",
+          code: "FORBIDDEN",
+        }),
+        403,
+        { "Content-Type": "application/problem+json" },
+      );
+    }
+
+    const body = await c.req.json();
+    const parsed = CreateDocumentTemplateSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return c.json(
+        createProblemDetails({
+          status: 400,
+          title: "Validation Error",
+          detail: "Invalid document template payload",
+          code: "VALIDATION_ERROR",
+        }),
+        400,
+        { "Content-Type": "application/problem+json" },
+      );
+    }
+
+    const template = await withTenant(
+      sql,
+      { organizationId: user.organizationId, userId: user.id },
+      async (tx) => {
+        const created = await docRepo.createTemplate(tx, {
+          name: parsed.data.name,
+          category: parsed.data.category,
+          description: parsed.data.description,
+          content: parsed.data.content,
+          createdById: user.id,
+        });
+
+        await auditRepo.log(tx, {
+          actorId: user.id,
+          action: "document_template.created",
+          resourceType: "document_templates",
+          resourceId: created.id,
+          metadata: { name: created.name, category: created.category },
+        });
+
+        return created;
+      },
+    );
+
+    return c.json({
+      ...template,
+      createdAt: template.createdAt.toISOString(),
+      updatedAt: template.updatedAt.toISOString(),
+    });
+  });
+
+  router.post("/documents/templates/:id/render", requireAuth, async (c) => {
+    const user = (c.get as (key: string) => unknown)("user") as AuthUser;
+    const templateId = c.req.param("id");
+    const body = await c.req.json();
+    const parsed = RenderDocumentTemplateRequestSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return c.json(
+        createProblemDetails({
+          status: 400,
+          title: "Validation Error",
+          detail: "Invalid render request payload",
+          code: "VALIDATION_ERROR",
+        }),
+        400,
+        { "Content-Type": "application/problem+json" },
+      );
+    }
+
+    const result = await withTenant(
+      sql,
+      { organizationId: user.organizationId, userId: user.id },
+      async (tx) => {
+        const template = await docRepo.getTemplateById(tx, templateId);
+        if (!template) return "TEMPLATE_NOT_FOUND";
+
+        const emp = await empRepo.findById(tx, parsed.data.employeeId);
+        if (!emp) return "EMPLOYEE_NOT_FOUND";
+
+        const org = await orgRepo.findById(tx, user.organizationId);
+
+        const empContext: {
+          name: string;
+          firstName: string;
+          lastName: string;
+          email: string;
+          department?: string;
+          jobTitle?: string;
+          hireDate?: string;
+          address?: string;
+        } = {
+          name: `${emp.firstName} ${emp.lastName}`,
+          firstName: emp.firstName,
+          lastName: emp.lastName,
+          email: emp.email,
+          ...(emp.departmentName ? { department: emp.departmentName } : {}),
+          ...(emp.jobTitle ? { jobTitle: emp.jobTitle } : {}),
+          ...(emp.startDate ? { hireDate: emp.startDate } : {}),
+          ...(emp.address ? { address: emp.address } : {}),
+        };
+
+        const rendered = renderDocumentTemplate(
+          template.content,
+          {
+            employee: empContext,
+            organization: {
+              name: org?.name ?? "LibreHR",
+            },
+            ...(parsed.data.customFields
+              ? {
+                  custom: parsed.data.customFields as Record<
+                    string,
+                    string | number
+                  >,
+                }
+              : {}),
+          },
+          "[N/A]",
+        );
+
+        let createdDocId: string | undefined;
+
+        if (parsed.data.saveAsDocument) {
+          const docTitle =
+            parsed.data.title ??
+            `${template.name} - ${emp.firstName} ${emp.lastName}`;
+          const renderedBuffer = Buffer.from(rendered, "utf-8");
+          const encryptedPayload = encryptEnvelope(
+            renderedBuffer.toString("base64"),
+          );
+          const sanitizedName = template.name
+            .toLowerCase()
+            .replace(/[^a-z0-9_-]/g, "_");
+          const storageKey = `orgs/${user.organizationId}/docs/${crypto.randomUUID()}-${sanitizedName}.txt`;
+          await storagePort.put(
+            storageKey,
+            Buffer.from(encryptedPayload, "utf-8"),
+            "application/octet-stream",
+          );
+
+          const sha256 = crypto
+            .createHash("sha256")
+            .update(renderedBuffer)
+            .digest("hex");
+
+          const doc = await docRepo.createDocument(tx, {
+            employeeId: emp.id,
+            title: docTitle,
+            category: template.category,
+            audienceType: "individual",
+            createdById: user.id,
+            filename: `${sanitizedName}.txt`,
+            mimeType: "text/plain",
+            sizeBytes: renderedBuffer.length,
+            sha256Hash: sha256,
+            storageKey,
+          });
+
+          createdDocId = doc.id;
+        }
+
+        return { renderedContent: rendered, documentId: createdDocId };
+      },
+    );
+
+    if (result === "TEMPLATE_NOT_FOUND") {
+      return c.json(
+        createProblemDetails({
+          status: 404,
+          title: "Template Not Found",
+          detail: "The requested document template does not exist",
+          code: "TEMPLATE_NOT_FOUND",
+        }),
+        404,
+        { "Content-Type": "application/problem+json" },
+      );
+    }
+
+    if (result === "EMPLOYEE_NOT_FOUND") {
+      return c.json(
+        createProblemDetails({
+          status: 404,
+          title: "Employee Not Found",
+          detail: "Target employee does not exist",
+          code: "EMPLOYEE_NOT_FOUND",
+        }),
+        404,
+        { "Content-Type": "application/problem+json" },
+      );
+    }
+
+    return c.json(result);
+  });
+
+  router.delete("/documents/templates/:id", requireAuth, async (c) => {
+    const user = (c.get as (key: string) => unknown)("user") as AuthUser;
+
+    if (user.role !== "admin" && user.role !== "hr_admin") {
+      return c.json(
+        createProblemDetails({
+          status: 403,
+          title: "Forbidden",
+          detail: "Only administrators can delete document templates",
+          code: "FORBIDDEN",
+        }),
+        403,
+        { "Content-Type": "application/problem+json" },
+      );
+    }
+
+    const templateId = c.req.param("id");
+
+    await withTenant(
+      sql,
+      { organizationId: user.organizationId, userId: user.id },
+      async (tx) => {
+        await docRepo.deleteTemplate(tx, templateId);
+      },
+    );
+
+    return c.json({ success: true });
   });
 
   return router;

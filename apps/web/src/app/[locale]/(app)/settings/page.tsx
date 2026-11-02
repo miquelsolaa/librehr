@@ -8,6 +8,8 @@ import {
   MapPin,
   KeyRound,
   Sliders,
+  ShieldCheck,
+  Globe,
   ChevronRight,
 } from "lucide-react";
 
@@ -41,6 +43,18 @@ export default function SettingsPage() {
       description: "Manage dynamic employee profile fields and attributes.",
       href: `/${locale}/settings/custom-fields`,
       icon: <Sliders className="h-5 w-5 text-primary" />,
+    },
+    {
+      title: t("securityCardTitle"),
+      description: t("securityCardDescription"),
+      href: `/${locale}/settings/security`,
+      icon: <ShieldCheck className="h-5 w-5 text-primary" />,
+    },
+    {
+      title: t("ssoCardTitle"),
+      description: t("ssoCardDescription"),
+      href: `/${locale}/settings/sso`,
+      icon: <Globe className="h-5 w-5 text-primary" />,
     },
   ];
 

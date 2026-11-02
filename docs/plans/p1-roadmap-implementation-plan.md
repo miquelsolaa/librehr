@@ -6,13 +6,55 @@ This plan outlines the systematic implementation of all remaining **P1 (Should-H
 
 ## Phase Overview
 
-| Phase       | Focus Area                                         | PRD Target Requirements                    | Primary Deliverables                                                                                                              | Status          |
-| ----------- | -------------------------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- | --------------- |
-| **Phase 1** | **Org Structure & Employee Self-Service**          | `ORG-004`, `ORG-005`, `EMP-002`, `EMP-005` | Visual interactive Org Chart, Custom Fields system (definitions & values), Emergency Contacts, and Employee Profile Self-Service. | **Completed**   |
-| **Phase 2** | **In-App Notifications & Document Acknowledgment** | `NOT-002`, `DOC-006`                       | In-app notification center (topbar bell, unread count, badge, notification drawer/feed), Policy read receipts & timestamps.       | **Completed**   |
-| **Phase 3** | **Advanced Working Time & Kiosk Mode**             | `TIM-010`, `TIM-008`, `TIM-012`            | Tablet Kiosk Mode with quick PIN/QR clock-in (`/kiosk`), Read-only Labour Inspector role, Time bank / compensatory overtime rest. | **Completed**   |
-| **Phase 4** | **Advanced Leave & Team Coverage**                 | `LEA-007`, `LEA-008`                       | Team coverage threshold warnings/blocks, Manager absence delegate approval chains.                                                | **Completed**   |
-| **Phase 5** | **Enterprise Auth & Security Hardening**           | `AUTH-003`, `AUTH-004`, `DOC-007`          | Organization-level enforced 2FA TOTP, OIDC Enterprise SSO (Google/Microsoft), Document templates with merge fields.               | **In Progress** |
+| Phase       | Focus Area                                         | PRD Target Requirements                    | Primary Deliverables                                                                                                              | Status        |
+| ----------- | -------------------------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| **Phase 1** | **Org Structure & Employee Self-Service**          | `ORG-004`, `ORG-005`, `EMP-002`, `EMP-005` | Visual interactive Org Chart, Custom Fields system (definitions & values), Emergency Contacts, and Employee Profile Self-Service. | **Completed** |
+| **Phase 2** | **In-App Notifications & Document Acknowledgment** | `NOT-002`, `DOC-006`                       | In-app notification center (topbar bell, unread count, badge, notification drawer/feed), Policy read receipts & timestamps.       | **Completed** |
+| **Phase 3** | **Advanced Working Time & Kiosk Mode**             | `TIM-010`, `TIM-008`, `TIM-012`            | Tablet Kiosk Mode with quick PIN/QR clock-in (`/kiosk`), Read-only Labour Inspector role, Time bank / compensatory overtime rest. | **Completed** |
+| **Phase 4** | **Advanced Leave & Team Coverage**                 | `LEA-007`, `LEA-008`                       | Team coverage threshold warnings/blocks, Manager absence delegate approval chains.                                                | **Completed** |
+| **Phase 5** | **Enterprise Auth & Security Hardening**           | `AUTH-003`, `AUTH-004`, `DOC-007`          | Organization-level enforced 2FA TOTP, OIDC Enterprise SSO (Google/Microsoft), Document templates with merge fields.               | **Completed** |
+
+---
+
+## Detailed Specification: Phase 5 (Enterprise Auth & Security Hardening) - COMPLETED
+
+### 1. Requirements in Scope
+
+- **`AUTH-003` (P1): Enforced 2FA / TOTP Authentication & Recovery Codes**
+  - RFC 6238 TOTP computation with dynamic truncation and 30-second window.
+  - Setup flow with standard `otpauth://` URI generation and 8 single-use cryptographically hashed recovery codes.
+  - Two-step sign-in challenge flow: when 2FA is active, sign-in issues a short-lived HMAC-signed challenge token, followed by 6-digit or recovery code validation.
+  - Organization-level policy toggle allowing administrators to require 2FA for all members.
+- **`AUTH-004` (P1): Enterprise OIDC Single Sign-On (SSO)**
+  - Support for Google Workspace, Microsoft Entra ID (Azure AD), and generic OpenID Connect identity providers.
+  - Configurable client ID, client secret (encrypted), discovery/issuer URL, and allowed email domains.
+  - Mandatory SSO enforcement toggle and automatic domain discovery on the sign-in screen.
+- **`DOC-007` (P1): Document Templates & Merge Field Engine**
+  - Pure domain template engine supporting merge variables (`{{employee.name}}`, `{{employee.dni}}`, `{{employee.job_title}}`, `{{employee.department}}`, `{{employee.hire_date}}`, `{{organization.name}}`, `{{current_date}}`).
+  - Document templates repository and API endpoints (`GET /v1/documents/templates`, `POST /v1/documents/templates`, `POST /v1/documents/templates/:id/render`, `DELETE /v1/documents/templates/:id`).
+  - Web UI for managing templates and generating merged letters or certificates with live preview and envelope encryption.
+
+### 2. Implementation Deliverables
+
+- **Core Domain:**
+  - `packages/core/src/identity/totp.ts`: RFC 6238 TOTP generation, verification, and recovery code hashing.
+  - `packages/core/src/identity/sso.ts`: OIDC authorization URL builder and domain validation.
+  - `packages/core/src/documents/merge-templates.ts`: Pure variable extraction and template merge substitution engine.
+  - Unit tests in `packages/core/test/totp.test.ts`, `sso.test.ts`, `merge-templates.test.ts`.
+- **Database & RLS:**
+  - Migration `0010_auth_hardening_and_templates.sql` adding `require_two_factor` to `organizations`, 2FA fields to `users`, and creating `sso_configurations` and `document_templates` tables with PostgreSQL RLS policies enabled.
+  - Registered tables in `TENANT_TABLES` in `packages/db/src/rls/helpers.ts`.
+  - Repositories: `SsoRepository`, `DocumentRepository` template methods, and `UserRepository` 2FA methods.
+- **Contracts & API:**
+  - Zod schemas in `packages/contracts/src/auth.ts` and `documents.ts`.
+  - Regenerated OpenAPI specs and type-safe API client.
+  - API routes: `createAuthRoutes` 2FA setup/enable/verify/disable endpoints, `createSsoRoutes`, `createSettingsSecurityRoutes`, and document template routes.
+- **Web UI & i18n:**
+  - `/sign-in`: Two-step 2FA verification prompt and SSO discovery.
+  - `/settings/security`: User 2FA activation/disabling modal and organization-wide 2FA requirement policy toggle.
+  - `/settings/sso`: Enterprise SSO identity provider configuration with redirect callback helper.
+  - `/documents`: "Templates & Generation" tab with template creation modal and employee document generation modal with live preview.
+  - Trilingual keys in `ca.json`, `es.json`, `en.json`.
 
 ---
 

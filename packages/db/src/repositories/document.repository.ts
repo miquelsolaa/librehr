@@ -35,6 +35,18 @@ export interface DocumentVersionRow {
   createdAt: Date;
 }
 
+export interface DocumentTemplateRow {
+  id: string;
+  organizationId: string;
+  name: string;
+  category: string;
+  description: string | null;
+  content: string;
+  createdById: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export class DocumentRepository {
   async createDocument(
     tx: TenantTx,
@@ -208,5 +220,89 @@ export class DocumentRepository {
       WHERE da.document_id = ${documentId}
       ORDER BY da.acknowledged_at DESC
     `;
+  }
+
+  // DOC-007: Document Templates
+  async createTemplate(
+    tx: TenantTx,
+    data: {
+      name: string;
+      category: string;
+      description?: string | null | undefined;
+      content: string;
+      createdById: string;
+    },
+  ): Promise<DocumentTemplateRow> {
+    const rows = await tx<DocumentTemplateRow[]>`
+      INSERT INTO document_templates (
+        name, category, description, content, created_by_id
+      ) VALUES (
+        ${data.name},
+        ${data.category},
+        ${data.description ?? null},
+        ${data.content},
+        ${data.createdById}
+      )
+      RETURNING
+        id,
+        organization_id as "organizationId",
+        name,
+        category,
+        description,
+        content,
+        created_by_id as "createdById",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+    `;
+    return rows[0]!;
+  }
+
+  async listTemplates(
+    tx: TenantTx,
+    category?: string | undefined,
+  ): Promise<DocumentTemplateRow[]> {
+    return tx<DocumentTemplateRow[]>`
+      SELECT
+        id,
+        organization_id as "organizationId",
+        name,
+        category,
+        description,
+        content,
+        created_by_id as "createdById",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+      FROM document_templates
+      WHERE 1=1
+      ${category ? tx`AND category = ${category}` : tx``}
+      ORDER BY name ASC
+    `;
+  }
+
+  async getTemplateById(
+    tx: TenantTx,
+    id: string,
+  ): Promise<DocumentTemplateRow | null> {
+    const rows = await tx<DocumentTemplateRow[]>`
+      SELECT
+        id,
+        organization_id as "organizationId",
+        name,
+        category,
+        description,
+        content,
+        created_by_id as "createdById",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
+      FROM document_templates
+      WHERE id = ${id}
+      LIMIT 1
+    `;
+    return rows[0] ?? null;
+  }
+
+  async deleteTemplate(tx: TenantTx, id: string): Promise<boolean> {
+    const res = await tx`DELETE FROM document_templates WHERE id = ${id}`;
+    return res.count > 0;
   }
 }

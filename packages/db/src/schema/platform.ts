@@ -1,4 +1,4 @@
-import { pgTable, text, uuid, index } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, index, boolean } from "drizzle-orm/pg-core";
 import { primaryId, timestamps, organizationIdCol } from "./common.js";
 
 export const organizations = pgTable(
@@ -9,6 +9,7 @@ export const organizations = pgTable(
     slug: text("slug").notNull().unique(),
     defaultLocale: text("default_locale").notNull().default("ca"),
     timezone: text("timezone").notNull().default("Europe/Madrid"),
+    requireTwoFactor: boolean("require_two_factor").default(false).notNull(),
     ...timestamps,
   },
   (table) => [index("organizations_slug_idx").on(table.slug)],
