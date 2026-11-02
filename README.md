@@ -12,7 +12,7 @@
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
-  <a href="https://github.com/miquelsolaa/openhr">
+  <a href="https://github.com/miquelsolaa/librehr">
     <img src="docs/images/banner.png" alt="LibreHR — Open-Source HRIS for European SMBs" width="100%">
   </a>
 
@@ -26,9 +26,9 @@
     <br />
     <a href="http://localhost:3000">View Demo</a>
     &middot;
-    <a href="https://github.com/miquelsolaa/openhr/issues/new?labels=bug">Report Bug</a>
+    <a href="https://github.com/miquelsolaa/librehr/issues/new?labels=bug">Report Bug</a>
     &middot;
-    <a href="https://github.com/miquelsolaa/openhr/issues/new?labels=enhancement">Request Feature</a>
+    <a href="https://github.com/miquelsolaa/librehr/issues/new?labels=enhancement">Request Feature</a>
     &middot;
     <a href="docs/guides/self-hosting.md">Self-Hosting Guide</a>
   </p>
@@ -75,7 +75,7 @@
 
 ## About The Project
 
-[![LibreHR Dashboard Preview][dashboard-light-screenshot]](https://github.com/miquelsolaa/openhr)
+[![LibreHR Dashboard Preview][dashboard-light-screenshot]](https://github.com/miquelsolaa/librehr)
 
 > [!IMPORTANT]
 > **Clean-Room Guarantee:** LibreHR is designed and built strictly from first principles, public statutory law, and generic domain expertise. It is not affiliated with, nor copied from, any commercial HR vendor. See [`CLEANROOM.md`](CLEANROOM.md).
@@ -368,18 +368,18 @@ Distributed under the **GNU Affero General Public License v3.0 or later (AGPL-3.
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
 
-[contributors-shield]: https://img.shields.io/github/contributors/miquelsolaa/openhr.svg?style=for-the-badge
-[contributors-url]: https://github.com/miquelsolaa/openhr/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/miquelsolaa/openhr.svg?style=for-the-badge
-[forks-url]: https://github.com/miquelsolaa/openhr/network/members
-[stars-shield]: https://img.shields.io/github/stars/miquelsolaa/openhr.svg?style=for-the-badge
-[stars-url]: https://github.com/miquelsolaa/openhr/stargazers
-[issues-shield]: https://img.shields.io/github/issues/miquelsolaa/openhr.svg?style=for-the-badge
-[issues-url]: https://github.com/miquelsolaa/openhr/issues
+[contributors-shield]: https://img.shields.io/github/contributors/miquelsolaa/librehr.svg?style=for-the-badge
+[contributors-url]: https://github.com/miquelsolaa/librehr/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/miquelsolaa/librehr.svg?style=for-the-badge
+[forks-url]: https://github.com/miquelsolaa/librehr/network/members
+[stars-shield]: https://img.shields.io/github/stars/miquelsolaa/librehr.svg?style=for-the-badge
+[stars-url]: https://github.com/miquelsolaa/librehr/stargazers
+[issues-shield]: https://img.shields.io/github/issues/miquelsolaa/librehr.svg?style=for-the-badge
+[issues-url]: https://github.com/miquelsolaa/librehr/issues
 [license-shield]: https://img.shields.io/badge/License-AGPL_v3-blue.svg?style=for-the-badge
 [license-url]: https://www.gnu.org/licenses/agpl-3.0
-[ci-shield]: https://img.shields.io/github/actions/workflow/status/miquelsolaa/openhr/ci.yml?branch=main&style=for-the-badge&label=CI
-[ci-url]: https://github.com/miquelsolaa/openhr/actions
+[ci-shield]: https://img.shields.io/github/actions/workflow/status/miquelsolaa/librehr/ci.yml?branch=main&style=for-the-badge&label=CI
+[ci-url]: https://github.com/miquelsolaa/librehr/actions
 [dashboard-light-screenshot]: docs/images/dashboard-light.png
 [dashboard-dark-screenshot]: docs/images/dashboard-dark.png
 [setup-screenshot]: docs/images/setup-wizard.png

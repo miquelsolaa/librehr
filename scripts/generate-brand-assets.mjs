@@ -374,7 +374,7 @@ async function main() {
     </g>
 
     <!-- Bottom URL -->
-    <text x="90" y="555" fill="#64748b" font-family="Consolas, Monaco, monospace" font-size="18" font-weight="500">github.com/miquelsolaa/openhr</text>
+    <text x="90" y="555" fill="#64748b" font-family="Consolas, Monaco, monospace" font-size="18" font-weight="500">github.com/miquelsolaa/librehr</text>
   </svg>`;
 
   await sharp(Buffer.from(ogSvg)).png().toFile(path.join(DOCS_IMAGES_DIR, "og-image.png"));

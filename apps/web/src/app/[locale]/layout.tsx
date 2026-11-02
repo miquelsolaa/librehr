@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "LibreHR",
     description: "Open-source, self-hostable HRIS for European SMBs",
-    url: "https://github.com/miquelsolaa/openhr",
+    url: "https://github.com/miquelsolaa/librehr",
     siteName: "LibreHR",
     images: [
       {
