@@ -38,6 +38,7 @@ export const TENANT_TABLES = [
   "approval_delegations",
   "sso_configurations",
   "document_templates",
+  "webhooks",
 ] as const;
 
 export type TenantTable = (typeof TENANT_TABLES)[number];

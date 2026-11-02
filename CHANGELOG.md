@@ -3,6 +3,26 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.1.0] - 2026-11-02
+
+### Advanced Enterprise, Compliance & Platform Extensions
+
+- **Outbound Webhooks Engine (`ADM-006`):** Configurable HTTP webhook endpoints in Settings (`/settings/webhooks`) with HMAC-SHA256 signature verification (`X-LibreHR-Signature-256`, timestamp header), event filtering (`employee.created`, `leave.approved`, etc.), live test ping dispatch with latency measurement, and delivery status tracking.
+- **Enterprise Two-Factor Authentication (`AUTH-003`):** Time-based One-Time Password (TOTP) 2FA with RFC 6238 compliance, QR code provisioning, 8 single-use recovery codes, and mandatory organization-wide 2FA policy enforcement in `/settings/security`.
+- **Enterprise Single Sign-On (`AUTH-004`):** OpenID Connect (OIDC) SSO integration supporting Google Workspace, Microsoft Entra ID / Office 365, and generic OIDC providers with domain restrictions, automatic account linking, and SSO enforcement toggles in `/settings/sso`.
+- **Document Merge Templates (`DOC-007`):** Reusable document templates with Mustache placeholder interpolation (`{{employee.name}}`, `{{company.name}}`, `{{contract.start_date}}`), template preview, category filtering, and one-click employee document generation.
+- **Interactive Org Chart & Team Visualization (`ORG-004`):** Visual organizational hierarchy tree at `/org-chart` with department badges, direct reports counters, full-tree zoom/pan navigation, and employee profile navigation.
+- **Custom Profile Fields (`ORG-005`):** Dynamic schema configuration for custom employee attributes (text, number, date, select) with admin configuration at `/settings/custom-fields` and live editing on employee profiles.
+- **Emergency Contacts (`EMP-002`):** Primary and secondary emergency contact management with relationship types, phone numbers, and priority tagging on employee profiles.
+- **Employee Self-Service Profile Editing (`EMP-005`):** Self-service contact updates allowing employees to update their own address, personal phone, and emergency contacts without full employee editing permissions.
+- **In-App Notification Bell & Drawer (`NOT-002`):** Real-time notification center in the top navigation bar with unread counters, notification drawer, category badges, and mark-all-as-read actions.
+- **Document Read Receipts & Acknowledgement (`DOC-006`):** Mandatory document acknowledgement tracking with compliance audit timestamps and employee sign-off prompts.
+- **Shared Tablet Kiosk Mode (`TIM-010`):** High-throughput PIN-based clock-in/out terminal at `/kiosk` for physical workplace tablets with offline protection and employee PIN administration.
+- **Statutory Labour Inspector Role (`TIM-008`):** Restricted read-only view (`/time/inspector`) for Spanish labour inspection auditors with date-filtered time records and SHA-256 tamper-evident verification.
+- **Working Time Bank & Flex Ledger (`TIM-012`):** Working time bank ledger at `/time/time-bank` tracking accrued overtime hours, flex balances, and time compensations.
+- **Team Absence Coverage Rules & Blackout Periods (`LEA-007`):** Minimum staffing constraints and company blackout date ranges (`/time-off/rules`) preventing leave approvals when team coverage falls below thresholds.
+- **Manager Absence Approval Delegations (`LEA-008`):** Temporary manager approval delegation (`/time-off/delegations`) automatically routing leave requests to delegates while a manager is out of office.
+
 ## [1.0.0-rc.1] - 2026-11-02
 
 ### Milestone M5 - Insights, Integrations, Hardening & v1.0 Release Candidate

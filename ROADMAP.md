@@ -38,9 +38,34 @@ RPT-001/002, AUTH-003/004, LEA-007..009, TIM-002, ADM-006, performance audits, d
 
 - **Exit Status:** Completed. Workforce analytics dashboard (`/reports`) with headcount, turnover, and absence rates; Spanish Gestoría payroll RFC 4180 CSV export; Personal Access Tokens (PATs) with SHA-256 hashing and API authentication (`/settings/tokens`); iCalendar `.ics` feed subscription (`/v1/calendar/feed.ics`); background tamper-evident audit hash verification job (`TIM-002`); v1.0 release candidate verified.
 
-## After 1.0 (candidates)
+## [x] v1.1 - Advanced Enterprise, Compliance & Platform Extensions (Completed)
 
-Expenses · Recruiting/ATS · Performance and goals · Shift planning · Payroll-provider and gestoria direct API connectors · SCIM · Slack/Teams · Native/Capacitor apps · e-signature · Whistleblowing channel · Multi-language holiday data community hub.
+- **Interactive Org Chart (`ORG-004`):** Real-time organizational hierarchy tree visualization (`/org-chart`) with department filtering and direct report counts.
+- **Custom Profile Fields (`ORG-005`):** Configurable dynamic employee attributes (`/settings/custom-fields`) with text, number, date, and select types.
+- **Emergency Contacts (`EMP-002`):** Primary and secondary emergency contact details on employee profiles.
+- **Employee Self-Service Profile Editing (`EMP-005`):** Restricted employee self-update portal for address, phone, and emergency contacts.
+- **In-App Notification Center (`NOT-002`):** Interactive notification bell, unread count badge, and sliding drawer.
+- **Document Read Receipts (`DOC-006`):** Mandatory document acknowledgement tracking with compliance timestamps.
+- **Tablet Kiosk Mode (`TIM-010`):** Shared tablet clock-in/out station (`/kiosk`) with PIN authentication.
+- **Statutory Labour Inspector Role (`TIM-008`):** Restricted read-only inspectorate audit view (`/time/inspector`).
+- **Working Time Bank (`TIM-012`):** Overtime and flex-hour balance tracking ledger (`/time/time-bank`).
+- **Team Absence Coverage Rules & Blackouts (`LEA-007`):** Minimum team staffing constraints and blackout period rules (`/time-off/rules`).
+- **Manager Absence Approval Delegations (`LEA-008`):** Automatic delegation of approval duties during manager absences (`/time-off/delegations`).
+- **Enterprise TOTP Two-Factor Authentication (`AUTH-003`):** RFC 6238 TOTP 2FA with recovery codes and organization-wide enforcement (`/settings/security`).
+- **Enterprise Single Sign-On (`AUTH-004`):** OIDC SSO for Google, Microsoft, and generic identity providers with domain restrictions (`/settings/sso`).
+- **Document Merge Templates (`DOC-007`):** Dynamic template engine with Mustache placeholder substitution (`/documents/templates`).
+- **Outbound Webhooks Engine (`ADM-006`):** Event subscription engine with HMAC-SHA256 signature verification, event filtering, and test ping dispatch (`/settings/webhooks`).
+
+## Pending Backlog (What is Left to Build)
+
+The following items represent secondary or post-v1.1 extensions scheduled for subsequent iterations:
+
+1. **`AUTH-006`: WebAuthn / Passkeys Authentication (P2):** Hardware security keys (FIDO2/YubiKey, Apple Touch ID/Face ID, Windows Hello) as passwordless primary or secondary authentication factor.
+2. **`ONB-003`: Candidate Pre-boarding Intake Form (P2):** Public or token-authenticated pre-boarding web form allowing newly hired employees to fill in their own personal information, DNI/NIE, and bank details prior to day one.
+3. **`NOT-003`: Web Push Notifications (P2):** Web Push API integration for mobile and desktop browser push notifications (service worker, VAPID key exchange).
+4. **`RPT-003`: Scheduled Email Digest Reports (P2):** Cron-triggered pg-boss background worker delivering weekly or monthly workforce and absence digests to managers and HR admins.
+5. **Direct Payroll Provider Connectors:** API connectors for Spanish payroll platforms (A3, Sage, Wolters Kluwer).
+6. **Whistleblowing Channel (Ley 2/2023):** Statutory anonymous whistleblower submission and communication portal.
 
 ## Principles for prioritization
 

@@ -38,6 +38,7 @@ import { createTokenRoutes } from "./routes/tokens.js";
 import { createCustomFieldRoutes } from "./routes/custom-fields.js";
 import { createSsoRoutes } from "./routes/sso.js";
 import { createSettingsSecurityRoutes } from "./routes/settings-security.js";
+import { createWebhookRoutes } from "./routes/webhooks.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -113,6 +114,7 @@ export function createApp(deps: AppDependencies) {
   app.route("/v1", createCustomFieldRoutes(deps.sql));
   app.route("/v1", createSsoRoutes(deps.sql));
   app.route("/v1", createSettingsSecurityRoutes(deps.sql));
+  app.route("/v1", createWebhookRoutes(deps.sql));
 
   // 5. RFC 9457 Problem Details Error Handler
   app.onError(errorHandler);

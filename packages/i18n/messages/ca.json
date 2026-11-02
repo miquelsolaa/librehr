@@ -132,6 +132,8 @@
     "region": "Comunitat Autònoma / Regió",
     "tokensTitle": "Tokens d'Accés Personal",
     "tokensDescription": "Gestiona claus d'API i tokens d'accés personal per a scripts automatitzats i integracions.",
+    "webhooksCardTitle": "Webhooks Sortints",
+    "webhooksCardDescription": "Emet esdeveniments HTTP en temps real amb signatures HMAC-SHA256 cap a URLs externes.",
     "securityTitle": "Seguretat i Doble Factor (2FA)",
     "securityDescription": "Gestiona l'autenticació en dos passos per a usuaris i les polítiques corporatives de seguretat.",
     "securityCardTitle": "Seguretat i 2FA",
@@ -455,5 +457,26 @@
     "colExpires": "Caduca",
     "colActions": "Accions",
     "neverUsed": "Mai"
+  },
+  "webhooks": {
+    "title": "Webhooks Sortints",
+    "subtitle": "Configura punts d'enllaç HTTP per rebre notificacions en temps real sobre esdeveniments a la teva organització.",
+    "newWebhook": "Afegir Webhook",
+    "editWebhook": "Editar Webhook",
+    "name": "Nom del Webhook",
+    "url": "URL de Destinació",
+    "events": "Esdeveniments Disparadors",
+    "secret": "Clau Secreta de Signatura",
+    "enabled": "Actiu",
+    "testPing": "Enviar Ping de Prova",
+    "testing": "Enviant...",
+    "lastDelivery": "Darrera entrega",
+    "noWebhooks": "Encara no hi ha cap webhook configurat.",
+    "deleteConfirm": "Segur que vols eliminar aquesta subscripció de webhook?",
+    "createSuccess": "Webhook creat correctament.",
+    "updateSuccess": "Webhook actualitzat correctament.",
+    "deleteSuccess": "Webhook eliminat.",
+    "testSuccess": "Ping entregat amb èxit ({statusCode} en {durationMs}ms).",
+    "testError": "Error en l'entrega: {error}"
   }
 }

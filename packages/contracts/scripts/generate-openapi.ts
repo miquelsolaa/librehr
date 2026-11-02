@@ -116,6 +116,12 @@ import {
   OrgChartNodeSchema,
 } from "../src/org-chart.js";
 import { SelfServiceUpdateSchema } from "../src/employees.js";
+import {
+  WebhookItemSchema,
+  CreateWebhookRequestSchema,
+  UpdateWebhookRequestSchema,
+  TestWebhookResponseSchema,
+} from "../src/webhooks.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const registry = new OpenAPIRegistry();
@@ -205,6 +211,10 @@ registry.register("UpdateEmergencyContact", UpdateEmergencyContactSchema);
 registry.register("OrgChartNode", OrgChartNodeSchema);
 registry.register("OrgChartResponse", OrgChartResponseSchema);
 registry.register("SelfServiceUpdate", SelfServiceUpdateSchema);
+registry.register("WebhookItem", WebhookItemSchema);
+registry.register("CreateWebhookRequest", CreateWebhookRequestSchema);
+registry.register("UpdateWebhookRequest", UpdateWebhookRequestSchema);
+registry.register("TestWebhookResponse", TestWebhookResponseSchema);
 
 // Register endpoints
 registry.registerPath({
@@ -1111,6 +1121,79 @@ registry.registerPath({
   },
 });
 
+// Outbound Webhooks (ADM-006)
+registry.registerPath({
+  method: "get",
+  path: "/v1/webhooks",
+  summary: "List all webhooks configured for the organization",
+  responses: {
+    200: {
+      description: "List of webhooks",
+      content: { "application/json": { schema: z.array(WebhookItemSchema) } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/webhooks",
+  summary: "Create a new outbound webhook subscription",
+  request: {
+    body: {
+      content: { "application/json": { schema: CreateWebhookRequestSchema } },
+    },
+  },
+  responses: {
+    201: {
+      description: "Webhook subscription created",
+      content: { "application/json": { schema: WebhookItemSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "patch",
+  path: "/v1/webhooks/{id}",
+  summary: "Update an outbound webhook subscription",
+  request: {
+    body: {
+      content: { "application/json": { schema: UpdateWebhookRequestSchema } },
+    },
+  },
+  responses: {
+    200: {
+      description: "Webhook updated",
+      content: { "application/json": { schema: WebhookItemSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "delete",
+  path: "/v1/webhooks/{id}",
+  summary: "Delete an outbound webhook subscription",
+  responses: {
+    200: {
+      description: "Webhook deleted",
+      content: {
+        "application/json": { schema: z.object({ success: z.boolean() }) },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/webhooks/{id}/test",
+  summary: "Trigger a test ping event to the webhook target URL",
+  responses: {
+    200: {
+      description: "Webhook test result",
+      content: { "application/json": { schema: TestWebhookResponseSchema } },
+    },
+  },
+});
+
 const generator = new OpenApiGeneratorV31(registry.definitions);
 const openApiDoc = generator.generateDocument({
   openapi: "3.1.0",
@@ -1253,6 +1336,12 @@ import type {
 import type {
   OrgChartResponse,
 } from '../src/org-chart.js';
+import type {
+  WebhookItem,
+  CreateWebhookRequest,
+  UpdateWebhookRequest,
+  TestWebhookResponse,
+} from '../src/webhooks.js';
 import type { ProblemDetails } from '../src/errors.js';
 
 export interface ApiClientOptions {
@@ -1870,6 +1959,37 @@ export class LibreHrApiClient {
   async deleteDocumentTemplate(templateId: string): Promise<{ success: boolean }> {
     return this.request<{ success: boolean }>(\`/v1/documents/templates/\${templateId}\`, {
       method: 'DELETE',
+    });
+  }
+
+  // Webhooks (ADM-006)
+  async listWebhooks(): Promise<WebhookItem[]> {
+    return this.request<WebhookItem[]>('/v1/webhooks');
+  }
+
+  async createWebhook(data: CreateWebhookRequest): Promise<WebhookItem> {
+    return this.request<WebhookItem>('/v1/webhooks', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateWebhook(id: string, data: UpdateWebhookRequest): Promise<WebhookItem> {
+    return this.request<WebhookItem>(\`/v1/webhooks/\${id}\`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteWebhook(id: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(\`/v1/webhooks/\${id}\`, {
+      method: 'DELETE',
+    });
+  }
+
+  async testWebhook(id: string): Promise<TestWebhookResponse> {
+    return this.request<TestWebhookResponse>(\`/v1/webhooks/\${id}/test\`, {
+      method: 'POST',
     });
   }
 }

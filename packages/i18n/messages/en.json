@@ -132,6 +132,8 @@
     "region": "Autonomous Community / Region",
     "tokensTitle": "Personal Access Tokens",
     "tokensDescription": "Manage API keys and personal access tokens for automated scripts and integrations.",
+    "webhooksCardTitle": "Outbound Webhooks",
+    "webhooksCardDescription": "Emit real-time HTTP events with HMAC-SHA256 signatures to external URLs.",
     "securityTitle": "Security & Two-Factor Authentication (2FA)",
     "securityDescription": "Manage two-step user verification and organization-wide security access policies.",
     "securityCardTitle": "Security & 2FA",
@@ -455,5 +457,26 @@
     "colExpires": "Expires",
     "colActions": "Actions",
     "neverUsed": "Never"
+  },
+  "webhooks": {
+    "title": "Outbound Webhooks",
+    "subtitle": "Configure HTTP endpoints to receive real-time notifications about events in your organization.",
+    "newWebhook": "Add Webhook",
+    "editWebhook": "Edit Webhook",
+    "name": "Webhook Name",
+    "url": "Payload URL",
+    "events": "Trigger Events",
+    "secret": "Signing Secret",
+    "enabled": "Active",
+    "testPing": "Send Test Ping",
+    "testing": "Sending...",
+    "lastDelivery": "Last delivery",
+    "noWebhooks": "No webhooks configured yet.",
+    "deleteConfirm": "Are you sure you want to delete this webhook subscription?",
+    "createSuccess": "Webhook created successfully.",
+    "updateSuccess": "Webhook updated successfully.",
+    "deleteSuccess": "Webhook deleted.",
+    "testSuccess": "Ping delivered successfully ({statusCode} in {durationMs}ms).",
+    "testError": "Delivery failed: {error}"
   }
 }

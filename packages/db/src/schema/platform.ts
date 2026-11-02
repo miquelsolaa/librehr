@@ -1,4 +1,13 @@
-import { pgTable, text, uuid, index, boolean } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  uuid,
+  index,
+  boolean,
+  integer,
+  jsonb,
+  timestamp,
+} from "drizzle-orm/pg-core";
 import { primaryId, timestamps, organizationIdCol } from "./common.js";
 
 export const organizations = pgTable(
@@ -48,4 +57,26 @@ export const locations = pgTable(
     ...timestamps,
   },
   (table) => [index("locations_org_idx").on(table.organizationId)],
+);
+
+export const webhooks = pgTable(
+  "webhooks",
+  {
+    id: primaryId(),
+    organizationId: organizationIdCol().references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    name: text("name").notNull(),
+    url: text("url").notNull(),
+    secret: text("secret").notNull(),
+    events: jsonb("events").$type<string[]>().notNull(),
+    enabled: boolean("enabled").default(true).notNull(),
+    lastDeliveryStatus: integer("last_delivery_status"),
+    lastDeliveredAt: timestamp("last_delivered_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    ...timestamps,
+  },
+  (table) => [index("webhooks_org_idx").on(table.organizationId)],
 );

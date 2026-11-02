@@ -10,6 +10,7 @@ import {
   Sliders,
   ShieldCheck,
   Globe,
+  Webhook,
   ChevronRight,
 } from "lucide-react";
 
@@ -55,6 +56,12 @@ export default function SettingsPage() {
       description: t("ssoCardDescription"),
       href: `/${locale}/settings/sso`,
       icon: <Globe className="h-5 w-5 text-primary" />,
+    },
+    {
+      title: t("webhooksCardTitle"),
+      description: t("webhooksCardDescription"),
+      href: `/${locale}/settings/webhooks`,
+      icon: <Webhook className="h-5 w-5 text-primary" />,
     },
   ];
 

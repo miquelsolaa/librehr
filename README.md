@@ -314,8 +314,9 @@ pnpm run doctor
 - [x] **M3 - Time Tracking:** Compliant daily time records (_jornada_), SHA-256 tamper-evident hash chaining, schedule assignment, and missing clock-out background jobs.
 - [x] **M4 - Documents & Lifecycle:** Employee document vault, bulk payslip distribution, onboarding checklists, and GDPR data subject request (DSR) export tools.
 - [x] **M5 - Insights, Hardening & v1.0 RC:** Workforce reporting, gestoría payroll CSV export, personal access tokens (PATs), iCal subscription feeds, and tamper-evident hash chain verification worker.
+- [x] **v1.1 - Advanced Enterprise & Platform Extensions:** Outbound webhooks (`ADM-006`), TOTP 2FA (`AUTH-003`), Enterprise OIDC SSO (`AUTH-004`), document merge templates (`DOC-007`), org chart (`ORG-004`), custom profile fields (`ORG-005`), emergency contacts (`EMP-002`), employee self-service (`EMP-005`), notification center (`NOT-002`), document read receipts (`DOC-006`), tablet kiosk (`TIM-010`), inspector role (`TIM-008`), time bank (`TIM-012`), team coverage rules (`LEA-007`), and approval delegations (`LEA-008`).
 
-See the full [ROADMAP.md](ROADMAP.md) and [PRD.md](PRD.md) for detailed requirements and milestones.
+See the full [ROADMAP.md](ROADMAP.md) and [PRD.md](PRD.md) for detailed requirements, architecture, and the pending post-v1.1 backlog.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

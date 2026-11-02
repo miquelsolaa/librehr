@@ -116,6 +116,12 @@ import type {
 import type {
   OrgChartResponse,
 } from '../src/org-chart.js';
+import type {
+  WebhookItem,
+  CreateWebhookRequest,
+  UpdateWebhookRequest,
+  TestWebhookResponse,
+} from '../src/webhooks.js';
 import type { ProblemDetails } from '../src/errors.js';
 
 export interface ApiClientOptions {
@@ -733,6 +739,37 @@ export class LibreHrApiClient {
   async deleteDocumentTemplate(templateId: string): Promise<{ success: boolean }> {
     return this.request<{ success: boolean }>(`/v1/documents/templates/${templateId}`, {
       method: 'DELETE',
+    });
+  }
+
+  // Webhooks (ADM-006)
+  async listWebhooks(): Promise<WebhookItem[]> {
+    return this.request<WebhookItem[]>('/v1/webhooks');
+  }
+
+  async createWebhook(data: CreateWebhookRequest): Promise<WebhookItem> {
+    return this.request<WebhookItem>('/v1/webhooks', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateWebhook(id: string, data: UpdateWebhookRequest): Promise<WebhookItem> {
+    return this.request<WebhookItem>(`/v1/webhooks/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteWebhook(id: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/v1/webhooks/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async testWebhook(id: string): Promise<TestWebhookResponse> {
+    return this.request<TestWebhookResponse>(`/v1/webhooks/${id}/test`, {
+      method: 'POST',
     });
   }
 }

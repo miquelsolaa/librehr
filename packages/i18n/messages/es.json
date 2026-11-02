@@ -132,6 +132,8 @@
     "region": "Comunidad Autónoma / Región",
     "tokensTitle": "Tokens de Acceso Personal",
     "tokensDescription": "Gestiona claves de API y tokens de acceso personal para scripts automatizados e integraciones.",
+    "webhooksCardTitle": "Webhooks Salientes",
+    "webhooksCardDescription": "Emite eventos HTTP en tiempo real con firmas HMAC-SHA256 hacia URLs externas.",
     "securityTitle": "Seguridad y Doble Factor (2FA)",
     "securityDescription": "Gestiona la autenticación en dos pasos para usuarios y las políticas corporativas de seguridad.",
     "securityCardTitle": "Seguridad y 2FA",
@@ -455,5 +457,26 @@
     "colExpires": "Caduca",
     "colActions": "Acciones",
     "neverUsed": "Nunca"
+  },
+  "webhooks": {
+    "title": "Webhooks Salientes",
+    "subtitle": "Configura puntos de enlace HTTP para recibir notificaciones en tiempo real sobre eventos en tu organización.",
+    "newWebhook": "Añadir Webhook",
+    "editWebhook": "Editar Webhook",
+    "name": "Nombre del Webhook",
+    "url": "URL de Destino",
+    "events": "Eventos Disparadores",
+    "secret": "Clave Secreta de Firma",
+    "enabled": "Activo",
+    "testPing": "Enviar Ping de Prueba",
+    "testing": "Enviando...",
+    "lastDelivery": "Última entrega",
+    "noWebhooks": "No hay webhooks configurados todavía.",
+    "deleteConfirm": "¿Seguro que deseas eliminar esta suscripción a webhook?",
+    "createSuccess": "Webhook creado correctamente.",
+    "updateSuccess": "Webhook actualizado correctamente.",
+    "deleteSuccess": "Webhook eliminado.",
+    "testSuccess": "Ping entregado con éxito ({statusCode} en {durationMs}ms).",
+    "testError": "Fallo en la entrega: {error}"
   }
 }

@@ -119,3 +119,62 @@ This plan outlines the systematic implementation of all remaining **P1 (Should-H
 4. **Testing & Verification:**
    - Unit and integration tests for hierarchy builder, custom field permissions, and self-service boundaries.
    - Run `pnpm verify` to certify 0 lint, type, and test errors.
+
+---
+
+## Phase 6: Outbound Webhooks (`ADM-006`) — COMPLETED
+
+### 1. Requirements & Scope
+
+- **Outbound Webhooks Engine (`ADM-006`):**
+  - Configurable endpoints in Settings (`/settings/webhooks`) to dispatch real-time HTTP events.
+  - Event triggers: `employee.created`, `employee.updated`, `employee.terminated`, `leave.requested`, `leave.approved`, `leave.rejected`, `time.clocked`, `document.uploaded`, `test.ping`.
+  - Cryptographic signatures: HMAC-SHA256 signature header (`X-LibreHR-Signature-256: t={timestamp},v1={hash}`) and replay protection with 300s window.
+  - Live test ping action with latency measurement, HTTP status recording, and delivery status tracking.
+  - Full PostgreSQL RLS tenant isolation on `webhooks` table.
+
+### 2. Implementation Deliverables
+
+- `packages/core/src/webhooks/signer.ts`: HMAC-SHA256 signer, secret generator, signature verification with constant-time equality check.
+- `packages/db/src/schema/platform.ts`: `webhooks` table with RLS policy and `TENANT_TABLES` registration.
+- `packages/db/migrations/0011_outbound_webhooks.sql`: Forward-only migration with tenant isolation policy.
+- `packages/db/src/repositories/webhook.repository.ts`: Repository for CRUD and delivery status updates.
+- `packages/contracts/src/webhooks.ts`: Zod request/response validation schemas and OpenAPI registration.
+- `apps/api/src/routes/webhooks.ts`: REST endpoints (`GET`, `POST`, `PATCH`, `DELETE /v1/webhooks`, `POST /v1/webhooks/:id/test`).
+- `apps/web/src/app/[locale]/(app)/settings/webhooks/page.tsx`: Web UI with modal creation, secret reveal, event selection, and live test ping dispatch.
+- `packages/i18n/messages/{ca,es,en}.json`: Synchronized localization for Catalan, Spanish, and English.
+
+---
+
+## State of Development & What Remains to Build
+
+### Completed Scope (Phases 1 through 6)
+
+All P1 requirements from the PRD and roadmap have been fully implemented, verified, and tested:
+
+1. `ORG-004`: Interactive Org Chart & Hierarchy Tree (`/org-chart`)
+2. `ORG-005`: Custom Profile Fields (`/settings/custom-fields`)
+3. `EMP-002`: Emergency Contacts
+4. `EMP-005`: Employee Self-Service Profile Editing
+5. `NOT-002`: In-App Notification Center & Bell Drawer
+6. `DOC-006`: Document Read Receipts & Acknowledgements
+7. `TIM-010`: Shared Tablet Kiosk Mode (`/kiosk`)
+8. `TIM-008`: Statutory Labour Inspector Role (`/time/inspector`)
+9. `TIM-012`: Working Time Bank & Overtime Flex Ledger (`/time/time-bank`)
+10. `LEA-007`: Team Absence Coverage Rules & Blackout Periods (`/time-off/rules`)
+11. `LEA-008`: Manager Absence Approval Delegations (`/time-off/delegations`)
+12. `AUTH-003`: Enterprise TOTP Two-Factor Authentication (`/settings/security`)
+13. `AUTH-004`: Enterprise OIDC Single Sign-On (`/settings/sso`)
+14. `DOC-007`: Document Merge Templates (`/documents/templates`)
+15. `ADM-006`: Outbound Webhooks Engine (`/settings/webhooks`)
+
+### What is Left to Build (Post-v1.1 Backlog)
+
+The following secondary requirements and candidate modules remain for future release iterations:
+
+1. **`AUTH-006`: WebAuthn / Passkeys (P2):** Hardware security keys and biometric passwordless login.
+2. **`ONB-003`: Candidate Pre-boarding Intake Form (P2):** External token-secured form for pre-start document and personal detail collection.
+3. **`NOT-003`: Web Push Notifications (P2):** Push API service worker integration for mobile/PWA push notifications.
+4. **`RPT-003`: Scheduled Email Reports (P2):** Recurring pg-boss background worker delivering weekly/monthly workforce reports to HR.
+5. **Direct Payroll Provider Connectors (Post-1.0 Candidate):** Native API integration with Spanish payroll vendors (A3, Sage, Wolters Kluwer).
+6. **Whistleblowing Channel (Post-1.0 Candidate):** Statutory whistleblower compliance channel under Ley 2/2023.
