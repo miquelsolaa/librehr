@@ -303,11 +303,11 @@ pnpm run doctor
 ## Roadmap
 
 - [x] **M0 - Foundations:** Monorepo architecture, Docker infra stack, PostgreSQL RLS tenancy harness, auth skeleton, design tokens, trilingual i18n pipeline, and seed data.
-- [ ] **M1 - People:** Setup wizard, employee directory & profiles, invitations, role-based authorization, and immutable audit logging.
-- [ ] **M2 - Time Off:** Leave requests, approval chains, cancellation flows, append-only balance ledgers, and official holiday calendars.
-- [ ] **M3 - Time Tracking:** Compliant daily time records (_jornada_), SHA-256 tamper-evident hash chaining, schedule assignment, and missing clock-out background jobs.
-- [ ] **M4 - Documents & Lifecycle:** Employee document vault, bulk payslip distribution, onboarding checklists, and GDPR data subject request (DSR) export tools.
-- [ ] **M5 - Insights, Hardening & v1.0:** Workforce reporting, performance audits, penetration testing, signed production container images, and v1.0 release candidate.
+- [x] **M1 - People:** Setup wizard, employee directory & profiles, invitations, role-based authorization, and immutable audit logging.
+- [x] **M2 - Time Off:** Leave requests, approval chains, cancellation flows, append-only balance ledgers, and official holiday calendars.
+- [x] **M3 - Time Tracking:** Compliant daily time records (_jornada_), SHA-256 tamper-evident hash chaining, schedule assignment, and missing clock-out background jobs.
+- [x] **M4 - Documents & Lifecycle:** Employee document vault, bulk payslip distribution, onboarding checklists, and GDPR data subject request (DSR) export tools.
+- [x] **M5 - Insights, Hardening & v1.0 RC:** Workforce reporting, gestoría payroll CSV export, personal access tokens (PATs), iCal subscription feeds, and tamper-evident hash chain verification worker.
 
 See the full [ROADMAP.md](ROADMAP.md) and [PRD.md](PRD.md) for detailed requirements and milestones.
 
