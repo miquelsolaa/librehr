@@ -81,6 +81,15 @@ import {
   EmployeeImportValidationResponseSchema,
   DataSubjectExportResponseSchema,
 } from "../src/lifecycle.js";
+import {
+  ReportsSummaryResponseSchema,
+  GestoriaExportQuerySchema as _GestoriaExportQuerySchema,
+} from "../src/reports.js";
+import {
+  PersonalAccessTokenSchema,
+  CreatePersonalAccessTokenSchema,
+  TokenCreatedResponseSchema,
+} from "../src/tokens.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const registry = new OpenAPIRegistry();
@@ -143,6 +152,10 @@ registry.register(
   EmployeeImportValidationResponseSchema,
 );
 registry.register("DataSubjectExportResponse", DataSubjectExportResponseSchema);
+registry.register("ReportsSummaryResponse", ReportsSummaryResponseSchema);
+registry.register("PersonalAccessToken", PersonalAccessTokenSchema);
+registry.register("CreatePersonalAccessToken", CreatePersonalAccessTokenSchema);
+registry.register("TokenCreatedResponse", TokenCreatedResponseSchema);
 
 // Register endpoints
 registry.registerPath({
@@ -812,6 +825,85 @@ registry.registerPath({
   },
 });
 
+// Reports & Insights (M5)
+registry.registerPath({
+  method: "get",
+  path: "/v1/reports/summary",
+  summary: "Get organization HR metrics (headcount, turnover, absences)",
+  responses: {
+    200: {
+      description: "HR summary metrics",
+      content: {
+        "application/json": { schema: ReportsSummaryResponseSchema },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/v1/reports/gestoria/export",
+  summary: "Download monthly Gestoría payroll CSV export (RPT-002)",
+  responses: {
+    200: {
+      description: "RFC 4180 CSV export for payroll gestoría",
+      content: {
+        "text/csv": { schema: z.string() },
+      },
+    },
+  },
+});
+
+// Personal Access Tokens (M5)
+registry.registerPath({
+  method: "get",
+  path: "/v1/tokens",
+  summary: "List personal access tokens for authenticated user",
+  responses: {
+    200: {
+      description: "List of PATs",
+      content: {
+        "application/json": { schema: z.array(PersonalAccessTokenSchema) },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/tokens",
+  summary: "Create a personal access token",
+  request: {
+    body: {
+      content: {
+        "application/json": { schema: CreatePersonalAccessTokenSchema },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "Token created (revealed once)",
+      content: {
+        "application/json": { schema: TokenCreatedResponseSchema },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "delete",
+  path: "/v1/tokens/{id}",
+  summary: "Revoke a personal access token",
+  responses: {
+    200: {
+      description: "Token revoked",
+      content: {
+        "application/json": { schema: z.object({ success: z.boolean() }) },
+      },
+    },
+  },
+});
+
 const generator = new OpenApiGeneratorV31(registry.definitions);
 const openApiDoc = generator.generateDocument({
   openapi: "3.1.0",
@@ -904,6 +996,14 @@ import type {
   EmployeeImportValidationResponse,
   DataSubjectExportResponse,
 } from '../src/lifecycle.js';
+import type {
+  ReportsSummaryResponse,
+} from '../src/reports.js';
+import type {
+  PersonalAccessTokenItem,
+  CreatePersonalAccessToken,
+  TokenCreatedResponse,
+} from '../src/tokens.js';
 import type { ProblemDetails } from '../src/errors.js';
 
 export interface ApiClientOptions {
@@ -1272,6 +1372,37 @@ export class OpenHrApiClient {
   // GDPR DSR Export (M4)
   async getDataSubjectExport(employeeId: string): Promise<DataSubjectExportResponse> {
     return this.request<DataSubjectExportResponse>(\`/v1/employees/\${employeeId}/dsr-export\`);
+  }
+
+  // Reports & Insights (M5)
+  async getReportsSummary(params?: { periodStart?: string; periodEnd?: string }): Promise<ReportsSummaryResponse> {
+    const searchParams = new URLSearchParams();
+    if (params?.periodStart) searchParams.set('periodStart', params.periodStart);
+    if (params?.periodEnd) searchParams.set('periodEnd', params.periodEnd);
+    const qs = searchParams.toString();
+    return this.request<ReportsSummaryResponse>(\`/v1/reports/summary\${qs ? '?' + qs : ''}\`);
+  }
+
+  async getGestoriaExportCsv(periodYearMonth: string): Promise<string> {
+    return this.request<string>(\`/v1/reports/gestoria/export?periodYearMonth=\${periodYearMonth}\`);
+  }
+
+  // Personal Access Tokens (M5)
+  async listTokens(): Promise<PersonalAccessTokenItem[]> {
+    return this.request<PersonalAccessTokenItem[]>('/v1/tokens');
+  }
+
+  async createToken(data: CreatePersonalAccessToken): Promise<TokenCreatedResponse> {
+    return this.request<TokenCreatedResponse>('/v1/tokens', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async revokeToken(id: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(\`/v1/tokens/\${id}\`, {
+      method: 'DELETE',
+    });
   }
 }
 `;

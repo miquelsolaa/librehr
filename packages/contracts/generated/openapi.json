@@ -3042,6 +3042,216 @@
           "timeRecords",
           "documents"
         ]
+      },
+      "ReportsSummaryResponse": {
+        "type": "object",
+        "properties": {
+          "periodStart": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "periodEnd": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "headcount": {
+            "type": "object",
+            "properties": {
+              "startingHeadcount": {
+                "type": "integer"
+              },
+              "endingHeadcount": {
+                "type": "integer"
+              },
+              "joinersCount": {
+                "type": "integer"
+              },
+              "leaversCount": {
+                "type": "integer"
+              },
+              "netChange": {
+                "type": "integer"
+              },
+              "turnoverRatePercent": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "startingHeadcount",
+              "endingHeadcount",
+              "joinersCount",
+              "leaversCount",
+              "netChange",
+              "turnoverRatePercent"
+            ]
+          },
+          "absences": {
+            "type": "object",
+            "properties": {
+              "totalAbsentDays": {
+                "type": "number"
+              },
+              "totalPlannedWorkingDays": {
+                "type": "number"
+              },
+              "absenceRatePercent": {
+                "type": "number"
+              },
+              "byCategory": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "number"
+                }
+              }
+            },
+            "required": [
+              "totalAbsentDays",
+              "totalPlannedWorkingDays",
+              "absenceRatePercent",
+              "byCategory"
+            ]
+          }
+        },
+        "required": [
+          "periodStart",
+          "periodEnd",
+          "headcount",
+          "absences"
+        ]
+      },
+      "PersonalAccessToken": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "prefix": {
+            "type": "string"
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "lastUsedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "prefix",
+          "scopes",
+          "expiresAt",
+          "lastUsedAt",
+          "createdAt"
+        ]
+      },
+      "CreatePersonalAccessToken": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          },
+          "expiresInDays": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          }
+        },
+        "required": [
+          "name",
+          "scopes"
+        ]
+      },
+      "TokenCreatedResponse": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "prefix": {
+                "type": "string"
+              },
+              "scopes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "expiresAt": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "lastUsedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "prefix",
+              "scopes",
+              "expiresAt",
+              "lastUsedAt",
+              "createdAt"
+            ]
+          },
+          "plainToken": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "plainToken"
+        ]
       }
     },
     "parameters": {}
@@ -7637,6 +7847,307 @@
                     "leaveSummary",
                     "timeRecords",
                     "documents"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/reports/summary": {
+      "get": {
+        "summary": "Get organization HR metrics (headcount, turnover, absences)",
+        "responses": {
+          "200": {
+            "description": "HR summary metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "periodStart": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "periodEnd": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "headcount": {
+                      "type": "object",
+                      "properties": {
+                        "startingHeadcount": {
+                          "type": "integer"
+                        },
+                        "endingHeadcount": {
+                          "type": "integer"
+                        },
+                        "joinersCount": {
+                          "type": "integer"
+                        },
+                        "leaversCount": {
+                          "type": "integer"
+                        },
+                        "netChange": {
+                          "type": "integer"
+                        },
+                        "turnoverRatePercent": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "startingHeadcount",
+                        "endingHeadcount",
+                        "joinersCount",
+                        "leaversCount",
+                        "netChange",
+                        "turnoverRatePercent"
+                      ]
+                    },
+                    "absences": {
+                      "type": "object",
+                      "properties": {
+                        "totalAbsentDays": {
+                          "type": "number"
+                        },
+                        "totalPlannedWorkingDays": {
+                          "type": "number"
+                        },
+                        "absenceRatePercent": {
+                          "type": "number"
+                        },
+                        "byCategory": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "number"
+                          }
+                        }
+                      },
+                      "required": [
+                        "totalAbsentDays",
+                        "totalPlannedWorkingDays",
+                        "absenceRatePercent",
+                        "byCategory"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "periodStart",
+                    "periodEnd",
+                    "headcount",
+                    "absences"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/reports/gestoria/export": {
+      "get": {
+        "summary": "Download monthly Gestoría payroll CSV export (RPT-002)",
+        "responses": {
+          "200": {
+            "description": "RFC 4180 CSV export for payroll gestoría",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tokens": {
+      "get": {
+        "summary": "List personal access tokens for authenticated user",
+        "responses": {
+          "200": {
+            "description": "List of PATs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "prefix": {
+                        "type": "string"
+                      },
+                      "scopes": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "expiresAt": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "format": "date-time"
+                      },
+                      "lastUsedAt": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "format": "date-time"
+                      },
+                      "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name",
+                      "prefix",
+                      "scopes",
+                      "expiresAt",
+                      "lastUsedAt",
+                      "createdAt"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a personal access token",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "scopes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "minItems": 1
+                  },
+                  "expiresInDays": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "name",
+                  "scopes"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Token created (revealed once)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "prefix": {
+                          "type": "string"
+                        },
+                        "scopes": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "expiresAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time"
+                        },
+                        "lastUsedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "prefix",
+                        "scopes",
+                        "expiresAt",
+                        "lastUsedAt",
+                        "createdAt"
+                      ]
+                    },
+                    "plainToken": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "token",
+                    "plainToken"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tokens/{id}": {
+      "delete": {
+        "summary": "Revoke a personal access token",
+        "responses": {
+          "200": {
+            "description": "Token revoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success"
                   ]
                 }
               }

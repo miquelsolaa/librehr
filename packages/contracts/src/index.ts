@@ -10,4 +10,6 @@ export * from "./time.js";
 export * from "./documents.js";
 export * from "./notifications.js";
 export * from "./lifecycle.js";
+export * from "./reports.js";
+export * from "./tokens.js";
 export * from "../generated/client.js";

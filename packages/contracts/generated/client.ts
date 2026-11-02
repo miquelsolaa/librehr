@@ -66,6 +66,14 @@ import type {
   EmployeeImportValidationResponse,
   DataSubjectExportResponse,
 } from '../src/lifecycle.js';
+import type {
+  ReportsSummaryResponse,
+} from '../src/reports.js';
+import type {
+  PersonalAccessTokenItem,
+  CreatePersonalAccessToken,
+  TokenCreatedResponse,
+} from '../src/tokens.js';
 import type { ProblemDetails } from '../src/errors.js';
 
 export interface ApiClientOptions {
@@ -434,5 +442,36 @@ export class OpenHrApiClient {
   // GDPR DSR Export (M4)
   async getDataSubjectExport(employeeId: string): Promise<DataSubjectExportResponse> {
     return this.request<DataSubjectExportResponse>(`/v1/employees/${employeeId}/dsr-export`);
+  }
+
+  // Reports & Insights (M5)
+  async getReportsSummary(params?: { periodStart?: string; periodEnd?: string }): Promise<ReportsSummaryResponse> {
+    const searchParams = new URLSearchParams();
+    if (params?.periodStart) searchParams.set('periodStart', params.periodStart);
+    if (params?.periodEnd) searchParams.set('periodEnd', params.periodEnd);
+    const qs = searchParams.toString();
+    return this.request<ReportsSummaryResponse>(`/v1/reports/summary${qs ? '?' + qs : ''}`);
+  }
+
+  async getGestoriaExportCsv(periodYearMonth: string): Promise<string> {
+    return this.request<string>(`/v1/reports/gestoria/export?periodYearMonth=${periodYearMonth}`);
+  }
+
+  // Personal Access Tokens (M5)
+  async listTokens(): Promise<PersonalAccessTokenItem[]> {
+    return this.request<PersonalAccessTokenItem[]>('/v1/tokens');
+  }
+
+  async createToken(data: CreatePersonalAccessToken): Promise<TokenCreatedResponse> {
+    return this.request<TokenCreatedResponse>('/v1/tokens', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async revokeToken(id: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/v1/tokens/${id}`, {
+      method: 'DELETE',
+    });
   }
 }
