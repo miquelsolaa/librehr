@@ -10,7 +10,7 @@
     "./*": "./src/*.ts"
   },
   "dependencies": {
-    "temporal-polyfill": "^0.2.5"
+    "temporal-polyfill": "^1.0.6"
   },
   "devDependencies": {
     "@librehr/config": "workspace:*",
