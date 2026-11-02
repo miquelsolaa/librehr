@@ -39,6 +39,10 @@ import type {
   AdjustBalanceRequest,
   Holiday,
   TeamAbsence,
+  BlackoutPeriod,
+  CreateBlackoutPeriod,
+  ApprovalDelegation,
+  CreateApprovalDelegation,
 } from '../src/leave.js';
 import type {
   NotificationListResponse,
@@ -320,6 +324,32 @@ export class LibreHrApiClient {
     });
     if (params.departmentId) searchParams.set('departmentId', params.departmentId);
     return this.request<TeamAbsence[]>(`/v1/calendar/team-absences?${searchParams.toString()}`);
+  }
+
+  // Blackout Periods & Coverage (LEA-007)
+  async listBlackoutPeriods(params?: { departmentId?: string }): Promise<BlackoutPeriod[]> {
+    const qs = params?.departmentId ? `?departmentId=${params.departmentId}` : '';
+    return this.request<BlackoutPeriod[]>(`/v1/leave/blackouts${qs}`);
+  }
+
+  async createBlackoutPeriod(data: CreateBlackoutPeriod): Promise<BlackoutPeriod> {
+    return this.request<BlackoutPeriod>('/v1/leave/blackouts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Approval Delegations (LEA-008)
+  async listApprovalDelegations(params?: { employeeId?: string }): Promise<ApprovalDelegation[]> {
+    const qs = params?.employeeId ? `?employeeId=${params.employeeId}` : '';
+    return this.request<ApprovalDelegation[]>(`/v1/leave/delegations${qs}`);
+  }
+
+  async createApprovalDelegation(data: CreateApprovalDelegation): Promise<ApprovalDelegation> {
+    return this.request<ApprovalDelegation>('/v1/leave/delegations', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   async listNotifications(): Promise<NotificationListResponse> {

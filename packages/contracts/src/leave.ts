@@ -144,3 +144,46 @@ export const TeamAbsenceSchema = z.object({
   status: z.string(),
 });
 export type TeamAbsence = z.infer<typeof TeamAbsenceSchema>;
+
+// LEA-007: Blackout Periods
+export const BlackoutPeriodSchema = z.object({
+  id: z.string().uuid(),
+  departmentId: z.string().uuid().nullable().optional(),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  reason: z.string(),
+  createdAt: z.string(),
+});
+export type BlackoutPeriod = z.infer<typeof BlackoutPeriodSchema>;
+
+export const CreateBlackoutPeriodSchema = z.object({
+  departmentId: z.string().uuid().optional(),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Must be YYYY-MM-DD"),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Must be YYYY-MM-DD"),
+  reason: z.string().min(3, "Reason is mandatory"),
+});
+export type CreateBlackoutPeriod = z.infer<typeof CreateBlackoutPeriodSchema>;
+
+// LEA-008: Approval Delegations
+export const ApprovalDelegationSchema = z.object({
+  id: z.string().uuid(),
+  managerEmployeeId: z.string().uuid(),
+  delegateEmployeeId: z.string().uuid(),
+  managerName: z.string().optional(),
+  delegateName: z.string().optional(),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  reason: z.string().nullable().optional(),
+  createdAt: z.string(),
+});
+export type ApprovalDelegation = z.infer<typeof ApprovalDelegationSchema>;
+
+export const CreateApprovalDelegationSchema = z.object({
+  delegateEmployeeId: z.string().uuid(),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Must be YYYY-MM-DD"),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Must be YYYY-MM-DD"),
+  reason: z.string().optional(),
+});
+export type CreateApprovalDelegation = z.infer<
+  typeof CreateApprovalDelegationSchema
+>;

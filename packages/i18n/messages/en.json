@@ -182,7 +182,15 @@
     "requestSuccess": "Leave request submitted successfully!",
     "calendarTitle": "Team Schedule & Absences",
     "calendarSubtitle": "View scheduled team leaves and statutory public holidays.",
-    "filterDepartment": "All Departments"
+    "filterDepartment": "All Departments",
+    "blackoutTitle": "Blackout Periods & Team Coverage",
+    "blackoutSubtitle": "Operational blackout periods where time off requests are restricted or require high quorum.",
+    "delegationTitle": "Approval Delegations",
+    "delegationSubtitle": "Designate a colleague to approve your team's time off requests while you are on leave.",
+    "delegateTo": "Delegate Approver",
+    "delegationPeriod": "Delegation Period",
+    "delegateSave": "Save Delegation",
+    "coverageWarning": "Team coverage threshold warning"
   },
   "notifications": {
     "title": "Notifications",

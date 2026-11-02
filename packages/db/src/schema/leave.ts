@@ -197,3 +197,59 @@ export const leaveRequests = pgTable(
     ),
   ],
 );
+
+// LEA-007: Blackout periods during peak business operations
+export const blackoutPeriods = pgTable(
+  "blackout_periods",
+  {
+    id: primaryId(),
+    organizationId: organizationIdCol().references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    departmentId: uuid("department_id"),
+    startDate: date("start_date").notNull(),
+    endDate: date("end_date").notNull(),
+    reason: text("reason").notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    index("blackout_periods_org_idx").on(table.organizationId),
+    index("blackout_periods_dates_idx").on(
+      table.organizationId,
+      table.startDate,
+      table.endDate,
+    ),
+  ],
+);
+
+// LEA-008: Manager absence approval delegation
+export const approvalDelegations = pgTable(
+  "approval_delegations",
+  {
+    id: primaryId(),
+    organizationId: organizationIdCol().references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    managerEmployeeId: uuid("manager_employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    delegateEmployeeId: uuid("delegate_employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    startDate: date("start_date").notNull(),
+    endDate: date("end_date").notNull(),
+    reason: text("reason"),
+    ...timestamps,
+  },
+  (table) => [
+    index("approval_delegations_org_idx").on(table.organizationId),
+    index("approval_delegations_mgr_idx").on(
+      table.organizationId,
+      table.managerEmployeeId,
+    ),
+    index("approval_delegations_delegate_idx").on(
+      table.organizationId,
+      table.delegateEmployeeId,
+    ),
+  ],
+);

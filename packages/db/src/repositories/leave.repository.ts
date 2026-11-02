@@ -476,4 +476,194 @@ export class LeaveRepository {
       ORDER BY r.start_date ASC
     `;
   }
+
+  // LEA-007: Blackout periods
+  async createBlackoutPeriod(
+    tx: TenantTx,
+    data: {
+      departmentId?: string | undefined;
+      startDate: string;
+      endDate: string;
+      reason: string;
+    },
+  ): Promise<{
+    id: string;
+    organizationId: string;
+    departmentId: string | null;
+    startDate: string;
+    endDate: string;
+    reason: string;
+    createdAt: Date;
+  }> {
+    const rows = await tx<
+      {
+        id: string;
+        organizationId: string;
+        departmentId: string | null;
+        startDate: string;
+        endDate: string;
+        reason: string;
+        createdAt: Date;
+      }[]
+    >`
+      INSERT INTO blackout_periods (
+        department_id, start_date, end_date, reason
+      ) VALUES (
+        ${data.departmentId ?? null},
+        ${data.startDate},
+        ${data.endDate},
+        ${data.reason}
+      )
+      RETURNING id, organization_id as "organizationId", department_id as "departmentId",
+                start_date::text as "startDate", end_date::text as "endDate",
+                reason, created_at as "createdAt"
+    `;
+    return rows[0]!;
+  }
+
+  async listBlackoutPeriods(
+    tx: TenantTx,
+    departmentId?: string | undefined,
+  ): Promise<
+    {
+      id: string;
+      organizationId: string;
+      departmentId: string | null;
+      startDate: string;
+      endDate: string;
+      reason: string;
+      createdAt: Date;
+    }[]
+  > {
+    return tx<
+      {
+        id: string;
+        organizationId: string;
+        departmentId: string | null;
+        startDate: string;
+        endDate: string;
+        reason: string;
+        createdAt: Date;
+      }[]
+    >`
+      SELECT id, organization_id as "organizationId", department_id as "departmentId",
+             start_date::text as "startDate", end_date::text as "endDate",
+             reason, created_at as "createdAt"
+      FROM blackout_periods
+      WHERE (${departmentId ?? null}::uuid IS NULL OR department_id IS NULL OR department_id = ${departmentId ?? null}::uuid)
+      ORDER BY start_date ASC
+    `;
+  }
+
+  // LEA-008: Approval delegations
+  async createApprovalDelegation(
+    tx: TenantTx,
+    data: {
+      managerEmployeeId: string;
+      delegateEmployeeId: string;
+      startDate: string;
+      endDate: string;
+      reason?: string | undefined;
+    },
+  ): Promise<{
+    id: string;
+    organizationId: string;
+    managerEmployeeId: string;
+    delegateEmployeeId: string;
+    startDate: string;
+    endDate: string;
+    reason: string | null;
+    createdAt: Date;
+  }> {
+    const rows = await tx<
+      {
+        id: string;
+        organizationId: string;
+        managerEmployeeId: string;
+        delegateEmployeeId: string;
+        startDate: string;
+        endDate: string;
+        reason: string | null;
+        createdAt: Date;
+      }[]
+    >`
+      INSERT INTO approval_delegations (
+        manager_employee_id, delegate_employee_id, start_date, end_date, reason
+      ) VALUES (
+        ${data.managerEmployeeId},
+        ${data.delegateEmployeeId},
+        ${data.startDate},
+        ${data.endDate},
+        ${data.reason ?? null}
+      )
+      RETURNING id, organization_id as "organizationId",
+                manager_employee_id as "managerEmployeeId",
+                delegate_employee_id as "delegateEmployeeId",
+                start_date::text as "startDate", end_date::text as "endDate",
+                reason, created_at as "createdAt"
+    `;
+    return rows[0]!;
+  }
+
+  async listApprovalDelegations(
+    tx: TenantTx,
+    employeeId?: string | undefined,
+  ): Promise<
+    {
+      id: string;
+      organizationId: string;
+      managerEmployeeId: string;
+      delegateEmployeeId: string;
+      managerName?: string;
+      delegateName?: string;
+      startDate: string;
+      endDate: string;
+      reason: string | null;
+      createdAt: Date;
+    }[]
+  > {
+    return tx<
+      {
+        id: string;
+        organizationId: string;
+        managerEmployeeId: string;
+        delegateEmployeeId: string;
+        managerName: string;
+        delegateName: string;
+        startDate: string;
+        endDate: string;
+        reason: string | null;
+        createdAt: Date;
+      }[]
+    >`
+      SELECT ad.id, ad.organization_id as "organizationId",
+             ad.manager_employee_id as "managerEmployeeId",
+             ad.delegate_employee_id as "delegateEmployeeId",
+             CONCAT(m.first_name, ' ', m.last_name) as "managerName",
+             CONCAT(d.first_name, ' ', d.last_name) as "delegateName",
+             ad.start_date::text as "startDate", ad.end_date::text as "endDate",
+             ad.reason, ad.created_at as "createdAt"
+      FROM approval_delegations ad
+      JOIN employees m ON m.id = ad.manager_employee_id
+      JOIN employees d ON d.id = ad.delegate_employee_id
+      WHERE (${employeeId ?? null}::uuid IS NULL
+             OR ad.manager_employee_id = ${employeeId ?? null}::uuid
+             OR ad.delegate_employee_id = ${employeeId ?? null}::uuid)
+      ORDER BY ad.start_date DESC
+    `;
+  }
+
+  async getActiveDelegationsForDelegate(
+    tx: TenantTx,
+    delegateEmployeeId: string,
+    onDate: string,
+  ): Promise<{ managerEmployeeId: string }[]> {
+    return tx<{ managerEmployeeId: string }[]>`
+      SELECT manager_employee_id as "managerEmployeeId"
+      FROM approval_delegations
+      WHERE delegate_employee_id = ${delegateEmployeeId}
+        AND start_date <= ${onDate}
+        AND end_date >= ${onDate}
+    `;
+  }
 }

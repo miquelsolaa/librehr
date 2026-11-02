@@ -11,43 +11,29 @@ This plan outlines the systematic implementation of all remaining **P1 (Should-H
 | **Phase 1** | **Org Structure & Employee Self-Service**          | `ORG-004`, `ORG-005`, `EMP-002`, `EMP-005` | Visual interactive Org Chart, Custom Fields system (definitions & values), Emergency Contacts, and Employee Profile Self-Service. | **Completed**   |
 | **Phase 2** | **In-App Notifications & Document Acknowledgment** | `NOT-002`, `DOC-006`                       | In-app notification center (topbar bell, unread count, badge, notification drawer/feed), Policy read receipts & timestamps.       | **Completed**   |
 | **Phase 3** | **Advanced Working Time & Kiosk Mode**             | `TIM-010`, `TIM-008`, `TIM-012`            | Tablet Kiosk Mode with quick PIN/QR clock-in (`/kiosk`), Read-only Labour Inspector role, Time bank / compensatory overtime rest. | **Completed**   |
-| **Phase 4** | **Advanced Leave & Team Coverage**                 | `LEA-007`, `LEA-008`                       | Team coverage threshold warnings/blocks, Manager absence delegate approval chains.                                                | **In Progress** |
-| **Phase 5** | **Enterprise Auth & Security Hardening**           | `AUTH-003`, `AUTH-004`, `DOC-007`          | Organization-level enforced 2FA TOTP, OIDC Enterprise SSO (Google/Microsoft), Document templates with merge fields.               | Planned         |
+| **Phase 4** | **Advanced Leave & Team Coverage**                 | `LEA-007`, `LEA-008`                       | Team coverage threshold warnings/blocks, Manager absence delegate approval chains.                                                | **Completed**   |
+| **Phase 5** | **Enterprise Auth & Security Hardening**           | `AUTH-003`, `AUTH-004`, `DOC-007`          | Organization-level enforced 2FA TOTP, OIDC Enterprise SSO (Google/Microsoft), Document templates with merge fields.               | **In Progress** |
 
 ---
 
-## Detailed Specification: Phase 3 (Advanced Working Time & Kiosk Mode) - COMPLETED
-
-### 1. Requirements in Scope
-
-- **`TIM-010` (P1): Tablet Kiosk Clock-in Mode**
-  - Dedicated shared tablet kiosk interface at `/kiosk` with full-touch keypad (1-9, 0, Backspace, Clear).
-  - Fast clock in, break start/end, and clock out with 4-to-8 digit PIN and badge verification.
-  - Auto-reset 5-second countdown timer back to idle screen for the next colleague.
-  - Employee profile configuration of personal Kiosk PIN and optional RFID/badge ID.
-- **`TIM-008` (P1): Labour Inspector (Inspección de Trabajo) Role**
-  - Dedicated read-only role `auditor` with scoped access exclusively to working time records (`time_events`, `daily_summaries`, timesheets) and mandatory 4-year retention logs.
-  - Automatic cryptographic logging of inspection accesses to `audit_log` with inspector email, date range, and resource IDs.
-  - Certified inspection banner on `/time/export` conforming to Spanish digital registry laws (ET art. 34.9, RDL 8/2019).
-- **`TIM-012` (P1): Time Bank & Compensatory Overtime Rest (Bolsa de Horas)**
-  - Pure calculation in `packages/core/src/time/time-bank.ts` of accumulated overtime and compensatory rest.
-  - Append-only `time_bank_records` with PostgreSQL RLS isolation.
-  - API endpoints `GET /v1/time/time-bank` and `POST /v1/time/time-bank/entries`.
-  - Visual Time Bank summary card on `/time` displaying balance (`+12h 30m`), accrued overtime, and compensatory rest taken.
-
----
-
-## Detailed Specification: Phase 4 (Advanced Leave & Team Coverage) - IN PROGRESS
+## Detailed Specification: Phase 4 (Advanced Leave & Team Coverage) - COMPLETED
 
 ### 1. Requirements in Scope
 
 - **`LEA-007` (P1): Team Coverage Rules & Blackout Periods**
   - Department or team-level minimum coverage thresholds (e.g. at least 60% of department must be present, or maximum N people absent on the same day).
   - Configurable blackout periods during peak business operations (e.g. tax filing deadline, Black Friday, quarter-end closure).
-  - Warnings and blocks during leave request submission when team coverage falls below configured threshold.
+  - Warnings and blocks during leave request submission when team coverage falls below configured threshold or requested dates overlap with active blackouts.
 - **`LEA-008` (P1): Manager Absence Delegation & Approval Chains**
   - Ability for managers going on leave to designate a delegate approver for their pending team requests.
   - Multi-step approval chain escalation when manager is unreachable.
+
+### 2. Implementation Deliverables
+
+- **Core Domain (`packages/core/src/leave/coverage.ts`):** Pure functions `checkBlackoutDate` and `evaluateTeamCoverage` enforcing department presence thresholds and blackout blocks without any I/O. Unit tests in `packages/core/test/coverage.test.ts`.
+- **Database & RLS (`packages/db`):** Tables `blackoutPeriods` and `approvalDelegations` with RLS policies enabled in migration `0009_leave_coverage_delegations.sql`. Repository functions for blackout CRUD and delegation lookup (`getActiveDelegationsForDelegate`).
+- **Contracts & API (`packages/contracts`, `apps/api`):** Zod schemas `BlackoutPeriodSchema`, `CreateBlackoutPeriodSchema`, `ApprovalDelegationSchema`, `CreateApprovalDelegationSchema`. API routes for `/v1/leave/blackouts` and `/v1/leave/delegations`. Leave submission validation and delegate approval decision rights.
+- **Web UI & i18n (`apps/web`, `packages/i18n`):** Management cards on `/time-off`, inline blackout warning banner on `/time-off/request`, and full translation keys in `ca`, `es`, `en`.
 
 ---
 

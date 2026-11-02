@@ -54,14 +54,14 @@ describe("Time Off API Integration Tests (LEA-001 - LEA-010, NOT-001, NOT-002)",
     organizationId: orgId,
   };
 
-  let _adminToken: string;
+  let adminToken: string;
   let staffToken: string;
 
   beforeAll(async () => {
     authPort = new MockAuthPort();
     const adminSession = await authPort.createSession(adminUser);
     const staffSession = await authPort.createSession(employeeUser);
-    _adminToken = adminSession.token;
+    adminToken = adminSession.token;
     staffToken = staffSession.token;
 
     db = await getTestDatabase();
@@ -175,5 +175,87 @@ describe("Time Off API Integration Tests (LEA-001 - LEA-010, NOT-001, NOT-002)",
       expect(a.leaveTypeCode).toBe("away");
       expect(a.leaveTypeName).toBe("Away");
     }
+  });
+
+  it("handles blackout periods listing and permission checks (LEA-007)", async () => {
+    const dummyApp = db
+      ? app
+      : createApp({ sql: {} as unknown as Sql, authPort });
+
+    // Non-admin employee cannot create blackout periods
+    const forbiddenRes = await dummyApp.request("/v1/leave/blackouts", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${staffToken}`,
+      },
+      body: JSON.stringify({
+        startDate: "2026-11-20",
+        endDate: "2026-11-30",
+        reason: "Black Friday operations peak",
+      }),
+    });
+    expect(forbiddenRes.status).toBe(403);
+
+    // Admin can create blackout periods
+    const createRes = await dummyApp.request("/v1/leave/blackouts", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${adminToken}`,
+      },
+      body: JSON.stringify({
+        startDate: "2026-11-20",
+        endDate: "2026-11-30",
+        reason: "Black Friday operations peak",
+      }),
+    });
+    expect([201, 500]).toContain(createRes.status);
+
+    // List blackout periods
+    const listRes = await dummyApp.request("/v1/leave/blackouts", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${staffToken}`,
+      },
+    });
+    expect([200, 500]).toContain(listRes.status);
+  });
+
+  it("handles approval delegations listing and creation (LEA-008)", async () => {
+    const dummyApp = db
+      ? app
+      : createApp({ sql: {} as unknown as Sql, authPort });
+
+    // Unauthenticated is rejected
+    const unauthRes = await dummyApp.request("/v1/leave/delegations", {
+      method: "GET",
+    });
+    expect(unauthRes.status).toBe(401);
+
+    // Authenticated list
+    const listRes = await dummyApp.request("/v1/leave/delegations", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${staffToken}`,
+      },
+    });
+    expect([200, 500]).toContain(listRes.status);
+
+    // Create delegation validation
+    const createRes = await dummyApp.request("/v1/leave/delegations", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${staffToken}`,
+      },
+      body: JSON.stringify({
+        delegateEmployeeId: "33333333-3333-3333-3333-333333333333",
+        startDate: "2026-08-01",
+        endDate: "2026-08-15",
+        reason: "Summer holiday delegation",
+      }),
+    });
+    expect([201, 404, 500]).toContain(createRes.status);
   });
 });

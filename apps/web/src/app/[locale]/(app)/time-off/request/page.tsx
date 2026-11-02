@@ -4,11 +4,11 @@ import * as React from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button, Input } from "@librehr/ui";
-import { Calendar, ArrowLeft } from "lucide-react";
+import { Calendar, ArrowLeft, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
-import type { LeaveType } from "@librehr/contracts";
+import type { LeaveType, BlackoutPeriod } from "@librehr/contracts";
 
 export default function RequestLeavePage() {
   const router = useRouter();
@@ -18,6 +18,7 @@ export default function RequestLeavePage() {
   const t = useTranslations("timeOff");
 
   const [leaveTypes, setLeaveTypes] = React.useState<LeaveType[]>([]);
+  const [blackouts, setBlackouts] = React.useState<BlackoutPeriod[]>([]);
   const [selectedType, setSelectedType] = React.useState("");
   const [startDate, setStartDate] = React.useState("");
   const [endDate, setEndDate] = React.useState("");
@@ -32,16 +33,31 @@ export default function RequestLeavePage() {
     if (!session?.token) return;
 
     const client = getApiClient(session.token);
-    client
-      .listLeaveTypes()
-      .then((types: LeaveType[]) => {
+    Promise.all([
+      client.listLeaveTypes().catch(() => []),
+      client.listBlackoutPeriods().catch(() => []),
+    ])
+      .then(([types, bo]: [LeaveType[], BlackoutPeriod[]]) => {
         setLeaveTypes(types);
+        setBlackouts(bo);
         if (types.length > 0 && types[0]) {
           setSelectedType(types[0].id);
         }
       })
       .catch(() => {});
   }, []);
+
+  const activeBlackoutConflict = React.useMemo(() => {
+    if (!startDate || !endDate) return null;
+    return (
+      blackouts.find(
+        (b) =>
+          (startDate >= b.startDate && startDate <= b.endDate) ||
+          (endDate >= b.startDate && endDate <= b.endDate) ||
+          (startDate <= b.startDate && endDate >= b.endDate),
+      ) ?? null
+    );
+  }, [startDate, endDate, blackouts]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,6 +123,22 @@ export default function RequestLeavePage() {
         {error && (
           <div className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/50 dark:text-red-400">
             {error}
+          </div>
+        )}
+
+        {activeBlackoutConflict && (
+          <div className="mt-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50/80 p-3.5 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+            <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-xs uppercase tracking-wider">
+                {t("blackoutTitle")}
+              </p>
+              <p className="mt-0.5 text-xs">
+                {activeBlackoutConflict.reason} (
+                {activeBlackoutConflict.startDate} to{" "}
+                {activeBlackoutConflict.endDate})
+              </p>
+            </div>
           </div>
         )}
 

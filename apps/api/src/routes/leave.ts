@@ -7,8 +7,15 @@ import {
   CreateLeaveRequestSchema,
   DecideLeaveRequestSchema,
   AdjustBalanceRequestSchema,
+  CreateBlackoutPeriodSchema,
+  CreateApprovalDelegationSchema,
 } from "@librehr/contracts";
-import { validateLeaveRequest, calculateWorkingDays } from "@librehr/core";
+import {
+  validateLeaveRequest,
+  calculateWorkingDays,
+  checkBlackoutDate,
+  evaluateTeamCoverage,
+} from "@librehr/core";
 import {
   withTenant,
   LeaveRepository,
@@ -358,6 +365,45 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
           };
         }
 
+        // Check blackout periods (LEA-007)
+        const blackouts = await leaveRepo.listBlackoutPeriods(
+          tx,
+          targetEmp.departmentId ?? undefined,
+        );
+        for (const dateStr of workingDaysCalc.breakdown.workingDays) {
+          const bo = checkBlackoutDate(dateStr, blackouts);
+          if (bo.inBlackout) {
+            return {
+              error: "BLACKOUT_PERIOD" as const,
+              message: `Requested dates conflict with a blackout period: ${bo.reason}`,
+            };
+          }
+        }
+
+        // Check department team coverage (LEA-007)
+        if (targetEmp.departmentId) {
+          const deptAbsences = await leaveRepo.getTeamAbsences(tx, {
+            startDate: reqData.startDate,
+            endDate: reqData.endDate,
+            departmentId: targetEmp.departmentId,
+          });
+          const deptEmps = await employeeRepo.list(tx, {
+            departmentId: targetEmp.departmentId,
+            status: "active",
+          });
+          const coverage = evaluateTeamCoverage({
+            teamSize: deptEmps.total,
+            activeAbsencesOnDate: deptAbsences.length,
+            minPresencePercent: 20, // default department quorum floor
+          });
+          if (!coverage.allowed) {
+            return {
+              error: "COVERAGE_THRESHOLD" as const,
+              message: coverage.reason ?? "Team coverage threshold reached",
+            };
+          }
+        }
+
         // Validate request against existing requests and ledger
         const ledgerRows = await leaveRepo.getLedgerEntries(tx, employeeId);
         const existingReqs = await leaveRepo.getLeaveRequests(tx, {
@@ -560,11 +606,28 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
           },
         );
 
-        if (!allowed) {
+        const approverEmp = await employeeRepo.findByUserId(tx, user.id);
+        let isAuthorized = allowed;
+
+        // LEA-008: Check manager absence approval delegation
+        if (!isAuthorized && approverEmp && targetEmp.managerId) {
+          const today = new Date().toISOString().slice(0, 10);
+          const delegations = await leaveRepo.getActiveDelegationsForDelegate(
+            tx,
+            approverEmp.id,
+            today,
+          );
+          if (
+            delegations.some((d) => d.managerEmployeeId === targetEmp.managerId)
+          ) {
+            isAuthorized = true;
+          }
+        }
+
+        if (!isAuthorized) {
           return { error: "FORBIDDEN" as const };
         }
 
-        const approverEmp = await employeeRepo.findByUserId(tx, user.id);
         const approverId = approverEmp ? approverEmp.id : req.employeeId;
 
         let updated;
@@ -863,6 +926,180 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
         note: entry.note,
         effectiveDate: entry.effectiveDate,
         createdAt: entry.createdAt.toISOString(),
+      },
+      201,
+    );
+  });
+
+  // 10. GET /leave/blackouts - List blackout periods (LEA-007)
+  router.get("/leave/blackouts", requireAuth, async (c) => {
+    const user = (c.get as (key: string) => unknown)("user") as AuthUser;
+    const deptId = c.req.query("departmentId");
+
+    const result = await withTenant(
+      sql,
+      { organizationId: user.organizationId, userId: user.id },
+      async (tx) => {
+        return leaveRepo.listBlackoutPeriods(tx, deptId);
+      },
+    );
+
+    return c.json(
+      result.map((b) => ({
+        ...b,
+        createdAt: b.createdAt.toISOString(),
+      })),
+    );
+  });
+
+  // 11. POST /leave/blackouts - Create a blackout period (LEA-007)
+  router.post("/leave/blackouts", requireAuth, async (c) => {
+    const user = (c.get as (key: string) => unknown)("user") as AuthUser;
+    const body = await c.req.json().catch(() => null);
+    const parsed = CreateBlackoutPeriodSchema.safeParse(body);
+
+    if (!parsed.success) {
+      const problem = createProblemDetails({
+        status: 400,
+        title: "Validation Error",
+        detail: parsed.error.errors.map((e) => e.message).join(", "),
+        code: "VALIDATION_ERROR",
+      });
+      return c.json(problem, 400, {
+        "Content-Type": "application/problem+json",
+      });
+    }
+
+    if (user.role !== "admin" && user.role !== "manager") {
+      const problem = createProblemDetails({
+        status: 403,
+        title: "Forbidden",
+        detail: "Only admins and managers can configure blackout periods",
+        code: "FORBIDDEN",
+      });
+      return c.json(problem, 403, {
+        "Content-Type": "application/problem+json",
+      });
+    }
+
+    const created = await withTenant(
+      sql,
+      { organizationId: user.organizationId, userId: user.id },
+      async (tx) => {
+        const item = await leaveRepo.createBlackoutPeriod(tx, parsed.data);
+        await auditRepo.log(tx, {
+          actorId: user.id,
+          action: "leave.blackout.create",
+          resourceType: "blackout_period",
+          resourceId: item.id,
+          metadata: {
+            startDate: parsed.data.startDate,
+            endDate: parsed.data.endDate,
+            reason: parsed.data.reason,
+          },
+        });
+        return item;
+      },
+    );
+
+    return c.json(
+      {
+        ...created,
+        createdAt: created.createdAt.toISOString(),
+      },
+      201,
+    );
+  });
+
+  // 12. GET /leave/delegations - List approval delegations (LEA-008)
+  router.get("/leave/delegations", requireAuth, async (c) => {
+    const user = (c.get as (key: string) => unknown)("user") as AuthUser;
+    const empId = c.req.query("employeeId");
+
+    const result = await withTenant(
+      sql,
+      { organizationId: user.organizationId, userId: user.id },
+      async (tx) => {
+        const currentEmp = await employeeRepo.findByUserId(tx, user.id);
+        const targetId = user.role === "admin" ? empId : currentEmp?.id;
+        return leaveRepo.listApprovalDelegations(tx, targetId);
+      },
+    );
+
+    return c.json(
+      result.map((d) => ({
+        ...d,
+        createdAt: d.createdAt.toISOString(),
+      })),
+    );
+  });
+
+  // 13. POST /leave/delegations - Create approval delegation (LEA-008)
+  router.post("/leave/delegations", requireAuth, async (c) => {
+    const user = (c.get as (key: string) => unknown)("user") as AuthUser;
+    const body = await c.req.json().catch(() => null);
+    const parsed = CreateApprovalDelegationSchema.safeParse(body);
+
+    if (!parsed.success) {
+      const problem = createProblemDetails({
+        status: 400,
+        title: "Validation Error",
+        detail: parsed.error.errors.map((e) => e.message).join(", "),
+        code: "VALIDATION_ERROR",
+      });
+      return c.json(problem, 400, {
+        "Content-Type": "application/problem+json",
+      });
+    }
+
+    const created = await withTenant(
+      sql,
+      { organizationId: user.organizationId, userId: user.id },
+      async (tx) => {
+        const currentEmp = await employeeRepo.findByUserId(tx, user.id);
+        if (!currentEmp) return null;
+
+        const delegation = await leaveRepo.createApprovalDelegation(tx, {
+          managerEmployeeId: currentEmp.id,
+          delegateEmployeeId: parsed.data.delegateEmployeeId,
+          startDate: parsed.data.startDate,
+          endDate: parsed.data.endDate,
+          reason: parsed.data.reason,
+        });
+
+        await auditRepo.log(tx, {
+          actorId: user.id,
+          action: "leave.delegation.create",
+          resourceType: "approval_delegation",
+          resourceId: delegation.id,
+          metadata: {
+            managerEmployeeId: currentEmp.id,
+            delegateEmployeeId: parsed.data.delegateEmployeeId,
+            startDate: parsed.data.startDate,
+            endDate: parsed.data.endDate,
+          },
+        });
+
+        return delegation;
+      },
+    );
+
+    if (!created) {
+      const problem = createProblemDetails({
+        status: 404,
+        title: "Not Found",
+        detail: "Current employee profile not found",
+        code: "EMPLOYEE_NOT_FOUND",
+      });
+      return c.json(problem, 404, {
+        "Content-Type": "application/problem+json",
+      });
+    }
+
+    return c.json(
+      {
+        ...created,
+        createdAt: created.createdAt.toISOString(),
       },
       201,
     );

@@ -182,7 +182,15 @@
     "requestSuccess": "Sol·licitud enviada correctament!",
     "calendarTitle": "Calendari d'Equip i Festius",
     "calendarSubtitle": "Visualitza absències programades i festius oficials.",
-    "filterDepartment": "Tots els departaments"
+    "filterDepartment": "Tots els departaments",
+    "blackoutTitle": "Períodes de Bloqueig i Cobertura d'Equip",
+    "blackoutSubtitle": "Períodes operatius d'alta activitat on les absències estan restringides.",
+    "delegationTitle": "Delegacions d'Aprovació",
+    "delegationSubtitle": "Designeu un company per aprovar les sol·licituds del vostre equip mentre sigueu fora.",
+    "delegateTo": "Aprovador Delegat",
+    "delegationPeriod": "Període de Delegació",
+    "delegateSave": "Desar Delegació",
+    "coverageWarning": "Avís de llindar mínim de cobertura d'equip"
   },
   "notifications": {
     "title": "Notificacions",

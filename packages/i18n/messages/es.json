@@ -182,7 +182,15 @@
     "requestSuccess": "¡Solicitud enviada correctamente!",
     "calendarTitle": "Calendario de Equipo y Festivos",
     "calendarSubtitle": "Visualiza ausencias programadas y festivos oficiales.",
-    "filterDepartment": "Todos los departamentos"
+    "filterDepartment": "Todos los departamentos",
+    "blackoutTitle": "Periodos de Bloqueo y Cobertura de Equipo",
+    "blackoutSubtitle": "Periodos operativos de alta actividad donde las ausencias están restringidas.",
+    "delegationTitle": "Delegaciones de Aprobación",
+    "delegationSubtitle": "Designe un compañero para aprobar las solicitudes de su equipo mientras esté ausente.",
+    "delegateTo": "Aprobador Delegado",
+    "delegationPeriod": "Periodo de Delegación",
+    "delegateSave": "Guardar Delegación",
+    "coverageWarning": "Aviso de umbral mínimo de cobertura de equipo"
   },
   "notifications": {
     "title": "Notificaciones",

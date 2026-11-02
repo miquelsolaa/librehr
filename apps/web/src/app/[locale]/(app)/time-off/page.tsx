@@ -5,11 +5,24 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button, StatusPill, type StatusPillType } from "@librehr/ui";
-import { Calendar, Plus, Users, Clock, AlertCircle } from "lucide-react";
+import {
+  Calendar,
+  Plus,
+  Users,
+  Clock,
+  AlertCircle,
+  UserCheck,
+  ShieldAlert,
+} from "lucide-react";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
 import { MOCK_LEAVE_BALANCE, MOCK_LEAVE_REQUESTS } from "@/lib/mock-data";
-import type { LeaveBalanceSummary, LeaveRequest } from "@librehr/contracts";
+import type {
+  LeaveBalanceSummary,
+  LeaveRequest,
+  ApprovalDelegation,
+  BlackoutPeriod,
+} from "@librehr/contracts";
 
 export default function TimeOffPage() {
   const params = useParams();
@@ -21,6 +34,10 @@ export default function TimeOffPage() {
     null,
   );
   const [requests, setRequests] = React.useState<LeaveRequest[]>([]);
+  const [delegations, setDelegations] = React.useState<ApprovalDelegation[]>(
+    [],
+  );
+  const [blackouts, setBlackouts] = React.useState<BlackoutPeriod[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [cancellingId, setCancellingId] = React.useState<string | null>(null);
 
@@ -35,15 +52,19 @@ export default function TimeOffPage() {
 
     try {
       const client = getApiClient(session.token);
-      const [balRes, reqsRes] = await Promise.all([
+      const [balRes, reqsRes, delRes, boRes] = await Promise.all([
         client.getLeaveBalance().catch(() => null),
         client.listLeaveRequests().catch(() => []),
+        client.listApprovalDelegations().catch(() => []),
+        client.listBlackoutPeriods().catch(() => []),
       ]);
 
       setBalance(balRes ?? MOCK_LEAVE_BALANCE);
       setRequests(
         reqsRes && reqsRes.length > 0 ? reqsRes : MOCK_LEAVE_REQUESTS,
       );
+      setDelegations(delRes);
+      setBlackouts(boRes);
     } catch {
       setBalance(MOCK_LEAVE_BALANCE);
       setRequests(MOCK_LEAVE_REQUESTS);
@@ -236,6 +257,88 @@ export default function TimeOffPage() {
             </table>
           </div>
         )}
+      </div>
+
+      {/* Advanced Leave: Blackouts & Delegations (LEA-007, LEA-008) */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Blackout Periods */}
+        <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-4">
+          <div className="flex items-center gap-2.5">
+            <ShieldAlert className="h-5 w-5 text-amber-600" />
+            <div>
+              <h2 className="text-base font-semibold text-foreground">
+                {t("blackoutTitle")}
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                {t("blackoutSubtitle")}
+              </p>
+            </div>
+          </div>
+
+          {blackouts.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-4">
+              No active blackout periods scheduled.
+            </p>
+          ) : (
+            <div className="space-y-2.5">
+              {blackouts.map((bo) => (
+                <div
+                  key={bo.id}
+                  className="rounded-lg border border-amber-200/60 bg-amber-50/50 p-3 text-xs dark:border-amber-900/40 dark:bg-amber-950/20"
+                >
+                  <div className="flex justify-between items-center font-semibold text-amber-900 dark:text-amber-200">
+                    <span>{bo.reason}</span>
+                    <span className="font-mono">
+                      {bo.startDate} → {bo.endDate}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Approval Delegations */}
+        <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-4">
+          <div className="flex items-center gap-2.5">
+            <UserCheck className="h-5 w-5 text-indigo-600" />
+            <div>
+              <h2 className="text-base font-semibold text-foreground">
+                {t("delegationTitle")}
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                {t("delegationSubtitle")}
+              </p>
+            </div>
+          </div>
+
+          {delegations.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-4">
+              No active approval delegations configured.
+            </p>
+          ) : (
+            <div className="space-y-2.5">
+              {delegations.map((del) => (
+                <div
+                  key={del.id}
+                  className="rounded-lg border border-border bg-muted/40 p-3 text-xs space-y-1"
+                >
+                  <div className="flex justify-between font-medium">
+                    <span>
+                      Delegate: {del.delegateName ?? del.delegateEmployeeId}
+                    </span>
+                    <span className="font-mono text-muted-foreground">
+                      {del.startDate} → {del.endDate}
+                    </span>
+                  </div>
+                  {del.reason && (
+                    <p className="text-muted-foreground">{del.reason}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
