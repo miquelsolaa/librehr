@@ -5,7 +5,7 @@ import { Permissions, ROLE_PERMISSIONS } from "../src/permissions.js";
 describe("Contracts schemas", () => {
   it("validates valid sign-in payload", () => {
     const valid = SignInRequestSchema.safeParse({
-      email: "test@openhr.cat",
+      email: "test@librehr.cat",
       password: "secretPassword123",
     });
     expect(valid.success).toBe(true);
@@ -33,7 +33,7 @@ describe("Contracts schemas", () => {
     const validEmp = CreateEmployeeRequestSchema.safeParse({
       firstName: "Marta",
       lastName: "Rovira",
-      email: "marta@openhr.cat",
+      email: "marta@librehr.cat",
       jobTitle: "Product Designer",
     });
     expect(validEmp.success).toBe(true);

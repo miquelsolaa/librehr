@@ -5,14 +5,14 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_DB: openhr
-      POSTGRES_USER: openhr
-      POSTGRES_PASSWORD: openhr_dev_password
+      POSTGRES_DB: librehr
+      POSTGRES_USER: librehr
+      POSTGRES_PASSWORD: librehr_dev_password
     volumes:
-      - openhr_dev_pgdata:/var/lib/postgresql/data
+      - librehr_dev_pgdata:/var/lib/postgresql/data
       - ../postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U openhr -d openhr"]
+      test: ["CMD-SHELL", "pg_isready -U librehr -d librehr"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -34,11 +34,11 @@ services:
       - "9000:9000"
       - "9001:9001"
     environment:
-      MINIO_ROOT_USER: openhr_minio_user
-      MINIO_ROOT_PASSWORD: openhr_minio_password
+      MINIO_ROOT_USER: librehr_minio_user
+      MINIO_ROOT_PASSWORD: librehr_minio_password
     volumes:
-      - openhr_dev_miniodata:/data
+      - librehr_dev_miniodata:/data
 
 volumes:
-  openhr_dev_pgdata:
-  openhr_dev_miniodata:
+  librehr_dev_pgdata:
+  librehr_dev_miniodata:

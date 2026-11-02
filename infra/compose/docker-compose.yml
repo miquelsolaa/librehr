@@ -3,14 +3,14 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-openhr}
-      POSTGRES_USER: ${POSTGRES_USER:-openhr}
+      POSTGRES_DB: ${POSTGRES_DB:-librehr}
+      POSTGRES_USER: ${POSTGRES_USER:-librehr}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_in_production}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ../postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-openhr} -d ${POSTGRES_DB:-openhr}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-librehr} -d ${POSTGRES_DB:-librehr}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -26,13 +26,13 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
-      DATABASE_URL: postgres://${POSTGRES_USER:-openhr}:${POSTGRES_PASSWORD:-change_me_in_production}@postgres:5432/${POSTGRES_DB:-openhr}
-      DATABASE_APP_URL: postgres://openhr_app:${APP_PASSWORD:-change_me_app_pass}@postgres:5432/${POSTGRES_DB:-openhr}
+      DATABASE_URL: postgres://${POSTGRES_USER:-librehr}:${POSTGRES_PASSWORD:-change_me_in_production}@postgres:5432/${POSTGRES_DB:-librehr}
+      DATABASE_APP_URL: postgres://librehr_app:${APP_PASSWORD:-change_me_app_pass}@postgres:5432/${POSTGRES_DB:-librehr}
       AUTH_SECRET: ${AUTH_SECRET}
       STORAGE_LOCAL_DIR: /data/storage
       STORAGE_DRIVER: local
     volumes:
-      - openhr_storage:/data/storage
+      - librehr_storage:/data/storage
 
   worker:
     build:
@@ -44,7 +44,7 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgres://${POSTGRES_USER:-openhr}:${POSTGRES_PASSWORD:-change_me_in_production}@postgres:5432/${POSTGRES_DB:-openhr}
+      DATABASE_URL: postgres://${POSTGRES_USER:-librehr}:${POSTGRES_PASSWORD:-change_me_in_production}@postgres:5432/${POSTGRES_DB:-librehr}
       SMTP_HOST: mailpit
       SMTP_PORT: 1025
 
@@ -77,6 +77,6 @@ services:
 
 volumes:
   postgres_data:
-  openhr_storage:
+  librehr_storage:
   caddy_data:
   caddy_config:

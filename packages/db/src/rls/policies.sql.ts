@@ -41,7 +41,7 @@ export function generateAppendOnlySql(): string[] {
   const appendOnlyTables = ["time_events", "audit_log", "leave_ledger"];
   const statements: string[] = [
     `
-    CREATE OR REPLACE FUNCTION openhr_prevent_modification()
+    CREATE OR REPLACE FUNCTION librehr_prevent_modification()
     RETURNS TRIGGER AS $$
     BEGIN
       RAISE EXCEPTION 'Table % is append-only. UPDATE and DELETE operations are strictly prohibited.', TG_TABLE_NAME;
@@ -51,7 +51,7 @@ export function generateAppendOnlySql(): string[] {
   ];
 
   for (const table of appendOnlyTables) {
-    statements.push(`REVOKE UPDATE, DELETE ON "${table}" FROM openhr_app;`);
+    statements.push(`REVOKE UPDATE, DELETE ON "${table}" FROM librehr_app;`);
     statements.push(
       `DROP TRIGGER IF EXISTS "prevent_mod_${table}" ON "${table}";`,
     );
@@ -59,7 +59,7 @@ export function generateAppendOnlySql(): string[] {
       `
       CREATE TRIGGER "prevent_mod_${table}"
       BEFORE UPDATE OR DELETE ON "${table}"
-      FOR EACH ROW EXECUTE FUNCTION openhr_prevent_modification();
+      FOR EACH ROW EXECUTE FUNCTION librehr_prevent_modification();
     `.trim(),
     );
   }

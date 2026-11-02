@@ -7,7 +7,7 @@ export interface ClientSession {
   token: string;
 }
 
-const AUTH_STORAGE_KEY = "openhr_auth_session";
+const AUTH_STORAGE_KEY = "librehr_auth_session";
 
 export function getStoredSession(): ClientSession | null {
   if (typeof window === "undefined") return null;

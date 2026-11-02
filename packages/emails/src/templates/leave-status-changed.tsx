@@ -86,7 +86,7 @@ export function LeaveStatusChangedEmail({
                 fontWeight: 500,
               }}
             >
-              View in OpenHR
+              View in LibreHR
             </Link>
           </div>
         </Container>

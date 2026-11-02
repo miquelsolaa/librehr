@@ -12,9 +12,9 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@openhr/contracts": "workspace:*",
-    "@openhr/i18n": "workspace:*",
-    "@openhr/ui": "workspace:*",
+    "@librehr/contracts": "workspace:*",
+    "@librehr/i18n": "workspace:*",
+    "@librehr/ui": "workspace:*",
     "clsx": "^2.1.1",
     "lucide-react": "^0.475.0",
     "next": "15.1.7",
@@ -27,7 +27,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.1",
-    "@openhr/config": "workspace:*",
+    "@librehr/config": "workspace:*",
     "@playwright/test": "^1.50.1",
     "@types/node": "^22.13.4",
     "@types/react": "^19.0.8",

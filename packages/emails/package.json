@@ -1,5 +1,5 @@
 {
-  "name": "@openhr/emails",
+  "name": "@librehr/emails",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -16,8 +16,8 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "@openhr/config": "workspace:*",
-    "@openhr/i18n": "workspace:*",
+    "@librehr/config": "workspace:*",
+    "@librehr/i18n": "workspace:*",
     "@types/node": "^22.13.4",
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",

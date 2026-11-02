@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Button, Input } from "@openhr/ui";
+import { Button, Input } from "@librehr/ui";
 import { getApiClient } from "@/lib/api-client";
 import { setStoredSession } from "@/lib/auth";
 
@@ -15,7 +15,7 @@ export default function SignInPage() {
   const tAuth = useTranslations("auth");
   const tCommon = useTranslations("common");
 
-  const [email, setEmail] = React.useState("admin@openhr.test");
+  const [email, setEmail] = React.useState("admin@librehr.test");
   const [password, setPassword] = React.useState("AdminSecret2026!");
   const [isLoading, setIsLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
@@ -35,7 +35,7 @@ export default function SignInPage() {
         name: res.user.name,
         organizationId: res.user.organizationId,
         role: res.user.role,
-        token: "openhr_session_token",
+        token: "librehr_session_token",
       });
 
       router.push(`/${locale}/home`);

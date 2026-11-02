@@ -3,12 +3,12 @@
 import * as React from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Button, Input } from "@openhr/ui";
+import { Button, Input } from "@librehr/ui";
 import { Calendar, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
-import type { LeaveType } from "@openhr/contracts";
+import type { LeaveType } from "@librehr/contracts";
 
 export default function RequestLeavePage() {
   const router = useRouter();

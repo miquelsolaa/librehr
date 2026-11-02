@@ -7,7 +7,7 @@ export async function resetDatabase(connectionUrl?: string): Promise<void> {
     connectionUrl ||
     process.env["DATABASE_MIGRATION_URL"] ||
     process.env["DATABASE_URL"] ||
-    "postgres://openhr_owner:openhr_dev_password@localhost:5432/openhr";
+    "postgres://librehr_owner:librehr_dev_password@localhost:5432/librehr";
 
   const sql = postgres(url, { max: 1 });
 

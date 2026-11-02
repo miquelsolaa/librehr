@@ -1,6 +1,6 @@
 # ARCHITECTURE.md
 
-Technical blueprint for OpenHR. Decisions and trade-offs are recorded in `docs/adr/`. If code and this document diverge, fix one of them in the same PR.
+Technical blueprint for LibreHR. Decisions and trade-offs are recorded in `docs/adr/`. If code and this document diverge, fix one of them in the same PR.
 
 ## 1. Goals that shape the architecture
 

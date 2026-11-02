@@ -15,9 +15,9 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from "@openhr/ui";
+} from "@librehr/ui";
 import { apiClient } from "../../../../../lib/api-client.js";
-import type { Location } from "@openhr/contracts";
+import type { Location } from "@librehr/contracts";
 
 export default function LocationsSettingsPage() {
   const params = useParams();

@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useTheme } from "next-themes";
 import { Sun, Moon, Laptop } from "lucide-react";
-import { Button } from "@openhr/ui";
+import { Button } from "@librehr/ui";
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();

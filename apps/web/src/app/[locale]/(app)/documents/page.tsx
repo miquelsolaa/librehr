@@ -12,14 +12,14 @@ import {
   AlertCircle,
   FileSpreadsheet,
 } from "lucide-react";
-import { Button } from "@openhr/ui";
+import { Button } from "@librehr/ui";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
 import type {
   DocumentItem,
   DocumentCategory,
   BulkPayslipReport,
-} from "@openhr/contracts";
+} from "@librehr/contracts";
 
 export default function DocumentsPage() {
   const t = useTranslations("documents");

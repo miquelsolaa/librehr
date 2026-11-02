@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Button } from "@openhr/ui";
+import { Button } from "@librehr/ui";
 import {
   ArrowLeft,
   Users,
@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
-import type { TeamAbsence } from "@openhr/contracts";
+import type { TeamAbsence } from "@librehr/contracts";
 
 export default function TeamCalendarPage() {
   const params = useParams();

@@ -1,5 +1,5 @@
 name: Feature Request
-description: Propose an addition or improvement to OpenHR
+description: Propose an addition or improvement to LibreHR
 labels: ["enhancement"]
 body:
   - type: textarea

@@ -1,4 +1,4 @@
-# Contributing to OpenHR
+# Contributing to LibreHR
 
 Thanks for helping! This project handles people's employment data, so we are strict about privacy, security, and independence from commercial products.
 

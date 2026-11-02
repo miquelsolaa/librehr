@@ -1,5 +1,5 @@
 {
-  "name": "@openhr/db",
+  "name": "@librehr/db",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -18,8 +18,8 @@
     "postgres": "^3.4.5"
   },
   "devDependencies": {
-    "@openhr/config": "workspace:*",
-    "@openhr/testing": "workspace:*",
+    "@librehr/config": "workspace:*",
+    "@librehr/testing": "workspace:*",
     "@types/node": "^22.13.4",
     "drizzle-kit": "^0.30.4",
     "tsx": "^4.19.2",

@@ -1,4 +1,4 @@
-@import "@openhr/ui/tokens.css";
+@import "@librehr/ui/tokens.css";
 
 @tailwind base;
 @tailwind components;

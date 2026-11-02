@@ -10,7 +10,7 @@ export async function runMigrations(connectionUrl?: string): Promise<void> {
     connectionUrl ||
     process.env["DATABASE_MIGRATION_URL"] ||
     process.env["DATABASE_URL"] ||
-    "postgres://openhr_owner:openhr_dev_password@localhost:5432/openhr";
+    "postgres://librehr_owner:librehr_dev_password@localhost:5432/librehr";
 
   const sql = postgres(url, { max: 1 });
 
@@ -19,7 +19,7 @@ export async function runMigrations(connectionUrl?: string): Promise<void> {
     await sql`SELECT pg_advisory_lock(424242)`;
 
     await sql`
-      CREATE TABLE IF NOT EXISTS "openhr_migrations" (
+      CREATE TABLE IF NOT EXISTS "librehr_migrations" (
         "name" text PRIMARY KEY,
         "applied_at" timestamptz NOT NULL DEFAULT now()
       )
@@ -33,7 +33,7 @@ export async function runMigrations(connectionUrl?: string): Promise<void> {
 
     for (const file of files) {
       const alreadyApplied = await sql`
-        SELECT 1 FROM "openhr_migrations" WHERE "name" = ${file}
+        SELECT 1 FROM "librehr_migrations" WHERE "name" = ${file}
       `;
 
       if (alreadyApplied.length === 0) {
@@ -44,7 +44,7 @@ export async function runMigrations(connectionUrl?: string): Promise<void> {
         );
         await sql.begin(async (tx) => {
           await tx.unsafe(content);
-          await tx`INSERT INTO "openhr_migrations" ("name") VALUES (${file})`;
+          await tx`INSERT INTO "librehr_migrations" ("name") VALUES (${file})`;
         });
         process.stdout.write(`Applied migration: ${file}\n`);
       }

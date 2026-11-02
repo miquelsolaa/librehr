@@ -36,9 +36,9 @@ export async function getTestDatabase(): Promise<TestDatabase | null> {
     const container: StartedPostgreSqlContainer = await new PostgreSqlContainer(
       "postgres:17-alpine",
     )
-      .withDatabase("openhr_test")
-      .withUsername("openhr_owner")
-      .withPassword("openhr_test_password")
+      .withDatabase("librehr_test")
+      .withUsername("librehr_owner")
+      .withPassword("librehr_test_password")
       .start();
 
     const connectionString = container.getConnectionUri();

@@ -3,10 +3,10 @@
 import * as React from "react";
 import { Play, Square, Coffee, Clock } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Button } from "@openhr/ui";
+import { Button } from "@librehr/ui";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
-import type { ClockStatusResponse } from "@openhr/contracts";
+import type { ClockStatusResponse } from "@librehr/contracts";
 
 export function ClockWidget({ onClockChange }: { onClockChange?: () => void }) {
   const t = useTranslations("timeTracking");

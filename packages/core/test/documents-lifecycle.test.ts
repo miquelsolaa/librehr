@@ -42,14 +42,14 @@ describe("M4 Pure Domain Logic: Documents & Lifecycle", () => {
         firstName: "Carles",
         lastName: "Puig",
         nationalId: "12345678Z",
-        email: "cpuig@openhr.test",
+        email: "cpuig@librehr.test",
       },
       {
         id: "emp-2",
         firstName: "Laura",
         lastName: "Sole",
         nationalId: "87654321X",
-        email: "lsole@openhr.test",
+        email: "lsole@librehr.test",
       },
     ];
 
@@ -114,8 +114,8 @@ describe("M4 Pure Domain Logic: Documents & Lifecycle", () => {
   describe("Employee Bulk Import CSV Validation (EMP-006)", () => {
     it("validates well-formed CSV data with Spanish IDs and IBANs", () => {
       const csv = `firstName,lastName,email,nationalId,jobTitle,startDate
-Marta,Garcia,marta@openhr.test,12345678Z,Engineer,2026-01-15
-Pau,Roca,pau@openhr.test,87654321X,Designer,2026-02-01`;
+Marta,Garcia,marta@librehr.test,12345678Z,Engineer,2026-01-15
+Pau,Roca,pau@librehr.test,87654321X,Designer,2026-02-01`;
 
       const result = validateEmployeeCsv(csv);
       expect(result.valid).toBe(true);

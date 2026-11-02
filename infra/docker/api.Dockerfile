@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for @openhr/api
+# Multi-stage Dockerfile for @librehr/api
 FROM node:22-alpine AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
@@ -10,7 +10,7 @@ COPY pnpm-lock.yaml package.json pnpm-workspace.yaml turbo.json ./
 COPY packages ./packages
 COPY apps/api ./apps/api
 RUN pnpm install --frozen-lockfile
-RUN pnpm --filter @openhr/api build
+RUN pnpm --filter @librehr/api build
 
 FROM base AS runner
 WORKDIR /app

@@ -1,5 +1,5 @@
 {
-  "extends": "@openhr/config/tsconfig/next.json",
+  "extends": "@librehr/config/tsconfig/next.json",
   "compilerOptions": {
     "rootDir": ".",
     "baseUrl": ".",

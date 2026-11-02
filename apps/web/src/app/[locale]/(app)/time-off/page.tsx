@@ -4,11 +4,11 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Button, StatusPill, type StatusPillType } from "@openhr/ui";
+import { Button, StatusPill, type StatusPillType } from "@librehr/ui";
 import { Calendar, Plus, Users, Clock, AlertCircle } from "lucide-react";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
-import type { LeaveBalanceSummary, LeaveRequest } from "@openhr/contracts";
+import type { LeaveBalanceSummary, LeaveRequest } from "@librehr/contracts";
 
 export default function TimeOffPage() {
   const params = useParams();

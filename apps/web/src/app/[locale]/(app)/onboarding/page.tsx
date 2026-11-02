@@ -10,14 +10,14 @@ import {
   Calendar,
   AlertTriangle,
 } from "lucide-react";
-import { Button } from "@openhr/ui";
+import { Button } from "@librehr/ui";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
 import type {
   ChecklistInstance,
   ChecklistTemplate,
   EmployeeImportValidationResponse,
-} from "@openhr/contracts";
+} from "@librehr/contracts";
 
 export default function OnboardingPage() {
   const t = useTranslations("onboarding");

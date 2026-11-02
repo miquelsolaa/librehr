@@ -53,7 +53,7 @@ Agents: when a requirement is ambiguous, choose the option that best serves the 
 - **Jobs:** deploy, back up, upgrade, monitor, integrate SSO, secure.
 - **Frustrations:** undocumented env vars, breaking upgrades, no health checks, unclear data locations.
 - **Needs:** single-command deploy, `.env.example` with comments, health endpoints, migration safety, backup/restore docs, upgrade notes per release.
-- **Design implications:** excellent `infra/` and `docs/`, boring tech (Postgres, SMTP, S3), semantic versioning, `openhr doctor` CLI check.
+- **Design implications:** excellent `infra/` and `docs/`, boring tech (Postgres, SMTP, S3), semantic versioning, `librehr doctor (pnpm doctor)` CLI check.
 
 ## P7 - Alex, Open-source contributor
 

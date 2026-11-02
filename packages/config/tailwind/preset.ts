@@ -1,4 +1,4 @@
-export const openhrTailwindPreset = {
+export const librehrTailwindPreset = {
   darkMode: ["class"],
 
   theme: {
@@ -40,4 +40,5 @@ export const openhrTailwindPreset = {
   },
 };
 
-export default openhrTailwindPreset;
+export const openhrTailwindPreset = librehrTailwindPreset;
+export default librehrTailwindPreset;

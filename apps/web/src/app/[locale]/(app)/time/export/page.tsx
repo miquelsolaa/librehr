@@ -4,11 +4,11 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Button, Input } from "@openhr/ui";
+import { Button, Input } from "@librehr/ui";
 import { ArrowLeft, FileText, ShieldCheck, Download } from "lucide-react";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
-import type { OfficialExportResponse } from "@openhr/contracts";
+import type { OfficialExportResponse } from "@librehr/contracts";
 
 export default function TimeExportPage() {
   const params = useParams();

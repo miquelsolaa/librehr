@@ -1,5 +1,5 @@
 {
-  "extends": "@openhr/config/tsconfig/node.json",
+  "extends": "@librehr/config/tsconfig/node.json",
   "compilerOptions": {
     "rootDir": "."
   },

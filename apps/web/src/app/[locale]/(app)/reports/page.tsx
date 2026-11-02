@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { EmptyState } from "@openhr/ui";
+import { EmptyState } from "@librehr/ui";
 import { BarChart3 } from "lucide-react";
 
 // TODO(REP-001): Working-time inspections and standard reports

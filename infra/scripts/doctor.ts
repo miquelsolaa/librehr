@@ -5,7 +5,7 @@ interface DoctorCheck {
 }
 
 async function runDoctor(): Promise<void> {
-  process.stdout.write("Running OpenHR Environment & Health Doctor...\n\n");
+  process.stdout.write("Running LibreHR Environment & Health Doctor...\n\n");
   const checks: DoctorCheck[] = [];
 
   // 1. Node.js version check
@@ -45,7 +45,7 @@ async function runDoctor(): Promise<void> {
   // 3. Database Connectivity & RLS Policy Check
   const dbUrl =
     process.env["DATABASE_URL"] ??
-    "postgres://openhr:openhr_dev_password@localhost:5432/openhr";
+    "postgres://librehr:librehr_dev_password@localhost:5432/librehr";
   try {
     const postgresModule =
       (await import("../../packages/db/node_modules/postgres/cjs/src/index.js").catch(

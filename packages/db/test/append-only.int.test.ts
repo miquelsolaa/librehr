@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { getTestDatabase, type TestDatabase } from "@openhr/testing";
+import { getTestDatabase, type TestDatabase } from "@librehr/testing";
 import { runMigrations } from "../src/migrate.js";
 import { withTenant } from "../src/with-tenant.js";
 

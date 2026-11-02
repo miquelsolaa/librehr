@@ -4,9 +4,9 @@ import * as React from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Mail, Check, AlertCircle } from "lucide-react";
-import { Button, Input } from "@openhr/ui";
+import { Button, Input } from "@librehr/ui";
 import { apiClient } from "../../../../../lib/api-client.js";
-import type { InvitationDetails } from "@openhr/contracts";
+import type { InvitationDetails } from "@librehr/contracts";
 
 export default function AcceptInvitePage() {
   const params = useParams();
@@ -90,7 +90,7 @@ export default function AcceptInvitePage() {
           {t("title")}
         </h1>
         <p className="text-sm text-muted-foreground">
-          {t("description", { orgName: invite?.orgName ?? "OpenHR" })}
+          {t("description", { orgName: invite?.orgName ?? "LibreHR" })}
         </p>
         <span className="inline-block rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
           {t("invitedAs", { role: invite?.role ?? "employee" })}

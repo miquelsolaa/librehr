@@ -23,9 +23,9 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from "@openhr/ui";
+} from "@librehr/ui";
 import { apiClient } from "../../../../../lib/api-client.js";
-import type { EmployeeProfile, TerminationReason } from "@openhr/contracts";
+import type { EmployeeProfile, TerminationReason } from "@librehr/contracts";
 
 export default function EmployeeDetailPage() {
   const params = useParams();

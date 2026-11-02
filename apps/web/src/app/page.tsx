@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { defaultLocale } from "@openhr/i18n";
+import { defaultLocale } from "@librehr/i18n";
 
 export default function RootPage() {
   redirect(`/${defaultLocale}/home`);

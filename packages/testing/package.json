@@ -1,5 +1,5 @@
 {
-  "name": "@openhr/testing",
+  "name": "@librehr/testing",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,13 +9,13 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@openhr/core": "workspace:*",
+    "@librehr/core": "workspace:*",
     "@testcontainers/postgresql": "^10.18.0",
     "postgres": "^3.4.5",
     "testcontainers": "^10.18.0"
   },
   "devDependencies": {
-    "@openhr/config": "workspace:*",
+    "@librehr/config": "workspace:*",
     "@types/node": "^22.13.4",
     "typescript": "^5.7.3",
     "vitest": "^3.0.5"

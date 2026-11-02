@@ -1,5 +1,5 @@
 {
-  "extends": "@openhr/config/tsconfig/base.json",
+  "extends": "@librehr/config/tsconfig/base.json",
   "compilerOptions": {
     "baseUrl": "."
   },

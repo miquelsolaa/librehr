@@ -5,7 +5,7 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  transpilePackages: ["@openhr/ui", "@openhr/i18n", "@openhr/contracts"],
+  transpilePackages: ["@librehr/ui", "@librehr/i18n", "@librehr/contracts"],
   poweredByHeader: false,
   webpack: (config) => {
     config.resolve.extensionAlias = {

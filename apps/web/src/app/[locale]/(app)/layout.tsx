@@ -16,7 +16,7 @@ import {
   IconOnboarding,
   IconReports,
   IconSettings,
-} from "@openhr/ui";
+} from "@librehr/ui";
 import { Home } from "lucide-react";
 import { ThemeToggle } from "../../../components/theme-toggle";
 import { LanguageSwitcher } from "../../../components/language-switcher";

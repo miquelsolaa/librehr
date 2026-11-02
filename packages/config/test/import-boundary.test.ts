@@ -6,13 +6,13 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 describe("Import boundary rules", () => {
-  it("fails when packages/core imports @openhr/db", async () => {
+  it("fails when packages/core imports @librehr/db", async () => {
     const eslint = new ESLint({
       overrideConfigFile: path.resolve(__dirname, "../eslint/base.js"),
     });
 
     const results = await eslint.lintText(
-      `import { db } from '@openhr/db';\nexport const x = db;\n`,
+      `import { db } from '@librehr/db';\nexport const x = db;\n`,
       { filePath: "packages/core/src/domain.ts" },
     );
 
@@ -23,13 +23,13 @@ describe("Import boundary rules", () => {
     ).toBe(true);
   });
 
-  it("fails when apps/web imports @openhr/db", async () => {
+  it("fails when apps/web imports @librehr/db", async () => {
     const eslint = new ESLint({
       overrideConfigFile: path.resolve(__dirname, "../eslint/base.js"),
     });
 
     const results = await eslint.lintText(
-      `import { db } from '@openhr/db';\nexport const x = db;\n`,
+      `import { db } from '@librehr/db';\nexport const x = db;\n`,
       { filePath: "apps/web/src/page.tsx" },
     );
 

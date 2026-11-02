@@ -7,6 +7,6 @@ export default defineConfig({
   dbCredentials: {
     url:
       process.env["DATABASE_MIGRATION_URL"] ||
-      "postgres://openhr_owner:openhr_dev_password@localhost:5432/openhr",
+      "postgres://librehr_owner:librehr_dev_password@localhost:5432/librehr",
   },
 });

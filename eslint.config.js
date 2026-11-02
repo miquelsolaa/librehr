@@ -1,4 +1,4 @@
-import baseConfig from "@openhr/config/eslint/base";
+import baseConfig from "@librehr/config/eslint/base";
 
 export default [
   ...baseConfig,

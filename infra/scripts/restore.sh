@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# OpenHR Database Restore Script
+# LibreHR Database Restore Script
 # Usage: ./restore.sh <backup_file.sql.gz>
 
 if [ -z "${1:-}" ]; then
@@ -21,9 +21,9 @@ if [ -z "${DATABASE_URL:-}" ]; then
   exit 1
 fi
 
-echo "[OpenHR Restore] Warning: This operation will restore database from ${BACKUP_FILE}."
-echo "[OpenHR Restore] Starting decompression and restore into target database..."
+echo "[LibreHR Restore] Warning: This operation will restore database from ${BACKUP_FILE}."
+echo "[LibreHR Restore] Starting decompression and restore into target database..."
 
 gunzip -c "$BACKUP_FILE" | psql "$DATABASE_URL" --single-transaction
 
-echo "[OpenHR Restore] Completed successfully."
+echo "[LibreHR Restore] Completed successfully."

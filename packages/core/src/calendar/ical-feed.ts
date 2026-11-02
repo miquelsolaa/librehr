@@ -17,7 +17,7 @@ export function generateIcsCalendar(
   const lines: string[] = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//OpenHR//HRIS Calendar//EN",
+    "PRODID:-//LibreHR//HRIS Calendar//EN",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     `X-WR-CALNAME:${calendarName}`,

@@ -84,11 +84,11 @@ describe("Milestone M5 Core Domain Logic (RPT-001, RPT-002, LEA-009)", () => {
       },
     ];
 
-    const ics = generateIcsCalendar("OpenHR Team Calendar", events);
+    const ics = generateIcsCalendar("LibreHR Team Calendar", events);
 
     expect(ics).toContain("BEGIN:VCALENDAR");
     expect(ics).toContain("VERSION:2.0");
-    expect(ics).toContain("X-WR-CALNAME:OpenHR Team Calendar");
+    expect(ics).toContain("X-WR-CALNAME:LibreHR Team Calendar");
     expect(ics).toContain("BEGIN:VEVENT");
     expect(ics).toContain("UID:event-1");
     expect(ics).toContain("DTSTART;VALUE=DATE:20260701");

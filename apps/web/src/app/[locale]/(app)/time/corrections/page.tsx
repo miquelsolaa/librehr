@@ -4,11 +4,11 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Button, Input, StatusPill, type StatusPillType } from "@openhr/ui";
+import { Button, Input, StatusPill, type StatusPillType } from "@librehr/ui";
 import { ArrowLeft, CheckCircle2, Clock } from "lucide-react";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
-import type { TimeCorrectionItem } from "@openhr/contracts";
+import type { TimeCorrectionItem } from "@librehr/contracts";
 
 export default function TimeCorrectionsPage() {
   const params = useParams();

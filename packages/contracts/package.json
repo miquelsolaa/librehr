@@ -1,5 +1,5 @@
 {
-  "name": "@openhr/contracts",
+  "name": "@librehr/contracts",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -14,7 +14,7 @@
   },
   "devDependencies": {
     "@asteasolutions/zod-to-openapi": "^7.3.0",
-    "@openhr/config": "workspace:*",
+    "@librehr/config": "workspace:*",
     "@types/node": "^22.13.4",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",

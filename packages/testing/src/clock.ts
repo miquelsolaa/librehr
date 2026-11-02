@@ -1,4 +1,4 @@
-import type { Clock } from "@openhr/core";
+import type { Clock } from "@librehr/core";
 
 export class FakeClock implements Clock {
   private currentTime: Date;

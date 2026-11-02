@@ -34,20 +34,20 @@ export const baseConfig = tseslint.config(
         "error",
         {
           paths: [
-            { name: "@openhr/db", message: "core must never import db" },
-            { name: "@openhr/api", message: "core must never import api" },
-            { name: "@openhr/web", message: "core must never import web" },
+            { name: "@librehr/db", message: "core must never import db" },
+            { name: "@librehr/api", message: "core must never import api" },
+            { name: "@librehr/web", message: "core must never import web" },
             {
-              name: "@openhr/contracts",
+              name: "@librehr/contracts",
               message: "core must never import contracts",
             },
-            { name: "@openhr/ui", message: "core must never import ui" },
+            { name: "@librehr/ui", message: "core must never import ui" },
             {
-              name: "@openhr/emails",
+              name: "@librehr/emails",
               message: "core must never import emails",
             },
             {
-              name: "@openhr/worker",
+              name: "@librehr/worker",
               message: "core must never import worker",
             },
             { name: "fs", message: "core must be pure domain without I/O" },
@@ -73,9 +73,9 @@ export const baseConfig = tseslint.config(
         "error",
         {
           paths: [
-            { name: "@openhr/db", message: "web cannot import db" },
-            { name: "@openhr/api", message: "web cannot import api" },
-            { name: "@openhr/worker", message: "web cannot import worker" },
+            { name: "@librehr/db", message: "web cannot import db" },
+            { name: "@librehr/api", message: "web cannot import api" },
+            { name: "@librehr/worker", message: "web cannot import worker" },
           ],
         },
       ],
@@ -89,8 +89,8 @@ export const baseConfig = tseslint.config(
         "error",
         {
           paths: [
-            { name: "@openhr/web", message: "api cannot import web" },
-            { name: "@openhr/ui", message: "api cannot import ui" },
+            { name: "@librehr/web", message: "api cannot import web" },
+            { name: "@librehr/ui", message: "api cannot import ui" },
           ],
         },
       ],
@@ -104,9 +104,9 @@ export const baseConfig = tseslint.config(
         "error",
         {
           paths: [
-            { name: "@openhr/web", message: "worker cannot import web" },
-            { name: "@openhr/api", message: "worker cannot import api" },
-            { name: "@openhr/ui", message: "worker cannot import ui" },
+            { name: "@librehr/web", message: "worker cannot import web" },
+            { name: "@librehr/api", message: "worker cannot import api" },
+            { name: "@librehr/ui", message: "worker cannot import ui" },
           ],
         },
       ],

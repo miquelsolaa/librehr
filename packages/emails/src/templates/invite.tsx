@@ -21,7 +21,7 @@ export function InviteEmail({ inviteUrl, orgName }: InviteEmailProps) {
       <Head />
       <Body style={{ fontFamily: "sans-serif" }}>
         <Container>
-          <Heading>Welcome to {orgName} on OpenHR</Heading>
+          <Heading>Welcome to {orgName} on LibreHR</Heading>
           <Text>You have been invited to join {orgName}.</Text>
           <Link href={inviteUrl}>Accept Invitation</Link>
         </Container>

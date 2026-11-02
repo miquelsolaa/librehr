@@ -4,7 +4,7 @@ import * as React from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Building2, Check, ArrowRight, ArrowLeft } from "lucide-react";
-import { Button, Input } from "@openhr/ui";
+import { Button, Input } from "@librehr/ui";
 import { apiClient } from "../../../../lib/api-client.js";
 
 export default function SetupWizardPage() {

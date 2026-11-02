@@ -197,8 +197,8 @@ Follow these steps to set up a local development environment.
 1. **Clone the repository:**
 
    ```sh
-   git clone https://github.com/openhr-project/openhr.git
-   cd openhr
+   git clone https://github.com/miquelsolaa/librehr.git
+   cd librehr
    ```
 
 2. **Install dependencies:**
@@ -249,9 +249,9 @@ Once started, the following services and endpoints are accessible:
 
 The development database seeds sample organizations and test accounts with the default development password: `Password123!`
 
-- **Admin:** `admin@openhr.local`
-- **Manager:** `manager@openhr.local`
-- **Employee:** `employee@openhr.local`
+- **Admin:** `admin@librehr.local`
+- **Manager:** `manager@librehr.local`
+- **Employee:** `employee@librehr.local`
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

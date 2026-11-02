@@ -18,9 +18,9 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from "@openhr/ui";
+} from "@librehr/ui";
 import { apiClient } from "../../../../lib/api-client.js";
-import type { EmployeeListItem, Department } from "@openhr/contracts";
+import type { EmployeeListItem, Department } from "@librehr/contracts";
 
 export default function PeoplePage() {
   const params = useParams();

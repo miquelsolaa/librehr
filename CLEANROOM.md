@@ -1,6 +1,6 @@
 # CLEANROOM.md - Independent implementation policy
 
-OpenHR is an **independent** implementation of generic HR-software functionality. Functionality (what an HRIS does) is not owned by anyone.
+LibreHR is an **independent** implementation of generic HR-software functionality. Functionality (what an HRIS does) is not owned by anyone.
 Expression (code, UI artwork, text, brand) is. This policy keeps the project on the right side of that line and makes it provable.
 
 > This document is an engineering policy, not legal advice. Have an IP lawyer review it before the first public release.

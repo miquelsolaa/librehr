@@ -15,9 +15,9 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from "@openhr/ui";
+} from "@librehr/ui";
 import { apiClient } from "../../../../../lib/api-client.js";
-import type { Department } from "@openhr/contracts";
+import type { Department } from "@librehr/contracts";
 
 export default function DepartmentsSettingsPage() {
   const params = useParams();

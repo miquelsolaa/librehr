@@ -3,7 +3,7 @@ import { cn } from "../src/lib/cn.js";
 import { Button } from "../src/components/button.js";
 import { StatusPill } from "../src/components/status-pill.js";
 
-describe("@openhr/ui components", () => {
+describe("@librehr/ui components", () => {
   it("should merge class names correctly using cn", () => {
     expect(cn("px-2 py-1", "bg-primary", { hidden: false })).toBe(
       "px-2 py-1 bg-primary",

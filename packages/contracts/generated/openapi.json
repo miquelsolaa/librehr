@@ -1,9 +1,9 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "OpenHR REST API",
+    "title": "LibreHR REST API",
     "version": "0.1.0",
-    "description": "OpenHR REST API contracts generated from Zod schemas"
+    "description": "LibreHR REST API contracts generated from Zod schemas"
   },
   "servers": [
     {

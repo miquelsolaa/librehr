@@ -1,5 +1,5 @@
 {
-  "name": "@openhr/i18n",
+  "name": "@librehr/i18n",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,7 +11,7 @@
     "./config": "./src/config.ts"
   },
   "devDependencies": {
-    "@openhr/config": "workspace:*",
+    "@librehr/config": "workspace:*",
     "@types/node": "^22.13.4",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",

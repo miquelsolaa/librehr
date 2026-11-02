@@ -204,7 +204,7 @@ const MODULE_ICONS = {
 async function main() {
   console.log("Generating LibreHR Brand Assets...");
 
-  // Write SVGs to packages/ui/src/brand (both librehr-* and openhr-* for compatibility)
+  // Write SVGs to packages/ui/src/brand
   const brandSvgs = {
     "librehr-mark.svg": getMarkSvg(COLOR_PRIMARY),
     "librehr-mark-dark.svg": getMarkSvg(COLOR_PRIMARY_DARK),

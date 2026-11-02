@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { locales, type Locale } from "@openhr/i18n";
+import { locales, type Locale } from "@librehr/i18n";
 import { Globe } from "lucide-react";
 
 export function LanguageSwitcher() {

@@ -5,7 +5,7 @@ import { Bell, Check } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
-import type { NotificationItem } from "@openhr/contracts";
+import type { NotificationItem } from "@librehr/contracts";
 
 export function NotificationBell() {
   const t = useTranslations("notifications");

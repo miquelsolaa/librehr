@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useTranslations } from "next-intl";
-import { Button, StatusPill, Skeleton } from "@openhr/ui";
+import { Button, StatusPill, Skeleton } from "@librehr/ui";
 import { Clock, Calendar, CheckCircle, Activity, Building } from "lucide-react";
 import { getApiClient } from "@/lib/api-client";
 import { getStoredSession } from "@/lib/auth";
@@ -63,13 +63,13 @@ export default function HomePage() {
           const orgRes = await client.getOrganization();
           setOrg(orgRes);
         } catch {
-          setOrg({ id: "org-1", name: "OpenHR Seed Org", slug: "seed-org" });
+          setOrg({ id: "org-1", name: "LibreHR Seed Org", slug: "seed-org" });
         }
       } else {
         // Mock default for unauthenticated view
         setUser({
           id: "usr_guest",
-          email: "admin@openhr.test",
+          email: "admin@librehr.test",
           name: "Laia Martí",
         });
         setOrg({ id: "org_1", name: "Acme Serveis SL", slug: "acme-serveis" });

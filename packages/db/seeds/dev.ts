@@ -5,7 +5,7 @@ export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
     connectionUrl ||
     process.env["DATABASE_MIGRATION_URL"] ||
     process.env["DATABASE_URL"] ||
-    "postgres://openhr_owner:openhr_dev_password@localhost:5432/openhr";
+    "postgres://librehr_owner:librehr_dev_password@localhost:5432/librehr";
 
   const sql = postgres(url, { max: 1 });
 
@@ -51,9 +51,13 @@ export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
 
       // Password hash for 'Password123!' (dummy dev hash or scrypt)
       const usersData = [
-        { email: "admin@openhr.local", name: "Marta Soler", role: "admin" },
-        { email: "manager@openhr.local", name: "Pere Vila", role: "manager" },
-        { email: "employee@openhr.local", name: "Laia Puig", role: "employee" },
+        { email: "admin@librehr.local", name: "Marta Soler", role: "admin" },
+        { email: "manager@librehr.local", name: "Pere Vila", role: "manager" },
+        {
+          email: "employee@librehr.local",
+          name: "Laia Puig",
+          role: "employee",
+        },
       ];
 
       let managerEmpId: string | null = null;

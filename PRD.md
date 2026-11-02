@@ -1,11 +1,11 @@
-# PRD - OpenHR (working name)
+# PRD - LibreHR (formerly OpenHR)
 
 Status: Draft v0.1 · Owner: Maintainers · Last updated: 2026-11-01
 Related: `PERSONA.md`, `ARCHITECTURE.md`, `COMPLIANCE.md`, `DESIGN.md`, `ROADMAP.md`
 
 ## 1. Summary
 
-OpenHR is an open-source (AGPL-3.0), self-hostable HRIS for small and medium businesses in Europe, starting with Spain, Catalonia first.
+LibreHR is an open-source (AGPL-3.0), self-hostable HRIS for small and medium businesses in Europe, starting with Spain, Catalonia first.
 It replaces spreadsheets, shared calendars, paper forms and ad-hoc email threads with one place for people data, time off, working-time records and documents.
 It must be easy to self-host (one `docker compose up`), pleasant for non-technical users, and compliant by default with Spanish and EU rules.
 

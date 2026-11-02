@@ -20,7 +20,7 @@ export function PasswordResetEmail({ resetUrl }: PasswordResetEmailProps) {
       <Head />
       <Body style={{ fontFamily: "sans-serif" }}>
         <Container>
-          <Heading>Reset your OpenHR password</Heading>
+          <Heading>Reset your LibreHR password</Heading>
           <Text>
             Click the link below to reset your password. This link expires in 1
             hour.
