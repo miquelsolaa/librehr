@@ -260,7 +260,12 @@
     "delegateTo": "Delegate Approver",
     "delegationPeriod": "Delegation Period",
     "delegateSave": "Save Delegation",
-    "coverageWarning": "Team coverage threshold warning"
+    "coverageWarning": "Team coverage threshold warning",
+    "statutoryLeaveNotice": "Statutory leave under labor law",
+    "requiresAttachmentNotice": "Supporting documentation / certificate is required for this leave type.",
+    "paidLeave": "Paid Leave",
+    "unpaidLeave": "Unpaid Leave",
+    "legalReference": "Legal Reference"
   },
   "notifications": {
     "title": "Notifications",

@@ -55,6 +55,26 @@ RPT-001/002, AUTH-003/004, LEA-007..009, TIM-002, ADM-006, performance audits, d
 - **Enterprise Single Sign-On (`AUTH-004`):** OIDC SSO for Google, Microsoft, and generic identity providers with domain restrictions (`/settings/sso`).
 - **Document Merge Templates (`DOC-007`):** Dynamic template engine with Mustache placeholder substitution (`/documents/templates`).
 - **Outbound Webhooks Engine (`ADM-006`):** Event subscription engine with HMAC-SHA256 signature verification, event filtering, and test ping dispatch (`/settings/webhooks`).
+- **Statutory Leave Catalogue (`LEA-001`):** Complete statutory absence types under Spanish & European labor law (ET art. 37 & RDL 5/2023) covering marriage, family hospitalization, bereavement, moving, civic duty, prenatal care, family force majeure, unpaid parental leave, maternity/paternity, and exams with legal references and attachment rules.
+
+## Near-Term Implementation Plan (Phases B & C)
+
+### Phase B: Location-Specific Holiday Calendars & Municipal Local Holidays (`LEA-003`)
+
+- **Objective:** Provide granular holiday calendar management per office / work center (`locations`) to configure Spain's statutory 2 municipal local holidays per year (e.g., _La Mercè_ in Barcelona, _San Isidro_ in Madrid, _Sant Narcís_ in Girona).
+- **Scope & Deliverables:**
+  - REST endpoints: `POST /v1/calendar/holidays` and `DELETE /v1/calendar/holidays/:id` to allow authorized managers/admins to add and delete municipal or company holidays for specific work centers.
+  - Web UI in `/settings/locations`: Visual holiday manager per work center with year selection, scope badges (`national`, `regional`, `local`, `company`), and add holiday dialog.
+  - Multi-location absence arithmetic: Ensure working-day calculations automatically resolve the specific municipal holiday calendar of the employee's assigned work center.
+
+### Phase C: Shift & Continuous Cycle Working Systems (`TIM-004`, `TIM-005`)
+
+- **Objective:** Support 24/7 continuous operations and rotating shift rosters (e.g., manufacturing, health facilities, datacenters, critical IT support) beyond standard Monday–Sunday office schedules.
+- **Scope & Deliverables:**
+  - Multi-week rotating shift patterns: Schema and calculation engine supporting cyclic shift rotations independent of the standard calendar week (e.g., 6x2 continuous cycle: 2 morning, 2 afternoon, 2 night shifts, 2 rest days; 5x2; 4x3; 5th shift).
+  - Night work & statutory rest enforcement: Automated computation of statutory night hours (22:00–06:00, ET art. 36) for payroll exports, mandatory 12-hour rest between shifts (ET art. 34.3), and maximum 2 consecutive weeks of night work rule checks.
+  - Visual Shift Roster (Grid Planner): Interactive schedule matrix (employees × days) enabling team leads to assign, visualize, and reassign shifts with real-time minimum coverage validation.
+  - Peer-to-peer Shift Swapping: Employee self-service workflow to request shift exchanges with qualified teammates, subject to statutory rest checks and manager approval.
 
 ## Pending Backlog (What is Left to Build)
 

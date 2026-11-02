@@ -260,7 +260,12 @@
     "delegateTo": "Aprovador Delegat",
     "delegationPeriod": "Període de Delegació",
     "delegateSave": "Desar Delegació",
-    "coverageWarning": "Avís de llindar mínim de cobertura d'equip"
+    "coverageWarning": "Avís de llindar mínim de cobertura d'equip",
+    "statutoryLeaveNotice": "Permís retribuït / legal segons normativa laboral",
+    "requiresAttachmentNotice": "Es requereix justificant o documentació acreditativa per a aquest tipus de permís.",
+    "paidLeave": "Permís Retribuït",
+    "unpaidLeave": "Permís No Retribuït",
+    "legalReference": "Referència Legal"
   },
   "notifications": {
     "title": "Notificacions",

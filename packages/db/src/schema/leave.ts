@@ -50,6 +50,9 @@ export const leaveTypes = pgTable(
     code: text("code").notNull(), // vacation, personal_days, sick_leave, parental_leave, unpaid_leave, other
     isPaid: boolean("is_paid").default(true).notNull(),
     requiresApproval: boolean("requires_approval").default(true).notNull(),
+    requiresAttachment: boolean("requires_attachment").default(false).notNull(),
+    legalReference: text("legal_reference"),
+    description: text("description"),
     halfDaysAllowed: boolean("half_days_allowed").default(true).notNull(),
     countsWorkingDays: boolean("counts_working_days").default(true).notNull(),
     color: text("color").default("#3b82f6").notNull(),

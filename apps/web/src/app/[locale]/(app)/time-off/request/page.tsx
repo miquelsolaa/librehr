@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Button, Input } from "@librehr/ui";
+import { Button, Input, Badge } from "@librehr/ui";
 import { Calendar, ArrowLeft, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { getStoredSession } from "@/lib/auth";
@@ -58,6 +58,10 @@ export default function RequestLeavePage() {
       ) ?? null
     );
   }, [startDate, endDate, blackouts]);
+
+  const currentType = React.useMemo(() => {
+    return leaveTypes.find((t) => t.id === selectedType);
+  }, [leaveTypes, selectedType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -155,10 +159,38 @@ export default function RequestLeavePage() {
             >
               {leaveTypes.map((type) => (
                 <option key={type.id} value={type.id}>
-                  {type.name} {type.isPaid ? "(Paid)" : "(Unpaid)"}
+                  {type.name}{" "}
+                  {type.isPaid
+                    ? `(${t("paidLeave")})`
+                    : `(${t("unpaidLeave")})`}
                 </option>
               ))}
             </select>
+
+            {currentType && (
+              <div className="mt-2.5 rounded-lg border border-border bg-surface-raised/60 p-3 space-y-1.5 text-xs">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant={currentType.isPaid ? "success" : "secondary"}>
+                    {currentType.isPaid ? t("paidLeave") : t("unpaidLeave")}
+                  </Badge>
+                  {currentType.legalReference && (
+                    <Badge variant="outline" className="font-mono text-[11px]">
+                      {currentType.legalReference}
+                    </Badge>
+                  )}
+                  {currentType.requiresAttachment && (
+                    <Badge variant="warning" className="text-[11px]">
+                      📎 Document Required
+                    </Badge>
+                  )}
+                </div>
+                {currentType.description && (
+                  <p className="text-muted-foreground mt-1 text-[11px] leading-relaxed">
+                    {currentType.description}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

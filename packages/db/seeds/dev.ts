@@ -364,13 +364,27 @@ export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
         }
       }
 
-      // 7. Seed Leave Types & Policies
+      // 7. Seed Statutory Leave Types (Estatuto de los Trabajadores & RDL 5/2023)
       const ltRows = await tx<{ id: string; code: string }[]>`
-        INSERT INTO "leave_types" ("organization_id", "name", "code", "is_paid", "requires_approval", "color")
+        INSERT INTO "leave_types" (
+          "organization_id", "name", "code", "is_paid", "requires_approval",
+          "requires_attachment", "legal_reference", "description",
+          "half_days_allowed", "counts_working_days", "color"
+        )
         VALUES 
-          (${orgId}, 'Vacaciones', 'vacation', true, true, '#3b82f6'),
-          (${orgId}, 'Asuntos Propios', 'personal_days', true, true, '#10b981'),
-          (${orgId}, 'Baja Médica (IT)', 'sick_leave', true, false, '#f59e0b')
+          (${orgId}, 'Vacaciones Anuales', 'vacation', true, true, false, 'ET art. 38', 'Período legal de descanso retribuido (mínimo 30 días naturales o 22 laborables).', true, true, '#3b82f6'),
+          (${orgId}, 'Asuntos Propios', 'personal_days', true, true, false, 'Convenio colectivo', 'Días de libre disposición según convenio colectivo.', true, true, '#10b981'),
+          (${orgId}, 'Baja Médica (IT)', 'sick_leave', true, false, true, 'LGSS art. 169 & ET art. 45.1.c', 'Incapacidad temporal con parte médico oficial (sin diagnóstico, GDPR art. 9).', false, false, '#f59e0b'),
+          (${orgId}, 'Matrimonio o Pareja de Hecho', 'marriage', true, true, true, 'ET art. 37.3.a', '15 días naturales por matrimonio o constitución formal de pareja de hecho.', false, false, '#ec4899'),
+          (${orgId}, 'Hospitalización o Enfermedad Grave Familiar', 'hospitalization_family', true, true, true, 'ET art. 37.3.b (RDL 5/2023)', '5 días laborables por accidente, enfermedad grave, hospitalización o reposo de familiar o conviviente.', true, true, '#8b5cf6'),
+          (${orgId}, 'Fallecimiento de Familiar', 'bereavement', true, true, true, 'ET art. 37.3.b bis', '2 días por defunción de familiar hasta 2º grado (4 días si requiere desplazamiento).', false, false, '#64748b'),
+          (${orgId}, 'Traslado de Domicilio Habitual', 'moving', true, true, true, 'ET art. 37.3.c', '1 día de permiso retribuido por mudanza.', false, false, '#06b6d4'),
+          (${orgId}, 'Deber Inexcusable Público y Personal', 'public_duty', true, true, true, 'ET art. 37.3.d', 'Tiempo indispensable para el cumplimiento de un deber público y personal oficial.', true, true, '#6366f1'),
+          (${orgId}, 'Exámenes Prenatales y Preparación al Parto', 'prenatal_exams', true, true, true, 'ET art. 37.3.f', 'Tiempo indispensable para exámenes médicos prenatales y preparación al parto o adopción.', true, true, '#14b8a6'),
+          (${orgId}, 'Fuerza Mayor Familiar Urgente', 'family_force_majeure', true, true, true, 'ET art. 37.9 (RDL 5/2023)', 'Hasta 4 días al año retribuidos por urgencias familiares imprevisibles.', true, true, '#ef4444'),
+          (${orgId}, 'Permiso Parental (hasta 8 años)', 'parental_leave_unpaid', false, true, true, 'ET art. 48 bis (RDL 5/2023)', 'Permiso no retribuido de hasta 8 semanas para el cuidado de hijo o hija hasta cumplir 8 años.', false, true, '#f97316'),
+          (${orgId}, 'Nacimiento y Cuidado del Menor', 'birth_childcare', true, true, true, 'ET art. 48.4 & LGSS', 'Suspensión de 16 semanas retribuida por la Seguridad Social con reserva de puesto.', false, false, '#a855f7'),
+          (${orgId}, 'Exámenes Oficiales y Formación', 'education_exams', true, true, true, 'ET art. 23.1.a', 'Permiso retribuido necesario para concurrir a exámenes académicos o profesionales oficiales.', true, true, '#0284c7')
         ON CONFLICT DO NOTHING
         RETURNING "id", "code"
       `;

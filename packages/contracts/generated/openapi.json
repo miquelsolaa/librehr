@@ -1188,6 +1188,22 @@
           "requiresApproval": {
             "type": "boolean"
           },
+          "requiresAttachment": {
+            "type": "boolean",
+            "default": false
+          },
+          "legalReference": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "halfDaysAllowed": {
             "type": "boolean"
           },
@@ -1227,6 +1243,16 @@
           "requiresApproval": {
             "type": "boolean",
             "default": true
+          },
+          "requiresAttachment": {
+            "type": "boolean",
+            "default": false
+          },
+          "legalReference": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
           },
           "halfDaysAllowed": {
             "type": "boolean",
@@ -6478,6 +6504,22 @@
                       "requiresApproval": {
                         "type": "boolean"
                       },
+                      "requiresAttachment": {
+                        "type": "boolean",
+                        "default": false
+                      },
+                      "legalReference": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "description": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
                       "halfDaysAllowed": {
                         "type": "boolean"
                       },
@@ -6529,6 +6571,16 @@
                     "type": "boolean",
                     "default": true
                   },
+                  "requiresAttachment": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "legalReference": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
                   "halfDaysAllowed": {
                     "type": "boolean",
                     "default": true
@@ -6573,6 +6625,22 @@
                     },
                     "requiresApproval": {
                       "type": "boolean"
+                    },
+                    "requiresAttachment": {
+                      "type": "boolean",
+                      "default": false
+                    },
+                    "legalReference": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "description": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "halfDaysAllowed": {
                       "type": "boolean"

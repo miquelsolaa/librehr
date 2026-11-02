@@ -260,7 +260,12 @@
     "delegateTo": "Aprobador Delegado",
     "delegationPeriod": "Periodo de Delegación",
     "delegateSave": "Guardar Delegación",
-    "coverageWarning": "Aviso de umbral mínimo de cobertura de equipo"
+    "coverageWarning": "Aviso de umbral mínimo de cobertura de equipo",
+    "statutoryLeaveNotice": "Permiso retribuido / legal según normativa laboral",
+    "requiresAttachmentNotice": "Se requiere justificante o documentación acreditativa para este tipo de permiso.",
+    "paidLeave": "Permiso Retribuido",
+    "unpaidLeave": "Permiso No Retribuido",
+    "legalReference": "Referencia Legal"
   },
   "notifications": {
     "title": "Notificaciones",

@@ -7,6 +7,9 @@ export interface LeaveTypeRow {
   code: string;
   isPaid: boolean;
   requiresApproval: boolean;
+  requiresAttachment: boolean;
+  legalReference: string | null;
+  description: string | null;
   halfDaysAllowed: boolean;
   countsWorkingDays: boolean;
   color: string;
@@ -86,6 +89,8 @@ export class LeaveRepository {
     return tx<LeaveTypeRow[]>`
       SELECT id, organization_id as "organizationId", name, code,
              is_paid as "isPaid", requires_approval as "requiresApproval",
+             requires_attachment as "requiresAttachment",
+             legal_reference as "legalReference", description,
              half_days_allowed as "halfDaysAllowed", counts_working_days as "countsWorkingDays",
              color, created_at as "createdAt", updated_at as "updatedAt"
       FROM leave_types
@@ -100,6 +105,9 @@ export class LeaveRepository {
       code: string;
       isPaid?: boolean | undefined;
       requiresApproval?: boolean | undefined;
+      requiresAttachment?: boolean | undefined;
+      legalReference?: string | undefined;
+      description?: string | undefined;
       halfDaysAllowed?: boolean | undefined;
       countsWorkingDays?: boolean | undefined;
       color?: string | undefined;
@@ -108,18 +116,24 @@ export class LeaveRepository {
     const rows = await tx<LeaveTypeRow[]>`
       INSERT INTO leave_types (
         name, code, is_paid, requires_approval,
+        requires_attachment, legal_reference, description,
         half_days_allowed, counts_working_days, color
       ) VALUES (
         ${data.name},
         ${data.code},
         ${data.isPaid ?? true},
         ${data.requiresApproval ?? true},
+        ${data.requiresAttachment ?? false},
+        ${data.legalReference ?? null},
+        ${data.description ?? null},
         ${data.halfDaysAllowed ?? true},
         ${data.countsWorkingDays ?? true},
         ${data.color ?? "#3b82f6"}
       )
       RETURNING id, organization_id as "organizationId", name, code,
                 is_paid as "isPaid", requires_approval as "requiresApproval",
+                requires_attachment as "requiresAttachment",
+                legal_reference as "legalReference", description,
                 half_days_allowed as "halfDaysAllowed", counts_working_days as "countsWorkingDays",
                 color, created_at as "createdAt", updated_at as "updatedAt"
     `;

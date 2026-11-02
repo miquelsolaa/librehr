@@ -3,6 +3,28 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.2.0] - 2026-11-02
+
+### Statutory Leaves Compliance (Phase A) & Advanced Operational Planning
+
+- **Spanish Statutory Leave Types (`LEA-001`):** Domain model, database schema, and migration for all 13 canonical statutory absence types under Spanish labour law (Estatuto de los Trabajadores art. 37 and Real Decreto-ley 5/2023):
+  - Marriage / Civil Partnership (`ET art. 37.3.a` - 15 calendar days).
+  - Family Hospitalization, Surgery & Serious Illness (`ET art. 37.3.b (RDL 5/2023)` - 5 working days).
+  - Bereavement / Death of Family Member (`ET art. 37.3.b bis` - 2 to 4 days).
+  - Relocation / Moving (`ET art. 37.3.c` - 1 day).
+  - Public & Civic Duty (`ET art. 37.3.d` - inexcusable time).
+  - Prenatal Examinations & Adoption Preparation (`ET art. 37.3.f` - necessary time).
+  - Urgent Family Force Majeure (`ET art. 37.9 (RDL 5/2023)` - up to 4 paid days/year).
+  - Unpaid Parental Leave (`ET art. 48 bis (RDL 5/2023)` - up to 8 weeks unpaid).
+  - Birth & Childcare (`ET art. 48.4` - 16 weeks).
+  - Academic & Professional Examinations (`ET art. 23.1.a` - necessary time).
+- **Statutory Leave Request Metadata & UI Preview:**
+  - `leave_types` schema augmented with `requires_attachment`, `legal_reference`, and `description`.
+  - Dynamic visual preview in `/time-off/request` rendering paid/unpaid badges, statutory legal references (`ET art. 37.x`), and attachment requirement indicators.
+  - Full trilingual localization (`ca`, `es`, `en`) across all catalogs and UI indicators.
+- **Roadmap Planning for Phases B & C:**
+  - Formalized implementation plans in English in `ROADMAP.md` and `docs/plans/p1-roadmap-implementation-plan.md` for **Phase B: Location-Specific Holiday Calendars & Municipal Holidays (`LEA-003`)** and **Phase C: Shift & Continuous Cycle Working Systems (`TIM-004`, `TIM-005`)**.
+
 ## [1.1.0] - 2026-11-02
 
 ### Advanced Enterprise, Compliance & Platform Extensions

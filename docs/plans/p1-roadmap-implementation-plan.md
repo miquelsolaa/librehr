@@ -167,6 +167,85 @@ All P1 requirements from the PRD and roadmap have been fully implemented, verifi
 13. `AUTH-004`: Enterprise OIDC Single Sign-On (`/settings/sso`)
 14. `DOC-007`: Document Merge Templates (`/documents/templates`)
 15. `ADM-006`: Outbound Webhooks Engine (`/settings/webhooks`)
+16. `LEA-001`: Statutory Leave Catalogue (Estatuto de los Trabajadores art. 37 & RDL 5/2023)
+
+---
+
+## Phase A: Statutory Legal Absence Types (`LEA-001`) — COMPLETED
+
+### 1. Requirements & Scope
+
+- Pre-configured statutory absence categories with strict labor law alignment:
+  - Marriage or registered partnership (15 calendar days, ET art. 37.3.a).
+  - Accident, serious illness, or hospitalization of family members up to 2nd degree (5 working days, ET art. 37.3.b / RDL 5/2023).
+  - Bereavement / death of relatives (2 calendar days, 4 with travel, ET art. 37.3.b bis).
+  - Relocation / moving (1 day, ET art. 37.3.c).
+  - Inexcusable public or civic duty (strictly required time, ET art. 37.3.d).
+  - Prenatal examinations & adoption assessments (necessary time, ET art. 37.3.f).
+  - Urgent family emergency / force majeure (up to 4 paid days/year, ET art. 37.9 / RDL 5/2023).
+  - Unpaid parental care up to 8 years (up to 8 weeks, ET art. 48 bis / RDL 5/2023).
+  - Childcare & birth suspension (16 weeks subsidized, ET art. 48.4).
+  - Official exams & vocational training certification (time required, ET art. 23.1.a).
+- Metadata flags: `requires_attachment`, `legal_reference`, `description`, `is_paid`, `counts_working_days`.
+- Request UI displays legal badge reference and documentation requirements.
+
+### 2. Implementation Deliverables
+
+- `packages/core/src/leave/statutory.ts`: Canonical `STATUTORY_LEAVE_TYPES` with trilingual metadata.
+- `packages/db/src/schema/leave.ts`: Added `requires_attachment`, `legal_reference`, and `description`.
+- `packages/db/migrations/0012_statutory_leave_types.sql`: Additive migration.
+- `packages/db/seeds/dev.ts`: Seeded 13 statutory leave types with legal citations.
+- `apps/web/src/app/[locale]/(app)/time-off/request/page.tsx`: Interactive badge preview showing legal references, paid/unpaid status, and document requirements.
+
+---
+
+## Phase B: Location-Specific Holiday Calendars & Municipal Holidays (`LEA-003`) — PLANNED
+
+### 1. Requirements & Scope
+
+- Spain's statutory holiday calendar is split into three levels:
+  - 8–9 National holidays (statewide)
+  - 4 Regional holidays (Autonomous Community, e.g. Catalonia, Madrid, Andalusia)
+  - 2 Local / Municipal holidays (established annually by each town hall, e.g., _La Mercè_ in Barcelona, _San Isidro_ in Madrid, _Sant Narcís_ in Girona).
+- Organizations with multiple work centers / locations need distinct local calendars per office so an employee in Barcelona does not have the Madrid local holiday and vice versa.
+
+### 2. Implementation Plan & Deliverables
+
+1. **REST API (`apps/api`):**
+   - `POST /v1/calendar/holidays`: Add a local or company holiday to a location's calendar.
+   - `DELETE /v1/calendar/holidays/:id`: Remove a local holiday.
+2. **Web UI (`apps/web`):**
+   - Management tab or view in `/settings/locations`:
+     - Visual holiday calendar per office.
+     - Year selector.
+     - Tag indicators: National, Regional, Local (Municipal), Company.
+     - Modal to add new local holiday with date, name in 3 languages, and scope.
+3. **Absence Validation Engine (`packages/core`):**
+   - Ensure `validateLeaveRequest` and working day subtraction always fetch the holiday set mapped to the employee's assigned work center (`location_id`).
+
+---
+
+## Phase C: Shift & Continuous Cycle Working Systems (`TIM-004`, `TIM-005`) — PLANNED
+
+### 1. Requirements & Scope
+
+- Projects with 24/7 continuous cycles (manufacturing, healthcare, datacenters, critical emergency support) cannot rely on Monday–Sunday fixed weekly hours.
+- Need cyclic rotational shifts (e.g. 6x2, 5x2, 4x3, 5th shift), night work calculation, and colleague shift exchanges.
+
+### 2. Implementation Plan & Deliverables
+
+1. **Domain Engine & Continuous Cycles (`packages/core`):**
+   - Support arbitrary cycle lengths (e.g. 8-day cycle: M-M-T-T-N-N-R-R).
+   - Compute statutory night hours (22:00–06:00, Estatuto de los Trabajadores art. 36) for night-shift premium payroll export.
+   - Rest enforcement: 12-hour minimum rest between workdays (ET art. 34.3) and max 2 consecutive weeks of night shifts.
+2. **Database Schema (`packages/db`):**
+   - Tables for rotational shift templates (`shift_patterns`, `pattern_steps`) and shift rosters (`shift_assignments`).
+   - Shift swap requests table (`shift_swaps`).
+3. **Web UI & Shift Planner Grid (`apps/web`):**
+   - Visual shift roster (employees × days of month) with color-coded shift pills (Morning, Afternoon, Night, Off).
+   - Colleague shift swap request flow with manager approval and automated statutory rest validation.
+
+---
 
 ### What is Left to Build (Post-v1.1 Backlog)
 
