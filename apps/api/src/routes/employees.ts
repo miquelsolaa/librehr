@@ -8,9 +8,9 @@ import {
   UpdateEmployeeRequestSchema,
   TerminateEmployeeRequestSchema,
   RevealFieldRequestSchema,
-} from "@openhr/contracts";
-import { validateSpanishId, validateIban } from "@openhr/core";
-import { withTenant, EmployeeRepository, AuditRepository } from "@openhr/db";
+} from "@librehr/contracts";
+import { validateSpanishId, validateIban } from "@librehr/core";
+import { withTenant, EmployeeRepository, AuditRepository } from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
 import { can } from "../policies/can.js";
 

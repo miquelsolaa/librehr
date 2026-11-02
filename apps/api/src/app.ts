@@ -33,6 +33,8 @@ import { createDocumentRoutes } from "./routes/documents.js";
 import { createChecklistRoutes } from "./routes/checklists.js";
 import { createEmployeeImportRoutes } from "./routes/employee-import.js";
 import { createDsrRoutes } from "./routes/dsr.js";
+import { createReportRoutes } from "./routes/reports.js";
+import { createTokenRoutes } from "./routes/tokens.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -50,7 +52,7 @@ export function createApp(deps: AppDependencies) {
   app.use("*", requestIdMiddleware);
   app.use("*", loggerMiddleware);
   app.use("*", securityHeadersMiddleware);
-  app.use("*", createAuthMiddleware(deps.authPort));
+  app.use("*", createAuthMiddleware(deps.authPort, deps.sql));
   app.use("*", tenantContextMiddleware);
 
   // 2. Health & Readiness
@@ -73,7 +75,7 @@ export function createApp(deps: AppDependencies) {
     }
     return c.json({
       openapi: "3.1.0",
-      info: { title: "OpenHR API", version: "0.1.0" },
+      info: { title: "LibreHR API", version: "0.1.0" },
     });
   });
 
@@ -97,12 +99,14 @@ export function createApp(deps: AppDependencies) {
   app.route("/v1", createTimeCorrectionRoutes(deps.sql));
   app.route("/v1", createScheduleRoutes(deps.sql));
 
-  // M4 Modules
+  // M4 & M5 Modules
   const storagePort = deps.storagePort ?? new LocalStorageAdapter();
   app.route("/v1", createDocumentRoutes(deps.sql, storagePort));
   app.route("/v1", createChecklistRoutes(deps.sql));
   app.route("/v1", createEmployeeImportRoutes(deps.sql));
   app.route("/v1", createDsrRoutes(deps.sql));
+  app.route("/v1", createReportRoutes(deps.sql));
+  app.route("/v1", createTokenRoutes(deps.sql));
 
   // 5. RFC 9457 Problem Details Error Handler
   app.onError(errorHandler);

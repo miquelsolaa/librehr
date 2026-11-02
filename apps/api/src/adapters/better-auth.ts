@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import type { Sql } from "postgres";
 import type { AuthPort, AuthSession } from "../ports/auth.js";
-import type { AuthUser } from "@openhr/contracts";
+import type { AuthUser } from "@librehr/contracts";
 
 export class BetterAuthAdapter implements AuthPort {
   private sql: Sql;

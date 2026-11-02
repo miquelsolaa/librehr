@@ -5,14 +5,14 @@ import {
   createProblemDetails,
   CreateChecklistTemplateSchema,
   InstantiateChecklistSchema,
-} from "@openhr/contracts";
-import { computeChecklistTaskDueDates } from "@openhr/core";
+} from "@librehr/contracts";
+import { computeChecklistTaskDueDates } from "@librehr/core";
 import {
   withTenant,
   ChecklistRepository,
   EmployeeRepository,
   AuditRepository,
-} from "@openhr/db";
+} from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
 
 export function createChecklistRoutes(sql: Sql) {

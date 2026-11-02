@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { SignInRequestSchema, createProblemDetails } from "@openhr/contracts";
+import { SignInRequestSchema, createProblemDetails } from "@librehr/contracts";
 import type { AuthPort } from "../ports/auth.js";
 import { createRateLimiter } from "../middleware/rate-limit.js";
 
@@ -54,7 +54,7 @@ export function createAuthRoutes(authPort: AuthPort) {
     // Set secure HttpOnly session cookie
     c.header(
       "Set-Cookie",
-      `openhr_session=${session.token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800`,
+      `librehr_session=${session.token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800`,
     );
 
     return c.json({
@@ -72,7 +72,7 @@ export function createAuthRoutes(authPort: AuthPort) {
 
     c.header(
       "Set-Cookie",
-      "openhr_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0",
+      "librehr_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0",
     );
 
     return c.json({ success: true });

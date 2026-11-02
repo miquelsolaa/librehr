@@ -4,8 +4,8 @@ import {
   type AuthUser,
   createProblemDetails,
   CreateDepartmentRequestSchema,
-} from "@openhr/contracts";
-import { withTenant, DepartmentRepository } from "@openhr/db";
+} from "@librehr/contracts";
+import { withTenant, DepartmentRepository } from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
 import { can } from "../policies/can.js";
 

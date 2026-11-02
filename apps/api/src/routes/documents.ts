@@ -6,8 +6,8 @@ import {
   createProblemDetails,
   CreateDocumentRequestSchema,
   BulkPayslipUploadRequestSchema,
-} from "@openhr/contracts";
-import { validateDocumentFile, matchBulkPayslips } from "@openhr/core";
+} from "@librehr/contracts";
+import { validateDocumentFile, matchBulkPayslips } from "@librehr/core";
 import {
   withTenant,
   DocumentRepository,
@@ -15,7 +15,7 @@ import {
   AuditRepository,
   encryptEnvelope,
   decryptEnvelope,
-} from "@openhr/db";
+} from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
 import { can } from "../policies/can.js";
 import type { StoragePort } from "../ports/storage.js";

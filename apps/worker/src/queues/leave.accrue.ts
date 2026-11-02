@@ -1,5 +1,5 @@
 import { defaultIdempotency } from "../lib/idempotency.js";
-import { calculatePeriodicAccrual } from "@openhr/core";
+import { calculatePeriodicAccrual } from "@librehr/core";
 
 export interface LeaveAccruePayload {
   organizationId: string;

@@ -5,13 +5,13 @@ import {
   createProblemDetails,
   CreateInvitationRequestSchema,
   AcceptInvitationRequestSchema,
-} from "@openhr/contracts";
+} from "@librehr/contracts";
 import {
   withTenant,
   InvitationRepository,
   EmployeeRepository,
   AuditRepository,
-} from "@openhr/db";
+} from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
 import { can } from "../policies/can.js";
 import type { AuthPort } from "../ports/auth.js";
@@ -92,8 +92,8 @@ export function createInvitationRoutes(
       await mailPort
         .sendMail({
           to: created.email,
-          subject: "You have been invited to join OpenHR",
-          html: `<p>Hello,</p><p>You have been invited to OpenHR. Click the link below to accept your invitation:</p><p><a href="/invite/${created.token}">Accept Invitation</a></p>`,
+          subject: "You have been invited to join LibreHR",
+          html: `<p>Hello,</p><p>You have been invited to LibreHR. Click the link below to accept your invitation:</p><p><a href="/invite/${created.token}">Accept Invitation</a></p>`,
         })
         .catch(() => {
           // Log mail delivery failure without breaking invitation creation

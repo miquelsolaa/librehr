@@ -1,7 +1,11 @@
 import { Hono } from "hono";
 import type { Sql } from "postgres";
-import { type AuthUser, createProblemDetails } from "@openhr/contracts";
-import { withTenant, ScheduleRepository, EmployeeRepository } from "@openhr/db";
+import { type AuthUser, createProblemDetails } from "@librehr/contracts";
+import {
+  withTenant,
+  ScheduleRepository,
+  EmployeeRepository,
+} from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
 
 export function createScheduleRoutes(sql: Sql) {

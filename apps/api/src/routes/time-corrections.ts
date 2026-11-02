@@ -5,8 +5,8 @@ import {
   createProblemDetails,
   CreateTimeCorrectionSchema,
   DecideTimeCorrectionSchema,
-} from "@openhr/contracts";
-import { computeEventHash } from "@openhr/core";
+} from "@librehr/contracts";
+import { computeEventHash } from "@librehr/core";
 import {
   withTenant,
   TimeCorrectionRepository,
@@ -14,7 +14,7 @@ import {
   EmployeeRepository,
   AuditRepository,
   NotificationRepository,
-} from "@openhr/db";
+} from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
 import { can } from "../policies/can.js";
 

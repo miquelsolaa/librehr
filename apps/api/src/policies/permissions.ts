@@ -1,1 +1,1 @@
-export * from "@openhr/contracts";
+export * from "@librehr/contracts";

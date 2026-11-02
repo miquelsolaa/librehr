@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { getTestDatabase, type TestDatabase } from "@openhr/testing";
-import { runMigrations } from "@openhr/db/migrate";
+import { getTestDatabase, type TestDatabase } from "@librehr/testing";
+import { runMigrations } from "@librehr/db/migrate";
 import type { Sql } from "postgres";
 import { createApp } from "../src/app.js";
 import type { AuthPort, AuthSession } from "../src/ports/auth.js";
-import type { AuthUser, ProblemDetails } from "@openhr/contracts";
+import type { AuthUser, ProblemDetails } from "@librehr/contracts";
 
 class MockAuthPort implements AuthPort {
   private sessions = new Map<string, AuthSession>();

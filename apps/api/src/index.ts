@@ -1,6 +1,6 @@
 import { serve } from "@hono/node-server";
 import postgres from "postgres";
-import { runMigrations } from "@openhr/db/migrate";
+import { runMigrations } from "@librehr/db/migrate";
 import { loadEnv } from "./env.js";
 import { createApp } from "./app.js";
 import { BetterAuthAdapter } from "./adapters/better-auth.js";
@@ -11,7 +11,7 @@ async function bootstrap() {
   const env = loadEnv();
 
   logger.info({
-    msg: "Bootstrapping OpenHR API...",
+    msg: "Bootstrapping LibreHR API...",
     env: env.NODE_ENV,
     port: env.PORT,
   });
@@ -52,7 +52,7 @@ async function bootstrap() {
     },
     (info) => {
       logger.info({
-        msg: `OpenHR API listening on port ${info.port}`,
+        msg: `LibreHR API listening on port ${info.port}`,
         url: `http://localhost:${info.port}`,
       });
     },

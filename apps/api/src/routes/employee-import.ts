@@ -1,14 +1,14 @@
 import { Hono } from "hono";
 import type { Sql } from "postgres";
-import { type AuthUser, createProblemDetails } from "@openhr/contracts";
-import { validateEmployeeCsv } from "@openhr/core";
+import { type AuthUser, createProblemDetails } from "@librehr/contracts";
+import { validateEmployeeCsv } from "@librehr/core";
 import {
   withTenant,
   EmployeeRepository,
   DepartmentRepository,
   LocationRepository,
   AuditRepository,
-} from "@openhr/db";
+} from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
 
 export function createEmployeeImportRoutes(sql: Sql) {

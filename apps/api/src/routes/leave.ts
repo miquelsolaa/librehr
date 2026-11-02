@@ -7,8 +7,8 @@ import {
   CreateLeaveRequestSchema,
   DecideLeaveRequestSchema,
   AdjustBalanceRequestSchema,
-} from "@openhr/contracts";
-import { validateLeaveRequest, calculateWorkingDays } from "@openhr/core";
+} from "@librehr/contracts";
+import { validateLeaveRequest, calculateWorkingDays } from "@librehr/core";
 import {
   withTenant,
   LeaveRepository,
@@ -16,7 +16,7 @@ import {
   EmployeeRepository,
   NotificationRepository,
   AuditRepository,
-} from "@openhr/db";
+} from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
 import { can } from "../policies/can.js";
 import type { MailPort } from "../ports/mail.js";

@@ -1,7 +1,8 @@
 import { Hono } from "hono";
 import type { Sql } from "postgres";
-import { type AuthUser, createProblemDetails } from "@openhr/contracts";
-import { withTenant, HolidayRepository, LeaveRepository } from "@openhr/db";
+import { type AuthUser, createProblemDetails } from "@librehr/contracts";
+import { generateIcsCalendar } from "@librehr/core";
+import { withTenant, HolidayRepository, LeaveRepository } from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
 
 export function createCalendarRoutes(sql: Sql) {
@@ -91,6 +92,47 @@ export function createCalendarRoutes(sql: Sql) {
         status: a.status,
       })),
     );
+  });
+
+  // 3. GET /calendar/feed.ics - iCalendar (RFC 5545) subscription feed (LEA-009)
+  router.get("/calendar/feed.ics", requireAuth, async (c) => {
+    const user = (c.get as (key: string) => unknown)("user") as AuthUser;
+
+    const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    const endDate = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+
+    const icsContent = await withTenant(
+      sql,
+      { organizationId: user.organizationId, userId: user.id },
+      async (tx) => {
+        const absences = await leaveRepo.getTeamAbsences(tx, {
+          startDate,
+          endDate,
+        });
+
+        const isPrivileged = user.role === "admin" || user.role === "manager";
+        const events = absences.map((a) => ({
+          uid: `absence-${a.requestId}`,
+          summary: `${a.employeeName} - ${isPrivileged ? a.leaveTypeName : "Away"}`,
+          startDateStr: a.startDate,
+          endDateStr: a.endDate,
+        }));
+
+        return generateIcsCalendar("LibreHR Calendar Feed", events);
+      },
+    );
+
+    return new Response(icsContent, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/calendar; charset=utf-8",
+        "Content-Disposition": 'attachment; filename="calendar_feed.ics"',
+      },
+    });
   });
 
   return router;

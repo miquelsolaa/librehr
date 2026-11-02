@@ -1,13 +1,13 @@
 {
-  "name": "@openhr/worker",
+  "name": "@librehr/worker",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
   "dependencies": {
-    "@openhr/core": "workspace:*",
-    "@openhr/db": "workspace:*",
-    "@openhr/emails": "workspace:*",
+    "@librehr/core": "workspace:*",
+    "@librehr/db": "workspace:*",
+    "@librehr/emails": "workspace:*",
     "@react-email/render": "^1.0.5",
     "nodemailer": "^6.10.0",
     "pg-boss": "^10.1.5",
@@ -17,8 +17,8 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
-    "@openhr/config": "workspace:*",
-    "@openhr/testing": "workspace:*",
+    "@librehr/config": "workspace:*",
+    "@librehr/testing": "workspace:*",
     "@types/node": "^22.13.4",
     "@types/nodemailer": "^6.4.17",
     "@types/react": "^19.0.8",

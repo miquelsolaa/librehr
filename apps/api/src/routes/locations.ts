@@ -4,8 +4,8 @@ import {
   type AuthUser,
   createProblemDetails,
   CreateLocationRequestSchema,
-} from "@openhr/contracts";
-import { withTenant, LocationRepository } from "@openhr/db";
+} from "@librehr/contracts";
+import { withTenant, LocationRepository } from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
 import { can } from "../policies/can.js";
 

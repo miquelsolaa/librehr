@@ -2,7 +2,7 @@ import {
   type Permission,
   type Scope,
   ROLE_PERMISSIONS,
-} from "@openhr/contracts";
+} from "@librehr/contracts";
 
 export interface PolicyUserContext {
   userId: string;

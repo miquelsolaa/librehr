@@ -20,7 +20,7 @@ importers:
       '@eslint/js':
         specifier: ^9.20.0
         version: 9.39.5
-      '@openhr/config':
+      '@librehr/config':
         specifier: workspace:*
         version: link:packages/config
       eslint:
@@ -59,13 +59,13 @@ importers:
       '@hono/zod-openapi':
         specifier: ^0.18.4
         version: 0.18.4(hono@4.13.16)(zod@3.25.76)
-      '@openhr/contracts':
+      '@librehr/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@openhr/core':
+      '@librehr/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@openhr/db':
+      '@librehr/db':
         specifier: workspace:*
         version: link:../../packages/db
       better-auth:
@@ -90,10 +90,10 @@ importers:
         specifier: ^3.24.2
         version: 3.25.76
     devDependencies:
-      '@openhr/config':
+      '@librehr/config':
         specifier: workspace:*
         version: link:../../packages/config
-      '@openhr/testing':
+      '@librehr/testing':
         specifier: workspace:*
         version: link:../../packages/testing
       '@types/node':
@@ -114,13 +114,13 @@ importers:
 
   apps/web:
     dependencies:
-      '@openhr/contracts':
+      '@librehr/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@openhr/i18n':
+      '@librehr/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
-      '@openhr/ui':
+      '@librehr/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       clsx:
@@ -154,7 +154,7 @@ importers:
       '@axe-core/playwright':
         specifier: ^4.10.1
         version: 4.14.0(playwright-core@1.64.1)
-      '@openhr/config':
+      '@librehr/config':
         specifier: workspace:*
         version: link:../../packages/config
       '@playwright/test':
@@ -184,13 +184,13 @@ importers:
 
   apps/worker:
     dependencies:
-      '@openhr/core':
+      '@librehr/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@openhr/db':
+      '@librehr/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@openhr/emails':
+      '@librehr/emails':
         specifier: workspace:*
         version: link:../../packages/emails
       '@react-email/render':
@@ -215,10 +215,10 @@ importers:
         specifier: ^3.24.2
         version: 3.25.76
     devDependencies:
-      '@openhr/config':
+      '@librehr/config':
         specifier: workspace:*
         version: link:../../packages/config
-      '@openhr/testing':
+      '@librehr/testing':
         specifier: workspace:*
         version: link:../../packages/testing
       '@types/node':
@@ -271,7 +271,7 @@ importers:
       '@asteasolutions/zod-to-openapi':
         specifier: ^7.3.0
         version: 7.3.4(zod@3.25.76)
-      '@openhr/config':
+      '@librehr/config':
         specifier: workspace:*
         version: link:../config
       '@types/node':
@@ -293,7 +293,7 @@ importers:
         specifier: ^0.2.5
         version: 0.2.5
     devDependencies:
-      '@openhr/config':
+      '@librehr/config':
         specifier: workspace:*
         version: link:../config
       '@types/node':
@@ -321,10 +321,10 @@ importers:
         specifier: ^3.4.5
         version: 3.4.9
     devDependencies:
-      '@openhr/config':
+      '@librehr/config':
         specifier: workspace:*
         version: link:../config
-      '@openhr/testing':
+      '@librehr/testing':
         specifier: workspace:*
         version: link:../testing
       '@types/node':
@@ -358,10 +358,10 @@ importers:
         specifier: ^19.0.0
         version: 19.3.1(react@19.3.1)
     devDependencies:
-      '@openhr/config':
+      '@librehr/config':
         specifier: workspace:*
         version: link:../config
-      '@openhr/i18n':
+      '@librehr/i18n':
         specifier: workspace:*
         version: link:../i18n
       '@types/node':
@@ -382,7 +382,7 @@ importers:
 
   packages/i18n:
     devDependencies:
-      '@openhr/config':
+      '@librehr/config':
         specifier: workspace:*
         version: link:../config
       '@types/node':
@@ -400,7 +400,7 @@ importers:
 
   packages/testing:
     dependencies:
-      '@openhr/core':
+      '@librehr/core':
         specifier: workspace:*
         version: link:../core
       '@testcontainers/postgresql':
@@ -413,7 +413,7 @@ importers:
         specifier: ^10.18.0
         version: 10.28.0
     devDependencies:
-      '@openhr/config':
+      '@librehr/config':
         specifier: workspace:*
         version: link:../config
       '@types/node':
@@ -462,7 +462,7 @@ importers:
         specifier: ^3.0.1
         version: 3.7.0
     devDependencies:
-      '@openhr/config':
+      '@librehr/config':
         specifier: workspace:*
         version: link:../config
       '@storybook/addon-a11y':
@@ -476,7 +476,7 @@ importers:
         version: 8.6.19(@storybook/test@8.6.19(storybook@8.6.19(prettier@3.9.10)))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(storybook@8.6.19(prettier@3.9.10))(typescript@5.9.3)
       '@storybook/react-vite':
         specifier: ^8.5.5
-        version: 8.6.19(@storybook/test@8.6.19(storybook@8.6.19(prettier@3.9.10)))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rollup@4.67.4)(storybook@8.6.19(prettier@3.9.10))(typescript@5.9.3)(vite@6.4.5(@types/node@22.20.5)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.9.1))
+        version: 8.6.19(@storybook/test@8.6.19(storybook@8.6.19(prettier@3.9.10)))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rollup@4.67.4)(storybook@8.6.19(prettier@3.9.10))(typescript@5.9.3)(vite@6.4.5(@types/node@22.20.5)(jiti@2.6.1)(tsx@4.23.15)(yaml@2.9.1))
       '@types/node':
         specifier: ^22.13.4
         version: 22.20.5
@@ -503,10 +503,10 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^6.1.0
-        version: 6.4.5(@types/node@22.20.5)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.9.1)
+        version: 6.4.5(@types/node@22.20.5)(jiti@2.6.1)(tsx@4.23.15)(yaml@2.9.1)
       vitest:
         specifier: ^3.0.5
-        version: 3.2.7(@types/node@22.20.5)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.9.1)
+        version: 3.2.7(@types/node@22.20.5)(jiti@2.6.1)(tsx@4.23.15)(yaml@2.9.1)
 
 packages:
 
@@ -7008,12 +7008,12 @@ snapshots:
 
   '@istanbuljs/schema@0.1.6': {}
 
-  '@joshwooding/vite-plugin-react-docgen-typescript@0.5.0(typescript@5.9.3)(vite@6.4.5(@types/node@22.20.5)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.9.1))':
+  '@joshwooding/vite-plugin-react-docgen-typescript@0.5.0(typescript@5.9.3)(vite@6.4.5(@types/node@22.20.5)(jiti@2.6.1)(tsx@4.23.15)(yaml@2.9.1))':
     dependencies:
       glob: 10.5.0
       magic-string: 0.27.0
       react-docgen-typescript: 2.4.0(typescript@5.9.3)
-      vite: 6.4.5(@types/node@22.20.5)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.9.1)
+      vite: 6.4.5(@types/node@22.20.5)(jiti@2.6.1)(tsx@4.23.15)(yaml@2.9.1)
     optionalDependencies:
       typescript: 5.9.3
 
@@ -7790,13 +7790,13 @@ snapshots:
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
 
-  '@storybook/builder-vite@8.6.19(storybook@8.6.19(prettier@3.9.10))(vite@6.4.5(@types/node@22.20.5)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.9.1))':
+  '@storybook/builder-vite@8.6.19(storybook@8.6.19(prettier@3.9.10))(vite@6.4.5(@types/node@22.20.5)(jiti@2.6.1)(tsx@4.23.15)(yaml@2.9.1))':
     dependencies:
       '@storybook/csf-plugin': 8.6.19(storybook@8.6.19(prettier@3.9.10))
       browser-assert: 1.2.1
       storybook: 8.6.19(prettier@3.9.10)
       ts-dedent: 2.3.0
-      vite: 6.4.5(@types/node@22.20.5)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.9.1)
+      vite: 6.4.5(@types/node@22.20.5)(jiti@2.6.1)(tsx@4.23.15)(yaml@2.9.1)
 
   '@storybook/components@8.6.19(storybook@8.6.19(prettier@3.9.10))':
     dependencies:
@@ -7866,11 +7866,11 @@ snapshots:
       react-dom: 19.3.1(react@19.3.1)
       storybook: 8.6.19(prettier@3.9.10)
 
-  '@storybook/react-vite@8.6.19(@storybook/test@8.6.19(storybook@8.6.19(prettier@3.9.10)))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rollup@4.67.4)(storybook@8.6.19(prettier@3.9.10))(typescript@5.9.3)(vite@6.4.5(@types/node@22.20.5)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.9.1))':
+  '@storybook/react-vite@8.6.19(@storybook/test@8.6.19(storybook@8.6.19(prettier@3.9.10)))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rollup@4.67.4)(storybook@8.6.19(prettier@3.9.10))(typescript@5.9.3)(vite@6.4.5(@types/node@22.20.5)(jiti@2.6.1)(tsx@4.23.15)(yaml@2.9.1))':
     dependencies:
-      '@joshwooding/vite-plugin-react-docgen-typescript': 0.5.0(typescript@5.9.3)(vite@6.4.5(@types/node@22.20.5)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.9.1))
+      '@joshwooding/vite-plugin-react-docgen-typescript': 0.5.0(typescript@5.9.3)(vite@6.4.5(@types/node@22.20.5)(jiti@2.6.1)(tsx@4.23.15)(yaml@2.9.1))
       '@rollup/pluginutils': 5.5.1(rollup@4.67.4)
-      '@storybook/builder-vite': 8.6.19(storybook@8.6.19(prettier@3.9.10))(vite@6.4.5(@types/node@22.20.5)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.9.1))
+      '@storybook/builder-vite': 8.6.19(storybook@8.6.19(prettier@3.9.10))(vite@6.4.5(@types/node@22.20.5)(jiti@2.6.1)(tsx@4.23.15)(yaml@2.9.1))
       '@storybook/react': 8.6.19(@storybook/test@8.6.19(storybook@8.6.19(prettier@3.9.10)))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(storybook@8.6.19(prettier@3.9.10))(typescript@5.9.3)
       find-up: 5.0.0
       magic-string: 0.30.21
@@ -7880,7 +7880,7 @@ snapshots:
       resolve: 1.22.13
       storybook: 8.6.19(prettier@3.9.10)
       tsconfig-paths: 4.2.0
-      vite: 6.4.5(@types/node@22.20.5)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.9.1)
+      vite: 6.4.5(@types/node@22.20.5)(jiti@2.6.1)(tsx@4.23.15)(yaml@2.9.1)
     optionalDependencies:
       '@storybook/test': 8.6.19(storybook@8.6.19(prettier@3.9.10))
     transitivePeerDependencies:
@@ -8255,14 +8255,6 @@ snapshots:
       '@vitest/utils': 3.2.7
       chai: 5.3.3
       tinyrainbow: 2.0.0
-
-  '@vitest/mocker@3.2.7(vite@6.4.5(@types/node@22.20.5)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.9.1))':
-    dependencies:
-      '@vitest/spy': 3.2.7
-      estree-walker: 3.0.3
-      magic-string: 0.30.21
-    optionalDependencies:
-      vite: 6.4.5(@types/node@22.20.5)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.9.1)
 
   '@vitest/mocker@3.2.7(vite@6.4.5(@types/node@22.20.5)(jiti@2.6.1)(tsx@4.23.15)(yaml@2.9.1))':
     dependencies:
@@ -10980,27 +10972,6 @@ snapshots:
 
   uuid@9.0.1: {}
 
-  vite-node@3.2.4(@types/node@22.20.5)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.9.1):
-    dependencies:
-      cac: 6.7.14
-      debug: 4.4.3
-      es-module-lexer: 1.7.0
-      pathe: 2.0.3
-      vite: 6.4.5(@types/node@22.20.5)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.9.1)
-    transitivePeerDependencies:
-      - '@types/node'
-      - jiti
-      - less
-      - lightningcss
-      - sass
-      - sass-embedded
-      - stylus
-      - sugarss
-      - supports-color
-      - terser
-      - tsx
-      - yaml
-
   vite-node@3.2.4(@types/node@22.20.5)(jiti@2.6.1)(tsx@4.23.15)(yaml@2.9.1):
     dependencies:
       cac: 6.7.14
@@ -11022,21 +10993,6 @@ snapshots:
       - tsx
       - yaml
 
-  vite@6.4.5(@types/node@22.20.5)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.9.1):
-    dependencies:
-      esbuild: 0.25.12
-      fdir: 6.5.0(picomatch@4.0.7)
-      picomatch: 4.0.7
-      postcss: 8.5.32
-      rollup: 4.67.4
-      tinyglobby: 0.2.17
-    optionalDependencies:
-      '@types/node': 22.20.5
-      fsevents: 2.3.3
-      jiti: 1.21.7
-      tsx: 4.23.15
-      yaml: 2.9.1
-
   vite@6.4.5(@types/node@22.20.5)(jiti@2.6.1)(tsx@4.23.15)(yaml@2.9.1):
     dependencies:
       esbuild: 0.25.12
@@ -11051,47 +11007,6 @@ snapshots:
       jiti: 2.6.1
       tsx: 4.23.15
       yaml: 2.9.1
-
-  vitest@3.2.7(@types/node@22.20.5)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.9.1):
-    dependencies:
-      '@types/chai': 5.2.3
-      '@vitest/expect': 3.2.7
-      '@vitest/mocker': 3.2.7(vite@6.4.5(@types/node@22.20.5)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.9.1))
-      '@vitest/pretty-format': 3.2.7
-      '@vitest/runner': 3.2.7
-      '@vitest/snapshot': 3.2.7
-      '@vitest/spy': 3.2.7
-      '@vitest/utils': 3.2.7
-      chai: 5.3.3
-      debug: 4.4.3
-      expect-type: 1.4.0
-      magic-string: 0.30.21
-      pathe: 2.0.3
-      picomatch: 4.0.7
-      std-env: 3.10.0
-      tinybench: 2.9.0
-      tinyexec: 0.3.2
-      tinyglobby: 0.2.17
-      tinypool: 1.1.1
-      tinyrainbow: 2.0.0
-      vite: 6.4.5(@types/node@22.20.5)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.9.1)
-      vite-node: 3.2.4(@types/node@22.20.5)(jiti@1.21.7)(tsx@4.23.15)(yaml@2.9.1)
-      why-is-node-running: 2.3.0
-    optionalDependencies:
-      '@types/node': 22.20.5
-    transitivePeerDependencies:
-      - jiti
-      - less
-      - lightningcss
-      - msw
-      - sass
-      - sass-embedded
-      - stylus
-      - sugarss
-      - supports-color
-      - terser
-      - tsx
-      - yaml
 
   vitest@3.2.7(@types/node@22.20.5)(jiti@2.6.1)(tsx@4.23.15)(yaml@2.9.1):
     dependencies:

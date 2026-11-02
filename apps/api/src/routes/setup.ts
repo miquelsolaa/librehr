@@ -3,8 +3,8 @@ import type { Sql } from "postgres";
 import {
   createProblemDetails,
   SetupWizardRequestSchema,
-} from "@openhr/contracts";
-import { withTenant, EmployeeRepository, AuditRepository } from "@openhr/db";
+} from "@librehr/contracts";
+import { withTenant, EmployeeRepository, AuditRepository } from "@librehr/db";
 
 export function createSetupRoutes(sql: Sql) {
   const router = new Hono();

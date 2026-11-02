@@ -1,5 +1,5 @@
 import type { MiddlewareHandler } from "hono";
-import { createProblemDetails } from "@openhr/contracts";
+import { createProblemDetails } from "@librehr/contracts";
 
 interface RateLimitRecord {
   count: number;

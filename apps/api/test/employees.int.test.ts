@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import type { Sql } from "postgres";
-import { getTestDatabase, type TestDatabase } from "@openhr/testing";
-import { runMigrations } from "@openhr/db/migrate";
+import { getTestDatabase, type TestDatabase } from "@librehr/testing";
+import { runMigrations } from "@librehr/db/migrate";
 import { createApp } from "../src/app.js";
 import type { AuthPort, AuthSession } from "../src/ports/auth.js";
-import type { AuthUser, ProblemDetails } from "@openhr/contracts";
+import type { AuthUser, ProblemDetails } from "@librehr/contracts";
 
 class MockAuthPort implements AuthPort {
   private sessions = new Map<string, AuthSession>();
@@ -40,7 +40,7 @@ describe("Employees API Integration Tests (EMP-001 - EMP-007, ADM-001, ADM-002)"
   const orgId = "00000000-0000-0000-0000-000000000001";
   const adminUser: AuthUser = {
     id: "11111111-1111-1111-1111-111111111111",
-    email: "admin@openhr.test",
+    email: "admin@librehr.test",
     name: "Admin User",
     role: "admin",
     organizationId: orgId,
@@ -48,7 +48,7 @@ describe("Employees API Integration Tests (EMP-001 - EMP-007, ADM-001, ADM-002)"
 
   const employeeUser: AuthUser = {
     id: "22222222-2222-2222-2222-222222222222",
-    email: "staff@openhr.test",
+    email: "staff@librehr.test",
     name: "Staff User",
     role: "employee",
     organizationId: orgId,
@@ -90,7 +90,7 @@ describe("Employees API Integration Tests (EMP-001 - EMP-007, ADM-001, ADM-002)"
         body: JSON.stringify({
           firstName: "Carles",
           lastName: "Puig",
-          email: "carles@openhr.test",
+          email: "carles@librehr.test",
           nationalId: "00000000A", // Invalid control letter for 00000000 (expects T)
         }),
       });
@@ -111,7 +111,7 @@ describe("Employees API Integration Tests (EMP-001 - EMP-007, ADM-001, ADM-002)"
       body: JSON.stringify({
         firstName: "Carles",
         lastName: "Puig",
-        email: "carles@openhr.test",
+        email: "carles@librehr.test",
         nationalId: "00000000A", // Invalid control letter
       }),
     });
@@ -133,7 +133,7 @@ describe("Employees API Integration Tests (EMP-001 - EMP-007, ADM-001, ADM-002)"
       body: JSON.stringify({
         firstName: "Test",
         lastName: "User",
-        email: "test@openhr.test",
+        email: "test@librehr.test",
       }),
     });
 

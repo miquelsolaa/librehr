@@ -30,7 +30,7 @@ describe("Worker Queue Handlers", () => {
       template: "invite",
       props: {
         orgName: "Acme Serveis",
-        inviteUrl: "https://openhr.local/invite/12345",
+        inviteUrl: "https://librehr.local/invite/12345",
         locale: "ca",
       },
       idempotencyKey: "invite:new.hire@example.cat:2026-11-01",
@@ -44,7 +44,7 @@ describe("Worker Queue Handlers", () => {
     const msg = mailer.sentMessages[0]!;
     expect(msg.to).toBe("new.hire@example.cat");
     expect(msg.subject).toContain("Acme Serveis");
-    expect(msg.html).toContain("https://openhr.local/invite/12345");
+    expect(msg.html).toContain("https://librehr.local/invite/12345");
   });
 
   it("skips duplicate email.send job with identical idempotencyKey", async () => {
@@ -52,7 +52,7 @@ describe("Worker Queue Handlers", () => {
     const payload: EmailJobPayload = {
       to: "new.hire@example.cat",
       template: "invite",
-      props: { inviteUrl: "https://openhr.local/invite/12345" },
+      props: { inviteUrl: "https://librehr.local/invite/12345" },
       idempotencyKey: "invite:new.hire@example.cat:2026-11-01", // Already executed
     };
 
@@ -68,7 +68,7 @@ describe("Worker Queue Handlers", () => {
       to: "reset.user@example.com",
       template: "password-reset",
       props: {
-        resetUrl: "https://openhr.local/reset/token99",
+        resetUrl: "https://librehr.local/reset/token99",
         locale: "es",
       },
       idempotencyKey: "reset:reset.user@example.com:2026-11-01",
@@ -78,7 +78,7 @@ describe("Worker Queue Handlers", () => {
     expect(res.success).toBe(true);
     expect(mailer.sentMessages.length).toBe(1);
     expect(mailer.sentMessages[0]?.html).toContain(
-      "Reset your OpenHR password",
+      "Reset your LibreHR password",
     );
   });
 

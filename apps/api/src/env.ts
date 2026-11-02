@@ -15,7 +15,9 @@ const RawEnvSchema = z.object({
   PORT: z.coerce.number().default(3001),
   DATABASE_URL: z
     .string()
-    .default("postgres://openhr_app:openhr_dev_password@localhost:5432/openhr"),
+    .default(
+      "postgres://librehr_app:librehr_dev_password@localhost:5432/librehr",
+    ),
   DATABASE_MIGRATION_URL: z.string().optional(),
   BETTER_AUTH_SECRET: z
     .string()
@@ -31,7 +33,7 @@ const RawEnvSchema = z.object({
   SMTP_PORT: z.coerce.number().default(1025),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
-  SMTP_FROM: z.string().default("OpenHR <noreply@openhr.local>"),
+  SMTP_FROM: z.string().default("LibreHR <noreply@librehr.local>"),
   LOG_LEVEL: z.string().default("info"),
 });
 

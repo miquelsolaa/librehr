@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import type { Sql } from "postgres";
 import { createApp } from "../src/app.js";
 import type { AuthPort, AuthSession } from "../src/ports/auth.js";
-import type { AuthUser, OrganizationResponse } from "@openhr/contracts";
+import type { AuthUser, OrganizationResponse } from "@librehr/contracts";
 
 class MultiTenantAuthPort implements AuthPort {
   private sessions = new Map<string, AuthSession>();

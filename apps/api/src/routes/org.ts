@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { Sql } from "postgres";
-import type { AuthUser } from "@openhr/contracts";
-import { createProblemDetails } from "@openhr/contracts";
+import type { AuthUser } from "@librehr/contracts";
+import { createProblemDetails } from "@librehr/contracts";
 import { requireAuth } from "../middleware/auth.js";
 
 export function createOrgRoutes(sql: Sql) {

@@ -1,6 +1,6 @@
 import * as React from "react";
 import { render } from "@react-email/render";
-import { InviteEmail, PasswordResetEmail } from "@openhr/emails";
+import { InviteEmail, PasswordResetEmail } from "@librehr/emails";
 import { defaultIdempotency } from "../lib/idempotency.js";
 
 export interface MailMessage {
@@ -42,15 +42,15 @@ export async function handleEmailSend(
   let subject = "";
 
   if (template === "invite") {
-    subject = `Invitation to join ${props.orgName ?? "OpenHR"}`;
+    subject = `Invitation to join ${props.orgName ?? "LibreHR"}`;
     const el = React.createElement(InviteEmail, {
       inviteUrl: props.inviteUrl ?? "",
-      orgName: props.orgName ?? "OpenHR",
+      orgName: props.orgName ?? "LibreHR",
       ...(props.locale ? { locale: props.locale } : {}),
     });
     html = await render(el);
   } else if (template === "password-reset") {
-    subject = "Reset your OpenHR password";
+    subject = "Reset your LibreHR password";
     const el = React.createElement(PasswordResetEmail, {
       resetUrl: props.resetUrl ?? "",
       ...(props.locale ? { locale: props.locale } : {}),

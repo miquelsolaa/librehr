@@ -1,8 +1,15 @@
 import type { MiddlewareHandler } from "hono";
-import { createProblemDetails } from "@openhr/contracts";
+import type { Sql } from "postgres";
+import { createProblemDetails, type AuthUser } from "@librehr/contracts";
+import { TokenRepository, withTenant } from "@librehr/db";
 import type { AuthPort } from "../ports/auth.js";
 
-export function createAuthMiddleware(authPort: AuthPort): MiddlewareHandler {
+export function createAuthMiddleware(
+  authPort: AuthPort,
+  sql?: Sql,
+): MiddlewareHandler {
+  const tokenRepo = new TokenRepository();
+
   return async (c, next) => {
     let token: string | undefined;
 
@@ -13,7 +20,7 @@ export function createAuthMiddleware(authPort: AuthPort): MiddlewareHandler {
       // Cookie fallback
       const cookieHeader = c.req.header("cookie");
       if (cookieHeader) {
-        const match = cookieHeader.match(/openhr_session=([^;]+)/);
+        const match = cookieHeader.match(/librehr_session=([^;]+)/);
         if (match) {
           token = match[1];
         }
@@ -21,10 +28,62 @@ export function createAuthMiddleware(authPort: AuthPort): MiddlewareHandler {
     }
 
     if (token) {
-      const session = await authPort.getSession(token);
-      if (session) {
-        c.set("user", session.user);
-        c.set("session", session);
+      // Check if this is a personal access token (starts with lhr_)
+      if (token.startsWith("lhr_") && sql) {
+        const tokenHash = TokenRepository.hashToken(token);
+        try {
+          // Lookup token across all tenants safely using raw sql or admin lookup
+          const patRows = await sql<
+            {
+              id: string;
+              organization_id: string;
+              user_id: string;
+              name: string;
+              scopes: string[];
+              email: string;
+              user_name: string;
+              role: string;
+            }[]
+          >`
+            SELECT pat.id, pat.organization_id, pat.user_id, pat.name, pat.scopes,
+                   u.email, u.name as user_name, m.role
+            FROM personal_access_tokens pat
+            JOIN users u ON u.id = pat.user_id
+            JOIN memberships m ON m.user_id = pat.user_id AND m.organization_id = pat.organization_id
+            WHERE pat.token_hash = ${tokenHash}
+              AND (pat.expires_at IS NULL OR pat.expires_at > now())
+            LIMIT 1
+          `;
+
+          if (patRows[0]) {
+            const pat = patRows[0];
+            const user: AuthUser = {
+              id: pat.user_id,
+              email: pat.email,
+              name: pat.user_name,
+              role: pat.role,
+              organizationId: pat.organization_id,
+            };
+            c.set("user", user);
+            c.set("patId", pat.id);
+            c.set("patScopes", pat.scopes);
+
+            // Record async usage without blocking
+            void withTenant(
+              sql,
+              { organizationId: pat.organization_id, userId: pat.user_id },
+              (tx) => tokenRepo.recordUsage(tx, pat.id),
+            ).catch(() => {});
+          }
+        } catch {
+          // Ignore lookup errors in test/disconnected environment
+        }
+      } else {
+        const session = await authPort.getSession(token);
+        if (session) {
+          c.set("user", session.user);
+          c.set("session", session);
+        }
       }
     }
 

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import type { Sql } from "postgres";
 import { createApp } from "../src/app.js";
 import type { AuthPort, AuthSession } from "../src/ports/auth.js";
-import type { AuthUser, ProblemDetails } from "@openhr/contracts";
+import type { AuthUser, ProblemDetails } from "@librehr/contracts";
 
 class FakeAuthPort implements AuthPort {
   private sessions = new Map<string, AuthSession>();
@@ -11,10 +11,10 @@ class FakeAuthPort implements AuthPort {
     email: string,
     password: string,
   ): Promise<AuthUser | null> {
-    if (email === "admin@openhr.local" && password === "Password123!") {
+    if (email === "admin@librehr.local" && password === "Password123!") {
       return {
         id: "00000000-0000-0000-0000-000000000001",
-        email: "admin@openhr.local",
+        email: "admin@librehr.local",
         name: "Marta Soler",
         role: "admin",
         organizationId: "10000000-0000-0000-0000-000000000001",
@@ -96,15 +96,15 @@ describe("Authentication API Flow & Problem Details", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        email: "admin@openhr.local",
+        email: "admin@librehr.local",
         password: "Password123!",
       }),
     });
 
     expect(res.status).toBe(200);
-    expect(res.headers.get("set-cookie")).toContain("openhr_session=");
+    expect(res.headers.get("set-cookie")).toContain("librehr_session=");
     const body = (await res.json()) as { user: AuthUser };
-    expect(body.user.email).toBe("admin@openhr.local");
+    expect(body.user.email).toBe("admin@librehr.local");
     expect(body.user.role).toBe("admin");
   });
 
@@ -128,7 +128,7 @@ describe("Authentication API Flow & Problem Details", () => {
       organization: { name: string };
       permissions: string[];
     };
-    expect(body.user.email).toBe("admin@openhr.local");
+    expect(body.user.email).toBe("admin@librehr.local");
     expect(body.organization.name).toBe("Acme Serveis");
     expect(body.permissions).toContain("org.read");
   });

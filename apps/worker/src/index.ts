@@ -14,9 +14,9 @@ const logger = pino({
 async function startWorker() {
   const dbUrl =
     process.env["DATABASE_URL"] ||
-    "postgres://openhr_app:openhr_dev_password@localhost:5432/openhr";
+    "postgres://librehr_app:librehr_dev_password@localhost:5432/librehr";
 
-  logger.info({ msg: "Bootstrapping OpenHR Background Worker (pg-boss)..." });
+  logger.info({ msg: "Bootstrapping LibreHR Background Worker (pg-boss)..." });
 
   const boss = new PgBoss({
     connectionString: dbUrl,

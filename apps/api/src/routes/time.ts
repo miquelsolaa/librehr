@@ -5,21 +5,21 @@ import {
   createProblemDetails,
   ClockRequestSchema,
   TimesheetQuerySchema,
-} from "@openhr/contracts";
+} from "@librehr/contracts";
 import {
   foldSessions,
   calculateDailyTimesheet,
   calculatePeriodTimesheet,
   buildInspectionExport,
   computeEventHash,
-} from "@openhr/core";
+} from "@librehr/core";
 import {
   withTenant,
   TimeRepository,
   EmployeeRepository,
   ScheduleRepository,
   OrganizationRepository,
-} from "@openhr/db";
+} from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
 import { can } from "../policies/can.js";
 
@@ -370,7 +370,7 @@ export function createTimeRoutes(sql: Sql) {
         if (!emp) return null;
 
         const org = await orgRepo.findById(tx, user.organizationId);
-        const orgName = org?.name ?? "OpenHR Organization";
+        const orgName = org?.name ?? "LibreHR Organization";
 
         const events = await timeRepo.getEventsForEmployee(
           tx,

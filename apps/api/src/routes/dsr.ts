@@ -1,12 +1,12 @@
 import { Hono } from "hono";
 import type { Sql } from "postgres";
-import { type AuthUser, createProblemDetails } from "@openhr/contracts";
+import { type AuthUser, createProblemDetails } from "@librehr/contracts";
 import {
   withTenant,
   EmployeeRepository,
   DsrRepository,
   AuditRepository,
-} from "@openhr/db";
+} from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
 
 export function createDsrRoutes(sql: Sql) {

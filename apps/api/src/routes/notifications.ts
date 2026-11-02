@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { Sql } from "postgres";
-import { type AuthUser, createProblemDetails } from "@openhr/contracts";
-import { withTenant, NotificationRepository } from "@openhr/db";
+import { type AuthUser, createProblemDetails } from "@librehr/contracts";
+import { withTenant, NotificationRepository } from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
 
 export function createNotificationRoutes(sql: Sql) {

@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import type { Sql } from "postgres";
-import { getTestDatabase, type TestDatabase } from "@openhr/testing";
-import { runMigrations } from "@openhr/db/migrate";
+import { getTestDatabase, type TestDatabase } from "@librehr/testing";
+import { runMigrations } from "@librehr/db/migrate";
 import { createApp } from "../src/app.js";
 import type { AuthPort, AuthSession } from "../src/ports/auth.js";
-import type { AuthUser, ProblemDetails } from "@openhr/contracts";
+import type { AuthUser, ProblemDetails } from "@librehr/contracts";
 
 class MockAuthPort implements AuthPort {
   private sessions = new Map<string, AuthSession>();
@@ -40,7 +40,7 @@ describe("Time Tracking API Integration Tests (TIM-001 - TIM-006)", () => {
   const orgId = "00000000-0000-0000-0000-000000000001";
   const adminUser: AuthUser = {
     id: "11111111-1111-1111-1111-111111111111",
-    email: "admin@openhr.test",
+    email: "admin@librehr.test",
     name: "Admin User",
     role: "admin",
     organizationId: orgId,
@@ -48,7 +48,7 @@ describe("Time Tracking API Integration Tests (TIM-001 - TIM-006)", () => {
 
   const staffUser: AuthUser = {
     id: "22222222-2222-2222-2222-222222222222",
-    email: "staff@openhr.test",
+    email: "staff@librehr.test",
     name: "Staff User",
     role: "employee",
     organizationId: orgId,

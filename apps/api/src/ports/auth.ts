@@ -1,4 +1,4 @@
-import type { AuthUser } from "@openhr/contracts";
+import type { AuthUser } from "@librehr/contracts";
 
 export interface AuthSession {
   user: AuthUser;

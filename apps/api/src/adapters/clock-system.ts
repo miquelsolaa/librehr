@@ -1,4 +1,4 @@
-import { SystemClock } from "@openhr/core";
+import { SystemClock } from "@librehr/core";
 import type { ClockPort } from "../ports/clock.js";
 
 export class SystemClockAdapter implements ClockPort {

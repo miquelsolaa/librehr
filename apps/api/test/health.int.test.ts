@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import type { Sql } from "postgres";
-import { getTestDatabase, type TestDatabase } from "@openhr/testing";
+import { getTestDatabase, type TestDatabase } from "@librehr/testing";
 import { createApp } from "../src/app.js";
 import { BetterAuthAdapter } from "../src/adapters/better-auth.js";
 

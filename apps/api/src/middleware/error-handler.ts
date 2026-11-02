@@ -1,6 +1,6 @@
 import type { ErrorHandler } from "hono";
 import { ZodError } from "zod";
-import { createProblemDetails } from "@openhr/contracts";
+import { createProblemDetails } from "@librehr/contracts";
 
 export const errorHandler: ErrorHandler = (err, c) => {
   const traceId = (c.get("requestId") as string | undefined) || undefined;
