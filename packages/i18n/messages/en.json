@@ -114,7 +114,9 @@
     "addLocation": "Add Work Center",
     "locationName": "Center name",
     "city": "City",
-    "region": "Autonomous Community / Region"
+    "region": "Autonomous Community / Region",
+    "tokensTitle": "Personal Access Tokens",
+    "tokensDescription": "Manage API keys and personal access tokens for automated scripts and integrations."
   },
   "setup": {
     "title": "Welcome to LibreHR",
@@ -282,5 +284,44 @@
     "applyImport": "Apply Import",
     "csvPlaceholder": "Paste CSV content here...",
     "importSuccess": "{count} employees imported successfully."
+  },
+  "reports": {
+    "title": "HR Insights & Reports",
+    "subtitle": "Workforce analytics, headcount evolution, absence rates, and gestoría payroll exports.",
+    "kpiHeadcount": "Active Headcount",
+    "kpiNetChange": "Net Change",
+    "kpiTurnover": "Turnover Rate",
+    "kpiAbsenceRate": "Absence Rate",
+    "kpiTotalAbsences": "Total Absent Days",
+    "kpiPlannedDays": "Planned Working Days",
+    "gestoriaTitle": "Gestoría Payroll Export",
+    "gestoriaDesc": "Generate a compliant monthly CSV report formatted for your Spanish payroll provider.",
+    "periodMonth": "Period (Month)",
+    "downloadGestoriaCsv": "Download Payroll CSV",
+    "calendarFeedTitle": "iCalendar Subscription Feed",
+    "calendarFeedDesc": "Subscribe to your team's absences and statutory holiday feed directly from Outlook, Google, or Apple Calendar.",
+    "subscribeIcs": "Subscribe via iCal (.ics)"
+  },
+  "tokens": {
+    "title": "Personal Access Tokens",
+    "subtitle": "Manage API tokens for CLI tools, scripts, and automated integrations.",
+    "createToken": "Generate New Token",
+    "tokenName": "Token Name",
+    "tokenScopes": "Permissions / Scopes",
+    "expiresIn": "Expiration (Days)",
+    "generate": "Generate Token",
+    "cancel": "Cancel",
+    "revealedNotice": "Make sure to copy your personal access token now. You won't be able to see it again!",
+    "copy": "Copy",
+    "copied": "Copied!",
+    "noTokens": "No personal access tokens generated yet.",
+    "revoke": "Revoke",
+    "colName": "Name",
+    "colPrefix": "Token Prefix",
+    "colScopes": "Scopes",
+    "colLastUsed": "Last Used",
+    "colExpires": "Expires",
+    "colActions": "Actions",
+    "neverUsed": "Never"
   }
 }

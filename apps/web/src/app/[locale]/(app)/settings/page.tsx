@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Building2, MapPin, ChevronRight } from "lucide-react";
+import { Building2, MapPin, KeyRound, ChevronRight } from "lucide-react";
 
 export default function SettingsPage() {
   const params = useParams();
@@ -23,6 +23,12 @@ export default function SettingsPage() {
       description: t("locationsDescription"),
       href: `/${locale}/settings/locations`,
       icon: <MapPin className="h-5 w-5 text-primary" />,
+    },
+    {
+      title: t("tokensTitle"),
+      description: t("tokensDescription"),
+      href: `/${locale}/settings/tokens`,
+      icon: <KeyRound className="h-5 w-5 text-primary" />,
     },
   ];
 

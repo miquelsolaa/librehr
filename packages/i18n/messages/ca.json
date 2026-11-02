@@ -114,7 +114,9 @@
     "addLocation": "Crear Centre de Treball",
     "locationName": "Nom del centre",
     "city": "Ciutat / Municipi",
-    "region": "Comunitat Autònoma / Regió"
+    "region": "Comunitat Autònoma / Regió",
+    "tokensTitle": "Tokens d'Accés Personal",
+    "tokensDescription": "Gestiona claus d'API i tokens d'accés personal per a scripts automatitzats i integracions."
   },
   "setup": {
     "title": "Benvingut a LibreHR",
@@ -282,5 +284,44 @@
     "applyImport": "Executar Importació",
     "csvPlaceholder": "Enganxeu aquí el contingut CSV...",
     "importSuccess": "{count} empleats importats amb èxit."
+  },
+  "reports": {
+    "title": "Informes i Mètriques de RRHH",
+    "subtitle": "Analítica de plantilla, evolució de personal, índex d'absentisme i exportació per a gestoria.",
+    "kpiHeadcount": "Plantilla Activa",
+    "kpiNetChange": "Variació Neta",
+    "kpiTurnover": "Taxa de Rotació",
+    "kpiAbsenceRate": "Índex d'Absentisme",
+    "kpiTotalAbsences": "Dies Totals d'Absència",
+    "kpiPlannedDays": "Jornades Previstes",
+    "gestoriaTitle": "Exportació de Nòmines per a Gestoria",
+    "gestoriaDesc": "Genereu l'informe mensual en CSV estructurat per a la confecció de nòmines.",
+    "periodMonth": "Període (Mes)",
+    "downloadGestoriaCsv": "Descarregar CSV Nòmines",
+    "calendarFeedTitle": "Subscripció Calendari iCal",
+    "calendarFeedDesc": "Sincronitzeu el calendari d'absències i festius amb Outlook, Google o Apple Calendar.",
+    "subscribeIcs": "Subscriure via iCal (.ics)"
+  },
+  "tokens": {
+    "title": "Tokens d'Accés Personal (API)",
+    "subtitle": "Gestioneu credencials d'API per a eines CLI, scripts i integracions.",
+    "createToken": "Generar Nou Token",
+    "tokenName": "Nom del Token",
+    "tokenScopes": "Permisos / Abastos",
+    "expiresIn": "Caducitat (Dies)",
+    "generate": "Generar Token",
+    "cancel": "Cancel·lar",
+    "revealedNotice": "Copieu el vostre token d'accés ara. No es tornarà a mostrar mai més!",
+    "copy": "Copiar",
+    "copied": "Copiat!",
+    "noTokens": "Encara no hi ha tokens d'accés generats.",
+    "revoke": "Revocar",
+    "colName": "Nom",
+    "colPrefix": "Prefix",
+    "colScopes": "Permisos",
+    "colLastUsed": "Últim Ús",
+    "colExpires": "Caduca",
+    "colActions": "Accions",
+    "neverUsed": "Mai"
   }
 }

@@ -114,7 +114,9 @@
     "addLocation": "Crear Centro de Trabajo",
     "locationName": "Nombre del centro",
     "city": "Ciudad / Municipio",
-    "region": "Comunidad Autónoma / Región"
+    "region": "Comunidad Autónoma / Región",
+    "tokensTitle": "Tokens de Acceso Personal",
+    "tokensDescription": "Gestiona claves de API y tokens de acceso personal para scripts automatizados e integraciones."
   },
   "setup": {
     "title": "Bienvenido a LibreHR",
@@ -282,5 +284,44 @@
     "applyImport": "Ejecutar Importación",
     "csvPlaceholder": "Pegue aquí el contenido CSV...",
     "importSuccess": "{count} empleados importados con éxito."
+  },
+  "reports": {
+    "title": "Informes y Métricas RRHH",
+    "subtitle": "Analítica de plantilla, evolución de personal, índice de absentismo y exportación para gestoría.",
+    "kpiHeadcount": "Plantilla Activa",
+    "kpiNetChange": "Variación Neta",
+    "kpiTurnover": "Tasa de Rotación",
+    "kpiAbsenceRate": "Índice de Absentismo",
+    "kpiTotalAbsences": "Días Totales Ausencia",
+    "kpiPlannedDays": "Jornadas Previstas",
+    "gestoriaTitle": "Exportación Nóminas para Gestoría",
+    "gestoriaDesc": "Genere el informe mensual en CSV estructurado para la confección de nóminas.",
+    "periodMonth": "Periodo (Mes)",
+    "downloadGestoriaCsv": "Descargar CSV Nóminas",
+    "calendarFeedTitle": "Suscripción Calendario iCal",
+    "calendarFeedDesc": "Sincronice el calendario de ausencias y festivos con Outlook, Google o Apple Calendar.",
+    "subscribeIcs": "Suscribir vía iCal (.ics)"
+  },
+  "tokens": {
+    "title": "Tokens de Acceso Personal (API)",
+    "subtitle": "Gestione credenciales de API para herramientas CLI, scripts e integraciones.",
+    "createToken": "Generar Nuevo Token",
+    "tokenName": "Nombre del Token",
+    "tokenScopes": "Permisos / Alcances",
+    "expiresIn": "Caducidad (Días)",
+    "generate": "Generar Token",
+    "cancel": "Cancelar",
+    "revealedNotice": "Copie su token de acceso ahora. ¡No volverá a mostrarse!",
+    "copy": "Copiar",
+    "copied": "¡Copiado!",
+    "noTokens": "No hay tokens de acceso generados todavía.",
+    "revoke": "Revocar",
+    "colName": "Nombre",
+    "colPrefix": "Prefijo",
+    "colScopes": "Permisos",
+    "colLastUsed": "Último Uso",
+    "colExpires": "Caduca",
+    "colActions": "Acciones",
+    "neverUsed": "Nunca"
   }
 }
