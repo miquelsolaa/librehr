@@ -11,10 +11,15 @@ import {
   CheckCircle2,
   AlertTriangle,
   Coffee,
+  Tablet,
+  Hourglass,
 } from "lucide-react";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
-import type { PeriodTimesheetResponse } from "@librehr/contracts";
+import type {
+  PeriodTimesheetResponse,
+  TimeBankSummary,
+} from "@librehr/contracts";
 
 export default function TimeTrackingPage() {
   const params = useParams();
@@ -24,6 +29,7 @@ export default function TimeTrackingPage() {
 
   const [timesheet, setTimesheet] =
     React.useState<PeriodTimesheetResponse | null>(null);
+  const [timeBank, setTimeBank] = React.useState<TimeBankSummary | null>(null);
   const [loading, setLoading] = React.useState(true);
 
   const fetchTimesheet = React.useCallback(async () => {
@@ -43,12 +49,16 @@ export default function TimeTrackingPage() {
         .slice(0, 10);
 
       const client = getApiClient(session.token);
-      const res = await client.getTimesheet({
-        startDate: startOfMonth,
-        endDate: endOfMonth,
-      });
+      const [tsRes, tbRes] = await Promise.all([
+        client.getTimesheet({
+          startDate: startOfMonth,
+          endDate: endOfMonth,
+        }),
+        client.getTimeBank().catch(() => null),
+      ]);
 
-      setTimesheet(res);
+      setTimesheet(tsRes);
+      setTimeBank(tbRes);
     } catch {
       // Fallback
     } finally {
@@ -80,6 +90,13 @@ export default function TimeTrackingPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <Link href={`/${locale}/kiosk`}>
+            <Button variant="outline" className="gap-2">
+              <Tablet className="h-4 w-4" />
+              {t("kioskTitle")}
+            </Button>
+          </Link>
+
           <Link href={`/${locale}/time/corrections`}>
             <Button variant="outline" className="gap-2">
               <CheckCircle2 className="h-4 w-4" />
@@ -152,6 +169,52 @@ export default function TimeTrackingPage() {
           </div>
         </div>
       </div>
+
+      {/* Time Bank & Compensatory Rest (TIM-012) */}
+      {timeBank && (
+        <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-border pb-4 mb-4">
+            <div className="flex items-center gap-3">
+              <Hourglass className="h-5 w-5 text-indigo-600" />
+              <div>
+                <h2 className="text-base font-semibold text-foreground">
+                  {t("timeBankTitle")}
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  {t("timeBankSubtitle")}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">
+                {t("timeBankBalance")}:
+              </span>
+              <span className="rounded-full bg-indigo-50 px-3 py-1 font-mono text-sm font-bold text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300">
+                {timeBank.currentBalanceHoursFormatted}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="rounded-lg bg-muted/40 p-4">
+              <span className="text-xs text-muted-foreground">
+                {t("timeBankAccrued")}
+              </span>
+              <p className="mt-1 font-mono text-lg font-bold text-foreground">
+                {formatMinutes(timeBank.totalAccruedMinutes)}
+              </p>
+            </div>
+            <div className="rounded-lg bg-muted/40 p-4">
+              <span className="text-xs text-muted-foreground">
+                {t("timeBankCompensated")}
+              </span>
+              <p className="mt-1 font-mono text-lg font-bold text-foreground">
+                {formatMinutes(timeBank.totalCompensatedMinutes)}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Timesheet Days Table */}
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-4">

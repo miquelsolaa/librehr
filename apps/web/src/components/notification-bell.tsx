@@ -5,6 +5,7 @@ import { Bell, Check } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
+import { MOCK_NOTIFICATIONS } from "@/lib/mock-data";
 import type { NotificationItem } from "@librehr/contracts";
 
 export function NotificationBell() {
@@ -17,7 +18,11 @@ export function NotificationBell() {
 
   const fetchNotifications = React.useCallback(async () => {
     const session = getStoredSession();
-    if (!session?.token) return;
+    if (!session?.token) {
+      setNotifications(MOCK_NOTIFICATIONS);
+      setUnreadCount(MOCK_NOTIFICATIONS.filter((n) => !n.read).length);
+      return;
+    }
 
     try {
       const client = getApiClient(session.token);
@@ -25,7 +30,8 @@ export function NotificationBell() {
       setNotifications(res.items);
       setUnreadCount(res.unreadCount);
     } catch {
-      // Fallback
+      setNotifications(MOCK_NOTIFICATIONS);
+      setUnreadCount(MOCK_NOTIFICATIONS.filter((n) => !n.read).length);
     }
   }, []);
 

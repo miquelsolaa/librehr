@@ -20,17 +20,17 @@ export default function SetupWizardPage() {
 
   // Form State
   const [formData, setFormData] = React.useState({
-    orgName: "",
-    orgSlug: "",
-    adminName: "",
-    adminEmail: "",
-    adminPassword: "",
-    defaultLocale: (locale as "ca" | "es" | "en") || "es",
+    orgName: "Acme Serveis",
+    orgSlug: "acme-serveis",
+    adminName: "Marta Soler",
+    adminEmail: "admin@librehr.local",
+    adminPassword: "••••••••••••",
+    defaultLocale: (locale as "ca" | "es" | "en") || "ca",
     timezone: "Europe/Madrid",
-    legalEntityName: "",
-    legalEntityCif: "",
-    locationName: "",
-    locationCity: "",
+    legalEntityName: "Acme Serveis SL",
+    legalEntityCif: "B65432109",
+    locationName: "Barcelona Diagonal",
+    locationCity: "Barcelona",
     locationRegion: "CT",
   });
 

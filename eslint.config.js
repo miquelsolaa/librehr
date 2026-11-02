@@ -12,6 +12,7 @@ export default [
       "**/*.tsbuildinfo",
       "packages/contracts/generated/**",
       "packages/db/migrations/meta/**",
+      "scripts/**",
     ],
   },
 ];

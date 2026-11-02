@@ -66,6 +66,12 @@ import {
   DecideTimeCorrectionSchema,
   TimeCorrectionItemSchema,
   OfficialExportResponseSchema,
+  KioskClockRequestSchema,
+  KioskClockResponseSchema,
+  SetEmployeePinSchema,
+  TimeBankRecordSchema,
+  TimeBankSummarySchema,
+  CreateTimeBankEntrySchema,
 } from "../src/time.js";
 import {
   DocumentItemSchema,
@@ -155,6 +161,12 @@ registry.register("CreateTimeCorrection", CreateTimeCorrectionSchema);
 registry.register("DecideTimeCorrection", DecideTimeCorrectionSchema);
 registry.register("TimeCorrectionItem", TimeCorrectionItemSchema);
 registry.register("OfficialExportResponse", OfficialExportResponseSchema);
+registry.register("KioskClockRequest", KioskClockRequestSchema);
+registry.register("KioskClockResponse", KioskClockResponseSchema);
+registry.register("SetEmployeePin", SetEmployeePinSchema);
+registry.register("TimeBankRecord", TimeBankRecordSchema);
+registry.register("TimeBankSummary", TimeBankSummarySchema);
+registry.register("CreateTimeBankEntry", CreateTimeBankEntrySchema);
 registry.register("DocumentItem", DocumentItemSchema);
 registry.register("CreateDocumentRequest", CreateDocumentRequestSchema);
 registry.register("BulkPayslipReport", BulkPayslipReportSchema);
@@ -1169,6 +1181,12 @@ import type {
   DecideTimeCorrection,
   TimeCorrectionItem,
   OfficialExportResponse,
+  KioskClockRequest,
+  KioskClockResponse,
+  SetEmployeePin,
+  TimeBankRecord,
+  TimeBankSummary,
+  CreateTimeBankEntry,
 } from '../src/time.js';
 import type {
   DocumentItem,
@@ -1507,6 +1525,35 @@ export class LibreHrApiClient {
 
   async decideTimeCorrection(id: string, data: DecideTimeCorrection): Promise<TimeCorrectionItem> {
     return this.request<TimeCorrectionItem>(\`/v1/time/corrections/\${id}/decide\`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Tablet Kiosk Mode (TIM-010)
+  async kioskClock(data: KioskClockRequest): Promise<KioskClockResponse> {
+    return this.request<KioskClockResponse>('/v1/time/kiosk/clock', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Employee Kiosk PIN (TIM-010)
+  async setEmployeePin(employeeId: string, data: SetEmployeePin): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(\`/v1/people/\${employeeId}/pin\`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Time Bank & Compensatory Rest (TIM-012)
+  async getTimeBank(params?: { employeeId?: string }): Promise<TimeBankSummary> {
+    const qs = params?.employeeId ? \`?employeeId=\${params.employeeId}\` : '';
+    return this.request<TimeBankSummary>(\`/v1/time/time-bank\${qs}\`);
+  }
+
+  async createTimeBankEntry(data: CreateTimeBankEntry): Promise<TimeBankRecord> {
+    return this.request<TimeBankRecord>('/v1/time/time-bank/entries', {
       method: 'POST',
       body: JSON.stringify(data),
     });

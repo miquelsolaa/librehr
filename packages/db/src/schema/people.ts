@@ -63,6 +63,9 @@ export const employees = pgTable(
     terminationReason: text("termination_reason"), // resignation, mutual_agreement, contract_end, dismissal_objective, dismissal_disciplinary, retirement, probation_failed
     nationalIdEncrypted: text("national_id_encrypted"), // DNI/NIE (AES-256-GCM)
     ibanEncrypted: text("iban_encrypted"), // IBAN (AES-256-GCM)
+    pinHash: text("pin_hash"), // TIM-010: Salted hash for tablet kiosk clocking
+    pinSalt: text("pin_salt"),
+    badgeId: text("badge_id"), // TIM-010: Optional RFID / NFC / QR badge identifier
     ...timestamps,
   },
   (table) => [
@@ -71,6 +74,7 @@ export const employees = pgTable(
     index("employees_dept_idx").on(table.departmentId),
     index("employees_manager_idx").on(table.managerId),
     index("employees_status_idx").on(table.organizationId, table.status),
+    index("employees_badge_idx").on(table.organizationId, table.badgeId),
   ],
 );
 

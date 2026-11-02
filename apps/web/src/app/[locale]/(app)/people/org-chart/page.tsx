@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Input, Badge } from "@librehr/ui";
 import { apiClient } from "../../../../../lib/api-client.js";
+import { MOCK_ORG_CHART_ROOTS } from "@/lib/mock-data";
 import type { OrgChartNode } from "@librehr/contracts";
 
 interface OrgNodeCardProps {
@@ -175,6 +176,8 @@ export default function OrgChartPage() {
       setTotalEmployees(res.totalEmployees);
     } catch {
       // Offline fallback
+      setRoots(MOCK_ORG_CHART_ROOTS);
+      setTotalEmployees(14);
     } finally {
       setLoading(false);
     }

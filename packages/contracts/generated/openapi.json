@@ -1054,7 +1054,8 @@
             "enum": [
               "admin",
               "manager",
-              "employee"
+              "employee",
+              "auditor"
             ],
             "default": "employee"
           },
@@ -1863,7 +1864,8 @@
             "type": "string",
             "enum": [
               "web",
-              "mobile"
+              "mobile",
+              "kiosk"
             ],
             "default": "web"
           },
@@ -2387,6 +2389,234 @@
           "totalWorkedMinutes",
           "totalOvertimeMinutes",
           "documentContentHash"
+        ]
+      },
+      "KioskClockRequest": {
+        "type": "object",
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "minLength": 1
+          },
+          "pin": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 8
+          },
+          "eventType": {
+            "type": "string",
+            "enum": [
+              "clock_in",
+              "clock_out",
+              "break_start",
+              "break_end"
+            ]
+          }
+        },
+        "required": [
+          "identifier",
+          "pin",
+          "eventType"
+        ]
+      },
+      "KioskClockResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "employeeName": {
+            "type": "string"
+          },
+          "eventType": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "type": "string"
+          },
+          "newStatus": {
+            "type": "string",
+            "enum": [
+              "clocked_in",
+              "on_break",
+              "clocked_out"
+            ]
+          }
+        },
+        "required": [
+          "success",
+          "employeeName",
+          "eventType",
+          "occurredAt",
+          "newStatus"
+        ]
+      },
+      "SetEmployeePin": {
+        "type": "object",
+        "properties": {
+          "pin": {
+            "type": "string",
+            "pattern": "^\\d{4,8}$"
+          },
+          "badgeId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "pin"
+        ]
+      },
+      "TimeBankRecord": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "overtime_accrual",
+              "compensatory_rest_taken",
+              "manual_adjustment",
+              "expired"
+            ]
+          },
+          "minutes": {
+            "type": "integer"
+          },
+          "referenceDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "employeeId",
+          "type",
+          "minutes",
+          "referenceDate",
+          "createdAt"
+        ]
+      },
+      "TimeBankSummary": {
+        "type": "object",
+        "properties": {
+          "totalAccruedMinutes": {
+            "type": "number"
+          },
+          "totalCompensatedMinutes": {
+            "type": "number"
+          },
+          "currentBalanceMinutes": {
+            "type": "number"
+          },
+          "currentBalanceHoursFormatted": {
+            "type": "string"
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "employeeId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "overtime_accrual",
+                    "compensatory_rest_taken",
+                    "manual_adjustment",
+                    "expired"
+                  ]
+                },
+                "minutes": {
+                  "type": "integer"
+                },
+                "referenceDate": {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                },
+                "notes": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "createdAt": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "employeeId",
+                "type",
+                "minutes",
+                "referenceDate",
+                "createdAt"
+              ]
+            }
+          }
+        },
+        "required": [
+          "totalAccruedMinutes",
+          "totalCompensatedMinutes",
+          "currentBalanceMinutes",
+          "currentBalanceHoursFormatted",
+          "records"
+        ]
+      },
+      "CreateTimeBankEntry": {
+        "type": "object",
+        "properties": {
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "overtime_accrual",
+              "compensatory_rest_taken",
+              "manual_adjustment",
+              "expired"
+            ]
+          },
+          "minutes": {
+            "type": "integer"
+          },
+          "referenceDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "notes": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "employeeId",
+          "type",
+          "minutes",
+          "referenceDate"
         ]
       },
       "DocumentItem": {
@@ -5711,7 +5941,8 @@
                     "enum": [
                       "admin",
                       "manager",
-                      "employee"
+                      "employee",
+                      "auditor"
                     ],
                     "default": "employee"
                   },

@@ -20,6 +20,7 @@ import {
   DialogFooter,
 } from "@librehr/ui";
 import { apiClient } from "../../../../lib/api-client.js";
+import { MOCK_EMPLOYEES, MOCK_DEPARTMENTS } from "@/lib/mock-data";
 import type { EmployeeListItem, Department } from "@librehr/contracts";
 
 export default function PeoplePage() {
@@ -57,7 +58,22 @@ export default function PeoplePage() {
       });
       setEmployees(res.items);
     } catch {
-      // In dev or offline mode, maintain state
+      // In dev or offline mode, fall back to realistic mock employees
+      setEmployees(
+        MOCK_EMPLOYEES.filter((emp) => {
+          if (
+            search &&
+            !`${emp.firstName} ${emp.lastName}`
+              .toLowerCase()
+              .includes(search.toLowerCase())
+          ) {
+            return false;
+          }
+          if (selectedDept && emp.departmentName !== selectedDept) return false;
+          if (selectedStatus && emp.status !== selectedStatus) return false;
+          return true;
+        }),
+      );
     } finally {
       setLoading(false);
     }
@@ -71,7 +87,9 @@ export default function PeoplePage() {
     apiClient
       .listDepartments()
       .then((depts) => setDepartments(depts))
-      .catch(() => {});
+      .catch(() => {
+        setDepartments(MOCK_DEPARTMENTS);
+      });
   }, []);
 
   const handleSendInvite = async (e: React.FormEvent) => {

@@ -26,18 +26,32 @@ export default function TimeExportPage() {
 
   const [startDate, setStartDate] = React.useState(defaultStart);
   const [endDate, setEndDate] = React.useState(defaultEnd);
+  const [employeeId, setEmployeeId] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [doc, setDoc] = React.useState<OfficialExportResponse | null>(null);
 
+  const session = getStoredSession();
+  const isAuditor = session?.role === "auditor";
+
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const session = getStoredSession();
     if (!session?.token) return;
 
     setLoading(true);
     try {
       const client = getApiClient(session.token);
-      const res = await client.getOfficialExport({ startDate, endDate });
+      const queryParams: {
+        startDate: string;
+        endDate: string;
+        employeeId?: string;
+      } = {
+        startDate,
+        endDate,
+      };
+      if (employeeId.trim()) {
+        queryParams.employeeId = employeeId.trim();
+      }
+      const res = await client.getOfficialExport(queryParams);
       setDoc(res);
     } catch {
       alert("Failed to generate official export");
@@ -62,6 +76,18 @@ export default function TimeExportPage() {
         </Link>
       </div>
 
+      {isAuditor && (
+        <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-4 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200 shadow-sm">
+          <div className="flex items-center gap-2 font-semibold">
+            <ShieldCheck className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            {t("inspectorRoleNotice")}
+          </div>
+          <p className="mt-1 text-xs text-blue-700 dark:text-blue-300">
+            {t("inspectorAuditLogNotice")}
+          </p>
+        </div>
+      )}
+
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border pb-4">
           <div className="flex items-center gap-3">
@@ -79,8 +105,17 @@ export default function TimeExportPage() {
 
           <form
             onSubmit={(e) => void handleGenerate(e)}
-            className="flex items-center gap-3"
+            className="flex flex-wrap items-center gap-3"
           >
+            {isAuditor && (
+              <Input
+                type="text"
+                placeholder="Employee UUID (optional)"
+                value={employeeId}
+                onChange={(e) => setEmployeeId(e.target.value)}
+                className="w-48 text-xs font-mono"
+              />
+            )}
             <Input
               type="date"
               value={startDate}

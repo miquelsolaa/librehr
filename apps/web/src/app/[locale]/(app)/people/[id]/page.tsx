@@ -16,6 +16,7 @@ import {
   Plus,
   Trash2,
   Tag,
+  KeyRound,
 } from "lucide-react";
 import {
   Button,
@@ -93,6 +94,32 @@ export default function EmployeeDetailPage() {
   const [selectedFieldDefId, setSelectedFieldDefId] = React.useState("");
   const [fieldValue, setFieldValue] = React.useState("");
   const [cfSubmitting, setCfSubmitting] = React.useState(false);
+
+  // Kiosk PIN & Badge state (TIM-010)
+  const [pinModalOpen, setPinModalOpen] = React.useState(false);
+  const [kioskPin, setKioskPin] = React.useState("");
+  const [kioskBadgeId, setKioskBadgeId] = React.useState("");
+  const [pinSubmitting, setPinSubmitting] = React.useState(false);
+  const [pinSuccess, setPinSuccess] = React.useState(false);
+
+  const handleSavePin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!kioskPin || kioskPin.length < 4) return;
+    setPinSubmitting(true);
+    try {
+      await apiClient.setEmployeePin(id, {
+        pin: kioskPin,
+        badgeId: kioskBadgeId || undefined,
+      });
+      setPinSuccess(true);
+      setPinModalOpen(false);
+      setKioskPin("");
+    } catch {
+      // Offline fallback
+    } finally {
+      setPinSubmitting(false);
+    }
+  };
 
   const loadExtraData = React.useCallback(async (empId: string) => {
     try {
@@ -963,6 +990,99 @@ export default function EmployeeDetailPage() {
               ))
             )}
           </div>
+        </div>
+
+        {/* Kiosk PIN & Badge Access (TIM-010) */}
+        <div className="rounded-lg border border-border bg-card p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <KeyRound className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-semibold text-foreground">
+                Kiosk PIN & Tablet Access (TIM-010)
+              </h2>
+            </div>
+
+            <Dialog open={pinModalOpen} onOpenChange={setPinModalOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="outline" className="gap-1.5 text-xs">
+                  <KeyRound className="h-3.5 w-3.5" />
+                  Set PIN / Badge
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Configure Kiosk Quick PIN</DialogTitle>
+                  <DialogDescription>
+                    Set a 4 to 8 digit numeric PIN and optional badge ID for
+                    fast clocking on shared workplace tablets.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <form
+                  onSubmit={(e) => void handleSavePin(e)}
+                  className="space-y-4 pt-2"
+                >
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="kiosk-pin-input"
+                      className="text-xs font-medium text-foreground"
+                    >
+                      Numeric PIN (4-8 digits)
+                    </label>
+                    <Input
+                      id="kiosk-pin-input"
+                      type="password"
+                      placeholder="••••"
+                      maxLength={8}
+                      value={kioskPin}
+                      onChange={(e) =>
+                        setKioskPin(e.target.value.replace(/\D/g, ""))
+                      }
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="kiosk-badge-input"
+                      className="text-xs font-medium text-foreground"
+                    >
+                      RFID / NFC / Badge ID (optional)
+                    </label>
+                    <Input
+                      id="kiosk-badge-input"
+                      type="text"
+                      placeholder="e.g. BADGE-4091"
+                      value={kioskBadgeId}
+                      onChange={(e) => setKioskBadgeId(e.target.value)}
+                    />
+                  </div>
+
+                  <DialogFooter>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setPinModalOpen(false)}
+                    >
+                      {tCommon("cancel")}
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={pinSubmitting || kioskPin.length < 4}
+                    >
+                      {pinSubmitting ? tCommon("loading") : "Save PIN"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            {pinSuccess
+              ? "Kiosk PIN is configured and active for tablet clocking."
+              : "Allow this employee to clock in and out on on-site shared tablets using a secure numeric PIN."}
+          </p>
         </div>
       </div>
     </div>

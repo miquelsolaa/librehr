@@ -4,7 +4,9 @@ import {
   type AuthUser,
   createProblemDetails,
   ClockRequestSchema,
+  KioskClockRequestSchema,
   TimesheetQuerySchema,
+  CreateTimeBankEntrySchema,
 } from "@librehr/contracts";
 import {
   foldSessions,
@@ -12,6 +14,8 @@ import {
   calculatePeriodTimesheet,
   buildInspectionExport,
   computeEventHash,
+  verifyKioskPin,
+  calculateTimeBankBalance,
 } from "@librehr/core";
 import {
   withTenant,
@@ -19,6 +23,7 @@ import {
   EmployeeRepository,
   ScheduleRepository,
   OrganizationRepository,
+  AuditRepository,
 } from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
 import { can } from "../policies/can.js";
@@ -29,6 +34,7 @@ export function createTimeRoutes(sql: Sql) {
   const employeeRepo = new EmployeeRepository();
   const scheduleRepo = new ScheduleRepository();
   const orgRepo = new OrganizationRepository();
+  const auditRepo = new AuditRepository();
 
   // 1. GET /time/current-status - Current employee's clock state
   router.get("/time/current-status", requireAuth, async (c) => {
@@ -184,6 +190,115 @@ export function createTimeRoutes(sql: Sql) {
     );
   });
 
+  // TIM-010: POST /time/kiosk/clock - Tablet Kiosk mode clocking with PIN/badge verification
+  router.post("/time/kiosk/clock", requireAuth, async (c) => {
+    const user = (c.get as (key: string) => unknown)("user") as AuthUser;
+    const body = await c.req.json().catch(() => null);
+    const parsed = KioskClockRequestSchema.safeParse(body);
+
+    if (!parsed.success) {
+      const problem = createProblemDetails({
+        status: 400,
+        title: "Bad Request",
+        detail: parsed.error.errors.map((err) => err.message).join(", "),
+        code: "VALIDATION_ERROR",
+        errors: parsed.error.issues.map((i) => ({
+          field: i.path.join("."),
+          message: i.message,
+        })),
+      });
+      return c.json(problem, 400, {
+        "Content-Type": "application/problem+json",
+      });
+    }
+
+    const { identifier, pin, eventType } = parsed.data;
+
+    const result = await withTenant(
+      sql,
+      { organizationId: user.organizationId, userId: user.id },
+      async (tx) => {
+        const emp = await employeeRepo.findByIdentifier(tx, identifier);
+        if (!emp || !emp.pinHash || !emp.pinSalt) {
+          return { error: "INVALID_CREDENTIALS" as const };
+        }
+
+        const validPin = verifyKioskPin(pin, emp.pinHash, emp.pinSalt);
+        if (!validPin) {
+          return { error: "INVALID_CREDENTIALS" as const };
+        }
+
+        const latest = await timeRepo.getLatestEvent(tx, emp.id);
+        const prevHash = latest ? latest.hash : null;
+        const now = new Date();
+        const occurredAtStr = now.toISOString();
+
+        const canonical = {
+          organizationId: user.organizationId,
+          employeeId: emp.id,
+          eventType,
+          occurredAt: occurredAtStr,
+          recordedAt: occurredAtStr,
+          source: "kiosk",
+          actorId: emp.userId ?? user.id,
+        };
+
+        const hash = computeEventHash(prevHash, canonical);
+
+        await timeRepo.appendEvent(tx, {
+          employeeId: emp.id,
+          eventType,
+          occurredAt: now,
+          source: "kiosk",
+          actorId: emp.userId ?? user.id,
+          prevHash,
+          hash,
+        });
+
+        await auditRepo.log(tx, {
+          actorId: user.id,
+          action: "time.kiosk_clock",
+          resourceType: "time_event",
+          resourceId: emp.id,
+          metadata: {
+            eventType,
+            source: "kiosk",
+          },
+        });
+
+        let newStatus: "clocked_in" | "on_break" | "clocked_out" =
+          "clocked_out";
+        if (eventType === "clock_in" || eventType === "break_end") {
+          newStatus = "clocked_in";
+        } else if (eventType === "break_start") {
+          newStatus = "on_break";
+        }
+
+        return {
+          success: true,
+          employeeName: `${emp.firstName} ${emp.lastName}`,
+          eventType,
+          occurredAt: occurredAtStr,
+          newStatus,
+        };
+      },
+    );
+
+    if (result.error === "INVALID_CREDENTIALS") {
+      const problem = createProblemDetails({
+        status: 401,
+        title: "Unauthorized",
+        detail: "Invalid identifier or PIN",
+        code: "INVALID_CREDENTIALS",
+      });
+      return c.json(problem, 401, {
+        "Content-Type": "application/problem+json",
+      });
+    }
+
+    return c.json(result);
+  });
+
   // 3. GET /time/timesheet - Calculated daily/weekly/monthly breakdown
   router.get("/time/timesheet", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
@@ -216,7 +331,7 @@ export function createTimeRoutes(sql: Sql) {
           // If viewing another employee's timesheet, check permission
           const emp = await employeeRepo.findById(tx, employeeId);
           if (!emp) return "NOT_FOUND";
-          if (emp.userId !== user.id) {
+          if (emp.userId !== user.id && user.role !== "auditor") {
             const allowed = can(
               {
                 userId: user.id,
@@ -231,6 +346,20 @@ export function createTimeRoutes(sql: Sql) {
               },
             );
             if (!allowed) return "FORBIDDEN";
+          }
+
+          if (user.role === "auditor") {
+            await auditRepo.log(tx, {
+              actorId: user.id,
+              action: "inspector.timesheet_access",
+              resourceType: "timesheet",
+              resourceId: employeeId,
+              metadata: {
+                inspectorEmail: user.email,
+                periodStart: startDate,
+                periodEnd: endDate,
+              },
+            });
           }
         }
 
@@ -369,6 +498,37 @@ export function createTimeRoutes(sql: Sql) {
         const emp = await employeeRepo.findById(tx, employeeId);
         if (!emp) return null;
 
+        if (emp.userId !== user.id && user.role !== "auditor") {
+          const allowed = can(
+            {
+              userId: user.id,
+              organizationId: user.organizationId,
+              role: user.role,
+            },
+            "time.record.read",
+            {
+              organizationId: user.organizationId,
+              employeeId: emp.id,
+              managerId: emp.managerId ?? undefined,
+            },
+          );
+          if (!allowed) return "FORBIDDEN";
+        }
+
+        if (user.role === "auditor") {
+          await auditRepo.log(tx, {
+            actorId: user.id,
+            action: "inspector.export_access",
+            resourceType: "official_inspection_export",
+            resourceId: employeeId,
+            metadata: {
+              inspectorEmail: user.email,
+              periodStart: startDate,
+              periodEnd: endDate,
+            },
+          });
+        }
+
         const org = await orgRepo.findById(tx, user.organizationId);
         const orgName = org?.name ?? "LibreHR Organization";
 
@@ -437,6 +597,18 @@ export function createTimeRoutes(sql: Sql) {
       },
     );
 
+    if (doc === "FORBIDDEN") {
+      const problem = createProblemDetails({
+        status: 403,
+        title: "Forbidden",
+        detail: "You do not have permission to export this timesheet",
+        code: "FORBIDDEN",
+      });
+      return c.json(problem, 403, {
+        "Content-Type": "application/problem+json",
+      });
+    }
+
     if (!doc) {
       const problem = createProblemDetails({
         status: 404,
@@ -450,6 +622,181 @@ export function createTimeRoutes(sql: Sql) {
     }
 
     return c.json(doc);
+  });
+
+  // TIM-012: GET /time/time-bank - Get employee time bank summary and history
+  router.get("/time/time-bank", requireAuth, async (c) => {
+    const user = (c.get as (key: string) => unknown)("user") as AuthUser;
+    const requestedEmpId = c.req.query("employeeId");
+
+    const result = await withTenant(
+      sql,
+      { organizationId: user.organizationId, userId: user.id },
+      async (tx) => {
+        let employeeId = requestedEmpId;
+        if (!employeeId) {
+          const current = await employeeRepo.findByUserId(tx, user.id);
+          if (!current) return "NO_EMPLOYEE";
+          employeeId = current.id;
+        }
+
+        const emp = await employeeRepo.findById(tx, employeeId);
+        if (!emp) return "NOT_FOUND";
+
+        // Check permission: employee can see self, manager can see reports, admin can see all
+        if (emp.userId !== user.id && user.role !== "auditor") {
+          const allowed = can(
+            {
+              userId: user.id,
+              organizationId: user.organizationId,
+              role: user.role,
+            },
+            "time.record.read",
+            {
+              organizationId: user.organizationId,
+              employeeId: emp.id,
+              managerId: emp.managerId ?? undefined,
+            },
+          );
+          if (!allowed) return "FORBIDDEN";
+        }
+
+        const records = await timeRepo.getTimeBankRecords(tx, employeeId);
+        const summary = calculateTimeBankBalance(
+          records.map((r) => ({
+            type: r.type as
+              | "overtime_accrual"
+              | "compensatory_rest_taken"
+              | "manual_adjustment"
+              | "expired",
+            minutes: r.minutes,
+            referenceDate: r.referenceDate,
+          })),
+        );
+
+        return {
+          ...summary,
+          records: records.map((r) => ({
+            ...r,
+            createdAt: r.createdAt.toISOString(),
+          })),
+        };
+      },
+    );
+
+    if (result === "NO_EMPLOYEE" || result === "NOT_FOUND") {
+      const problem = createProblemDetails({
+        status: 404,
+        title: "Not Found",
+        detail: "Employee not found",
+        code: "EMPLOYEE_NOT_FOUND",
+      });
+      return c.json(problem, 404, {
+        "Content-Type": "application/problem+json",
+      });
+    }
+
+    if (result === "FORBIDDEN") {
+      const problem = createProblemDetails({
+        status: 403,
+        title: "Forbidden",
+        detail: "You do not have permission to view this time bank",
+        code: "FORBIDDEN",
+      });
+      return c.json(problem, 403, {
+        "Content-Type": "application/problem+json",
+      });
+    }
+
+    return c.json(result);
+  });
+
+  // TIM-012: POST /time/time-bank/entries - Record overtime accrual or compensatory rest
+  router.post("/time/time-bank/entries", requireAuth, async (c) => {
+    const user = (c.get as (key: string) => unknown)("user") as AuthUser;
+    const body = await c.req.json().catch(() => null);
+    const parse = CreateTimeBankEntrySchema.safeParse(body);
+
+    if (!parse.success) {
+      const problem = createProblemDetails({
+        status: 400,
+        title: "Validation Error",
+        detail: parse.error.errors.map((e) => e.message).join(", "),
+        code: "VALIDATION_ERROR",
+      });
+      return c.json(problem, 400, {
+        "Content-Type": "application/problem+json",
+      });
+    }
+
+    const allowed = can(
+      {
+        userId: user.id,
+        organizationId: user.organizationId,
+        role: user.role,
+      },
+      "time.record.correct",
+    );
+    if (!allowed && user.role !== "admin" && user.role !== "manager") {
+      const problem = createProblemDetails({
+        status: 403,
+        title: "Forbidden",
+        detail: "You do not have permission to record time bank entries",
+        code: "FORBIDDEN",
+      });
+      return c.json(problem, 403, {
+        "Content-Type": "application/problem+json",
+      });
+    }
+
+    const created = await withTenant(
+      sql,
+      { organizationId: user.organizationId, userId: user.id },
+      async (tx) => {
+        const emp = await employeeRepo.findById(tx, parse.data.employeeId);
+        if (!emp) return null;
+
+        const record = await timeRepo.createTimeBankRecord(tx, {
+          employeeId: parse.data.employeeId,
+          type: parse.data.type,
+          minutes: parse.data.minutes,
+          referenceDate: parse.data.referenceDate,
+          notes: parse.data.notes,
+          actorId: user.id,
+        });
+
+        await auditRepo.log(tx, {
+          actorId: user.id,
+          action: "time.time_bank_entry",
+          resourceType: "time_bank_record",
+          resourceId: record.id,
+          metadata: {
+            employeeId: parse.data.employeeId,
+            type: parse.data.type,
+            minutes: parse.data.minutes,
+          },
+        });
+
+        return {
+          ...record,
+          createdAt: record.createdAt.toISOString(),
+        };
+      },
+    );
+
+    if (!created) {
+      const problem = createProblemDetails({
+        status: 404,
+        title: "Not Found",
+        detail: "Employee not found",
+        code: "EMPLOYEE_NOT_FOUND",
+      });
+      return c.json(problem, 404, {
+        "Content-Type": "application/problem+json",
+      });
+    }
+
+    return c.json(created, 201);
   });
 
   return router;

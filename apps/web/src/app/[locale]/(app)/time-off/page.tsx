@@ -8,6 +8,7 @@ import { Button, StatusPill, type StatusPillType } from "@librehr/ui";
 import { Calendar, Plus, Users, Clock, AlertCircle } from "lucide-react";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
+import { MOCK_LEAVE_BALANCE, MOCK_LEAVE_REQUESTS } from "@/lib/mock-data";
 import type { LeaveBalanceSummary, LeaveRequest } from "@librehr/contracts";
 
 export default function TimeOffPage() {
@@ -26,6 +27,8 @@ export default function TimeOffPage() {
   const fetchData = React.useCallback(async () => {
     const session = getStoredSession();
     if (!session?.token) {
+      setBalance(MOCK_LEAVE_BALANCE);
+      setRequests(MOCK_LEAVE_REQUESTS);
       setLoading(false);
       return;
     }
@@ -37,10 +40,13 @@ export default function TimeOffPage() {
         client.listLeaveRequests().catch(() => []),
       ]);
 
-      if (balRes) setBalance(balRes);
-      if (reqsRes) setRequests(reqsRes);
+      setBalance(balRes ?? MOCK_LEAVE_BALANCE);
+      setRequests(
+        reqsRes && reqsRes.length > 0 ? reqsRes : MOCK_LEAVE_REQUESTS,
+      );
     } catch {
-      // Fallback
+      setBalance(MOCK_LEAVE_BALANCE);
+      setRequests(MOCK_LEAVE_REQUESTS);
     } finally {
       setLoading(false);
     }

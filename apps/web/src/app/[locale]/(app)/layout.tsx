@@ -17,7 +17,7 @@ import {
   IconReports,
   IconSettings,
 } from "@librehr/ui";
-import { Home } from "lucide-react";
+import { Home, Tablet, FileText } from "lucide-react";
 import { ThemeToggle } from "../../../components/theme-toggle";
 import { LanguageSwitcher } from "../../../components/language-switcher";
 import { NotificationBell } from "../../../components/notification-bell";
@@ -31,16 +31,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const tNav = useTranslations("nav");
 
-  const [userName, setUserName] = React.useState<string>("Admin");
+  const [userName, setUserName] = React.useState<string>("Marta Soler");
+  const [userRole, setUserRole] = React.useState<string>("admin");
+  const orgName = "Acme Serveis";
 
   React.useEffect(() => {
     const session = getStoredSession();
     if (session?.name) {
       setUserName(session.name);
     }
+    if (session?.role) {
+      setUserRole(session.role);
+    }
   }, []);
 
-  const navItems: NavItem[] = [
+  const standardNavItems: NavItem[] = [
     {
       href: `/${locale}/home`,
       label: tNav("home"),
@@ -60,6 +65,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       href: `/${locale}/time`,
       label: tNav("time"),
       icon: <IconClockIn size={16} />,
+    },
+    {
+      href: `/${locale}/kiosk`,
+      label: tNav("kiosk"),
+      icon: <Tablet className="h-4 w-4" />,
     },
     {
       href: `/${locale}/documents`,
@@ -83,13 +93,37 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     },
   ];
 
-  // Mobile navigation only displays 5 key actions per DESIGN.md
+  // TIM-008: Scoped navigation for read-only Labour Inspector role
+  const auditorNavItems: NavItem[] = [
+    {
+      href: `/${locale}/home`,
+      label: tNav("home"),
+      icon: <Home className="h-4 w-4" />,
+    },
+    {
+      href: `/${locale}/time`,
+      label: tNav("time"),
+      icon: <IconClockIn size={16} />,
+    },
+    {
+      href: `/${locale}/time/export`,
+      label: "Inspección Laboral",
+      icon: <FileText className="h-4 w-4" />,
+    },
+    {
+      href: `/${locale}/reports`,
+      label: tNav("reports"),
+      icon: <IconReports size={16} />,
+    },
+  ];
+
+  const navItems = userRole === "auditor" ? auditorNavItems : standardNavItems;
+
+  // Mobile navigation only displays key actions per DESIGN.md
   const mobileNavItems: NavItem[] = [
     navItems[0]!,
-    navItems[2]!,
-    navItems[3]!,
-    navItems[4]!,
-    navItems[7]!,
+    navItems[1] ?? navItems[0]!,
+    navItems[2] ?? navItems[0]!,
   ];
 
   return (
@@ -98,7 +132,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <Sidebar
         items={navItems}
         currentPath={pathname}
-        orgName="LibreHR Corp"
+        orgName={orgName}
         footer={
           <div className="flex items-center gap-3">
             <Avatar name={userName} size="sm" />

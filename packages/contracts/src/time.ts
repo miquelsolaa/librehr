@@ -27,10 +27,35 @@ export type TimeEvent = z.infer<typeof TimeEventSchema>;
 export const ClockRequestSchema = z.object({
   eventType: z.enum(["clock_in", "clock_out", "break_start", "break_end"]),
   occurredAt: z.string().datetime().optional(),
-  source: z.enum(["web", "mobile"]).default("web"),
+  source: z.enum(["web", "mobile", "kiosk"]).default("web"),
   notes: z.string().optional(),
 });
 export type ClockRequest = z.infer<typeof ClockRequestSchema>;
+
+export const KioskClockRequestSchema = z.object({
+  identifier: z.string().min(1, "Identifier is required"),
+  pin: z
+    .string()
+    .min(4, "PIN must have at least 4 digits")
+    .max(8, "PIN cannot exceed 8 digits"),
+  eventType: z.enum(["clock_in", "clock_out", "break_start", "break_end"]),
+});
+export type KioskClockRequest = z.infer<typeof KioskClockRequestSchema>;
+
+export const KioskClockResponseSchema = z.object({
+  success: z.boolean(),
+  employeeName: z.string(),
+  eventType: z.string(),
+  occurredAt: z.string(),
+  newStatus: z.enum(["clocked_in", "on_break", "clocked_out"]),
+});
+export type KioskClockResponse = z.infer<typeof KioskClockResponseSchema>;
+
+export const SetEmployeePinSchema = z.object({
+  pin: z.string().regex(/^\d{4,8}$/, "PIN must be 4 to 8 numeric digits"),
+  badgeId: z.string().optional(),
+});
+export type SetEmployeePin = z.infer<typeof SetEmployeePinSchema>;
 
 export const ClockStatusResponseSchema = z.object({
   status: z.enum(["clocked_in", "on_break", "clocked_out"]),
@@ -137,3 +162,42 @@ export const OfficialExportResponseSchema = z.object({
 export type OfficialExportResponse = z.infer<
   typeof OfficialExportResponseSchema
 >;
+
+export const TimeBankRecordSchema = z.object({
+  id: z.string().uuid(),
+  employeeId: z.string().uuid(),
+  type: z.enum([
+    "overtime_accrual",
+    "compensatory_rest_taken",
+    "manual_adjustment",
+    "expired",
+  ]),
+  minutes: z.number().int(),
+  referenceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  notes: z.string().nullable().optional(),
+  createdAt: z.string(),
+});
+export type TimeBankRecord = z.infer<typeof TimeBankRecordSchema>;
+
+export const TimeBankSummarySchema = z.object({
+  totalAccruedMinutes: z.number(),
+  totalCompensatedMinutes: z.number(),
+  currentBalanceMinutes: z.number(),
+  currentBalanceHoursFormatted: z.string(),
+  records: z.array(TimeBankRecordSchema),
+});
+export type TimeBankSummary = z.infer<typeof TimeBankSummarySchema>;
+
+export const CreateTimeBankEntrySchema = z.object({
+  employeeId: z.string().uuid(),
+  type: z.enum([
+    "overtime_accrual",
+    "compensatory_rest_taken",
+    "manual_adjustment",
+    "expired",
+  ]),
+  minutes: z.number().int(),
+  referenceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  notes: z.string().optional(),
+});
+export type CreateTimeBankEntry = z.infer<typeof CreateTimeBankEntrySchema>;

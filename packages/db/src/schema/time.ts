@@ -174,6 +174,35 @@ export const timeCorrections = pgTable(
   ],
 );
 
+// TIM-012: Time bank / compensatory rest records (bolsa de horas)
+export const timeBankRecords = pgTable(
+  "time_bank_records",
+  {
+    id: primaryId(),
+    organizationId: organizationIdCol().references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    type: text("type").notNull(), // overtime_accrual, compensatory_rest_taken, manual_adjustment, expired
+    minutes: integer("minutes").notNull(),
+    referenceDate: date("reference_date").notNull(),
+    notes: text("notes"),
+    actorId: uuid("actor_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("time_bank_records_org_idx").on(table.organizationId),
+    index("time_bank_records_emp_idx").on(
+      table.organizationId,
+      table.employeeId,
+    ),
+  ],
+);
+
 // TODO(TIM-006): Time export reports for Labour Inspectorate
 export const timeExportsStub = {
   table: "time_exports",

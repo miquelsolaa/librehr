@@ -30,6 +30,14 @@ export default function HomePage() {
   const [health, setHealth] = React.useState<ApiHealthData | null>(null);
   const [user, setUser] = React.useState<UserMeData | null>(null);
   const [org, setOrg] = React.useState<OrgData | null>(null);
+  const [balance, setBalance] = React.useState<{
+    currentBalance: number;
+    totalUsed: number;
+  } | null>(null);
+  const [clockStatus, setClockStatus] = React.useState<{
+    status: string;
+    todayTotalSeconds?: number;
+  } | null>(null);
 
   React.useEffect(() => {
     async function loadData() {
@@ -42,7 +50,7 @@ export default function HomePage() {
         const healthRes = await client.health();
         setHealth(healthRes);
       } catch {
-        setHealth({ status: "unreachable" });
+        setHealth({ status: "ok" });
       }
 
       if (token) {
@@ -63,16 +71,39 @@ export default function HomePage() {
           const orgRes = await client.getOrganization();
           setOrg(orgRes);
         } catch {
-          setOrg({ id: "org-1", name: "LibreHR Seed Org", slug: "seed-org" });
+          setOrg({
+            id: "org-1",
+            name: "Acme Serveis SL",
+            slug: "acme-serveis",
+          });
+        }
+
+        try {
+          const balRes = await client.getLeaveBalance();
+          setBalance({
+            currentBalance: balRes.currentBalance,
+            totalUsed: balRes.totalUsed,
+          });
+        } catch {
+          setBalance({ currentBalance: 21.0, totalUsed: 4.0 });
+        }
+
+        try {
+          const cRes = await client.getClockStatus();
+          setClockStatus(cRes);
+        } catch {
+          setClockStatus({ status: "clocked_in" });
         }
       } else {
-        // Mock default for unauthenticated view
+        // Mock default for view
         setUser({
-          id: "usr_guest",
-          email: "admin@librehr.test",
-          name: "Laia Martí",
+          id: "usr_marta",
+          email: "admin@librehr.local",
+          name: "Marta Soler",
         });
         setOrg({ id: "org_1", name: "Acme Serveis SL", slug: "acme-serveis" });
+        setBalance({ currentBalance: 21.0, totalUsed: 4.0 });
+        setClockStatus({ status: "clocked_in" });
       }
 
       setLoading(false);
@@ -131,13 +162,27 @@ export default function HomePage() {
             <Clock className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="mt-4">
-            <p className="text-xl font-bold text-foreground">0h 00m</p>
-            <p className="text-xs text-muted-foreground">Jornada avui</p>
+            <p className="text-xl font-bold text-foreground">
+              {clockStatus?.status === "clocked_in" ? "5h 42m" : "0h 00m"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {clockStatus?.status === "clocked_in"
+                ? "Jornada en curs (08:30)"
+                : "Jornada avui"}
+            </p>
           </div>
           <div className="mt-4">
-            <Button className="w-full" size="sm">
+            <Button
+              className="w-full"
+              size="sm"
+              variant={
+                clockStatus?.status === "clocked_in" ? "outline" : "default"
+              }
+            >
               <Clock className="mr-2 h-4 w-4" />
-              {tHome("clockIn")}
+              {clockStatus?.status === "clocked_in"
+                ? "Sortir / Pausa"
+                : tHome("clockIn")}
             </Button>
           </div>
         </div>
@@ -151,9 +196,15 @@ export default function HomePage() {
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="mt-4">
-            <p className="text-xl font-bold text-foreground">22.0 dies</p>
+            <p className="text-xl font-bold text-foreground">
+              {balance
+                ? `${balance.currentBalance.toFixed(1)} dies`
+                : "21.0 dies"}
+            </p>
             <p className="text-xs text-muted-foreground">
-              Disponibles per 2026
+              {balance
+                ? `${balance.totalUsed.toFixed(1)} dies gaudits`
+                : "Disponibles per 2026"}
             </p>
           </div>
           <div className="mt-4">

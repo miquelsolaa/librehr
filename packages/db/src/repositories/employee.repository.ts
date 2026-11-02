@@ -20,6 +20,9 @@ export interface EmployeeRow {
   terminationReason: string | null;
   nationalIdEncrypted: string | null;
   ibanEncrypted: string | null;
+  pinHash: string | null;
+  pinSalt: string | null;
+  badgeId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -424,5 +427,56 @@ export class EmployeeRepository {
     `;
 
     return this.findById(tx, id);
+  }
+
+  // TIM-010: Tablet kiosk authentication & identification
+  async setKioskPin(
+    tx: TenantTx,
+    employeeId: string,
+    pinHash: string,
+    pinSalt: string,
+    badgeId?: string | null | undefined,
+  ): Promise<void> {
+    await tx`
+      UPDATE employees
+      SET pin_hash = ${pinHash},
+          pin_salt = ${pinSalt},
+          badge_id = ${badgeId !== undefined ? badgeId : null},
+          updated_at = now()
+      WHERE id = ${employeeId}
+    `;
+  }
+
+  async findByIdentifier(
+    tx: TenantTx,
+    identifier: string,
+  ): Promise<EmployeeRow | null> {
+    const isUuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        identifier,
+      );
+
+    const rows = await tx<EmployeeRow[]>`
+      SELECT id, organization_id as "organizationId", user_id as "userId",
+             department_id as "departmentId", manager_id as "managerId",
+             location_id as "locationId", first_name as "firstName",
+             last_name as "lastName", preferred_name as "preferredName",
+             email, phone, address, birth_date as "birthDate",
+             status, termination_date as "terminationDate",
+             termination_reason as "terminationReason",
+             national_id_encrypted as "nationalIdEncrypted",
+             iban_encrypted as "ibanEncrypted",
+             pin_hash as "pinHash", pin_salt as "pinSalt", badge_id as "badgeId",
+             created_at as "createdAt", updated_at as "updatedAt"
+      FROM employees
+      WHERE status != 'terminated'
+        AND (
+          email = ${identifier}
+          OR badge_id = ${identifier}
+          OR (${isUuid ? identifier : null}::uuid IS NOT NULL AND id = ${isUuid ? identifier : null}::uuid)
+        )
+      LIMIT 1
+    `;
+    return rows[0] ?? null;
   }
 }

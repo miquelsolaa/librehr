@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const CreateInvitationRequestSchema = z.object({
   email: z.string().email("Valid email is required"),
-  role: z.enum(["admin", "manager", "employee"]).default("employee"),
+  role: z.enum(["admin", "manager", "employee", "auditor"]).default("employee"),
   departmentId: z.string().uuid().nullable().optional(),
 });
 export type CreateInvitationRequest = z.infer<

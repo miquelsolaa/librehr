@@ -105,6 +105,12 @@ LibreHR is an open-source HRIS purpose-built to free European SMBs from propriet
 | :--------------------------------------------------------------: | :------------------------------------------------------------------: |
 | [![People Directory][people-screenshot]](docs/images/people.png) | [![Time Off & Leave][time-off-screenshot]](docs/images/time-off.png) |
 
+#### Tablet Kiosk Mode & Org Structure
+
+|                  Tablet Kiosk Terminal (PIN/Badge)                  |                            Org Chart Hierarchy                            |
+| :-----------------------------------------------------------------: | :-----------------------------------------------------------------------: |
+| [![Tablet Kiosk Terminal][kiosk-screenshot]](docs/images/kiosk.png) | [![Org Chart Hierarchy][org-chart-screenshot]](docs/images/org-chart.png) |
+
 #### First-Run Experience
 
 |                    Setup & Legal Entity Wizard                    |                   Clean Authentication                    |
@@ -386,6 +392,8 @@ Distributed under the **GNU Affero General Public License v3.0 or later (AGPL-3.
 [time-off-screenshot]: docs/images/time-off.png
 [people-screenshot]: docs/images/people.png
 [sign-in-screenshot]: docs/images/sign-in.png
+[kiosk-screenshot]: docs/images/kiosk.png
+[org-chart-screenshot]: docs/images/org-chart.png
 [Next.js]: https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white
 [Next-url]: https://nextjs.org/
 [TypeScript]: https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white

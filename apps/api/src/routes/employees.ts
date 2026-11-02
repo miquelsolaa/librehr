@@ -10,8 +10,15 @@ import {
   RevealFieldRequestSchema,
   SelfServiceUpdateSchema,
   CreateEmergencyContactSchema,
+  SetEmployeePinSchema,
 } from "@librehr/contracts";
-import { validateSpanishId, validateIban, buildOrgChart } from "@librehr/core";
+import {
+  validateSpanishId,
+  validateIban,
+  buildOrgChart,
+  generatePinSalt,
+  hashKioskPin,
+} from "@librehr/core";
 import {
   withTenant,
   EmployeeRepository,
@@ -659,6 +666,89 @@ export function createEmployeeRoutes(sql: Sql) {
     }
 
     return c.json(updated);
+  });
+
+  // TIM-010: Set or update employee Kiosk PIN
+  router.patch("/people/:id/pin", requireAuth, async (c) => {
+    const user = (c.get as (key: string) => unknown)("user") as AuthUser;
+    const employeeId = c.req.param("id");
+    const body = await c.req.json().catch(() => null);
+    const parse = SetEmployeePinSchema.safeParse(body);
+
+    if (!parse.success) {
+      const problem = createProblemDetails({
+        status: 400,
+        title: "Validation Failed",
+        detail: parse.error.errors.map((e) => e.message).join(", "),
+        code: "VALIDATION_FAILED",
+      });
+      return c.json(problem, 400, {
+        "Content-Type": "application/problem+json",
+      });
+    }
+
+    const result = await withTenant(
+      sql,
+      { organizationId: user.organizationId, userId: user.id },
+      async (tx) => {
+        const emp = await employeeRepo.findById(tx, employeeId);
+        if (!emp) return null;
+
+        const isSelf = emp.userId === user.id;
+        const isAdminOrHr = user.role === "admin" || user.role === "hr";
+        if (!isSelf && !isAdminOrHr) {
+          return "FORBIDDEN";
+        }
+
+        const pinSalt = generatePinSalt();
+        const pinHash = hashKioskPin(parse.data.pin, pinSalt);
+        await employeeRepo.setKioskPin(
+          tx,
+          employeeId,
+          pinHash,
+          pinSalt,
+          parse.data.badgeId,
+        );
+
+        await auditRepo.log(tx, {
+          actorId: user.id,
+          action: "employee.kiosk_pin_updated",
+          resourceType: "employee",
+          resourceId: employeeId,
+          metadata: {
+            hasBadge: Boolean(parse.data.badgeId),
+          },
+        });
+
+        return { success: true };
+      },
+    );
+
+    if (result === "FORBIDDEN") {
+      const problem = createProblemDetails({
+        status: 403,
+        title: "Forbidden",
+        detail: "You do not have permission to change this PIN",
+        code: "FORBIDDEN",
+      });
+      return c.json(problem, 403, {
+        "Content-Type": "application/problem+json",
+      });
+    }
+
+    if (!result) {
+      const problem = createProblemDetails({
+        status: 404,
+        title: "Not Found",
+        detail: "Employee not found",
+        code: "NOT_FOUND",
+      });
+      return c.json(problem, 404, {
+        "Content-Type": "application/problem+json",
+      });
+    }
+
+    return c.json(result);
   });
 
   return router;

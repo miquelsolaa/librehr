@@ -54,15 +54,26 @@ describe("Time Tracking API Integration Tests (TIM-001 - TIM-006)", () => {
     organizationId: orgId,
   };
 
-  let _adminToken: string;
+  let adminToken: string;
   let staffToken: string;
+  let auditorToken: string;
+
+  const auditorUser: AuthUser = {
+    id: "33333333-3333-3333-3333-333333333333",
+    email: "inspector@meyss.gob.es",
+    name: "Labour Inspector",
+    role: "auditor",
+    organizationId: orgId,
+  };
 
   beforeAll(async () => {
     authPort = new MockAuthPort();
     const adminSession = await authPort.createSession(adminUser);
     const staffSession = await authPort.createSession(staffUser);
-    _adminToken = adminSession.token;
+    const auditorSession = await authPort.createSession(auditorUser);
+    adminToken = adminSession.token;
     staffToken = staffSession.token;
+    auditorToken = auditorSession.token;
 
     db = await getTestDatabase();
     if (db) {
@@ -133,5 +144,131 @@ describe("Time Tracking API Integration Tests (TIM-001 - TIM-006)", () => {
 
     // Will be 403 or 404 (if not found in dummy DB)
     expect([403, 404, 500]).toContain(res.status);
+  });
+
+  it("validates and handles kiosk clock request (TIM-010)", async () => {
+    const dummyApp = db
+      ? app
+      : createApp({ sql: {} as unknown as Sql, authPort });
+
+    // Missing identifier and PIN
+    const invalidRes = await dummyApp.request("/v1/time/kiosk/clock", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${adminToken}`,
+      },
+      body: JSON.stringify({
+        eventType: "clock_in",
+      }),
+    });
+    expect(invalidRes.status).toBe(400);
+
+    // Valid schema with unknown identifier
+    const unauthRes = await dummyApp.request("/v1/time/kiosk/clock", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${adminToken}`,
+      },
+      body: JSON.stringify({
+        identifier: "unknown@example.com",
+        pin: "1234",
+        eventType: "clock_in",
+      }),
+    });
+    expect([401, 500]).toContain(unauthRes.status);
+  });
+
+  it("handles setting employee kiosk PIN (TIM-010)", async () => {
+    const dummyApp = db
+      ? app
+      : createApp({ sql: {} as unknown as Sql, authPort });
+
+    const empId = "22222222-2222-2222-2222-222222222222";
+
+    // Invalid PIN format (< 4 digits)
+    const badRes = await dummyApp.request(`/v1/people/${empId}/pin`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${adminToken}`,
+      },
+      body: JSON.stringify({
+        pin: "12",
+      }),
+    });
+    expect(badRes.status).toBe(400);
+
+    // Valid PIN format
+    const validRes = await dummyApp.request(`/v1/people/${empId}/pin`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${adminToken}`,
+      },
+      body: JSON.stringify({
+        pin: "1234",
+        badgeId: "RFID-9942",
+      }),
+    });
+    expect([200, 404, 500]).toContain(validRes.status);
+  });
+
+  it("handles time bank balance and entries (TIM-012)", async () => {
+    const dummyApp = db
+      ? app
+      : createApp({ sql: {} as unknown as Sql, authPort });
+
+    // Unauthorized without credentials
+    const unauthRes = await dummyApp.request("/v1/time/time-bank", {
+      method: "GET",
+    });
+    expect(unauthRes.status).toBe(401);
+
+    // Authenticated query for employee's time bank
+    const authRes = await dummyApp.request("/v1/time/time-bank", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${staffToken}`,
+      },
+    });
+    expect([200, 404, 500]).toContain(authRes.status);
+
+    // Add entry validation
+    const entryRes = await dummyApp.request("/v1/time/time-bank/entries", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${adminToken}`,
+      },
+      body: JSON.stringify({
+        employeeId: "22222222-2222-2222-2222-222222222222",
+        type: "overtime_accrual",
+        minutes: 120,
+        referenceDate: "2026-11-01",
+        notes: "Project launch overtime",
+      }),
+    });
+    expect([201, 404, 500]).toContain(entryRes.status);
+  });
+
+  it("allows labour inspector / auditor role to view timesheets (TIM-008)", async () => {
+    const dummyApp = db
+      ? app
+      : createApp({ sql: {} as unknown as Sql, authPort });
+
+    const res = await dummyApp.request(
+      "/v1/time/timesheet?startDate=2026-11-01&endDate=2026-11-30&employeeId=22222222-2222-2222-2222-222222222222",
+      {
+        headers: {
+          Authorization: `Bearer ${auditorToken}`,
+        },
+      },
+    );
+
+    // Auditor is authorized (not 403)
+    expect([200, 404, 500]).toContain(res.status);
+    expect(res.status).not.toBe(403);
   });
 });

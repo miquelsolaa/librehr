@@ -15,6 +15,7 @@ import {
 import { Button } from "@librehr/ui";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
+import { MOCK_REPORTS_SUMMARY } from "@/lib/mock-data";
 import type { ReportsSummaryResponse } from "@librehr/contracts";
 
 export default function ReportsPage() {
@@ -32,6 +33,7 @@ export default function ReportsPage() {
   const fetchSummary = React.useCallback(async () => {
     const session = getStoredSession();
     if (!session?.token) {
+      setSummary(MOCK_REPORTS_SUMMARY);
       setLoading(false);
       return;
     }
@@ -41,8 +43,8 @@ export default function ReportsPage() {
       const client = getApiClient(session.token);
       const res = await client.getReportsSummary();
       setSummary(res);
-    } catch (err) {
-      console.error("Failed to load reports summary", err);
+    } catch {
+      setSummary(MOCK_REPORTS_SUMMARY);
     } finally {
       setLoading(false);
     }

@@ -33,6 +33,7 @@ export const TENANT_TABLES = [
   "custom_field_definitions",
   "custom_field_values",
   "emergency_contacts",
+  "time_bank_records",
 ] as const;
 
 export type TenantTable = (typeof TENANT_TABLES)[number];

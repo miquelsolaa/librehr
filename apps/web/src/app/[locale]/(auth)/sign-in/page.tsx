@@ -15,8 +15,8 @@ export default function SignInPage() {
   const tAuth = useTranslations("auth");
   const tCommon = useTranslations("common");
 
-  const [email, setEmail] = React.useState("admin@librehr.test");
-  const [password, setPassword] = React.useState("AdminSecret2026!");
+  const [email, setEmail] = React.useState("admin@librehr.local");
+  const [password, setPassword] = React.useState("Password123!");
   const [isLoading, setIsLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 
@@ -51,7 +51,7 @@ export default function SignInPage() {
       <div className="w-full max-w-md space-y-8 rounded-card border border-border bg-background p-8 shadow-sm">
         <div className="text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-xl font-bold text-primary-foreground">
-            OH
+            LH
           </div>
           <h1 className="mt-4 text-2xl font-bold tracking-tight text-foreground">
             {tAuth("signInTitle")}

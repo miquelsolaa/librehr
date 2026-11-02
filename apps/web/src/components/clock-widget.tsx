@@ -16,14 +16,17 @@ export function ClockWidget({ onClockChange }: { onClockChange?: () => void }) {
 
   const fetchStatus = React.useCallback(async () => {
     const session = getStoredSession();
-    if (!session?.token) return;
+    if (!session?.token) {
+      setStatus("clocked_in");
+      return;
+    }
 
     try {
       const client = getApiClient(session.token);
       const res = await client.getClockStatus();
       setStatus(res.status);
     } catch {
-      // Fallback
+      setStatus("clocked_in");
     }
   }, []);
 

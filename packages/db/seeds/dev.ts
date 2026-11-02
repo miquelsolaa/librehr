@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import postgres from "postgres";
 
 export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
@@ -10,7 +11,9 @@ export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
   const sql = postgres(url, { max: 1 });
 
   try {
-    process.stdout.write("Seeding dev organization, locations, and users...\n");
+    process.stdout.write(
+      "Seeding realistic dev organization, locations, employees, and records...\n",
+    );
 
     await sql.begin(async (tx) => {
       // 1. Create Dev Organization
@@ -30,39 +33,240 @@ export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
       `;
       const entityId = entityRows[0]?.["id"] as string;
 
-      // 3. Create Location
-      const locRows = await tx`
+      // 3. Create Locations
+      const locRows = await tx<{ id: string; name: string }[]>`
         INSERT INTO "locations" ("organization_id", "legal_entity_id", "name", "country", "region", "city", "timezone")
-        VALUES (${orgId}, ${entityId}, 'Barcelona Diagonal', 'ES', 'CT', 'Barcelona', 'Europe/Madrid')
-        RETURNING "id"
+        VALUES 
+          (${orgId}, ${entityId}, 'Barcelona Diagonal', 'ES', 'CT', 'Barcelona', 'Europe/Madrid'),
+          (${orgId}, ${entityId}, 'Madrid Castellana', 'ES', 'MD', 'Madrid', 'Europe/Madrid')
+        RETURNING "id", "name"
       `;
-      const locationId = locRows[0]?.["id"] as string;
+      const bcnLocId =
+        locRows.find((l) => l.name.includes("Barcelona"))?.id ??
+        locRows[0]?.id ??
+        "";
+      const madLocId =
+        locRows.find((l) => l.name.includes("Madrid"))?.id ?? bcnLocId;
 
       // 4. Create Departments
       const deptRows = await tx<{ id: string; name: string }[]>`
         INSERT INTO "departments" ("organization_id", "name")
-        VALUES (${orgId}, 'Engineering'), (${orgId}, 'Operations'), (${orgId}, 'People & Culture')
+        VALUES 
+          (${orgId}, 'Direcció Executiva'),
+          (${orgId}, 'Engineering'),
+          (${orgId}, 'Product & Design'),
+          (${orgId}, 'People & Culture'),
+          (${orgId}, 'Operations & Finance')
         RETURNING "id", "name"
       `;
+      const execDeptId =
+        deptRows.find((d) => d.name === "Direcció Executiva")?.id ?? "";
       const engDeptId =
         deptRows.find((d) => d.name === "Engineering")?.id ?? "";
+      const prodDeptId =
+        deptRows.find((d) => d.name === "Product & Design")?.id ?? "";
+      const peopleDeptId =
+        deptRows.find((d) => d.name === "People & Culture")?.id ?? "";
+      const opsDeptId =
+        deptRows.find((d) => d.name === "Operations & Finance")?.id ?? "";
 
-      // 5. Create Users & Employees (Admin, Manager, Employee)
+      // 5. Define rich employees dataset (14 people forming a complete 3-tier hierarchy)
+      interface SeedUser {
+        email: string;
+        name: string;
+        role: "admin" | "manager" | "employee";
+        jobTitle: string;
+        deptId: string;
+        locId: string;
+        managerEmail: string | null;
+        startDate: string;
+        status: "active" | "on_leave";
+        phone: string;
+      }
 
-      // Password hash for 'Password123!' (dummy dev hash or scrypt)
-      const usersData = [
-        { email: "admin@librehr.local", name: "Marta Soler", role: "admin" },
-        { email: "manager@librehr.local", name: "Pere Vila", role: "manager" },
+      const usersList: SeedUser[] = [
+        // Level 1: Leadership
+        {
+          email: "admin@librehr.local",
+          name: "Marta Soler",
+          role: "admin",
+          jobTitle: "Chief Executive Officer",
+          deptId: execDeptId,
+          locId: bcnLocId,
+          managerEmail: null,
+          startDate: "2023-01-15",
+          status: "active",
+          phone: "+34 611 234 567",
+        },
+        // Level 2: Department Heads
+        {
+          email: "manager@librehr.local",
+          name: "Pere Vila",
+          role: "manager",
+          jobTitle: "VP of Engineering",
+          deptId: engDeptId,
+          locId: bcnLocId,
+          managerEmail: "admin@librehr.local",
+          startDate: "2023-03-01",
+          status: "active",
+          phone: "+34 622 345 678",
+        },
+        {
+          email: "hr@librehr.local",
+          name: "Helena Bosch",
+          role: "admin",
+          jobTitle: "Head of People & Culture",
+          deptId: peopleDeptId,
+          locId: bcnLocId,
+          managerEmail: "admin@librehr.local",
+          startDate: "2023-04-15",
+          status: "active",
+          phone: "+34 633 456 789",
+        },
+        {
+          email: "product@librehr.local",
+          name: "Joan Castells",
+          role: "manager",
+          jobTitle: "Head of Product & Design",
+          deptId: prodDeptId,
+          locId: madLocId,
+          managerEmail: "admin@librehr.local",
+          startDate: "2023-06-01",
+          status: "active",
+          phone: "+34 644 567 890",
+        },
+        {
+          email: "ops@librehr.local",
+          name: "Carles Duran",
+          role: "manager",
+          jobTitle: "Head of Operations & Finance",
+          deptId: opsDeptId,
+          locId: madLocId,
+          managerEmail: "admin@librehr.local",
+          startDate: "2023-09-01",
+          status: "active",
+          phone: "+34 655 678 901",
+        },
+        // Level 3: Individual Contributors - Engineering
         {
           email: "employee@librehr.local",
           name: "Laia Puig",
           role: "employee",
+          jobTitle: "Staff Frontend Engineer",
+          deptId: engDeptId,
+          locId: bcnLocId,
+          managerEmail: "manager@librehr.local",
+          startDate: "2024-01-10",
+          status: "active",
+          phone: "+34 666 789 012",
+        },
+        {
+          email: "marc.font@librehr.local",
+          name: "Marc Font",
+          role: "employee",
+          jobTitle: "Senior Backend Engineer",
+          deptId: engDeptId,
+          locId: bcnLocId,
+          managerEmail: "manager@librehr.local",
+          startDate: "2024-02-15",
+          status: "active",
+          phone: "+34 677 890 123",
+        },
+        {
+          email: "nuria.riera@librehr.local",
+          name: "Núria Riera",
+          role: "employee",
+          jobTitle: "DevOps & Platform Lead",
+          deptId: engDeptId,
+          locId: madLocId,
+          managerEmail: "manager@librehr.local",
+          startDate: "2024-03-01",
+          status: "active",
+          phone: "+34 688 901 234",
+        },
+        {
+          email: "pau.casals@librehr.local",
+          name: "Pau Casals",
+          role: "employee",
+          jobTitle: "Full-Stack Engineer",
+          deptId: engDeptId,
+          locId: bcnLocId,
+          managerEmail: "manager@librehr.local",
+          startDate: "2024-07-01",
+          status: "active",
+          phone: "+34 699 012 345",
+        },
+        // Level 3: People & Culture
+        {
+          email: "clara.valls@librehr.local",
+          name: "Clara Valls",
+          role: "employee",
+          jobTitle: "People Operations Specialist",
+          deptId: peopleDeptId,
+          locId: bcnLocId,
+          managerEmail: "hr@librehr.local",
+          startDate: "2024-04-01",
+          status: "active",
+          phone: "+34 612 345 678",
+        },
+        {
+          email: "oriol.mas@librehr.local",
+          name: "Oriol Mas",
+          role: "employee",
+          jobTitle: "Talent Acquisition Specialist",
+          deptId: peopleDeptId,
+          locId: madLocId,
+          managerEmail: "hr@librehr.local",
+          startDate: "2024-08-15",
+          status: "active",
+          phone: "+34 623 456 789",
+        },
+        // Level 3: Product & Design
+        {
+          email: "silvia.ramos@librehr.local",
+          name: "Silvia Ramos",
+          role: "employee",
+          jobTitle: "Senior Product Designer",
+          deptId: prodDeptId,
+          locId: bcnLocId,
+          managerEmail: "product@librehr.local",
+          startDate: "2024-05-01",
+          status: "on_leave",
+          phone: "+34 634 567 890",
+        },
+        {
+          email: "david.moreno@librehr.local",
+          name: "David Moreno",
+          role: "employee",
+          jobTitle: "UX Researcher",
+          deptId: prodDeptId,
+          locId: madLocId,
+          managerEmail: "product@librehr.local",
+          startDate: "2024-09-01",
+          status: "active",
+          phone: "+34 645 678 901",
+        },
+        // Level 3: Operations
+        {
+          email: "mireia.roca@librehr.local",
+          name: "Mireia Roca",
+          role: "employee",
+          jobTitle: "Finance & Operations Specialist",
+          deptId: opsDeptId,
+          locId: bcnLocId,
+          managerEmail: "ops@librehr.local",
+          startDate: "2024-06-15",
+          status: "active",
+          phone: "+34 656 789 012",
         },
       ];
 
-      let managerEmpId: string | null = null;
+      // Insert users and create employee records map
+      const empIdByEmail = new Map<string, string>();
+      const userIdByEmail = new Map<string, string>();
 
-      for (const u of usersData) {
+      // First pass: create users & base employees (without managerId to allow arbitrary order)
+      for (const u of usersList) {
         const userRows = await tx`
           INSERT INTO "users" ("email", "name", "password_hash", "email_verified")
           VALUES (${u.email}, ${u.name}, '$2a$10$devPasswordHash1234567890abcdefghijklmnopqrstuv', true)
@@ -70,99 +274,284 @@ export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
           RETURNING "id"
         `;
         const userId = userRows[0]?.["id"] as string;
+        userIdByEmail.set(u.email, userId);
 
-        // Membership
         await tx`
           INSERT INTO "memberships" ("organization_id", "user_id", "role")
           VALUES (${orgId}, ${userId}, ${u.role})
           ON CONFLICT ("organization_id", "user_id") DO UPDATE SET "role" = EXCLUDED."role"
         `;
 
-        // Employee
         const nameParts = u.name.split(" ");
         const firstName = nameParts[0] ?? "User";
-        const lastName = nameParts[1] ?? "";
-        const managerId = u.role === "employee" ? managerEmpId : null;
+        const lastName = nameParts.slice(1).join(" ") || "";
 
         const empRows = await tx`
           INSERT INTO "employees" (
-            "organization_id", "user_id", "department_id", "manager_id", "location_id",
-            "first_name", "last_name", "email", "status"
+            "organization_id", "user_id", "department_id", "location_id",
+            "first_name", "last_name", "email", "phone", "status"
           )
           VALUES (
-            ${orgId}, ${userId}, ${engDeptId}, ${managerId}, ${locationId},
-            ${firstName}, ${lastName}, ${u.email}, 'active'
+            ${orgId}, ${userId}, ${u.deptId}, ${u.locId},
+            ${firstName}, ${lastName}, ${u.email}, ${u.phone}, ${u.status}
           )
           RETURNING "id"
         `;
         const empId = empRows[0]?.["id"] as string;
-        if (u.role === "manager") {
-          managerEmpId = empId;
-        }
+        empIdByEmail.set(u.email, empId);
 
-        // Employment
         await tx`
           INSERT INTO "employments" ("organization_id", "employee_id", "job_title", "employment_type", "start_date")
-          VALUES (${orgId}, ${empId}, ${u.role === "admin" ? "People & Ops Lead" : u.role === "manager" ? "Team Lead" : "Specialist"}, 'indefinido', '2024-01-01')
+          VALUES (${orgId}, ${empId}, ${u.jobTitle}, 'indefinido', ${u.startDate})
         `;
 
-        // Initial 2026 Vacation Accrual
+        // Emergency contact
+        await tx`
+          INSERT INTO "emergency_contacts" ("organization_id", "employee_id", "full_name", "relationship", "phone_primary", "is_primary")
+          VALUES (${orgId}, ${empId}, 'Contacte d''Urgència (${firstName})', 'partner', '+34 600 000 000', true)
+        `;
+
+        // Leave ledger accrual & carryover
         await tx`
           INSERT INTO "leave_ledger" ("organization_id", "employee_id", "entry_type", "amount", "unit", "effective_date", "note")
-          VALUES (${orgId}, ${empId}, 'accrual', 22.00, 'days', '2026-01-01', 'Annual vacation entitlement 2026')
+          VALUES 
+            (${orgId}, ${empId}, 'accrual', 22.00, 'days', '2026-01-01', 'Annual vacation entitlement 2026'),
+            (${orgId}, ${empId}, 'carryover', 3.00, 'days', '2026-01-01', 'Approved carryover from 2025')
         `;
       }
 
-      // 6. Seed Leave Types & Policy
-      const ltRows = await tx<{ id: string }[]>`
+      // Second pass: set manager_id to establish the org chart hierarchy
+      for (const u of usersList) {
+        if (u.managerEmail) {
+          const empId = empIdByEmail.get(u.email);
+          const managerEmpId = empIdByEmail.get(u.managerEmail);
+          if (empId && managerEmpId) {
+            await tx`
+              UPDATE "employees"
+              SET "manager_id" = ${managerEmpId}
+              WHERE "id" = ${empId}
+            `;
+          }
+        }
+      }
+
+      // 6. Custom Fields & Employee values (ORG-005)
+      const cfdRows = await tx<{ id: string; code: string }[]>`
+        INSERT INTO "custom_field_definitions" ("organization_id", "name", "code", "field_type", "options", "required", "visibility")
+        VALUES
+          (${orgId}, 'T-Shirt Size', 't_shirt_size', 'select', '["XS", "S", "M", "L", "XL", "XXL"]', false, 'employee'),
+          (${orgId}, 'Workstation Setup', 'workstation_setup', 'select', '["MacBook Pro 16", "MacBook Pro 14", "ThinkPad X1 Carbon", "Dual Monitor Setup"]', false, 'employee'),
+          (${orgId}, 'LinkedIn Profile', 'linkedin_profile', 'text', null, false, 'public')
+        RETURNING "id", "code"
+      `;
+      const tShirtDefId = cfdRows.find((c) => c.code === "t_shirt_size")?.id;
+      const setupDefId = cfdRows.find(
+        (c) => c.code === "workstation_setup",
+      )?.id;
+
+      for (const [, empId] of empIdByEmail.entries()) {
+        if (tShirtDefId) {
+          await tx`
+            INSERT INTO "custom_field_values" ("organization_id", "field_definition_id", "employee_id", "value")
+            VALUES (${orgId}, ${tShirtDefId}, ${empId}, 'M')
+          `;
+        }
+        if (setupDefId) {
+          await tx`
+            INSERT INTO "custom_field_values" ("organization_id", "field_definition_id", "employee_id", "value")
+            VALUES (${orgId}, ${setupDefId}, ${empId}, 'MacBook Pro 16')
+          `;
+        }
+      }
+
+      // 7. Seed Leave Types & Policies
+      const ltRows = await tx<{ id: string; code: string }[]>`
         INSERT INTO "leave_types" ("organization_id", "name", "code", "is_paid", "requires_approval", "color")
         VALUES 
           (${orgId}, 'Vacaciones', 'vacation', true, true, '#3b82f6'),
           (${orgId}, 'Asuntos Propios', 'personal_days', true, true, '#10b981'),
           (${orgId}, 'Baja Médica (IT)', 'sick_leave', true, false, '#f59e0b')
         ON CONFLICT DO NOTHING
-        RETURNING "id"
+        RETURNING "id", "code"
       `;
+      const vacTypeId = ltRows.find((t) => t.code === "vacation")?.id;
+      const personalTypeId = ltRows.find((t) => t.code === "personal_days")?.id;
 
-      if (ltRows[0]) {
+      if (vacTypeId) {
         await tx`
           INSERT INTO "leave_policies" (
-            "organization_id", "leave_type_id", "name", "annual_allowance_days", "accrual_method"
+            "organization_id", "leave_type_id", "name", "annual_allowance_days", "accrual_method", "carryover_max_days"
           ) VALUES (
-            ${orgId}, ${ltRows[0].id}, 'Convenio General', 22.00, 'monthly'
+            ${orgId}, ${vacTypeId}, 'Convenio General', 22.00, 'monthly', 5.00
           )
         `;
       }
 
-      // 7. Seed Holiday Calendar 2026 for Location
-      const calRows = await tx<{ id: string }[]>`
-        INSERT INTO "holiday_calendars" ("organization_id", "location_id", "year")
-        VALUES (${orgId}, ${locationId}, 2026)
-        ON CONFLICT DO NOTHING
-        RETURNING "id"
-      `;
+      // 8. Seed Realistic Leave Requests
+      const laiaEmpId = empIdByEmail.get("employee@librehr.local");
+      const pereEmpId = empIdByEmail.get("manager@librehr.local");
+      const pauEmpId = empIdByEmail.get("pau.casals@librehr.local");
+      const silviaEmpId = empIdByEmail.get("silvia.ramos@librehr.local");
 
-      if (calRows[0]) {
+      if (vacTypeId && laiaEmpId && pereEmpId) {
+        // Laia: past approved vacation
         await tx`
-          INSERT INTO "holidays" ("organization_id", "calendar_id", "date", "name", "scope")
-          VALUES 
-            (${orgId}, ${calRows[0].id}, '2026-01-01', 'Año Nuevo', 'national'),
-            (${orgId}, ${calRows[0].id}, '2026-01-06', 'Epifanía del Señor', 'national'),
-            (${orgId}, ${calRows[0].id}, '2026-04-03', 'Viernes Santo', 'national'),
-            (${orgId}, ${calRows[0].id}, '2026-05-01', 'Fiesta del Trabajo', 'national'),
-            (${orgId}, ${calRows[0].id}, '2026-06-24', 'Sant Joan', 'regional'),
-            (${orgId}, ${calRows[0].id}, '2026-08-15', 'Asunción de la Virgen', 'national'),
-            (${orgId}, ${calRows[0].id}, '2026-09-11', 'Diada Nacional de Catalunya', 'regional'),
-            (${orgId}, ${calRows[0].id}, '2026-10-12', 'Fiesta Nacional de España', 'national'),
-            (${orgId}, ${calRows[0].id}, '2026-12-08', 'Inmaculada Concepción', 'national'),
-            (${orgId}, ${calRows[0].id}, '2026-12-25', 'Navidad', 'national')
+          INSERT INTO "leave_requests" (
+            "organization_id", "employee_id", "leave_type_id", "start_date", "end_date",
+            "working_days", "status", "notes", "approver_id", "decided_at"
+          )
+          VALUES (
+            ${orgId}, ${laiaEmpId}, ${vacTypeId}, '2026-02-16', '2026-02-18',
+            3.00, 'approved', 'Vacances d''hivern en família', ${pereEmpId}, '2026-02-02 10:00:00+01'
+          )
+        `;
+        // Deduct from ledger
+        await tx`
+          INSERT INTO "leave_ledger" ("organization_id", "employee_id", "entry_type", "amount", "unit", "effective_date", "note")
+          VALUES (${orgId}, ${laiaEmpId}, 'usage', -3.00, 'days', '2026-02-16', 'Vacances d''hivern en família')
         `;
       }
 
-      // 8. Seed Default 40h Working Schedule & Rules (TIM-005)
+      if (personalTypeId && laiaEmpId) {
+        // Laia: upcoming pending request
+        await tx`
+          INSERT INTO "leave_requests" (
+            "organization_id", "employee_id", "leave_type_id", "start_date", "end_date",
+            "working_days", "status", "notes"
+          )
+          VALUES (
+            ${orgId}, ${laiaEmpId}, ${personalTypeId}, '2026-04-10', '2026-04-10',
+            1.00, 'pending', 'Tràmits administratius i renovació DNI'
+          )
+        `;
+      }
+
+      if (vacTypeId && pauEmpId && pereEmpId) {
+        await tx`
+          INSERT INTO "leave_requests" (
+            "organization_id", "employee_id", "leave_type_id", "start_date", "end_date",
+            "working_days", "status", "notes"
+          )
+          VALUES (
+            ${orgId}, ${pauEmpId}, ${vacTypeId}, '2026-07-20', '2026-07-31',
+            10.00, 'pending', 'Vacances d''estiu'
+          )
+        `;
+      }
+
+      if (vacTypeId && silviaEmpId && pereEmpId) {
+        await tx`
+          INSERT INTO "leave_requests" (
+            "organization_id", "employee_id", "leave_type_id", "start_date", "end_date",
+            "working_days", "status", "notes", "approver_id", "decided_at"
+          )
+          VALUES (
+            ${orgId}, ${silviaEmpId}, ${vacTypeId}, '2026-03-02', '2026-03-06',
+            5.00, 'approved', 'Setmana de descans', ${pereEmpId}, '2026-02-20 12:00:00+01'
+          )
+        `;
+      }
+
+      // 9. Seed Time Events with valid Hash Chain (Real Decreto-ley 8/2019)
+      if (laiaEmpId) {
+        let prevHash = "0".repeat(64);
+        const punches = [
+          { type: "clock_in", time: "2026-11-02T08:31:00.000Z" },
+          { type: "break_start", time: "2026-11-02T13:45:00.000Z" },
+          { type: "break_end", time: "2026-11-02T14:40:00.000Z" },
+        ];
+
+        for (const p of punches) {
+          const canonical = JSON.stringify({
+            employeeId: laiaEmpId,
+            eventType: p.type,
+            occurredAt: p.time,
+            prevHash,
+          });
+          const hash = crypto
+            .createHash("sha256")
+            .update(canonical)
+            .digest("hex");
+
+          await tx`
+            INSERT INTO "time_events" (
+              "organization_id", "employee_id", "event_type", "occurred_at", "recorded_at",
+              "source", "actor_id", "prev_hash", "hash"
+            )
+            VALUES (
+              ${orgId}, ${laiaEmpId}, ${p.type}, ${p.time}, ${p.time},
+              'web', ${laiaEmpId}, ${prevHash}, ${hash}
+            )
+          `;
+          prevHash = hash;
+        }
+      }
+
+      // 10. Seed Notifications
+      const martaUserId = userIdByEmail.get("admin@librehr.local");
+      const laiaUserId = userIdByEmail.get("employee@librehr.local");
+
+      if (martaUserId) {
+        await tx`
+          INSERT INTO "notifications" ("organization_id", "user_id", "title", "body", "category", "link", "read")
+          VALUES
+            (${orgId}, ${martaUserId}, 'Nova sol·licitud de vacances', 'Laia Puig ha sol·licitat 1 dia d''assumptes propis.', 'leave_request', '/ca/time-off', false),
+            (${orgId}, ${martaUserId}, 'Informe mensual llest', 'L''exportació per a la gestoria de febrer 2026 ja està disponible.', 'system', '/ca/reports', false),
+            (${orgId}, ${martaUserId}, 'Auditoria d''integritat completada', 'Verificació de cadena SHA-256 de jornada 100% íntegra.', 'system', '/ca/time', true)
+        `;
+      }
+
+      if (laiaUserId) {
+        await tx`
+          INSERT INTO "notifications" ("organization_id", "user_id", "title", "body", "category", "link", "read")
+          VALUES
+            (${orgId}, ${laiaUserId}, 'Vacances aprovades', 'Pere Vila ha aprovat les teves vacances de febrer.', 'leave_decision', '/ca/time-off', true),
+            (${orgId}, ${laiaUserId}, 'Nou document per revisar', 'S''ha publicat l''Acord de Teletreball 2026.', 'system', '/ca/documents', false)
+        `;
+      }
+
+      // 11. Seed Documents (DOC-001)
+      if (laiaEmpId) {
+        await tx`
+          INSERT INTO "documents" ("organization_id", "title", "category", "description", "audience_type", "created_by_id")
+          VALUES
+            (${orgId}, 'Manual del Treballador i Codi de Conducta 2026', 'company_policies', 'Guia general de convivència, beneficis i cultura.', 'company', ${laiaEmpId}),
+            (${orgId}, 'Protocol de Desconnexió Digital i Teletreball', 'company_policies', 'Acord marc regulador del treball a distància.', 'company', ${laiaEmpId}),
+            (${orgId}, 'Calendari Laboral Oficial Catalunya 2026', 'certificates', 'Publicat al DOGC amb festius autonòmics i locals.', 'company', ${laiaEmpId})
+        `;
+      }
+
+      // 12. Seed Holiday Calendar 2026 for Locations
+      for (const loc of locRows) {
+        const calRows = await tx<{ id: string }[]>`
+          INSERT INTO "holiday_calendars" ("organization_id", "location_id", "year")
+          VALUES (${orgId}, ${loc.id}, 2026)
+          ON CONFLICT DO NOTHING
+          RETURNING "id"
+        `;
+
+        if (calRows[0]) {
+          await tx`
+            INSERT INTO "holidays" ("organization_id", "calendar_id", "date", "name", "scope")
+            VALUES 
+              (${orgId}, ${calRows[0].id}, '2026-01-01', 'Cap d''Any', 'national'),
+              (${orgId}, ${calRows[0].id}, '2026-01-06', 'Reis', 'national'),
+              (${orgId}, ${calRows[0].id}, '2026-04-03', 'Divendres Sant', 'national'),
+              (${orgId}, ${calRows[0].id}, '2026-05-01', 'Festa del Treball', 'national'),
+              (${orgId}, ${calRows[0].id}, '2026-06-24', 'Sant Joan', 'regional'),
+              (${orgId}, ${calRows[0].id}, '2026-08-15', 'L''Assumpció', 'national'),
+              (${orgId}, ${calRows[0].id}, '2026-09-11', 'Diada Nacional de Catalunya', 'regional'),
+              (${orgId}, ${calRows[0].id}, '2026-10-12', 'Festa Nacional d''Espanya', 'national'),
+              (${orgId}, ${calRows[0].id}, '2026-12-08', 'La Puríssima', 'national'),
+              (${orgId}, ${calRows[0].id}, '2026-12-25', 'Nadal', 'national')
+          `;
+        }
+      }
+
+      // 13. Seed Default 40h Working Schedule & Rules
       const schedRows = await tx<{ id: string }[]>`
         INSERT INTO "schedules" ("organization_id", "name", "type", "weekly_hours", "minimum_daily_rest_hours", "is_default")
-        VALUES (${orgId}, 'General 40h (Mon-Fri)', 'fixed', 40.00, 12.0, true)
+        VALUES (${orgId}, 'General 40h (Dilluns - Divendres)', 'fixed', 40.00, 12.0, true)
         RETURNING "id"
       `;
 
@@ -179,10 +568,10 @@ export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
         `;
       }
 
-      // 9. Seed Standard Onboarding Checklist Template (ONB-001)
+      // 14. Seed Standard Onboarding Checklist Template
       const onbRows = await tx<{ id: string }[]>`
         INSERT INTO "checklist_templates" ("organization_id", "name", "type", "description")
-        VALUES (${orgId}, 'Standard Employee Onboarding', 'onboarding', 'Essential tasks for welcoming new employees')
+        VALUES (${orgId}, 'Acollida i Onboarding Estàndard', 'onboarding', 'Procés complet d''incorporació de nous companys')
         RETURNING "id"
       `;
 
@@ -191,15 +580,15 @@ export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
         await tx`
           INSERT INTO "checklist_template_tasks" ("organization_id", "template_id", "title", "description", "assigned_role", "due_offset_days", "order_index")
           VALUES
-            (${orgId}, ${onbId}, 'Upload signed employment contract', 'Sign and upload digital contract', 'employee', -3, 0),
-            (${orgId}, ${onbId}, 'Prepare IT workstation and credentials', 'Configure laptop, email, and 2FA', 'admin', -2, 1),
-            (${orgId}, ${onbId}, 'Team introduction and welcome coffee', 'Introduce to manager and direct teammates', 'manager', 0, 2),
-            (${orgId}, ${onbId}, 'Review employee handbook and health & safety policy', 'Read and acknowledge handbook', 'employee', 3, 3)
+            (${orgId}, ${onbId}, 'Signatura digital del contracte laboral', 'Signar el contracte i annex de confidencialitat', 'employee', -3, 0),
+            (${orgId}, ${onbId}, 'Preparació de l''ordinador portàtil i credencials', 'Configurar MacBook/ThinkPad, correu i 2FA', 'admin', -2, 1),
+            (${orgId}, ${onbId}, 'Benvinguda amb l''equip i cafè inicial', 'Presentació als companys i assignació de buddy', 'manager', 0, 2),
+            (${orgId}, ${onbId}, 'Revisió del Manual del Treballador i PRL', 'Llegir i signar recepció de polítiques', 'employee', 3, 3)
         `;
       }
     });
 
-    process.stdout.write("Dev database seeded successfully.\n");
+    process.stdout.write("Realistic dev database seeded successfully.\n");
   } finally {
     await sql.end();
   }
