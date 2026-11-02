@@ -5,7 +5,7 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## [1.2.0] - 2026-11-02
 
-### Statutory Leaves Compliance (Phase A) & Advanced Operational Planning
+### Statutory Leaves, Municipal Calendars & Continuous Shift Systems
 
 - **Spanish Statutory Leave Types (`LEA-001`):** Domain model, database schema, and migration for all 13 canonical statutory absence types under Spanish labour law (Estatuto de los Trabajadores art. 37 and Real Decreto-ley 5/2023):
   - Marriage / Civil Partnership (`ET art. 37.3.a` - 15 calendar days).
@@ -21,9 +21,18 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 - **Statutory Leave Request Metadata & UI Preview:**
   - `leave_types` schema augmented with `requires_attachment`, `legal_reference`, and `description`.
   - Dynamic visual preview in `/time-off/request` rendering paid/unpaid badges, statutory legal references (`ET art. 37.x`), and attachment requirement indicators.
-  - Full trilingual localization (`ca`, `es`, `en`) across all catalogs and UI indicators.
-- **Roadmap Planning for Phases B & C:**
-  - Formalized implementation plans in English in `ROADMAP.md` and `docs/plans/p1-roadmap-implementation-plan.md` for **Phase B: Location-Specific Holiday Calendars & Municipal Holidays (`LEA-003`)** and **Phase C: Shift & Continuous Cycle Working Systems (`TIM-004`, `TIM-005`)**.
+- **Location-Specific Municipal Holiday Calendars (`LEA-003` - Phase B):**
+  - Pure domain resolution engine (`packages/core/src/calendar/statutory-holidays.ts`) supporting 3-tier statutory holiday inheritance: National (8-9 days), Regional Autonomous Community (4 days: CT, MD, VC, AN, PV), and Municipal Town Hall (2 local days: Barcelona, Madrid, Valencia, Sevilla, Bilbao).
+  - API endpoints: `POST /v1/calendar/holidays`, `DELETE /v1/calendar/holidays/:id`, and `POST /v1/calendar/seed-statutory`.
+  - Web UI in `/settings/locations`: Interactive holiday calendar per work center with year selection (2025, 2026, 2027), scope badges (`national`, `regional`, `local`, `company`), 1-click statutory holiday generator, and custom municipal holiday management.
+- **Shift Rosters & Continuous Rotational Systems (`TIM-004`, `TIM-005` - Phase C):**
+  - Rotational continuous cycle engine (`packages/core/src/time/rotational-shifts.ts`) supporting 24/7 continuous operations (e.g., 6x2 continuous cycles: 2 morning, 2 afternoon, 2 night, 2 rest) independent of standard 7-day weekly constraints.
+  - Statutory night work computation (22:00–06:00, Estatuto de los Trabajadores art. 36) for night-shift premium payroll reporting.
+  - Statutory daily rest period verification (minimum 12 consecutive hours between shifts, ET art. 34.3).
+  - Database schema & migration `0013_shift_rotations.sql` creating `shift_templates`, `shift_patterns`, `shift_pattern_steps`, `shift_assignments`, and `shift_swaps` with full RLS tenant isolation.
+  - API endpoints for templates, patterns, assignments, roster generation, and peer-to-peer shift swaps.
+  - Web UI at `/time/shifts`: Interactive monthly roster matrix (employees × days) with colored shift pills (`M`, `T`, `N`, `OFF`), night hours KPI card, 1-click continuous cycle generator, and colleague shift swap request & manager decision workflow.
+  - Trilingual localization (`ca`, `es`, `en`) for all holiday and shift management interfaces.
 
 ## [1.1.0] - 2026-11-02
 

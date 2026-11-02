@@ -135,6 +135,25 @@ export const HolidaySchema = z.object({
 });
 export type Holiday = z.infer<typeof HolidaySchema>;
 
+export const CreateHolidayRequestSchema = z.object({
+  locationId: z.string().uuid(),
+  year: z.number().int().min(2000).max(2100).optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  name: z.string().min(1).max(100),
+  scope: z.enum(["national", "regional", "local", "company"]).default("local"),
+});
+export type CreateHolidayRequest = z.infer<typeof CreateHolidayRequestSchema>;
+
+export const SeedStatutoryHolidaysRequestSchema = z.object({
+  locationId: z.string().uuid(),
+  year: z.number().int().min(2000).max(2100),
+  region: z.string().optional(),
+  city: z.string().optional(),
+});
+export type SeedStatutoryHolidaysRequest = z.infer<
+  typeof SeedStatutoryHolidaysRequestSchema
+>;
+
 export const TeamAbsenceSchema = z.object({
   requestId: z.string().uuid(),
   employeeId: z.string().uuid(),

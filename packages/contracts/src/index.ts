@@ -16,4 +16,5 @@ export * from "./custom-fields.js";
 export * from "./emergency-contacts.js";
 export * from "./org-chart.js";
 export * from "./webhooks.js";
+export * from "./shifts.js";
 export * from "../generated/client.js";

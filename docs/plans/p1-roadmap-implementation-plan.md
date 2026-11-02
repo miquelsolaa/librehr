@@ -199,51 +199,42 @@ All P1 requirements from the PRD and roadmap have been fully implemented, verifi
 
 ---
 
-## Phase B: Location-Specific Holiday Calendars & Municipal Holidays (`LEA-003`) — PLANNED
+## Phase B: Location-Specific Holiday Calendars & Municipal Holidays (`LEA-003`) — COMPLETED
 
 ### 1. Requirements & Scope
 
 - Spain's statutory holiday calendar is split into three levels:
-  - 8–9 National holidays (statewide)
-  - 4 Regional holidays (Autonomous Community, e.g. Catalonia, Madrid, Andalusia)
+  - 8–9 National holidays (statewide).
+  - 4 Regional holidays (Autonomous Community, e.g. Catalonia, Madrid, Valencia, Andalusia, Basque Country).
   - 2 Local / Municipal holidays (established annually by each town hall, e.g., _La Mercè_ in Barcelona, _San Isidro_ in Madrid, _Sant Narcís_ in Girona).
-- Organizations with multiple work centers / locations need distinct local calendars per office so an employee in Barcelona does not have the Madrid local holiday and vice versa.
+- Organizations with multiple work centers / locations have distinct local calendars per office so an employee in Barcelona does not have Madrid local holidays and vice versa.
 
-### 2. Implementation Plan & Deliverables
+### 2. Implementation Deliverables
 
-1. **REST API (`apps/api`):**
-   - `POST /v1/calendar/holidays`: Add a local or company holiday to a location's calendar.
-   - `DELETE /v1/calendar/holidays/:id`: Remove a local holiday.
-2. **Web UI (`apps/web`):**
-   - Management tab or view in `/settings/locations`:
-     - Visual holiday calendar per office.
-     - Year selector.
-     - Tag indicators: National, Regional, Local (Municipal), Company.
-     - Modal to add new local holiday with date, name in 3 languages, and scope.
-3. **Absence Validation Engine (`packages/core`):**
-   - Ensure `validateLeaveRequest` and working day subtraction always fetch the holiday set mapped to the employee's assigned work center (`location_id`).
+- `packages/core/src/calendar/statutory-holidays.ts`: 3-tier statutory resolution engine (`resolveLocationHolidays`, `getNationalHolidays`, `getRegionalHolidays`, `getMunicipalHolidays`).
+- `packages/db/src/repositories/holiday.repository.ts`: Added `deleteHoliday`, `getHolidayById`, and `seedStatutoryHolidays`.
+- `apps/api/src/routes/calendar.ts`: Added `POST /v1/calendar/holidays`, `DELETE /v1/calendar/holidays/:id`, and `POST /v1/calendar/seed-statutory`.
+- `apps/web/src/app/[locale]/(app)/settings/locations/page.tsx`: Location holiday calendar dialog with year selector (2025, 2026, 2027), scope badges (`national`, `regional`, `local`, `company`), 1-click statutory holiday generator, and custom municipal holiday management.
+- Unit and integration tests in `packages/core/test/statutory-holidays.test.ts` and `apps/api/test/shifts.int.test.ts`.
 
 ---
 
-## Phase C: Shift & Continuous Cycle Working Systems (`TIM-004`, `TIM-005`) — PLANNED
+## Phase C: Shift & Continuous Cycle Working Systems (`TIM-004`, `TIM-005`) — COMPLETED
 
 ### 1. Requirements & Scope
 
 - Projects with 24/7 continuous cycles (manufacturing, healthcare, datacenters, critical emergency support) cannot rely on Monday–Sunday fixed weekly hours.
-- Need cyclic rotational shifts (e.g. 6x2, 5x2, 4x3, 5th shift), night work calculation, and colleague shift exchanges.
+- Cyclic rotational shifts (e.g. 6x2: 2 morning, 2 afternoon, 2 night, 2 rest; 4x2; 5x2), night work computation, and colleague shift exchanges.
 
-### 2. Implementation Plan & Deliverables
+### 2. Implementation Deliverables
 
-1. **Domain Engine & Continuous Cycles (`packages/core`):**
-   - Support arbitrary cycle lengths (e.g. 8-day cycle: M-M-T-T-N-N-R-R).
-   - Compute statutory night hours (22:00–06:00, Estatuto de los Trabajadores art. 36) for night-shift premium payroll export.
-   - Rest enforcement: 12-hour minimum rest between workdays (ET art. 34.3) and max 2 consecutive weeks of night shifts.
-2. **Database Schema (`packages/db`):**
-   - Tables for rotational shift templates (`shift_patterns`, `pattern_steps`) and shift rosters (`shift_assignments`).
-   - Shift swap requests table (`shift_swaps`).
-3. **Web UI & Shift Planner Grid (`apps/web`):**
-   - Visual shift roster (employees × days of month) with color-coded shift pills (Morning, Afternoon, Night, Off).
-   - Colleague shift swap request flow with manager approval and automated statutory rest validation.
+- `packages/core/src/time/rotational-shifts.ts`: Rotational cycle resolver (`resolveShiftForDate`), roster generator (`generateRotationalRoster`), statutory night work calculator (22:00–06:00, ET art. 36), and 12-hour minimum rest period validator (ET art. 34.3).
+- `packages/db/src/schema/time.ts` & migration `0013_shift_rotations.sql`: Tables `shift_templates`, `shift_patterns`, `shift_pattern_steps`, `shift_assignments`, and `shift_swaps` with RLS tenant isolation.
+- `packages/db/src/repositories/shift.repository.ts`: Repository for templates, patterns, assignments, and swaps.
+- `packages/contracts/src/shifts.ts`: Zod validation schemas and OpenAPI registration.
+- `apps/api/src/routes/shifts.ts`: Endpoints for templates, patterns, assignments, roster generation, and shift swap workflows.
+- `apps/web/src/app/[locale]/(app)/time/shifts/page.tsx`: Monthly shift roster matrix (employees × days) with colored shift badges (`M`, `T`, `N`, `OFF`), night hours KPI, continuous cycle generator, and shift swap approval tab.
+- Unit and integration tests in `packages/core/test/rotational-shifts.test.ts` and `apps/api/test/shifts.int.test.ts`.
 
 ---
 

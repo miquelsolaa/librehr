@@ -20,3 +20,4 @@ export * from "./custom-field.repository.js";
 export * from "./emergency-contact.repository.js";
 export * from "./sso.repository.js";
 export * from "./webhook.repository.js";
+export * from "./shift.repository.js";

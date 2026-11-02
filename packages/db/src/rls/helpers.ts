@@ -39,6 +39,11 @@ export const TENANT_TABLES = [
   "sso_configurations",
   "document_templates",
   "webhooks",
+  "shift_templates",
+  "shift_patterns",
+  "shift_pattern_steps",
+  "shift_assignments",
+  "shift_swaps",
 ] as const;
 
 export type TenantTable = (typeof TENANT_TABLES)[number];

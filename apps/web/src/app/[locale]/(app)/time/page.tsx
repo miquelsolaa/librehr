@@ -13,6 +13,7 @@ import {
   Coffee,
   Tablet,
   Hourglass,
+  Repeat,
 } from "lucide-react";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
@@ -94,6 +95,13 @@ export default function TimeTrackingPage() {
             <Button variant="outline" className="gap-2">
               <Tablet className="h-4 w-4" />
               {t("kioskTitle")}
+            </Button>
+          </Link>
+
+          <Link href={`/${locale}/time/shifts`}>
+            <Button variant="outline" className="gap-2">
+              <Repeat className="h-4 w-4" />
+              {t("shiftsNav")}
             </Button>
           </Link>
 

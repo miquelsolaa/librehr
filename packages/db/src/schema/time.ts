@@ -9,7 +9,7 @@ import {
   boolean,
   date,
 } from "drizzle-orm/pg-core";
-import { primaryId, organizationIdCol } from "./common.js";
+import { primaryId, organizationIdCol, timestamps } from "./common.js";
 import { organizations } from "./platform.js";
 import { employees } from "./people.js";
 
@@ -200,6 +200,130 @@ export const timeBankRecords = pgTable(
       table.organizationId,
       table.employeeId,
     ),
+  ],
+);
+
+// TIM-004 & TIM-005: Shift rotation templates
+export const shiftTemplates = pgTable(
+  "shift_templates",
+  {
+    id: primaryId(),
+    organizationId: organizationIdCol().references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    name: text("name").notNull(),
+    code: text("code").notNull(), // e.g. M, T, N, OFF
+    type: text("type").notNull().default("morning"), // morning, afternoon, night, rest
+    startTime: text("start_time").notNull(), // "06:00"
+    endTime: text("end_time").notNull(), // "14:00"
+    color: text("color").notNull().default("#3b82f6"),
+    breakMinutes: integer("break_minutes").notNull().default(30),
+    ...timestamps,
+  },
+  (table) => [
+    index("shift_templates_org_idx").on(table.organizationId),
+    index("shift_templates_code_idx").on(table.organizationId, table.code),
+  ],
+);
+
+// TIM-004 & TIM-005: Continuous rotational patterns (e.g. 6x2, 4x2)
+export const shiftPatterns = pgTable(
+  "shift_patterns",
+  {
+    id: primaryId(),
+    organizationId: organizationIdCol().references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    name: text("name").notNull(),
+    cycleDays: integer("cycle_days").notNull().default(8),
+    description: text("description"),
+    ...timestamps,
+  },
+  (table) => [index("shift_patterns_org_idx").on(table.organizationId)],
+);
+
+// TIM-004 & TIM-005: Rotational pattern steps (step 0 to cycleDays - 1)
+export const shiftPatternSteps = pgTable(
+  "shift_pattern_steps",
+  {
+    id: primaryId(),
+    organizationId: organizationIdCol().references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    patternId: uuid("pattern_id")
+      .notNull()
+      .references(() => shiftPatterns.id, { onDelete: "cascade" }),
+    stepOrder: integer("step_order").notNull(),
+    shiftTemplateId: uuid("shift_template_id").references(
+      () => shiftTemplates.id,
+      { onDelete: "set null" },
+    ),
+    isRest: boolean("is_rest").notNull().default(false),
+    ...timestamps,
+  },
+  (table) => [
+    index("shift_pattern_steps_pattern_idx").on(table.patternId),
+    index("shift_pattern_steps_org_idx").on(table.organizationId),
+  ],
+);
+
+// TIM-004 & TIM-005: Scheduled employee shift assignments (roster calendar)
+export const shiftAssignments = pgTable(
+  "shift_assignments",
+  {
+    id: primaryId(),
+    organizationId: organizationIdCol().references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    date: date("date").notNull(),
+    shiftTemplateId: uuid("shift_template_id").references(
+      () => shiftTemplates.id,
+      { onDelete: "set null" },
+    ),
+    status: text("status").notNull().default("scheduled"), // scheduled, confirmed, completed
+    notes: text("notes"),
+    ...timestamps,
+  },
+  (table) => [
+    index("shift_assignments_org_date_idx").on(
+      table.organizationId,
+      table.date,
+    ),
+    index("shift_assignments_emp_date_idx").on(table.employeeId, table.date),
+  ],
+);
+
+// TIM-004: Colleague shift swap requests workflow
+export const shiftSwaps = pgTable(
+  "shift_swaps",
+  {
+    id: primaryId(),
+    organizationId: organizationIdCol().references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    requesterId: uuid("requester_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    targetEmployeeId: uuid("target_employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    requesterDate: date("requester_date").notNull(),
+    targetDate: date("target_date").notNull(),
+    status: text("status").notNull().default("pending"), // pending, approved, rejected, cancelled
+    reason: text("reason"),
+    approverId: uuid("approver_id").references(() => employees.id, {
+      onDelete: "set null",
+    }),
+    decidedAt: timestamp("decided_at", { withTimezone: true, mode: "date" }),
+    ...timestamps,
+  },
+  (table) => [
+    index("shift_swaps_org_idx").on(table.organizationId),
+    index("shift_swaps_requester_idx").on(table.requesterId),
+    index("shift_swaps_target_idx").on(table.targetEmployeeId),
   ],
 );
 

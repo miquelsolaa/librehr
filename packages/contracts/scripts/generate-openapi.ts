@@ -1272,12 +1272,26 @@ import type {
   DecideLeaveRequest,
   AdjustBalanceRequest,
   Holiday,
+  CreateHolidayRequest,
+  SeedStatutoryHolidaysRequest,
   TeamAbsence,
   BlackoutPeriod,
   CreateBlackoutPeriod,
   ApprovalDelegation,
   CreateApprovalDelegation,
 } from '../src/leave.js';
+import type {
+  ShiftTemplate,
+  CreateShiftTemplateRequest,
+  ShiftPattern,
+  CreateShiftPatternRequest,
+  ShiftAssignment,
+  AssignShiftsRequest,
+  GenerateRosterRequest,
+  ShiftSwap,
+  CreateShiftSwapRequest,
+  DecideShiftSwapRequest,
+} from '../src/shifts.js';
 import type {
   NotificationListResponse,
 } from '../src/notifications.js';
@@ -1559,6 +1573,91 @@ export class LibreHrApiClient {
 
   async listHolidays(params: { locationId: string; year: number }): Promise<Holiday[]> {
     return this.request<Holiday[]>(\`/v1/calendar/holidays?locationId=\${params.locationId}&year=\${params.year}\`);
+  }
+
+  async createHoliday(data: CreateHolidayRequest): Promise<Holiday> {
+    return this.request<Holiday>('/v1/calendar/holidays', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteHoliday(id: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(\`/v1/calendar/holidays/\${id}\`, {
+      method: 'DELETE',
+    });
+  }
+
+  async seedStatutoryHolidays(data: SeedStatutoryHolidaysRequest): Promise<Holiday[]> {
+    return this.request<Holiday[]>('/v1/calendar/seed-statutory', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Shifts & Rotational Working Systems (TIM-004, TIM-005)
+  async listShiftTemplates(): Promise<ShiftTemplate[]> {
+    return this.request<ShiftTemplate[]>('/v1/shifts/templates');
+  }
+
+  async createShiftTemplate(data: CreateShiftTemplateRequest): Promise<ShiftTemplate> {
+    return this.request<ShiftTemplate>('/v1/shifts/templates', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async listShiftPatterns(): Promise<ShiftPattern[]> {
+    return this.request<ShiftPattern[]>('/v1/shifts/patterns');
+  }
+
+  async createShiftPattern(data: CreateShiftPatternRequest): Promise<ShiftPattern> {
+    return this.request<ShiftPattern>('/v1/shifts/patterns', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async listShiftAssignments(params?: { startDate?: string; endDate?: string; employeeId?: string }): Promise<ShiftAssignment[]> {
+    const sp = new URLSearchParams();
+    if (params?.startDate) sp.set('startDate', params.startDate);
+    if (params?.endDate) sp.set('endDate', params.endDate);
+    if (params?.employeeId) sp.set('employeeId', params.employeeId);
+    const qs = sp.toString();
+    return this.request<ShiftAssignment[]>(\`/v1/shifts/assignments\${qs ? '?' + qs : ''}\`);
+  }
+
+  async assignShifts(data: AssignShiftsRequest): Promise<{ success: boolean; count: number }> {
+    return this.request<{ success: boolean; count: number }>('/v1/shifts/assignments', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async generateShiftRoster(data: GenerateRosterRequest): Promise<{ count: number; daysGenerated: number }> {
+    return this.request<{ count: number; daysGenerated: number }>('/v1/shifts/generate-roster', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async listShiftSwaps(params?: { status?: string }): Promise<ShiftSwap[]> {
+    const qs = params?.status ? \`?status=\${params.status}\` : '';
+    return this.request<ShiftSwap[]>(\`/v1/shifts/swaps\${qs}\`);
+  }
+
+  async createShiftSwap(data: CreateShiftSwapRequest): Promise<ShiftSwap> {
+    return this.request<ShiftSwap>('/v1/shifts/swaps', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async decideShiftSwap(id: string, data: DecideShiftSwapRequest): Promise<ShiftSwap> {
+    return this.request<ShiftSwap>(\`/v1/shifts/swaps/\${id}\`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
   }
 
   async listTeamAbsences(params: { startDate: string; endDate: string; departmentId?: string }): Promise<TeamAbsence[]> {

@@ -535,7 +535,7 @@ export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
         `;
       }
 
-      // 12. Seed Holiday Calendar 2026 for Locations
+      // 12. Seed Statutory Location-Specific Holiday Calendars (LEA-003)
       for (const loc of locRows) {
         const calRows = await tx<{ id: string }[]>`
           INSERT INTO "holiday_calendars" ("organization_id", "location_id", "year")
@@ -545,24 +545,125 @@ export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
         `;
 
         if (calRows[0]) {
+          const calId = calRows[0].id;
+
+          // Common National Holidays (Statewide)
           await tx`
             INSERT INTO "holidays" ("organization_id", "calendar_id", "date", "name", "scope")
-            VALUES 
-              (${orgId}, ${calRows[0].id}, '2026-01-01', 'Cap d''Any', 'national'),
-              (${orgId}, ${calRows[0].id}, '2026-01-06', 'Reis', 'national'),
-              (${orgId}, ${calRows[0].id}, '2026-04-03', 'Divendres Sant', 'national'),
-              (${orgId}, ${calRows[0].id}, '2026-05-01', 'Festa del Treball', 'national'),
-              (${orgId}, ${calRows[0].id}, '2026-06-24', 'Sant Joan', 'regional'),
-              (${orgId}, ${calRows[0].id}, '2026-08-15', 'L''Assumpció', 'national'),
-              (${orgId}, ${calRows[0].id}, '2026-09-11', 'Diada Nacional de Catalunya', 'regional'),
-              (${orgId}, ${calRows[0].id}, '2026-10-12', 'Festa Nacional d''Espanya', 'national'),
-              (${orgId}, ${calRows[0].id}, '2026-12-08', 'La Puríssima', 'national'),
-              (${orgId}, ${calRows[0].id}, '2026-12-25', 'Nadal', 'national')
+            VALUES
+              (${orgId}, ${calId}, '2026-01-01', 'Cap d''Any / Año Nuevo', 'national'),
+              (${orgId}, ${calId}, '2026-01-06', 'Reis / Epifanía del Señor', 'national'),
+              (${orgId}, ${calId}, '2026-04-03', 'Divendres Sant / Viernes Santo', 'national'),
+              (${orgId}, ${calId}, '2026-05-01', 'Festa del Treball / Fiesta del Trabajo', 'national'),
+              (${orgId}, ${calId}, '2026-08-15', 'L''Assumpció / Asunción de la Virgen', 'national'),
+              (${orgId}, ${calId}, '2026-10-12', 'Festa Nacional d''Espanya / Fiesta Nacional', 'national'),
+              (${orgId}, ${calId}, '2026-11-01', 'Tots Sants / Todos los Santos', 'national'),
+              (${orgId}, ${calId}, '2026-12-06', 'Dia de la Constitució / Día de la Constitución', 'national'),
+              (${orgId}, ${calId}, '2026-12-08', 'La Puríssima / Inmaculada Concepción', 'national'),
+              (${orgId}, ${calId}, '2026-12-25', 'Nadal / Natividad del Señor', 'national')
           `;
+
+          if (loc.name.includes("Barcelona")) {
+            // Regional (Catalunya) + Local Municipal (Barcelona)
+            await tx`
+              INSERT INTO "holidays" ("organization_id", "calendar_id", "date", "name", "scope")
+              VALUES
+                (${orgId}, ${calId}, '2026-04-06', 'Dilluns de Pasqua', 'regional'),
+                (${orgId}, ${calId}, '2026-05-25', 'Segona Pasqua / Pasqua Granada', 'local'),
+                (${orgId}, ${calId}, '2026-06-24', 'Sant Joan', 'regional'),
+                (${orgId}, ${calId}, '2026-09-11', 'Diada Nacional de Catalunya', 'regional'),
+                (${orgId}, ${calId}, '2026-09-24', 'Mare de Déu de la Mercè', 'local'),
+                (${orgId}, ${calId}, '2026-12-26', 'Sant Esteve', 'regional')
+            `;
+          } else if (loc.name.includes("Madrid")) {
+            // Regional (Comunidad de Madrid) + Local Municipal (Madrid)
+            await tx`
+              INSERT INTO "holidays" ("organization_id", "calendar_id", "date", "name", "scope")
+              VALUES
+                (${orgId}, ${calId}, '2026-04-02', 'Jueves Santo', 'regional'),
+                (${orgId}, ${calId}, '2026-05-02', 'Fiesta de la Comunidad de Madrid', 'regional'),
+                (${orgId}, ${calId}, '2026-05-15', 'San Isidro Labrador', 'local'),
+                (${orgId}, ${calId}, '2026-07-25', 'Santiago Apóstol', 'regional'),
+                (${orgId}, ${calId}, '2026-11-09', 'Virgen de la Almudena', 'local')
+            `;
+          }
         }
       }
 
-      // 13. Seed Default 40h Working Schedule & Rules
+      // 13. Seed Shift Templates, Continuous 6x2 Pattern, and Roster (TIM-004, TIM-005)
+      const mShift = await tx<{ id: string }[]>`
+        INSERT INTO "shift_templates" ("organization_id", "name", "code", "type", "start_time", "end_time", "color", "break_minutes")
+        VALUES (${orgId}, 'Morning (Matí / Mañana)', 'M', 'morning', '06:00', '14:00', '#f59e0b', 30)
+        RETURNING "id"
+      `;
+      const tShift = await tx<{ id: string }[]>`
+        INSERT INTO "shift_templates" ("organization_id", "name", "code", "type", "start_time", "end_time", "color", "break_minutes")
+        VALUES (${orgId}, 'Afternoon (Tarda / Tarde)', 'T', 'afternoon', '14:00', '22:00', '#3b82f6', 30)
+        RETURNING "id"
+      `;
+      const nShift = await tx<{ id: string }[]>`
+        INSERT INTO "shift_templates" ("organization_id", "name", "code", "type", "start_time", "end_time", "color", "break_minutes")
+        VALUES (${orgId}, 'Night (Nit / Noche)', 'N', 'night', '22:00', '06:00', '#6366f1', 30)
+        RETURNING "id"
+      `;
+
+      const mId = mShift[0]!.id;
+      const tId = tShift[0]!.id;
+      const nId = nShift[0]!.id;
+
+      const patternRows = await tx<{ id: string }[]>`
+        INSERT INTO "shift_patterns" ("organization_id", "name", "cycle_days", "description")
+        VALUES (${orgId}, 'Continuous 6x2 (M-M-T-T-N-N-D-D)', 8, 'Rotational continuous 24/7 cycle with 2 morning, 2 afternoon, 2 night and 2 rest days')
+        RETURNING "id"
+      `;
+
+      if (patternRows[0]) {
+        const patId = patternRows[0].id;
+        await tx`
+          INSERT INTO "shift_pattern_steps" ("organization_id", "pattern_id", "step_order", "shift_template_id", "is_rest")
+          VALUES
+            (${orgId}, ${patId}, 0, ${mId}, false),
+            (${orgId}, ${patId}, 1, ${mId}, false),
+            (${orgId}, ${patId}, 2, ${tId}, false),
+            (${orgId}, ${patId}, 3, ${tId}, false),
+            (${orgId}, ${patId}, 4, ${nId}, false),
+            (${orgId}, ${patId}, 5, ${nId}, false),
+            (${orgId}, ${patId}, 6, null, true),
+            (${orgId}, ${patId}, 7, null, true)
+        `;
+
+        // Seed shift assignments for dev employees for November 2026
+        const empIds = Array.from(empIdByEmail.values());
+        const emp1 = empIds[0];
+        const emp2 = empIds[1];
+
+        if (emp1) {
+          const shiftSeq = [mId, mId, tId, tId, nId, nId, null, null];
+          for (let day = 1; day <= 28; day++) {
+            const dateStr = `2026-11-${String(day).padStart(2, "0")}`;
+            const stepShift = shiftSeq[(day - 1) % 8];
+            await tx`
+              INSERT INTO "shift_assignments" ("organization_id", "employee_id", "date", "shift_template_id", "status")
+              VALUES (${orgId}, ${emp1}, ${dateStr}::date, ${stepShift ?? null}, 'confirmed')
+            `;
+          }
+        }
+
+        if (emp2) {
+          // Staggered by 4 days
+          const shiftSeq = [nId, nId, null, null, mId, mId, tId, tId];
+          for (let day = 1; day <= 28; day++) {
+            const dateStr = `2026-11-${String(day).padStart(2, "0")}`;
+            const stepShift = shiftSeq[(day - 1) % 8];
+            await tx`
+              INSERT INTO "shift_assignments" ("organization_id", "employee_id", "date", "shift_template_id", "status")
+              VALUES (${orgId}, ${emp2}, ${dateStr}::date, ${stepShift ?? null}, 'confirmed')
+            `;
+          }
+        }
+      }
+
+      // 14. Seed Default 40h Working Schedule & Rules
       const schedRows = await tx<{ id: string }[]>`
         INSERT INTO "schedules" ("organization_id", "name", "type", "weekly_hours", "minimum_daily_rest_hours", "is_default")
         VALUES (${orgId}, 'General 40h (Dilluns - Divendres)', 'fixed', 40.00, 12.0, true)

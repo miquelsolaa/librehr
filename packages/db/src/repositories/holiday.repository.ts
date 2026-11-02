@@ -87,4 +87,59 @@ export class HolidayRepository {
     `;
     return rows[0]!;
   }
+
+  async getHolidayById(
+    tx: TenantTx,
+    holidayId: string,
+  ): Promise<HolidayRow | null> {
+    const rows = await tx<HolidayRow[]>`
+      SELECT id, organization_id as "organizationId", calendar_id as "calendarId",
+             date::text as "date", name, scope,
+             created_at as "createdAt", updated_at as "updatedAt"
+      FROM holidays
+      WHERE id = ${holidayId}
+      LIMIT 1
+    `;
+    return rows[0] ?? null;
+  }
+
+  async deleteHoliday(tx: TenantTx, holidayId: string): Promise<boolean> {
+    const result = await tx`
+      DELETE FROM holidays
+      WHERE id = ${holidayId}
+    `;
+    return result.count > 0;
+  }
+
+  async seedStatutoryHolidays(
+    tx: TenantTx,
+    locationId: string,
+    year: number,
+    holidays: Array<{ date: string; name: string; scope: string }>,
+  ): Promise<HolidayRow[]> {
+    const calendarId = await this.ensureCalendarForLocation(
+      tx,
+      locationId,
+      year,
+    );
+
+    // Delete existing holidays for that calendar to re-seed cleanly
+    await tx`
+      DELETE FROM holidays
+      WHERE calendar_id = ${calendarId}
+    `;
+
+    const inserted: HolidayRow[] = [];
+    for (const h of holidays) {
+      const row = await this.createHoliday(tx, {
+        calendarId,
+        date: h.date,
+        name: h.name,
+        scope: h.scope,
+      });
+      inserted.push(row);
+    }
+
+    return inserted;
+  }
 }

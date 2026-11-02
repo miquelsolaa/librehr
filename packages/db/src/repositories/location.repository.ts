@@ -52,6 +52,18 @@ export class LocationRepository {
     `;
   }
 
+  async findById(tx: TenantTx, id: string): Promise<LocationRow | null> {
+    const rows = await tx<LocationRow[]>`
+      SELECT id, organization_id as "organizationId", legal_entity_id as "legalEntityId",
+             name, country, region, city, timezone,
+             created_at as "createdAt", updated_at as "updatedAt"
+      FROM locations
+      WHERE id = ${id}
+      LIMIT 1
+    `;
+    return rows[0] ?? null;
+  }
+
   async createLocation(
     tx: TenantTx,
     data: CreateLocationData,
