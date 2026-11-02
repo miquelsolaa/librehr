@@ -14,3 +14,5 @@ export * from "./time-correction.repository.js";
 export * from "./document.repository.js";
 export * from "./checklist.repository.js";
 export * from "./dsr.repository.js";
+export * from "./token.repository.js";
+export * from "./report.repository.js";

@@ -1,6 +1,8 @@
 import {
   pgTable,
   text,
+  varchar,
+  jsonb,
   boolean,
   timestamp,
   uuid,
@@ -93,8 +95,27 @@ export const invitations = pgTable(
   ],
 );
 
-// TODO(ADM-006): API Personal Access Tokens table
-export const apiTokensStub = {
-  table: "api_tokens",
-  requirementId: "ADM-006",
-};
+export const personalAccessTokens = pgTable(
+  "personal_access_tokens",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 255 }).notNull(),
+    tokenHash: varchar("token_hash", { length: 64 }).notNull(), // sha256 hex
+    prefix: varchar("prefix", { length: 16 }).notNull(), // e.g. lhr_live_...
+    scopes: jsonb("scopes").$type<string[]>().notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true, mode: "date" }),
+    ...timestamps,
+  },
+  (table) => [
+    index("pat_org_idx").on(table.organizationId),
+    index("pat_user_idx").on(table.userId),
+    index("pat_token_hash_idx").on(table.tokenHash),
+  ],
+);

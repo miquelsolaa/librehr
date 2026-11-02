@@ -28,6 +28,7 @@ export const TENANT_TABLES = [
   "checklist_instances",
   "checklist_tasks",
   "audit_log",
+  "personal_access_tokens",
 ] as const;
 
 export type TenantTable = (typeof TENANT_TABLES)[number];
