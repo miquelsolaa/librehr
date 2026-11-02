@@ -10,7 +10,7 @@
     "@librehr/emails": "workspace:*",
     "@react-email/render": "^1.0.5",
     "nodemailer": "^6.10.0",
-    "pg-boss": "^10.1.5",
+    "pg-boss": "^12.38.0",
     "pino": "^9.6.0",
     "pino-pretty": "^13.0.0",
     "react": "^19.0.0",
