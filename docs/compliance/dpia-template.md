@@ -2,7 +2,7 @@
 
 _(Article 35 GDPR - High-Risk Processing & Employee Monitoring)_
 
-**System:** OpenHR Human Resources Information System  
+**System:** LibreHR Human Resources Information System  
 **Organization:** [Organization Name]  
 **Lead Evaluator:** [DPO or Security Officer]  
 **Date of Assessment:** 2026-11-01
@@ -11,11 +11,11 @@ _(Article 35 GDPR - High-Risk Processing & Employee Monitoring)_
 
 ## 1. Description of the Processing
 
-OpenHR processes personal and employment data of employees for workforce management, leave requests, and legally mandated time tracking (registro de jornada).
+LibreHR processes personal and employment data of employees for workforce management, leave requests, and legally mandated time tracking (registro de jornada).
 
 ### Scope and Boundaries
 
-- **Employee Monitoring:** OpenHR records entry and exit timestamps. It **does not** perform keystroke logging, screen capture, continuous webcam surveillance, or real-time GPS tracking.
+- **Employee Monitoring:** LibreHR records entry and exit timestamps. It **does not** perform keystroke logging, screen capture, continuous webcam surveillance, or real-time GPS tracking.
 - **Biometric Ban:** In compliance with the AEPD Guide on Biometric Control (Nov 2023), biometric authentication (fingerprints, facial recognition) is prohibited. Authentication is password-based with optional WebAuthn security keys.
 - **Special Category Data:** Health diagnoses are banned. Only coarse absence classifications (`sick_leave`, `maternity`) are stored.
 
@@ -36,4 +36,4 @@ OpenHR processes personal and employment data of employees for workforce managem
 
 ## 4. DPO Opinion & Approval
 
-The DPO has reviewed OpenHR's architecture, including its zero-telemetry policy, self-hosted deployment options, and strict RLS isolation. The system is deemed compliant with GDPR and LOPDGDD.
+The DPO has reviewed LibreHR's architecture, including its zero-telemetry policy, self-hosted deployment options, and strict RLS isolation. The system is deemed compliant with GDPR and LOPDGDD.

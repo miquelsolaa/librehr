@@ -1,6 +1,6 @@
-# Self-Hosting OpenHR
+# Self-Hosting LibreHR
 
-OpenHR is designed to be easily self-hostable on any standard Linux server, VPS, or cloud instance running Docker.
+LibreHR is designed to be easily self-hostable on any standard Linux server, VPS, or cloud instance running Docker.
 
 ## System Requirements
 
@@ -17,8 +17,8 @@ OpenHR is designed to be easily self-hostable on any standard Linux server, VPS,
 1. **Clone the repository:**
 
    ```bash
-   git clone https://github.com/openhr-project/openhr.git
-   cd openhr
+   git clone https://github.com/miquelsolaa/librehr.git
+   cd librehr
    ```
 
 2. **Configure environment:**

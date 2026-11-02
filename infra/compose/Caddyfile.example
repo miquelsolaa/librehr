@@ -1,4 +1,4 @@
-# OpenHR Production Caddy Reverse Proxy Example
+# LibreHR Production Caddy Reverse Proxy Example
 # Replace {$DOMAIN} with your actual production FQDN, e.g. hr.company.com
 
 {$DOMAIN:localhost} {

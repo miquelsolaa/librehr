@@ -1,6 +1,6 @@
 # Internationalization and Translation Guide
 
-OpenHR natively supports three initial languages:
+LibreHR natively supports three initial languages:
 
 - **Catalan (`ca`)** (Default locale)
 - **Spanish (`es`)**

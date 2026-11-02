@@ -1,6 +1,6 @@
 # Adding a Holiday Calendar
 
-OpenHR supports location-specific and regional public holiday calendars.
+LibreHR supports location-specific and regional public holiday calendars.
 
 ## 1. Domain Types (`packages/core/src/calendar/holidays.ts`)
 

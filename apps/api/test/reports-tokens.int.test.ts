@@ -40,7 +40,7 @@ describe("Milestone M5 API Integration Tests (RPT-001, RPT-002, ADM-006, LEA-009
   const orgId = "00000000-0000-0000-0000-000000000001";
   const adminUser: AuthUser = {
     id: "11111111-1111-1111-1111-111111111111",
-    email: "admin@openhr.test",
+    email: "admin@librehr.test",
     name: "Admin User",
     role: "admin",
     organizationId: orgId,
@@ -48,7 +48,7 @@ describe("Milestone M5 API Integration Tests (RPT-001, RPT-002, ADM-006, LEA-009
 
   const staffUser: AuthUser = {
     id: "22222222-2222-2222-2222-222222222222",
-    email: "staff@openhr.test",
+    email: "staff@librehr.test",
     name: "Staff User",
     role: "employee",
     organizationId: orgId,

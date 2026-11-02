@@ -30,7 +30,7 @@ If the breach presents a **high risk**, affected individuals must also be notifi
        │
        ▼
 [ Hour 4 to 24: Forensic Analysis & Assessment ]
-  • Query OpenHR tamper-evident audit logs (`audit_log` table) using transaction IDs.
+  • Query LibreHR tamper-evident audit logs (`audit_log` table) using transaction IDs.
   • Determine exact number of compromised records and whether encrypted fields (DNI, IBAN) were decrypted.
   • DPO conducts risk severity assessment using ENISA methodology.
        │
@@ -47,7 +47,7 @@ If the breach presents a **high risk**, affected individuals must also be notifi
 
 ---
 
-## 4. OpenHR Forensic Investigation Queries
+## 4. LibreHR Forensic Investigation Queries
 
 In the event of suspected unauthorized access, run the following queries under an isolated forensic database session:
 

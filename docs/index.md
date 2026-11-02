@@ -1,6 +1,6 @@
-# OpenHR Documentation Index
+# LibreHR Documentation Index
 
-Welcome to the OpenHR documentation repository.
+Welcome to the LibreHR documentation repository.
 
 ## Architecture and System Design
 

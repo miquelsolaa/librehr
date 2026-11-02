@@ -15,12 +15,12 @@ RUN pnpm --filter @librehr/api build
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 openhr
-USER openhr
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 librehr
+USER librehr
 
-COPY --from=builder --chown=openhr:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=openhr:nodejs /app/packages ./packages
-COPY --from=builder --chown=openhr:nodejs /app/apps/api ./apps/api
+COPY --from=builder --chown=librehr:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=librehr:nodejs /app/packages ./packages
+COPY --from=builder --chown=librehr:nodejs /app/apps/api ./apps/api
 
 EXPOSE 3001
 ENV PORT=3001

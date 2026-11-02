@@ -118,7 +118,7 @@ Custom 24×24 grid, 1.75 stroke, rounded cap icons matching Lucide design langua
   - Navigation / header: 32×32 px.
   - Lockup with wordmark: minimum height 28 px.
 - **Do's:**
-  - Always use the official SVGs or `@openhr/ui` React icon components (`<LibreHRMark />`, `<LibreHRLogo />`).
+  - Always use the official SVGs or `@librehr/ui` React icon components (`<LibreHRMark />`, `<LibreHRLogo />`).
   - Ensure high contrast: use Mediterranean Pine on light backgrounds and Luminous Sage on dark backgrounds.
 - **Don'ts:**
   - Do not rotate the arc; the aperture must always face the upper-right meridian.

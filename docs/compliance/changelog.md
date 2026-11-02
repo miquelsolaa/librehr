@@ -1,6 +1,6 @@
 # Compliance and Legal Changelog
 
-All legal and regulatory revisions affecting OpenHR are tracked here.
+All legal and regulatory revisions affecting LibreHR are tracked here.
 
 ## [2026-11-01] - Milestone M0 Baseline
 

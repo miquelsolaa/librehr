@@ -1,13 +1,13 @@
-# Upgrading OpenHR
+# Upgrading LibreHR
 
-All OpenHR database migrations are designed to be forward-only and safe to run on populated production databases without downtime.
+All LibreHR database migrations are designed to be forward-only and safe to run on populated production databases without downtime.
 
 ## Standard Upgrade Workflow
 
 1. **Create a fresh pre-upgrade backup:**
 
    ```bash
-   ./infra/scripts/backup.sh /var/backups/openhr
+   ./infra/scripts/backup.sh /var/backups/librehr
    ```
 
 2. **Pull latest release / code:**
@@ -24,7 +24,7 @@ All OpenHR database migrations are designed to be forward-only and safe to run o
    pnpm db:migrate
    ```
 
-   _Note: OpenHR migrations use PostgreSQL advisory locks to guarantee that multiple concurrent instances will not execute duplicate migrations simultaneously._
+   _Note: LibreHR migrations use PostgreSQL advisory locks to guarantee that multiple concurrent instances will not execute duplicate migrations simultaneously._
 
 4. **Restart services:**
 
