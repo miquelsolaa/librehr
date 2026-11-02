@@ -146,3 +146,10 @@ export const RevealFieldResponseSchema = z.object({
   value: z.string().nullable(),
 });
 export type RevealFieldResponse = z.infer<typeof RevealFieldResponseSchema>;
+
+export const SelfServiceUpdateSchema = z.object({
+  preferredName: z.string().nullable().optional(),
+  phone: z.string().nullable().optional(),
+  address: z.string().nullable().optional(),
+});
+export type SelfServiceUpdate = z.infer<typeof SelfServiceUpdateSchema>;

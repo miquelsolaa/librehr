@@ -197,90 +197,106 @@ export default function PeoplePage() {
           <p className="text-sm text-muted-foreground">{t("description")}</p>
         </div>
 
-        <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <UserPlus className="h-4 w-4" />
-              <span>{t("inviteEmployee")}</span>
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{tInvites("dialogTitle")}</DialogTitle>
-              <DialogDescription>
-                {tInvites("dialogDescription")}
-              </DialogDescription>
-            </DialogHeader>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center rounded-btn border border-border bg-surface p-1">
+            <span className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-sm">
+              Directory
+            </span>
+            <Link
+              href={`/${locale}/people/org-chart`}
+              className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Org Chart
+            </Link>
+          </div>
 
-            {inviteSuccess ? (
-              <div className="rounded-card bg-emerald-500/10 p-4 text-center text-sm font-medium text-emerald-600 dark:text-emerald-400">
-                {tInvites("inviteSent")}
-              </div>
-            ) : (
-              <form onSubmit={handleSendInvite} className="space-y-4">
-                {inviteError && (
-                  <div className="rounded-card bg-destructive/10 p-3 text-sm text-destructive">
-                    {inviteError}
+          <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <UserPlus className="h-4 w-4" />
+                <span>{t("inviteEmployee")}</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{tInvites("dialogTitle")}</DialogTitle>
+                <DialogDescription>
+                  {tInvites("dialogDescription")}
+                </DialogDescription>
+              </DialogHeader>
+
+              {inviteSuccess ? (
+                <div className="rounded-card bg-emerald-500/10 p-4 text-center text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                  {tInvites("inviteSent")}
+                </div>
+              ) : (
+                <form onSubmit={handleSendInvite} className="space-y-4">
+                  {inviteError && (
+                    <div className="rounded-card bg-destructive/10 p-3 text-sm text-destructive">
+                      {inviteError}
+                    </div>
+                  )}
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="invite-email"
+                      className="text-xs font-medium text-foreground"
+                    >
+                      {tInvites("emailLabel")}
+                    </label>
+                    <Input
+                      id="invite-email"
+                      type="email"
+                      required
+                      placeholder="colleague@company.com"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                    />
                   </div>
-                )}
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor="invite-email"
-                    className="text-xs font-medium text-foreground"
-                  >
-                    {tInvites("emailLabel")}
-                  </label>
-                  <Input
-                    id="invite-email"
-                    type="email"
-                    required
-                    placeholder="colleague@company.com"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                  />
-                </div>
 
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor="invite-role"
-                    className="text-xs font-medium text-foreground"
-                  >
-                    {tInvites("roleLabel")}
-                  </label>
-                  <select
-                    id="invite-role"
-                    className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-                    value={inviteRole}
-                    onChange={(e) =>
-                      setInviteRole(
-                        e.target.value as "employee" | "manager" | "admin",
-                      )
-                    }
-                  >
-                    <option value="employee">{tInvites("roleEmployee")}</option>
-                    <option value="manager">{tInvites("roleManager")}</option>
-                    <option value="admin">{tInvites("roleAdmin")}</option>
-                  </select>
-                </div>
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="invite-role"
+                      className="text-xs font-medium text-foreground"
+                    >
+                      {tInvites("roleLabel")}
+                    </label>
+                    <select
+                      id="invite-role"
+                      className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                      value={inviteRole}
+                      onChange={(e) =>
+                        setInviteRole(
+                          e.target.value as "employee" | "manager" | "admin",
+                        )
+                      }
+                    >
+                      <option value="employee">
+                        {tInvites("roleEmployee")}
+                      </option>
+                      <option value="manager">{tInvites("roleManager")}</option>
+                      <option value="admin">{tInvites("roleAdmin")}</option>
+                    </select>
+                  </div>
 
-                <DialogFooter>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setInviteOpen(false)}
-                  >
-                    {tCommon("cancel")}
-                  </Button>
-                  <Button type="submit" disabled={inviteSending}>
-                    {inviteSending
-                      ? tCommon("loading")
-                      : tInvites("sendInvite")}
-                  </Button>
-                </DialogFooter>
-              </form>
-            )}
-          </DialogContent>
-        </Dialog>
+                  <DialogFooter>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setInviteOpen(false)}
+                    >
+                      {tCommon("cancel")}
+                    </Button>
+                    <Button type="submit" disabled={inviteSending}>
+                      {inviteSending
+                        ? tCommon("loading")
+                        : tInvites("sendInvite")}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              )}
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Filter and Search Bar */}

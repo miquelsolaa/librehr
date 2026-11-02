@@ -123,3 +123,92 @@ export function buildHierarchyTree<T extends ReportingNode>(
 
   return rootNodes;
 }
+
+export interface FlatEmployeeOrgItem {
+  id: string;
+  name: string;
+  preferredName: string | null;
+  email: string;
+  jobTitle: string | null;
+  departmentId: string | null;
+  departmentName: string | null;
+  locationName: string | null;
+  managerId: string | null;
+}
+
+export interface OrgChartNode {
+  id: string;
+  name: string;
+  preferredName: string | null;
+  email: string;
+  jobTitle: string | null;
+  departmentId: string | null;
+  departmentName: string | null;
+  locationName: string | null;
+  managerId: string | null;
+  directReportsCount: number;
+  totalTeamCount: number;
+  directReports: OrgChartNode[];
+}
+
+export function buildOrgChart(items: readonly FlatEmployeeOrgItem[]): {
+  roots: OrgChartNode[];
+  totalEmployees: number;
+} {
+  const nodeMap = new Map<string, OrgChartNode>();
+  const childrenMap = new Map<string, string[]>();
+
+  for (const item of items) {
+    nodeMap.set(item.id, {
+      ...item,
+      directReportsCount: 0,
+      totalTeamCount: 0,
+      directReports: [],
+    });
+    if (item.managerId) {
+      const arr = childrenMap.get(item.managerId) ?? [];
+      arr.push(item.id);
+      childrenMap.set(item.managerId, arr);
+    }
+  }
+
+  const roots: OrgChartNode[] = [];
+
+  for (const item of items) {
+    const node = nodeMap.get(item.id)!;
+    if (!item.managerId || !nodeMap.has(item.managerId)) {
+      roots.push(node);
+    }
+  }
+
+  function populateNode(node: OrgChartNode, visited: Set<string>): number {
+    if (visited.has(node.id)) return 0;
+    visited.add(node.id);
+
+    const childIds = childrenMap.get(node.id) ?? [];
+    node.directReportsCount = childIds.length;
+    let totalDescendants = 0;
+
+    for (const childId of childIds) {
+      const childNode = nodeMap.get(childId);
+      if (childNode) {
+        node.directReports.push(childNode);
+        const subCount = populateNode(childNode, visited);
+        totalDescendants += 1 + subCount;
+      }
+    }
+
+    node.totalTeamCount = totalDescendants;
+    return totalDescendants;
+  }
+
+  const globalVisited = new Set<string>();
+  for (const root of roots) {
+    populateNode(root, globalVisited);
+  }
+
+  return {
+    roots,
+    totalEmployees: items.length,
+  };
+}

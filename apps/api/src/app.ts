@@ -35,6 +35,7 @@ import { createEmployeeImportRoutes } from "./routes/employee-import.js";
 import { createDsrRoutes } from "./routes/dsr.js";
 import { createReportRoutes } from "./routes/reports.js";
 import { createTokenRoutes } from "./routes/tokens.js";
+import { createCustomFieldRoutes } from "./routes/custom-fields.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -107,6 +108,7 @@ export function createApp(deps: AppDependencies) {
   app.route("/v1", createDsrRoutes(deps.sql));
   app.route("/v1", createReportRoutes(deps.sql));
   app.route("/v1", createTokenRoutes(deps.sql));
+  app.route("/v1", createCustomFieldRoutes(deps.sql));
 
   // 5. RFC 9457 Problem Details Error Handler
   app.onError(errorHandler);

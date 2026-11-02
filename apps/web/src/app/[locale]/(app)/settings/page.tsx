@@ -3,7 +3,13 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Building2, MapPin, KeyRound, ChevronRight } from "lucide-react";
+import {
+  Building2,
+  MapPin,
+  KeyRound,
+  Sliders,
+  ChevronRight,
+} from "lucide-react";
 
 export default function SettingsPage() {
   const params = useParams();
@@ -29,6 +35,12 @@ export default function SettingsPage() {
       description: t("tokensDescription"),
       href: `/${locale}/settings/tokens`,
       icon: <KeyRound className="h-5 w-5 text-primary" />,
+    },
+    {
+      title: "Custom Profile Fields",
+      description: "Manage dynamic employee profile fields and attributes.",
+      href: `/${locale}/settings/custom-fields`,
+      icon: <Sliders className="h-5 w-5 text-primary" />,
     },
   ];
 

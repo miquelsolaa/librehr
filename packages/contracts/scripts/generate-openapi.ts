@@ -90,6 +90,22 @@ import {
   CreatePersonalAccessTokenSchema,
   TokenCreatedResponseSchema,
 } from "../src/tokens.js";
+import {
+  CustomFieldDefinitionSchema,
+  CreateCustomFieldDefinitionSchema,
+  CustomFieldValueSchema,
+  SetCustomFieldValueSchema,
+} from "../src/custom-fields.js";
+import {
+  EmergencyContactSchema,
+  CreateEmergencyContactSchema,
+  UpdateEmergencyContactSchema,
+} from "../src/emergency-contacts.js";
+import {
+  OrgChartResponseSchema,
+  OrgChartNodeSchema,
+} from "../src/org-chart.js";
+import { SelfServiceUpdateSchema } from "../src/employees.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const registry = new OpenAPIRegistry();
@@ -156,6 +172,19 @@ registry.register("ReportsSummaryResponse", ReportsSummaryResponseSchema);
 registry.register("PersonalAccessToken", PersonalAccessTokenSchema);
 registry.register("CreatePersonalAccessToken", CreatePersonalAccessTokenSchema);
 registry.register("TokenCreatedResponse", TokenCreatedResponseSchema);
+registry.register("CustomFieldDefinition", CustomFieldDefinitionSchema);
+registry.register(
+  "CreateCustomFieldDefinition",
+  CreateCustomFieldDefinitionSchema,
+);
+registry.register("CustomFieldValue", CustomFieldValueSchema);
+registry.register("SetCustomFieldValue", SetCustomFieldValueSchema);
+registry.register("EmergencyContact", EmergencyContactSchema);
+registry.register("CreateEmergencyContact", CreateEmergencyContactSchema);
+registry.register("UpdateEmergencyContact", UpdateEmergencyContactSchema);
+registry.register("OrgChartNode", OrgChartNodeSchema);
+registry.register("OrgChartResponse", OrgChartResponseSchema);
+registry.register("SelfServiceUpdate", SelfServiceUpdateSchema);
 
 // Register endpoints
 registry.registerPath({
@@ -904,6 +933,164 @@ registry.registerPath({
   },
 });
 
+// Org Chart (ORG-004)
+registry.registerPath({
+  method: "get",
+  path: "/v1/people/org-chart",
+  summary: "Get organization hierarchy tree for org chart",
+  responses: {
+    200: {
+      description: "Org chart tree hierarchy",
+      content: { "application/json": { schema: OrgChartResponseSchema } },
+    },
+  },
+});
+
+// Custom Fields (ORG-005)
+registry.registerPath({
+  method: "get",
+  path: "/v1/custom-fields",
+  summary: "List custom field definitions",
+  responses: {
+    200: {
+      description: "List of custom field definitions",
+      content: {
+        "application/json": { schema: z.array(CustomFieldDefinitionSchema) },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/custom-fields",
+  summary: "Create custom field definition",
+  request: {
+    body: {
+      content: {
+        "application/json": { schema: CreateCustomFieldDefinitionSchema },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "Custom field definition created",
+      content: { "application/json": { schema: CustomFieldDefinitionSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "delete",
+  path: "/v1/custom-fields/{id}",
+  summary: "Delete custom field definition",
+  responses: {
+    200: {
+      description: "Custom field definition deleted",
+      content: {
+        "application/json": { schema: z.object({ success: z.boolean() }) },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/v1/people/{id}/custom-fields",
+  summary: "Get custom field values for an employee",
+  responses: {
+    200: {
+      description: "Custom field values for employee",
+      content: {
+        "application/json": { schema: z.array(CustomFieldValueSchema) },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/people/{id}/custom-fields",
+  summary: "Set custom field value for an employee",
+  request: {
+    body: {
+      content: { "application/json": { schema: SetCustomFieldValueSchema } },
+    },
+  },
+  responses: {
+    200: {
+      description: "Custom field value updated",
+      content: { "application/json": { schema: CustomFieldValueSchema } },
+    },
+  },
+});
+
+// Emergency Contacts (EMP-002)
+registry.registerPath({
+  method: "get",
+  path: "/v1/people/{id}/emergency-contacts",
+  summary: "List emergency contacts for employee",
+  responses: {
+    200: {
+      description: "Emergency contacts list",
+      content: {
+        "application/json": { schema: z.array(EmergencyContactSchema) },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/people/{id}/emergency-contacts",
+  summary: "Add emergency contact for employee",
+  request: {
+    body: {
+      content: {
+        "application/json": { schema: CreateEmergencyContactSchema },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "Emergency contact created",
+      content: { "application/json": { schema: EmergencyContactSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "delete",
+  path: "/v1/people/{id}/emergency-contacts/{contactId}",
+  summary: "Delete emergency contact",
+  responses: {
+    200: {
+      description: "Emergency contact deleted",
+      content: {
+        "application/json": { schema: z.object({ success: z.boolean() }) },
+      },
+    },
+  },
+});
+
+// Employee Self-Service (EMP-005)
+registry.registerPath({
+  method: "patch",
+  path: "/v1/people/{id}/self-service",
+  summary: "Self-service update of own employee contact details",
+  request: {
+    body: {
+      content: { "application/json": { schema: SelfServiceUpdateSchema } },
+    },
+  },
+  responses: {
+    200: {
+      description: "Employee profile updated via self-service",
+      content: { "application/json": { schema: EmployeeProfileSchema } },
+    },
+  },
+});
+
 const generator = new OpenApiGeneratorV31(registry.definitions);
 const openApiDoc = generator.generateDocument({
   openapi: "3.1.0",
@@ -950,6 +1137,7 @@ import type {
   UpdateEmployeeRequest,
   TerminateEmployeeRequest,
   RevealFieldResponse,
+  SelfServiceUpdate,
 } from '../src/employees.js';
 import type {
   CreateInvitationRequest,
@@ -1004,6 +1192,19 @@ import type {
   CreatePersonalAccessToken,
   TokenCreatedResponse,
 } from '../src/tokens.js';
+import type {
+  CustomFieldDefinition,
+  CreateCustomFieldDefinition,
+  CustomFieldValue,
+  SetCustomFieldValue,
+} from '../src/custom-fields.js';
+import type {
+  EmergencyContact,
+  CreateEmergencyContact,
+} from '../src/emergency-contacts.js';
+import type {
+  OrgChartResponse,
+} from '../src/org-chart.js';
 import type { ProblemDetails } from '../src/errors.js';
 
 export interface ApiClientOptions {
@@ -1402,6 +1603,66 @@ export class LibreHrApiClient {
   async revokeToken(id: string): Promise<{ success: boolean }> {
     return this.request<{ success: boolean }>(\`/v1/tokens/\${id}\`, {
       method: 'DELETE',
+    });
+  }
+
+  // Org Chart (ORG-004)
+  async getOrgChart(): Promise<OrgChartResponse> {
+    return this.request<OrgChartResponse>('/v1/people/org-chart');
+  }
+
+  // Custom Fields (ORG-005)
+  async listCustomFields(): Promise<CustomFieldDefinition[]> {
+    return this.request<CustomFieldDefinition[]>('/v1/custom-fields');
+  }
+
+  async createCustomField(data: CreateCustomFieldDefinition): Promise<CustomFieldDefinition> {
+    return this.request<CustomFieldDefinition>('/v1/custom-fields', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteCustomField(id: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(\`/v1/custom-fields/\${id}\`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getEmployeeCustomFields(employeeId: string): Promise<CustomFieldValue[]> {
+    return this.request<CustomFieldValue[]>(\`/v1/people/\${employeeId}/custom-fields\`);
+  }
+
+  async setEmployeeCustomField(employeeId: string, data: SetCustomFieldValue): Promise<CustomFieldValue> {
+    return this.request<CustomFieldValue>(\`/v1/people/\${employeeId}/custom-fields\`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Emergency Contacts (EMP-002)
+  async listEmergencyContacts(employeeId: string): Promise<EmergencyContact[]> {
+    return this.request<EmergencyContact[]>(\`/v1/people/\${employeeId}/emergency-contacts\`);
+  }
+
+  async createEmergencyContact(employeeId: string, data: CreateEmergencyContact): Promise<EmergencyContact> {
+    return this.request<EmergencyContact>(\`/v1/people/\${employeeId}/emergency-contacts\`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteEmergencyContact(employeeId: string, contactId: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(\`/v1/people/\${employeeId}/emergency-contacts/\${contactId}\`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Employee Self-Service (EMP-005)
+  async selfServiceUpdate(employeeId: string, data: SelfServiceUpdate): Promise<EmployeeProfile> {
+    return this.request<EmployeeProfile>(\`/v1/people/\${employeeId}/self-service\`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
     });
   }
 }

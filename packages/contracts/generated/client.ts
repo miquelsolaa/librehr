@@ -20,6 +20,7 @@ import type {
   UpdateEmployeeRequest,
   TerminateEmployeeRequest,
   RevealFieldResponse,
+  SelfServiceUpdate,
 } from '../src/employees.js';
 import type {
   CreateInvitationRequest,
@@ -74,6 +75,19 @@ import type {
   CreatePersonalAccessToken,
   TokenCreatedResponse,
 } from '../src/tokens.js';
+import type {
+  CustomFieldDefinition,
+  CreateCustomFieldDefinition,
+  CustomFieldValue,
+  SetCustomFieldValue,
+} from '../src/custom-fields.js';
+import type {
+  EmergencyContact,
+  CreateEmergencyContact,
+} from '../src/emergency-contacts.js';
+import type {
+  OrgChartResponse,
+} from '../src/org-chart.js';
 import type { ProblemDetails } from '../src/errors.js';
 
 export interface ApiClientOptions {
@@ -472,6 +486,66 @@ export class LibreHrApiClient {
   async revokeToken(id: string): Promise<{ success: boolean }> {
     return this.request<{ success: boolean }>(`/v1/tokens/${id}`, {
       method: 'DELETE',
+    });
+  }
+
+  // Org Chart (ORG-004)
+  async getOrgChart(): Promise<OrgChartResponse> {
+    return this.request<OrgChartResponse>('/v1/people/org-chart');
+  }
+
+  // Custom Fields (ORG-005)
+  async listCustomFields(): Promise<CustomFieldDefinition[]> {
+    return this.request<CustomFieldDefinition[]>('/v1/custom-fields');
+  }
+
+  async createCustomField(data: CreateCustomFieldDefinition): Promise<CustomFieldDefinition> {
+    return this.request<CustomFieldDefinition>('/v1/custom-fields', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteCustomField(id: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/v1/custom-fields/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getEmployeeCustomFields(employeeId: string): Promise<CustomFieldValue[]> {
+    return this.request<CustomFieldValue[]>(`/v1/people/${employeeId}/custom-fields`);
+  }
+
+  async setEmployeeCustomField(employeeId: string, data: SetCustomFieldValue): Promise<CustomFieldValue> {
+    return this.request<CustomFieldValue>(`/v1/people/${employeeId}/custom-fields`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Emergency Contacts (EMP-002)
+  async listEmergencyContacts(employeeId: string): Promise<EmergencyContact[]> {
+    return this.request<EmergencyContact[]>(`/v1/people/${employeeId}/emergency-contacts`);
+  }
+
+  async createEmergencyContact(employeeId: string, data: CreateEmergencyContact): Promise<EmergencyContact> {
+    return this.request<EmergencyContact>(`/v1/people/${employeeId}/emergency-contacts`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteEmergencyContact(employeeId: string, contactId: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/v1/people/${employeeId}/emergency-contacts/${contactId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Employee Self-Service (EMP-005)
+  async selfServiceUpdate(employeeId: string, data: SelfServiceUpdate): Promise<EmployeeProfile> {
+    return this.request<EmployeeProfile>(`/v1/people/${employeeId}/self-service`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
     });
   }
 }

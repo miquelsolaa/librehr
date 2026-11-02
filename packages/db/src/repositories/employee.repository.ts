@@ -357,4 +357,72 @@ export class EmployeeRepository {
     if (!encrypted) return null;
     return decryptEnvelope(encrypted);
   }
+
+  async findOrgChartItems(tx: TenantTx): Promise<
+    {
+      id: string;
+      name: string;
+      preferredName: string | null;
+      email: string;
+      jobTitle: string | null;
+      departmentId: string | null;
+      departmentName: string | null;
+      locationName: string | null;
+      managerId: string | null;
+    }[]
+  > {
+    return tx<
+      {
+        id: string;
+        name: string;
+        preferredName: string | null;
+        email: string;
+        jobTitle: string | null;
+        departmentId: string | null;
+        departmentName: string | null;
+        locationName: string | null;
+        managerId: string | null;
+      }[]
+    >`
+      SELECT e.id,
+             CONCAT(e.first_name, ' ', e.last_name) as name,
+             e.preferred_name as "preferredName",
+             e.email,
+             emp.job_title as "jobTitle",
+             e.department_id as "departmentId",
+             d.name as "departmentName",
+             loc.name as "locationName",
+             e.manager_id as "managerId"
+      FROM employees e
+      LEFT JOIN departments d ON d.id = e.department_id
+      LEFT JOIN locations loc ON loc.id = e.location_id
+      LEFT JOIN employments emp ON emp.employee_id = e.id AND emp.end_date IS NULL
+      WHERE e.status != 'terminated'
+      ORDER BY e.first_name ASC
+    `;
+  }
+
+  async updateSelfService(
+    tx: TenantTx,
+    id: string,
+    data: {
+      preferredName?: string | null | undefined;
+      phone?: string | null | undefined;
+      address?: string | null | undefined;
+    },
+  ): Promise<EmployeeProfile | null> {
+    const current = await this.findById(tx, id);
+    if (!current) return null;
+
+    await tx`
+      UPDATE employees
+      SET preferred_name = ${data.preferredName !== undefined ? data.preferredName : current.preferredName},
+          phone = ${data.phone !== undefined ? data.phone : current.phone},
+          address = ${data.address !== undefined ? data.address : current.address},
+          updated_at = now()
+      WHERE id = ${id}
+    `;
+
+    return this.findById(tx, id);
+  }
 }

@@ -3,6 +3,7 @@ import {
   text,
   uuid,
   date,
+  boolean,
   index,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
@@ -99,23 +100,98 @@ export const employments = pgTable(
   ],
 );
 
-// TODO(ORG-003): Teams and team reporting relationships
-export const teamsStub = { table: "teams", requirementId: "ORG-003" };
+// Teams and team reporting relationships (ORG-003)
+export const teams = pgTable(
+  "teams",
+  {
+    id: primaryId(),
+    organizationId: organizationIdCol().references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    departmentId: uuid("department_id").references(() => departments.id, {
+      onDelete: "cascade",
+    }),
+    name: text("name").notNull(),
+    leadEmployeeId: uuid("lead_employee_id").references(
+      (): AnyPgColumn => employees.id,
+      {
+        onDelete: "set null",
+      },
+    ),
+    ...timestamps,
+  },
+  (table) => [
+    index("teams_org_idx").on(table.organizationId),
+    index("teams_dept_idx").on(table.departmentId),
+  ],
+);
 
-// TODO(ORG-005): Custom fields definition table
-export const customFieldDefsStub = {
-  table: "custom_field_defs",
-  requirementId: "ORG-005",
-};
+// Custom fields definition table (ORG-005)
+export const customFieldDefinitions = pgTable(
+  "custom_field_definitions",
+  {
+    id: primaryId(),
+    organizationId: organizationIdCol().references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    name: text("name").notNull(),
+    code: text("code").notNull(),
+    fieldType: text("field_type").notNull(), // text, number, date, select
+    options: text("options"), // JSON stringified array of string options for 'select'
+    required: boolean("required").notNull().default(false),
+    visibility: text("visibility").notNull().default("employee"), // admin, hr, manager, employee, public
+    ...timestamps,
+  },
+  (table) => [
+    index("cfd_org_idx").on(table.organizationId),
+    index("cfd_org_code_idx").on(table.organizationId, table.code),
+  ],
+);
 
-// TODO(ORG-005): Custom field values per employee
-export const customFieldValuesStub = {
-  table: "custom_field_values",
-  requirementId: "ORG-005",
-};
+// Custom field values per employee (ORG-005)
+export const customFieldValues = pgTable(
+  "custom_field_values",
+  {
+    id: primaryId(),
+    organizationId: organizationIdCol().references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    fieldDefinitionId: uuid("field_definition_id")
+      .notNull()
+      .references(() => customFieldDefinitions.id, { onDelete: "cascade" }),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    value: text("value"),
+    ...timestamps,
+  },
+  (table) => [
+    index("cfv_org_idx").on(table.organizationId),
+    index("cfv_employee_idx").on(table.employeeId),
+    index("cfv_field_idx").on(table.fieldDefinitionId),
+  ],
+);
 
-// TODO(EMP-002): Emergency contacts table
-export const emergencyContactsStub = {
-  table: "emergency_contacts",
-  requirementId: "EMP-002",
-};
+// Emergency contacts table (EMP-002)
+export const emergencyContacts = pgTable(
+  "emergency_contacts",
+  {
+    id: primaryId(),
+    organizationId: organizationIdCol().references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    fullName: text("full_name").notNull(),
+    relationship: text("relationship").notNull(), // spouse, partner, parent, child, sibling, other
+    phonePrimary: text("phone_primary").notNull(),
+    phoneSecondary: text("phone_secondary"),
+    isPrimary: boolean("is_primary").notNull().default(false),
+    ...timestamps,
+  },
+  (table) => [
+    index("emergency_contacts_org_idx").on(table.organizationId),
+    index("emergency_contacts_emp_idx").on(table.employeeId),
+  ],
+);

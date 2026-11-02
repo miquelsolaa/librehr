@@ -3252,6 +3252,369 @@
           "token",
           "plainToken"
         ]
+      },
+      "CustomFieldDefinition": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organizationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "fieldType": {
+            "type": "string",
+            "enum": [
+              "text",
+              "number",
+              "date",
+              "select"
+            ]
+          },
+          "options": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "hr",
+              "manager",
+              "employee",
+              "public"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "organizationId",
+          "name",
+          "code",
+          "fieldType",
+          "options",
+          "required",
+          "visibility",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CreateCustomFieldDefinition": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "fieldType": {
+            "type": "string",
+            "enum": [
+              "text",
+              "number",
+              "date",
+              "select"
+            ]
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "hr",
+              "manager",
+              "employee",
+              "public"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "code",
+          "fieldType"
+        ]
+      },
+      "CustomFieldValue": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organizationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fieldDefinitionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "value": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fieldName": {
+            "type": "string"
+          },
+          "fieldCode": {
+            "type": "string"
+          },
+          "fieldType": {
+            "type": "string"
+          },
+          "options": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "visibility": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "organizationId",
+          "fieldDefinitionId",
+          "employeeId",
+          "value",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "SetCustomFieldValue": {
+        "type": "object",
+        "properties": {
+          "fieldDefinitionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "value": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "fieldDefinitionId",
+          "value"
+        ]
+      },
+      "EmergencyContact": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organizationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fullName": {
+            "type": "string",
+            "minLength": 1
+          },
+          "relationship": {
+            "type": "string",
+            "minLength": 1
+          },
+          "phonePrimary": {
+            "type": "string",
+            "minLength": 1
+          },
+          "phoneSecondary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "isPrimary": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "organizationId",
+          "employeeId",
+          "fullName",
+          "relationship",
+          "phonePrimary",
+          "phoneSecondary",
+          "isPrimary",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CreateEmergencyContact": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "minLength": 1
+          },
+          "relationship": {
+            "type": "string",
+            "minLength": 1
+          },
+          "phonePrimary": {
+            "type": "string",
+            "minLength": 1
+          },
+          "phoneSecondary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "isPrimary": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "fullName",
+          "relationship",
+          "phonePrimary"
+        ]
+      },
+      "UpdateEmergencyContact": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "minLength": 1
+          },
+          "relationship": {
+            "type": "string",
+            "minLength": 1
+          },
+          "phonePrimary": {
+            "type": "string",
+            "minLength": 1
+          },
+          "phoneSecondary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "isPrimary": {
+            "type": "boolean"
+          }
+        }
+      },
+      "OrgChartNode": {
+        "type": "object",
+        "description": "Org chart hierarchy node"
+      },
+      "OrgChartResponse": {
+        "type": "object",
+        "properties": {
+          "roots": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "description": "Org chart hierarchy node"
+            }
+          },
+          "totalEmployees": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "roots",
+          "totalEmployees"
+        ]
+      },
+      "SelfServiceUpdate": {
+        "type": "object",
+        "properties": {
+          "preferredName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
       }
     },
     "parameters": {}
@@ -8148,6 +8511,891 @@
                   },
                   "required": [
                     "success"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/people/org-chart": {
+      "get": {
+        "summary": "Get organization hierarchy tree for org chart",
+        "responses": {
+          "200": {
+            "description": "Org chart tree hierarchy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "roots": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "description": "Org chart hierarchy node"
+                      }
+                    },
+                    "totalEmployees": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "roots",
+                    "totalEmployees"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/custom-fields": {
+      "get": {
+        "summary": "List custom field definitions",
+        "responses": {
+          "200": {
+            "description": "List of custom field definitions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "organizationId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "code": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "fieldType": {
+                        "type": "string",
+                        "enum": [
+                          "text",
+                          "number",
+                          "date",
+                          "select"
+                        ]
+                      },
+                      "options": {
+                        "type": [
+                          "array",
+                          "null"
+                        ],
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "required": {
+                        "type": "boolean"
+                      },
+                      "visibility": {
+                        "type": "string",
+                        "enum": [
+                          "admin",
+                          "hr",
+                          "manager",
+                          "employee",
+                          "public"
+                        ]
+                      },
+                      "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "updatedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "organizationId",
+                      "name",
+                      "code",
+                      "fieldType",
+                      "options",
+                      "required",
+                      "visibility",
+                      "createdAt",
+                      "updatedAt"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create custom field definition",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "code": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "fieldType": {
+                    "type": "string",
+                    "enum": [
+                      "text",
+                      "number",
+                      "date",
+                      "select"
+                    ]
+                  },
+                  "options": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "required": {
+                    "type": "boolean"
+                  },
+                  "visibility": {
+                    "type": "string",
+                    "enum": [
+                      "admin",
+                      "hr",
+                      "manager",
+                      "employee",
+                      "public"
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "code",
+                  "fieldType"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Custom field definition created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "organizationId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "code": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "fieldType": {
+                      "type": "string",
+                      "enum": [
+                        "text",
+                        "number",
+                        "date",
+                        "select"
+                      ]
+                    },
+                    "options": {
+                      "type": [
+                        "array",
+                        "null"
+                      ],
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "required": {
+                      "type": "boolean"
+                    },
+                    "visibility": {
+                      "type": "string",
+                      "enum": [
+                        "admin",
+                        "hr",
+                        "manager",
+                        "employee",
+                        "public"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "organizationId",
+                    "name",
+                    "code",
+                    "fieldType",
+                    "options",
+                    "required",
+                    "visibility",
+                    "createdAt",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/custom-fields/{id}": {
+      "delete": {
+        "summary": "Delete custom field definition",
+        "responses": {
+          "200": {
+            "description": "Custom field definition deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/people/{id}/custom-fields": {
+      "get": {
+        "summary": "Get custom field values for an employee",
+        "responses": {
+          "200": {
+            "description": "Custom field values for employee",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "organizationId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "fieldDefinitionId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "employeeId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "value": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "fieldName": {
+                        "type": "string"
+                      },
+                      "fieldCode": {
+                        "type": "string"
+                      },
+                      "fieldType": {
+                        "type": "string"
+                      },
+                      "options": {
+                        "type": [
+                          "array",
+                          "null"
+                        ],
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "visibility": {
+                        "type": "string"
+                      },
+                      "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "updatedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "organizationId",
+                      "fieldDefinitionId",
+                      "employeeId",
+                      "value",
+                      "createdAt",
+                      "updatedAt"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Set custom field value for an employee",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fieldDefinitionId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "value": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "fieldDefinitionId",
+                  "value"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Custom field value updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "organizationId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "fieldDefinitionId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "employeeId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "value": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "fieldName": {
+                      "type": "string"
+                    },
+                    "fieldCode": {
+                      "type": "string"
+                    },
+                    "fieldType": {
+                      "type": "string"
+                    },
+                    "options": {
+                      "type": [
+                        "array",
+                        "null"
+                      ],
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "visibility": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "organizationId",
+                    "fieldDefinitionId",
+                    "employeeId",
+                    "value",
+                    "createdAt",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/people/{id}/emergency-contacts": {
+      "get": {
+        "summary": "List emergency contacts for employee",
+        "responses": {
+          "200": {
+            "description": "Emergency contacts list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "organizationId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "employeeId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "fullName": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "relationship": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "phonePrimary": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "phoneSecondary": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "isPrimary": {
+                        "type": "boolean"
+                      },
+                      "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "updatedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "organizationId",
+                      "employeeId",
+                      "fullName",
+                      "relationship",
+                      "phonePrimary",
+                      "phoneSecondary",
+                      "isPrimary",
+                      "createdAt",
+                      "updatedAt"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Add emergency contact for employee",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fullName": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "relationship": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "phonePrimary": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "phoneSecondary": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "isPrimary": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "fullName",
+                  "relationship",
+                  "phonePrimary"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Emergency contact created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "organizationId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "employeeId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "fullName": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "relationship": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "phonePrimary": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "phoneSecondary": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "isPrimary": {
+                      "type": "boolean"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "organizationId",
+                    "employeeId",
+                    "fullName",
+                    "relationship",
+                    "phonePrimary",
+                    "phoneSecondary",
+                    "isPrimary",
+                    "createdAt",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/people/{id}/emergency-contacts/{contactId}": {
+      "delete": {
+        "summary": "Delete emergency contact",
+        "responses": {
+          "200": {
+            "description": "Emergency contact deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/people/{id}/self-service": {
+      "patch": {
+        "summary": "Self-service update of own employee contact details",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "preferredName": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "phone": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "address": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Employee profile updated via self-service",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "organizationId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "userId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uuid"
+                    },
+                    "departmentId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uuid"
+                    },
+                    "managerId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uuid"
+                    },
+                    "locationId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uuid"
+                    },
+                    "firstName": {
+                      "type": "string"
+                    },
+                    "lastName": {
+                      "type": "string"
+                    },
+                    "preferredName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "email": {
+                      "type": "string",
+                      "format": "email"
+                    },
+                    "phone": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "address": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "birthDate": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "terminationDate": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "terminationReason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "departmentName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "locationName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "managerName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "jobTitle": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "employmentType": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "startDate": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "hasNationalId": {
+                      "type": "boolean"
+                    },
+                    "hasIban": {
+                      "type": "boolean"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "organizationId",
+                    "userId",
+                    "departmentId",
+                    "managerId",
+                    "locationId",
+                    "firstName",
+                    "lastName",
+                    "preferredName",
+                    "email",
+                    "phone",
+                    "address",
+                    "birthDate",
+                    "status",
+                    "terminationDate",
+                    "terminationReason",
+                    "departmentName",
+                    "locationName",
+                    "managerName",
+                    "jobTitle",
+                    "employmentType",
+                    "startDate",
+                    "hasNationalId",
+                    "hasIban",
+                    "createdAt",
+                    "updatedAt"
                   ]
                 }
               }

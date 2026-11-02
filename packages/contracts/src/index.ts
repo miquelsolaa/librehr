@@ -12,4 +12,7 @@ export * from "./notifications.js";
 export * from "./lifecycle.js";
 export * from "./reports.js";
 export * from "./tokens.js";
+export * from "./custom-fields.js";
+export * from "./emergency-contacts.js";
+export * from "./org-chart.js";
 export * from "../generated/client.js";

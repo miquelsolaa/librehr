@@ -3,7 +3,9 @@ import {
   hasReportingCycle,
   getReportIds,
   buildHierarchyTree,
+  buildOrgChart,
   type ReportingNode,
+  type FlatEmployeeOrgItem,
 } from "../src/org/reporting-tree.js";
 
 describe("Reporting Hierarchy Tree", () => {
@@ -62,5 +64,62 @@ describe("Reporting Hierarchy Tree", () => {
     expect(tree.length).toBe(1);
     expect(tree[0]?.item.id).toBe("ceo");
     expect(tree[0]?.directReports.length).toBe(2);
+  });
+
+  it("builds an org chart with counts and recursive descendants", () => {
+    const flatItems: FlatEmployeeOrgItem[] = [
+      {
+        id: "emp-1",
+        name: "Director General",
+        preferredName: null,
+        email: "ceo@librehr.test",
+        jobTitle: "CEO",
+        departmentId: "d1",
+        departmentName: "Exec",
+        locationName: "Barcelona",
+        managerId: null,
+      },
+      {
+        id: "emp-2",
+        name: "Cap d'Enginyeria",
+        preferredName: null,
+        email: "vp@librehr.test",
+        jobTitle: "VP Eng",
+        departmentId: "d2",
+        departmentName: "Tech",
+        locationName: "Barcelona",
+        managerId: "emp-1",
+      },
+      {
+        id: "emp-3",
+        name: "Desenvolupadora Senior",
+        preferredName: "Laia",
+        email: "laia@librehr.test",
+        jobTitle: "Senior Dev",
+        departmentId: "d2",
+        departmentName: "Tech",
+        locationName: "Barcelona",
+        managerId: "emp-2",
+      },
+    ];
+
+    const chart = buildOrgChart(flatItems);
+    expect(chart.totalEmployees).toBe(3);
+    expect(chart.roots.length).toBe(1);
+
+    const root = chart.roots[0]!;
+    expect(root.id).toBe("emp-1");
+    expect(root.directReportsCount).toBe(1);
+    expect(root.totalTeamCount).toBe(2);
+
+    const vp = root.directReports[0]!;
+    expect(vp.id).toBe("emp-2");
+    expect(vp.directReportsCount).toBe(1);
+    expect(vp.totalTeamCount).toBe(1);
+
+    const dev = vp.directReports[0]!;
+    expect(dev.id).toBe("emp-3");
+    expect(dev.directReportsCount).toBe(0);
+    expect(dev.totalTeamCount).toBe(0);
   });
 });
