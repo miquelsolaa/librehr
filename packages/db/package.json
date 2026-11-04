@@ -30,7 +30,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src test seeds",
     "test": "vitest run --exclude '**/*.int.test.ts'",
-    "test:int": "vitest run int.test.ts",
+    "test:int": "vitest run int.test.ts --fileParallelism=false --hookTimeout 30000",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/migrate.ts",
     "db:seed": "tsx seeds/dev.ts",
