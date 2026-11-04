@@ -1,5 +1,7 @@
 import type {
   EmployeeListItem,
+  EmployeeProfile,
+  EmergencyContact,
   Department,
   LeaveBalanceSummary,
   LeaveRequest,
@@ -600,3 +602,47 @@ export const MOCK_REPORTS_SUMMARY: ReportsSummaryResponse = {
     },
   },
 };
+
+export const MOCK_EMPLOYEE_PROFILE: EmployeeProfile = {
+  id: "00000000-0000-0000-0000-000000000001",
+  organizationId: "10000000-0000-0000-0000-000000000001",
+  userId: "00000000-0000-0000-0000-000000000001",
+  departmentId: "dept-eng",
+  managerId: null,
+  locationId: null,
+  firstName: "Joan",
+  lastName: "Martí",
+  preferredName: "Joan",
+  email: "joan.marti@librehr.local",
+  phone: "+34 600 000 000",
+  address: "Carrer Major 1, Barcelona",
+  birthDate: "1990-05-15",
+  status: "active",
+  terminationDate: null,
+  terminationReason: null,
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-01-01T00:00:00.000Z",
+  departmentName: "Engineering",
+  locationName: "Barcelona Diagonal",
+  managerName: "Marta Soler",
+  jobTitle: "Senior TypeScript Engineer",
+  employmentType: "full_time",
+  startDate: "2026-01-01",
+  hasNationalId: true,
+  hasIban: true,
+};
+
+export const MOCK_EMERGENCY_CONTACTS: EmergencyContact[] = [
+  {
+    id: "ec-1",
+    organizationId: "10000000-0000-0000-0000-000000000001",
+    employeeId: "00000000-0000-0000-0000-000000000001",
+    fullName: "Maria Martí",
+    relationship: "Spouse",
+    phonePrimary: "+34 611 111 111",
+    phoneSecondary: null,
+    isPrimary: true,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  },
+];

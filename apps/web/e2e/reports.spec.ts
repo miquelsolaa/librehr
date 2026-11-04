@@ -7,9 +7,13 @@ test.describe("Insights, Gestoria & Tokens E2E (M5)", () => {
     await page.goto("/en/reports");
 
     await expect(page.locator("h1")).toContainText("HR Insights & Reports");
-    await expect(page.getByText("Active Headcount")).toBeVisible();
-    await expect(page.getByText("Turnover Rate")).toBeVisible();
-    await expect(page.getByText("Absence Rate")).toBeVisible();
+    await expect(
+      page.getByText("Active Headcount", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Turnover Rate", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("Absence Rate", { exact: true })).toBeVisible();
 
     // Gestoría export
     await expect(page.getByText("Gestoría Payroll Export")).toBeVisible();

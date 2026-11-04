@@ -10,7 +10,9 @@ test.describe("Org Structure & Self-Service E2E (Phase 1)", () => {
     await expect(
       page.getByPlaceholder("Search by name, title, or department..."),
     ).toBeVisible();
-    await expect(page.getByRole("link", { name: "Directory" })).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Directory", exact: true }),
+    ).toBeVisible();
   });
 
   test("renders custom profile fields settings page at /en/settings/custom-fields", async ({

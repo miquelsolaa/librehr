@@ -33,6 +33,10 @@ import {
   DialogFooter,
 } from "@librehr/ui";
 import { apiClient } from "../../../../../lib/api-client.js";
+import {
+  MOCK_EMPLOYEE_PROFILE,
+  MOCK_EMERGENCY_CONTACTS,
+} from "@/lib/mock-data";
 import type {
   EmployeeProfile,
   TerminationReason,
@@ -124,7 +128,9 @@ export default function EmployeeDetailPage() {
   const loadExtraData = React.useCallback(async (empId: string) => {
     try {
       const [cts, cfs, defs] = await Promise.all([
-        apiClient.listEmergencyContacts(empId).catch(() => []),
+        apiClient
+          .listEmergencyContacts(empId)
+          .catch(() => MOCK_EMERGENCY_CONTACTS),
         apiClient.getEmployeeCustomFields(empId).catch(() => []),
         apiClient.listCustomFields().catch(() => []),
       ]);
@@ -132,7 +138,7 @@ export default function EmployeeDetailPage() {
       setCustomFields(cfs);
       setAllDefinitions(defs);
     } catch {
-      // offline fallback
+      setContacts(MOCK_EMERGENCY_CONTACTS);
     }
   }, []);
 
@@ -147,7 +153,12 @@ export default function EmployeeDetailPage() {
         setSelfPhone(emp.phone ?? "");
         setSelfAddress(emp.address ?? "");
       })
-      .catch(() => {})
+      .catch(() => {
+        setEmployee(MOCK_EMPLOYEE_PROFILE);
+        setSelfPreferredName(MOCK_EMPLOYEE_PROFILE.preferredName ?? "");
+        setSelfPhone(MOCK_EMPLOYEE_PROFILE.phone ?? "");
+        setSelfAddress(MOCK_EMPLOYEE_PROFILE.address ?? "");
+      })
       .finally(() => setLoading(false));
 
     loadExtraData(id);
