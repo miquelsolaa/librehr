@@ -62,7 +62,7 @@ describe("Append-Only Tables Protection Integration Tests", () => {
   it("prohibits UPDATE and DELETE on leave_ledger", async () => {
     if (!db) return;
 
-    const ledgerId = "l0000000-0000-0000-0000-000000000001";
+    const ledgerId = "a0000000-0000-0000-0000-000000000001";
 
     await withTenant(db.sql, { organizationId: orgId }, async (tx) => {
       await tx`

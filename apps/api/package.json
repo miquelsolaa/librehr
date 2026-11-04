@@ -12,7 +12,7 @@
     "@librehr/db": "workspace:*",
     "better-auth": "^1.1.21",
     "hono": "^4.7.2",
-    "nodemailer": "^6.10.0",
+    "nodemailer": "^10.3.1",
     "pino": "^9.6.0",
     "pino-pretty": "^13.0.0",
     "postgres": "^3.4.5",
@@ -32,7 +32,7 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src test",
-    "test": "vitest run",
+    "test": "vitest run --exclude '**/*.int.test.ts'",
     "test:int": "vitest run int.test.ts",
     "start": "node dist/index.js"
   }

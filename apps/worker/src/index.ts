@@ -1,4 +1,4 @@
-import PgBoss from "pg-boss";
+import { PgBoss } from "pg-boss";
 import pino from "pino";
 import { handleEmailSend } from "./queues/email.send.js";
 import { handleLeaveAccrue } from "./queues/leave.accrue.js";
@@ -23,7 +23,7 @@ async function startWorker() {
     schema: "pgboss",
   });
 
-  boss.on("error", (err) => {
+  boss.on("error", (err: unknown) => {
     logger.error({ msg: "pg-boss internal error", err: String(err) });
   });
 
@@ -31,7 +31,7 @@ async function startWorker() {
   logger.info({ msg: "pg-boss started successfully" });
 
   // Register queues
-  await boss.work("email.send", async (jobs) => {
+  await boss.work("email.send", async (jobs: unknown) => {
     const jobList = Array.isArray(jobs) ? jobs : [jobs];
     for (const job of jobList) {
       if (!job) continue;
@@ -49,7 +49,7 @@ async function startWorker() {
     }
   });
 
-  await boss.work("leave.accrue", async (jobs) => {
+  await boss.work("leave.accrue", async (jobs: unknown) => {
     const job = Array.isArray(jobs) ? jobs[0] : jobs;
     if (job)
       await handleLeaveAccrue(
@@ -57,7 +57,7 @@ async function startWorker() {
       );
   });
 
-  await boss.work("time.close-day", async (jobs) => {
+  await boss.work("time.close-day", async (jobs: unknown) => {
     const job = Array.isArray(jobs) ? jobs[0] : jobs;
     if (job)
       await handleTimeCloseDay(
@@ -65,7 +65,7 @@ async function startWorker() {
       );
   });
 
-  await boss.work("retention.enforce", async (jobs) => {
+  await boss.work("retention.enforce", async (jobs: unknown) => {
     const job = Array.isArray(jobs) ? jobs[0] : jobs;
     if (job)
       await handleRetentionEnforce(
@@ -73,7 +73,7 @@ async function startWorker() {
       );
   });
 
-  await boss.work("audit.verify-chain", async (jobs) => {
+  await boss.work("audit.verify-chain", async (jobs: unknown) => {
     const job = Array.isArray(jobs) ? jobs[0] : jobs;
     if (job)
       await handleAuditVerifyChain(

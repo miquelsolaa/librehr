@@ -1,4 +1,4 @@
-import nodemailer from "nodemailer";
+import nodemailer, { type Transporter } from "nodemailer";
 import type { MailPort, MailMessage } from "../ports/mail.js";
 
 export interface SmtpConfig {
@@ -10,7 +10,7 @@ export interface SmtpConfig {
 }
 
 export class SmtpMailAdapter implements MailPort {
-  private transporter: nodemailer.Transporter;
+  private transporter: Transporter;
   private from: string;
 
   constructor(config: SmtpConfig) {
