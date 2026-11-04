@@ -11,7 +11,7 @@
   "dependencies": {
     "@librehr/core": "workspace:*",
     "@testcontainers/postgresql": "^10.18.0",
-    "postgres": "^3.4.5",
+    "postgres": "^4.0.0",
     "testcontainers": "^10.18.0"
   },
   "devDependencies": {
