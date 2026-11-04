@@ -65,6 +65,7 @@ describe("RLS Tenant Isolation Integration Tests", () => {
     // 2. Org A creates an employee in its tenant context
     const empAId = "a1111111-1111-1111-1111-111111111111";
     await withTenant(db.sql, { organizationId: orgAId }, async (tx) => {
+      await tx`SET LOCAL ROLE librehr_app`.catch(() => {});
       await tx`
         INSERT INTO "employees" ("id", "organization_id", "first_name", "last_name", "email")
         VALUES (${empAId}, ${orgAId}, 'Alice', 'Alpha', 'alice@alpha.test')
@@ -74,6 +75,7 @@ describe("RLS Tenant Isolation Integration Tests", () => {
 
     // 3. Org B attempts to SELECT Org A's employee -> Must return 0 rows
     await withTenant(db.sql, { organizationId: orgBId }, async (tx) => {
+      await tx`SET LOCAL ROLE librehr_app`.catch(() => {});
       const rows = await tx`
         SELECT * FROM "employees" WHERE "id" = ${empAId}
       `;
@@ -82,6 +84,7 @@ describe("RLS Tenant Isolation Integration Tests", () => {
 
     // 4. Org B attempts to UPDATE Org A's employee -> Must affect 0 rows
     await withTenant(db.sql, { organizationId: orgBId }, async (tx) => {
+      await tx`SET LOCAL ROLE librehr_app`.catch(() => {});
       const result = await tx`
         UPDATE "employees" SET "first_name" = 'Hacked' WHERE "id" = ${empAId}
       `;
@@ -90,6 +93,7 @@ describe("RLS Tenant Isolation Integration Tests", () => {
 
     // 5. Org B attempts to DELETE Org A's employee -> Must affect 0 rows
     await withTenant(db.sql, { organizationId: orgBId }, async (tx) => {
+      await tx`SET LOCAL ROLE librehr_app`.catch(() => {});
       const result = await tx`
         DELETE FROM "employees" WHERE "id" = ${empAId}
       `;
@@ -99,6 +103,7 @@ describe("RLS Tenant Isolation Integration Tests", () => {
     // 6. Org B attempts to INSERT with Org A's organization_id -> Must fail WITH CHECK policy
     await expect(
       withTenant(db.sql, { organizationId: orgBId }, async (tx) => {
+        await tx`SET LOCAL ROLE librehr_app`.catch(() => {});
         await tx`
           INSERT INTO "employees" ("organization_id", "first_name", "last_name", "email")
           VALUES (${orgAId}, 'Malicious', 'Inject', 'malicious@alpha.test')

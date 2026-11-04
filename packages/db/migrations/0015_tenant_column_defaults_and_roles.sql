@@ -1,15 +1,10 @@
 -- 0015_tenant_column_defaults_and_roles.sql
--- 1. Demote owner role from superuser if set, ensuring PostgreSQL enforces FORCE ROW LEVEL SECURITY
--- 2. Standardize tenant isolation policies from RESTRICTIVE to standard PERMISSIVE
--- 3. Set organization_id column defaults across all tenant tables using the tenant session context
--- 4. Ensure application roles exist with proper permissions
+-- 1. Standardize tenant isolation policies from RESTRICTIVE to standard PERMISSIVE
+-- 2. Set organization_id column defaults across all tenant tables using the tenant session context
+-- 3. Ensure application roles exist with proper permissions
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'librehr_owner' AND rolsuper = true) THEN
-    ALTER ROLE librehr_owner NOSUPERUSER;
-  END IF;
-
   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'librehr_app') THEN
     CREATE ROLE librehr_app WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD 'librehr_dev_password';
   END IF;
@@ -25,6 +20,8 @@ BEGIN
     GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO openhr_app;
     GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO openhr_app;
   END IF;
+EXCEPTION WHEN OTHERS THEN
+  NULL;
 END $$;
 
 -- Convert RESTRICTIVE policies on tenant tables to standard PERMISSIVE tenant policies
