@@ -91,8 +91,6 @@ LibreHR is an open-source HRIS purpose-built to free European SMBs from propriet
 
 ### Screenshots
 
-<div align="center">
-
 #### Modern Dashboard & Dark Mode
 
 |                                    Light Theme                                    |                                   Dark Theme                                   |
@@ -111,13 +109,29 @@ LibreHR is an open-source HRIS purpose-built to free European SMBs from propriet
 | :-----------------------------------------------------------------: | :-----------------------------------------------------------------------: |
 | [![Tablet Kiosk Terminal][kiosk-screenshot]](docs/images/kiosk.png) | [![Org Chart Hierarchy][org-chart-screenshot]](docs/images/org-chart.png) |
 
+#### Additional application views
+
+These captures use fictional sample data; empty views illustrate screens with no records.
+These captures were taken from the in-progress `fix/leave-truthful-states` worktree,
+which is not yet integrated into this checkout.
+
+|                                         Home                                         |                                      Working time                                       |
+| :----------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------: |
+| [![Home with sample data](docs/images/readme-home.png)](docs/images/readme-home.png) | [![Working time empty state](docs/images/readme-time.png)](docs/images/readme-time.png) |
+
+|                                            Reports                                            |                                           Documents                                            |
+| :-------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------: |
+| [![Reports with sample data](docs/images/readme-reports.png)](docs/images/readme-reports.png) | [![Documents empty state](docs/images/readme-documents.png)](docs/images/readme-documents.png) |
+
+|                                    Time off with sample balance                                     |                                   Time off when data cannot be loaded                                   |
+| :-------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------: |
+| [![Time off with sample balance](docs/images/readme-time-off.png)](docs/images/readme-time-off.png) | [![Time off retry state](docs/images/readme-time-off-error.png)](docs/images/readme-time-off-error.png) |
+
 #### First-Run Experience
 
 |                    Setup & Legal Entity Wizard                    |                   Clean Authentication                    |
 | :---------------------------------------------------------------: | :-------------------------------------------------------: |
 | [![Setup Wizard][setup-screenshot]](docs/images/setup-wizard.png) | [![Sign In][sign-in-screenshot]](docs/images/sign-in.png) |
-
-</div>
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
