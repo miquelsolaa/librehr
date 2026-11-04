@@ -9,7 +9,7 @@
     "start": "next start --port 3000",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src e2e",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test -c e2e/playwright.config.ts"
   },
   "dependencies": {
     "@librehr/contracts": "workspace:*",

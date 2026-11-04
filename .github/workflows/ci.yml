@@ -73,5 +73,5 @@ jobs:
 
       - name: Playwright E2E Tests
         run: |
-          pnpm exec playwright install --with-deps chromium
+          pnpm --filter web exec playwright install --with-deps chromium
           pnpm --filter web test:e2e
