@@ -17,16 +17,21 @@ const KEY_LENGTH = 32; // 256 bits
 export function getMasterKeyFromEnv(): Buffer {
   const envKey = process.env["ENVELOPE_MASTER_KEY"];
   if (envKey) {
-    const buf = Buffer.from(envKey, "base64");
-    if (buf.length === KEY_LENGTH) {
-      return buf;
+    const b64Buf = Buffer.from(envKey, "base64");
+    if (b64Buf.length === KEY_LENGTH) {
+      return b64Buf;
     }
+    const utf8Buf = Buffer.from(envKey, "utf-8");
+    if (utf8Buf.length === KEY_LENGTH) {
+      return utf8Buf;
+    }
+    return crypto.createHash("sha256").update(envKey).digest();
   }
-  // Standard fallback for test / dev environment (32 bytes)
-  return Buffer.from(
-    "ZGV2X2VudmVsb3BlX21hc3Rlcl9rZXlfZm9yX2xvY2FsX2Rldg==",
-    "base64",
-  );
+  // Standard fallback for test / dev environment (exactly 32 bytes)
+  return crypto
+    .createHash("sha256")
+    .update("dev_envelope_master_key_for_local_dev")
+    .digest();
 }
 
 /**

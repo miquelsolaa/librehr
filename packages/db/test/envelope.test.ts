@@ -31,4 +31,11 @@ describe("Envelope Encryption (AES-256-GCM)", () => {
 
     expect(() => decryptEnvelope(tampered, masterKey)).toThrow();
   });
+
+  it("encrypts and decrypts with default environment key", () => {
+    const sensitiveData = "12345678Z";
+    const encrypted = encryptEnvelope(sensitiveData);
+    const decrypted = decryptEnvelope(encrypted);
+    expect(decrypted).toBe(sensitiveData);
+  });
 });
