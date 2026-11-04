@@ -16,13 +16,17 @@ test.describe("Insights, Gestoria & Tokens E2E (M5)", () => {
     await expect(page.getByText("Absence Rate", { exact: true })).toBeVisible();
 
     // Gestoría export
-    await expect(page.getByText("Gestoría Payroll Export")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Gestoría Payroll Export" }),
+    ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Download Payroll CSV" }),
     ).toBeVisible();
 
     // iCal feed
-    await expect(page.getByText("iCalendar Subscription Feed")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "iCalendar Subscription Feed" }),
+    ).toBeVisible();
   });
 
   test("loads personal access tokens page and opens creation modal", async ({

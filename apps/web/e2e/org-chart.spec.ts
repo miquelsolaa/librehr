@@ -37,8 +37,12 @@ test.describe("Org Structure & Self-Service E2E (Phase 1)", () => {
   }) => {
     await page.goto("/en/people/00000000-0000-0000-0000-000000000001");
 
-    await expect(page.getByText("Emergency Contacts")).toBeVisible();
-    await expect(page.getByText("Custom Profile Fields")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Emergency Contacts" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Custom Profile Fields" }),
+    ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Edit Contact" }),
     ).toBeVisible();
