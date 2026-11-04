@@ -15,4 +15,7 @@ export const timestamps = {
     .notNull(),
 };
 
-export const organizationIdCol = () => uuid("organization_id").notNull();
+export const organizationIdCol = () =>
+  uuid("organization_id")
+    .default(sql`NULLIF(current_setting('app.current_org', true), '')::uuid`)
+    .notNull();

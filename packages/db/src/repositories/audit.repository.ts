@@ -26,6 +26,18 @@ export interface ListAuditLogFilters {
   limit?: number | undefined;
 }
 
+function parseMetadata(val: unknown): Record<string, unknown> | null {
+  if (!val) return null;
+  if (typeof val === "string") {
+    try {
+      return JSON.parse(val) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  }
+  return val as Record<string, unknown>;
+}
+
 export class AuditRepository {
   async log(tx: TenantTx, data: LogAuditEntryData): Promise<AuditLogRow> {
     const rows = await tx<AuditLogRow[]>`
@@ -42,7 +54,11 @@ export class AuditRepository {
                 action, resource_type as "resourceType", resource_id as "resourceId",
                 metadata, created_at as "createdAt"
     `;
-    return rows[0]!;
+    const row = rows[0]!;
+    return {
+      ...row,
+      metadata: parseMetadata(row.metadata),
+    };
   }
 
   async list(
@@ -51,7 +67,7 @@ export class AuditRepository {
   ): Promise<AuditLogRow[]> {
     const limit = Math.min(100, Math.max(1, filters.limit ?? 50));
 
-    return tx<AuditLogRow[]>`
+    const rows = await tx<AuditLogRow[]>`
       SELECT id, organization_id as "organizationId", actor_id as "actorId",
              action, resource_type as "resourceType", resource_id as "resourceId",
              metadata, created_at as "createdAt"
@@ -62,5 +78,9 @@ export class AuditRepository {
       ORDER BY created_at DESC
       LIMIT ${limit}
     `;
+    return rows.map((r) => ({
+      ...r,
+      metadata: parseMetadata(r.metadata),
+    }));
   }
 }
