@@ -5,12 +5,14 @@ import { Bell, Check } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
-import { MOCK_NOTIFICATIONS } from "@/lib/mock-data";
 import type { NotificationItem } from "@librehr/contracts";
 
 export function NotificationBell() {
   const t = useTranslations("notifications");
   const [open, setOpen] = React.useState(false);
+  const [error, setError] = React.useState<"signIn" | "unavailable" | null>(
+    null,
+  );
   const [unreadCount, setUnreadCount] = React.useState(0);
   const [notifications, setNotifications] = React.useState<NotificationItem[]>(
     [],
@@ -19,19 +21,22 @@ export function NotificationBell() {
   const fetchNotifications = React.useCallback(async () => {
     const session = getStoredSession();
     if (!session?.token) {
-      setNotifications(MOCK_NOTIFICATIONS);
-      setUnreadCount(MOCK_NOTIFICATIONS.filter((n) => !n.read).length);
+      setNotifications([]);
+      setUnreadCount(0);
+      setError("signIn");
       return;
     }
 
     try {
       const client = getApiClient(session.token);
       const res = await client.listNotifications();
+      setError(null);
       setNotifications(res.items);
       setUnreadCount(res.unreadCount);
     } catch {
-      setNotifications(MOCK_NOTIFICATIONS);
-      setUnreadCount(MOCK_NOTIFICATIONS.filter((n) => !n.read).length);
+      setNotifications([]);
+      setUnreadCount(0);
+      setError("unavailable");
     }
   }, []);
 
@@ -75,9 +80,9 @@ export function NotificationBell() {
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         className="relative flex h-9 w-9 items-center justify-center rounded-md border border-input bg-background hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
-        aria-label={t("title")}
       >
-        <Bell className="h-4 w-4 text-foreground" />
+        <Bell className="h-4 w-4 text-foreground" aria-hidden="true" />
+        <span className="sr-only">{t("title")}</span>
         {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white">
             {unreadCount > 9 ? "9+" : unreadCount}
@@ -101,14 +106,30 @@ export function NotificationBell() {
                   onClick={markAllRead}
                   className="text-[11px] text-primary hover:underline font-medium"
                 >
-                  Mark all read
+                  {t("markAllRead")}
                 </button>
               )}
             </div>
           </div>
 
           <div className="mt-2 max-h-64 overflow-y-auto space-y-2">
-            {notifications.length === 0 ? (
+            {error ? (
+              <div
+                role="status"
+                className="py-4 text-center text-xs text-muted-foreground"
+              >
+                <p>{t(error)}</p>
+                {error === "unavailable" && (
+                  <button
+                    type="button"
+                    className="mt-2 text-primary underline"
+                    onClick={() => void fetchNotifications()}
+                  >
+                    {t("retry")}
+                  </button>
+                )}
+              </div>
+            ) : notifications.length === 0 ? (
               <p className="py-4 text-center text-xs text-muted-foreground">
                 {t("empty")}
               </p>
