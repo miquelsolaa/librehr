@@ -19,8 +19,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@librehr/ui";
-import { apiClient } from "../../../../lib/api-client.js";
-import { MOCK_EMPLOYEES, MOCK_DEPARTMENTS } from "@/lib/mock-data";
+import { getApiClient } from "@/lib/api-client";
+import { getStoredSession } from "@/lib/auth";
 import type { EmployeeListItem, Department } from "@librehr/contracts";
 
 export default function PeoplePage() {
@@ -33,6 +33,11 @@ export default function PeoplePage() {
   const [employees, setEmployees] = React.useState<EmployeeListItem[]>([]);
   const [departments, setDepartments] = React.useState<Department[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState<
+    "signInRequired" | "loadError" | null
+  >(null);
+  const [departmentsError, setDepartmentsError] = React.useState(false);
+  const requestSequence = React.useRef(0);
   const [search, setSearch] = React.useState("");
   const [selectedDept, setSelectedDept] = React.useState<string>("");
   const [selectedStatus, setSelectedStatus] = React.useState<string>("");
@@ -48,34 +53,31 @@ export default function PeoplePage() {
   const [inviteError, setInviteError] = React.useState("");
 
   const fetchEmployees = React.useCallback(async () => {
+    const sequence = ++requestSequence.current;
+    setLoading(true);
+    setLoadError(null);
+    const session = getStoredSession();
+    if (!session?.token) {
+      setEmployees([]);
+      setLoadError("signInRequired");
+      setLoading(false);
+      return;
+    }
     try {
-      setLoading(true);
-      const res = await apiClient.listEmployees({
+      const res = await getApiClient(session.token).listEmployees({
         search: search || undefined,
         departmentId: selectedDept || undefined,
         status:
           (selectedStatus as "active" | "on_leave" | "terminated") || undefined,
       });
-      setEmployees(res.items);
+      if (sequence === requestSequence.current) setEmployees(res.items);
     } catch {
-      // In dev or offline mode, fall back to realistic mock employees
-      setEmployees(
-        MOCK_EMPLOYEES.filter((emp) => {
-          if (
-            search &&
-            !`${emp.firstName} ${emp.lastName}`
-              .toLowerCase()
-              .includes(search.toLowerCase())
-          ) {
-            return false;
-          }
-          if (selectedDept && emp.departmentName !== selectedDept) return false;
-          if (selectedStatus && emp.status !== selectedStatus) return false;
-          return true;
-        }),
-      );
+      if (sequence === requestSequence.current) {
+        setEmployees([]);
+        setLoadError("loadError");
+      }
     } finally {
-      setLoading(false);
+      if (sequence === requestSequence.current) setLoading(false);
     }
   }, [search, selectedDept, selectedStatus]);
 
@@ -83,21 +85,30 @@ export default function PeoplePage() {
     fetchEmployees();
   }, [fetchEmployees]);
 
-  React.useEffect(() => {
-    apiClient
+  const fetchDepartments = React.useCallback(() => {
+    const session = getStoredSession();
+    if (!session?.token) return;
+    setDepartmentsError(false);
+    void getApiClient(session.token)
       .listDepartments()
       .then((depts) => setDepartments(depts))
       .catch(() => {
-        setDepartments(MOCK_DEPARTMENTS);
+        setDepartments([]);
+        setDepartmentsError(true);
       });
   }, []);
+  React.useEffect(() => {
+    fetchDepartments();
+  }, [fetchDepartments]);
 
   const handleSendInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     setInviteSending(true);
     setInviteError("");
     try {
-      await apiClient.createInvitation({
+      const session = getStoredSession();
+      if (!session?.token) throw new Error("Session unavailable");
+      await getApiClient(session.token).createInvitation({
         email: inviteEmail,
         role: inviteRole,
       });
@@ -107,9 +118,8 @@ export default function PeoplePage() {
         setInviteSuccess(false);
         setInviteEmail("");
       }, 1500);
-    } catch (err: unknown) {
-      const errorObj = err as { detail?: string };
-      setInviteError(errorObj.detail ?? "Failed to send invitation");
+    } catch {
+      setInviteError(t("inviteError"));
     } finally {
       setInviteSending(false);
     }
@@ -196,7 +206,7 @@ export default function PeoplePage() {
             href={`/${locale}/people/${item.id}`}
             className="inline-flex items-center gap-1 rounded-btn px-2.5 py-1 text-xs font-medium text-primary hover:bg-surface-raised transition-colors"
           >
-            <span>View</span>
+            <span>{t("view")}</span>
             <ChevronRight className="h-3.5 w-3.5" />
           </Link>
         </div>
@@ -215,16 +225,16 @@ export default function PeoplePage() {
           <p className="text-sm text-muted-foreground">{t("description")}</p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center rounded-btn border border-border bg-surface p-1">
             <span className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-sm">
-              Directory
+              {t("directory")}
             </span>
             <Link
               href={`/${locale}/people/org-chart`}
               className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
             >
-              Org Chart
+              {t("orgChart")}
             </Link>
           </div>
 
@@ -323,6 +333,7 @@ export default function PeoplePage() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder={t("searchPlaceholder")}
+            aria-label={t("searchPlaceholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -358,12 +369,47 @@ export default function PeoplePage() {
         </div>
       </div>
 
+      {departmentsError && (
+        <div
+          role="status"
+          className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground"
+        >
+          <span>{t("departmentsError")}</span>
+          <button
+            type="button"
+            className="text-primary underline"
+            onClick={fetchDepartments}
+          >
+            {t("retry")}
+          </button>
+        </div>
+      )}
+
       {/* Directory Table */}
       {loading ? (
         <div className="flex h-48 items-center justify-center rounded-card border border-border bg-surface">
           <span className="text-sm text-muted-foreground">
             {tCommon("loading")}
           </span>
+        </div>
+      ) : loadError ? (
+        <div
+          role="alert"
+          className="space-y-3 rounded-card border border-border bg-surface p-6 text-sm"
+        >
+          <p>{t(loadError)}</p>
+          {loadError === "signInRequired" ? (
+            <Link
+              className="text-primary underline"
+              href={`/${locale}/sign-in`}
+            >
+              {t("signIn")}
+            </Link>
+          ) : (
+            <Button variant="outline" onClick={() => void fetchEmployees()}>
+              {t("retry")}
+            </Button>
+          )}
         </div>
       ) : employees.length === 0 ? (
         <EmptyState

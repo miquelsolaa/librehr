@@ -24,12 +24,18 @@ export const DepartmentSchema = z.object({
   name: z.string(),
   parentId: z.string().uuid().nullable(),
   leadEmployeeId: z.string().uuid().nullable(),
+  minPresencePercent: z.number().int().min(0).max(100).nullable(),
   parentName: z.string().nullable().optional(),
   leadName: z.string().nullable().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
 export type Department = z.infer<typeof DepartmentSchema>;
+
+export const DepartmentCoverageSchema = z.object({
+  minPresencePercent: z.number().int().min(0).max(100),
+});
+export type DepartmentCoverage = z.infer<typeof DepartmentCoverageSchema>;
 
 export const CreateDepartmentRequestSchema = z.object({
   name: z.string().min(1, "Department name is required"),
@@ -63,6 +69,12 @@ export const CreateLocationRequestSchema = z.object({
   timezone: z.string().default("Europe/Madrid"),
 });
 export type CreateLocationRequest = z.infer<typeof CreateLocationRequestSchema>;
+
+export const LegalEntityOptionSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+});
+export type LegalEntityOption = z.infer<typeof LegalEntityOptionSchema>;
 
 export const LegalEntitySchema = z.object({
   id: z.string().uuid(),

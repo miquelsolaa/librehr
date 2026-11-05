@@ -90,7 +90,17 @@ export default function RequestLeavePage() {
       router.push(`/${locale}/time-off`);
     } catch (err: unknown) {
       setError(
-        err instanceof Error ? err.message : "Failed to submit leave request.",
+        typeof err === "object" &&
+          err !== null &&
+          "code" in err &&
+          err.code === "COVERAGE_NOT_CONFIGURED"
+          ? t("coverageNotConfigured")
+          : typeof err === "object" &&
+              err !== null &&
+              "code" in err &&
+              err.code === "COVERAGE_UNVERIFIABLE"
+            ? t("coverageUnverifiable")
+            : t("requestFailed"),
       );
     } finally {
       setSubmitting(false);
@@ -125,7 +135,10 @@ export default function RequestLeavePage() {
         </div>
 
         {error && (
-          <div className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/50 dark:text-red-400">
+          <div
+            role="alert"
+            className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/50 dark:text-red-400"
+          >
             {error}
           </div>
         )}

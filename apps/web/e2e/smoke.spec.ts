@@ -28,7 +28,9 @@ test.describe("LibreHR Web Shell Smoke Tests", () => {
   }) => {
     await page.setViewportSize({ width: 360, height: 640 });
     await page.goto("/ca/home");
-    const bottomNav = page.locator("nav[aria-label='Mobile Navigation']");
+    const bottomNav = page
+      .getByRole("navigation", { name: /navegaci/i })
+      .last();
     await expect(bottomNav).toBeVisible();
   });
 });

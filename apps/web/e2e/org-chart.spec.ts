@@ -6,9 +6,9 @@ test.describe("Org Structure & Self-Service E2E (Phase 1)", () => {
   }) => {
     await page.goto("/en/people/org-chart");
 
-    await expect(page.locator("h1")).toContainText("Organizational Chart");
+    await expect(page.locator("h1")).toContainText("Org Chart");
     await expect(
-      page.getByPlaceholder("Search by name, title, or department..."),
+      page.getByPlaceholder("Search by name, title, or department"),
     ).toBeVisible();
     await expect(
       page.getByRole("link", { name: "Directory", exact: true }),

@@ -2,6 +2,8 @@
 
 Welcome to the LibreHR documentation repository.
 
+- [Functionality and screen inventory](functionality.md) — current coverage and known limitations
+
 ## Architecture and System Design
 
 - [ADR 0001: Technical Stack Decisions](adr/0001-tech-stack.md)

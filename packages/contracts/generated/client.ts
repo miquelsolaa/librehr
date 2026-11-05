@@ -21,8 +21,11 @@ import type {
 import type {
   OrganizationResponse,
   Department,
+  DepartmentCoverage,
   CreateDepartmentRequest,
   Location,
+  LegalEntityOption,
+  CreateLegalEntityRequest,
   CreateLocationRequest,
   SetupWizardRequest,
 } from '../src/org.js';
@@ -77,6 +80,7 @@ import type {
 } from '../src/notifications.js';
 import type {
   TimeEvent,
+  CreateScheduleAssignment,
   ClockRequest,
   ClockStatusResponse,
   PeriodTimesheetResponse,
@@ -260,6 +264,18 @@ export class LibreHrApiClient {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  }
+
+  async updateDepartmentCoverage(id: string, data: DepartmentCoverage): Promise<DepartmentCoverage> {
+    return this.request<DepartmentCoverage>('/v1/org/departments/' + encodeURIComponent(id) + '/coverage', { method: 'PUT', body: JSON.stringify(data) });
+  }
+
+  async listLegalEntities(): Promise<LegalEntityOption[]> {
+    return this.request<LegalEntityOption[]>('/v1/org/legal-entities');
+  }
+
+  async createLegalEntity(data: CreateLegalEntityRequest): Promise<LegalEntityOption> {
+    return this.request<LegalEntityOption>('/v1/org/legal-entities', { method: 'POST', body: JSON.stringify(data) });
   }
 
   async listLocations(): Promise<Location[]> {
@@ -505,6 +521,10 @@ export class LibreHrApiClient {
   // Time tracking (M3)
   async getClockStatus(): Promise<ClockStatusResponse> {
     return this.request<ClockStatusResponse>('/v1/time/current-status');
+  }
+
+  async createScheduleAssignment(data: CreateScheduleAssignment): Promise<{ id: string }> {
+    return this.request<{ id: string }>('/v1/schedules/assignments', { method: 'POST', body: JSON.stringify(data) });
   }
 
   async clock(data: ClockRequest): Promise<TimeEvent> {

@@ -73,6 +73,8 @@ export interface TeamAbsenceRow {
   requestId: string;
   employeeId: string;
   employeeName: string;
+  employeeUserId: string | null;
+  managerUserId: string | null;
   departmentId: string | null;
   departmentName: string | null;
   startDate: string;
@@ -277,6 +279,7 @@ export class LeaveRepository {
     tx: TenantTx,
     filters: {
       employeeId?: string | undefined;
+      managerEmployeeId?: string | undefined;
       status?: string | undefined;
       year?: number | undefined;
     } = {},
@@ -298,7 +301,11 @@ export class LeaveRepository {
       JOIN employees e ON e.id = r.employee_id
       JOIN leave_types t ON t.id = r.leave_type_id
       LEFT JOIN employees a ON a.id = r.approver_id
-      WHERE (${filters.employeeId ?? null}::uuid IS NULL OR r.employee_id = ${filters.employeeId ?? null})
+      WHERE r.organization_id = ${tx.__tenantContext.organizationId}
+        AND e.organization_id = ${tx.__tenantContext.organizationId}
+        AND t.organization_id = ${tx.__tenantContext.organizationId}
+        AND (${filters.managerEmployeeId ?? null}::uuid IS NULL OR e.manager_id = ${filters.managerEmployeeId ?? null} OR e.id = ${filters.managerEmployeeId ?? null})
+        AND (${filters.employeeId ?? null}::uuid IS NULL OR r.employee_id = ${filters.employeeId ?? null})
         AND (${filters.status ?? null}::text IS NULL OR r.status = ${filters.status ?? null})
         AND (${filters.year ?? null}::int IS NULL OR EXTRACT(YEAR FROM r.start_date) = ${filters.year ?? null})
       ORDER BY r.start_date DESC, r.created_at DESC
@@ -474,6 +481,7 @@ export class LeaveRepository {
     return tx<TeamAbsenceRow[]>`
       SELECT r.id as "requestId", r.employee_id as "employeeId",
              CONCAT(e.first_name, ' ', e.last_name) as "employeeName",
+             e.user_id as "employeeUserId", manager.user_id as "managerUserId",
              e.department_id as "departmentId", d.name as "departmentName",
              r.start_date::text as "startDate", r.end_date::text as "endDate",
              r.half_day_start as "halfDayStart", r.half_day_end as "halfDayEnd",
@@ -481,9 +489,13 @@ export class LeaveRepository {
              r.status
       FROM leave_requests r
       JOIN employees e ON e.id = r.employee_id
+      LEFT JOIN employees manager ON manager.id = e.manager_id AND manager.organization_id = ${tx.__tenantContext.organizationId}
       JOIN leave_types t ON t.id = r.leave_type_id
       LEFT JOIN departments d ON d.id = e.department_id
-      WHERE r.status = 'approved'
+      WHERE r.organization_id = ${tx.__tenantContext.organizationId}
+        AND e.organization_id = ${tx.__tenantContext.organizationId}
+        AND t.organization_id = ${tx.__tenantContext.organizationId}
+        AND r.status = 'approved'
         AND r.start_date <= ${options.endDate}
         AND r.end_date >= ${options.startDate}
         AND (${options.departmentId ?? null}::uuid IS NULL OR e.department_id = ${options.departmentId ?? null})

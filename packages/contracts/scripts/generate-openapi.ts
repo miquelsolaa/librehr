@@ -19,8 +19,11 @@ import {
   OrganizationResponseSchema,
   UpdateOrganizationSchema,
   DepartmentSchema,
+  DepartmentCoverageSchema,
   CreateDepartmentRequestSchema,
   LocationSchema,
+  LegalEntityOptionSchema,
+  CreateLegalEntityRequestSchema,
   CreateLocationRequestSchema,
   SetupWizardRequestSchema,
 } from "../src/org.js";
@@ -63,9 +66,11 @@ import {
 } from "../src/notifications.js";
 import {
   TimeEventSchema,
+  CreateScheduleAssignmentSchema,
   ClockRequestSchema,
   ClockStatusResponseSchema,
   PeriodTimesheetResponseSchema,
+  TimesheetQuerySchema,
   CreateTimeCorrectionSchema,
   DecideTimeCorrectionSchema,
   TimeCorrectionItemSchema,
@@ -134,8 +139,11 @@ registry.register("MeResponse", MeResponseSchema);
 registry.register("OrganizationResponse", OrganizationResponseSchema);
 registry.register("UpdateOrganization", UpdateOrganizationSchema);
 registry.register("Department", DepartmentSchema);
+registry.register("DepartmentCoverage", DepartmentCoverageSchema);
 registry.register("CreateDepartmentRequest", CreateDepartmentRequestSchema);
 registry.register("Location", LocationSchema);
+registry.register("LegalEntityOption", LegalEntityOptionSchema);
+registry.register("CreateLegalEntityRequest", CreateLegalEntityRequestSchema);
 registry.register("CreateLocationRequest", CreateLocationRequestSchema);
 registry.register("SetupWizardRequest", SetupWizardRequestSchema);
 registry.register("EmployeeListItem", EmployeeListItemSchema);
@@ -168,6 +176,7 @@ registry.register("CreateApprovalDelegation", CreateApprovalDelegationSchema);
 registry.register("NotificationItem", NotificationItemSchema);
 registry.register("NotificationListResponse", NotificationListResponseSchema);
 registry.register("TimeEvent", TimeEventSchema);
+registry.register("CreateScheduleAssignment", CreateScheduleAssignmentSchema);
 registry.register("ClockRequest", ClockRequestSchema);
 registry.register("ClockStatusResponse", ClockStatusResponseSchema);
 registry.register("PeriodTimesheetResponse", PeriodTimesheetResponseSchema);
@@ -421,6 +430,81 @@ registry.registerPath({
 });
 
 registry.registerPath({
+  method: "put",
+  path: "/v1/org/departments/{id}/coverage",
+  summary: "Set department minimum presence percentage",
+  request: {
+    params: z.object({ id: z.string().uuid() }),
+    body: {
+      content: { "application/json": { schema: DepartmentCoverageSchema } },
+    },
+  },
+  responses: {
+    200: {
+      description: "Coverage updated",
+      content: { "application/json": { schema: DepartmentCoverageSchema } },
+    },
+    400: {
+      description: "Invalid request",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    403: {
+      description: "Forbidden",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    404: {
+      description: "Department not found",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/v1/org/legal-entities",
+  summary: "List organization legal entities",
+  responses: {
+    200: {
+      description: "Legal entities",
+      content: {
+        "application/json": { schema: z.array(LegalEntityOptionSchema) },
+      },
+    },
+    403: {
+      description: "Forbidden",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/org/legal-entities",
+  summary: "Create an organization legal entity",
+  request: {
+    body: {
+      content: {
+        "application/json": { schema: CreateLegalEntityRequestSchema },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "Legal entity created",
+      content: { "application/json": { schema: LegalEntityOptionSchema } },
+    },
+    400: {
+      description: "Invalid request",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    403: {
+      description: "Forbidden",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
   method: "get",
   path: "/v1/org/locations",
   summary: "List all locations / work centers",
@@ -445,6 +529,10 @@ registry.registerPath({
     201: {
       description: "Location created",
       content: { "application/json": { schema: LocationSchema } },
+    },
+    404: {
+      description: "Legal entity not found",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
   },
 });
@@ -591,6 +679,10 @@ registry.registerPath({
     201: {
       description: "Leave request submitted",
       content: { "application/json": { schema: LeaveRequestSchema } },
+    },
+    409: {
+      description: "Overlapping request or coverage policy not configured",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
   },
 });
@@ -884,6 +976,78 @@ registry.registerPath({
   },
 });
 
+registry.registerPath({
+  method: "get",
+  path: "/v1/time/timesheet",
+  summary: "Get a configured employee timesheet",
+  request: { query: TimesheetQuerySchema },
+  responses: {
+    200: {
+      description: "Timesheet",
+      content: {
+        "application/json": { schema: PeriodTimesheetResponseSchema },
+      },
+    },
+    409: {
+      description: "Schedule rule not configured",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+registry.registerPath({
+  method: "get",
+  path: "/v1/time/export",
+  summary: "Export a configured employee timesheet",
+  request: { query: TimesheetQuerySchema },
+  responses: {
+    200: {
+      description: "Inspection export",
+      content: { "application/json": { schema: OfficialExportResponseSchema } },
+    },
+    409: {
+      description: "Schedule rule not configured",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/schedules/assignments",
+  summary: "Assign an explicit weekly schedule to an employee",
+  request: {
+    body: {
+      content: {
+        "application/json": { schema: CreateScheduleAssignmentSchema },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "Schedule assigned",
+      content: {
+        "application/json": { schema: z.object({ id: z.string().uuid() }) },
+      },
+    },
+    400: {
+      description: "Invalid schedule",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    403: {
+      description: "Forbidden",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    404: {
+      description: "Employee not found",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    409: {
+      description: "Overlapping assignment",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
 // Reports & Insights (M5)
 registry.registerPath({
   method: "get",
@@ -895,6 +1059,10 @@ registry.registerPath({
       content: {
         "application/json": { schema: ReportsSummaryResponseSchema },
       },
+    },
+    503: {
+      description: "Currently unavailable while source data is corrected",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
   },
 });
@@ -909,6 +1077,10 @@ registry.registerPath({
       content: {
         "text/csv": { schema: z.string() },
       },
+    },
+    503: {
+      description: "Currently unavailable while source data is corrected",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
   },
 });
@@ -1241,8 +1413,11 @@ import type {
 import type {
   OrganizationResponse,
   Department,
+  DepartmentCoverage,
   CreateDepartmentRequest,
   Location,
+  LegalEntityOption,
+  CreateLegalEntityRequest,
   CreateLocationRequest,
   SetupWizardRequest,
 } from '../src/org.js';
@@ -1297,6 +1472,7 @@ import type {
 } from '../src/notifications.js';
 import type {
   TimeEvent,
+  CreateScheduleAssignment,
   ClockRequest,
   ClockStatusResponse,
   PeriodTimesheetResponse,
@@ -1480,6 +1656,18 @@ export class LibreHrApiClient {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  }
+
+  async updateDepartmentCoverage(id: string, data: DepartmentCoverage): Promise<DepartmentCoverage> {
+    return this.request<DepartmentCoverage>('/v1/org/departments/' + encodeURIComponent(id) + '/coverage', { method: 'PUT', body: JSON.stringify(data) });
+  }
+
+  async listLegalEntities(): Promise<LegalEntityOption[]> {
+    return this.request<LegalEntityOption[]>('/v1/org/legal-entities');
+  }
+
+  async createLegalEntity(data: CreateLegalEntityRequest): Promise<LegalEntityOption> {
+    return this.request<LegalEntityOption>('/v1/org/legal-entities', { method: 'POST', body: JSON.stringify(data) });
   }
 
   async listLocations(): Promise<Location[]> {
@@ -1725,6 +1913,10 @@ export class LibreHrApiClient {
   // Time tracking (M3)
   async getClockStatus(): Promise<ClockStatusResponse> {
     return this.request<ClockStatusResponse>('/v1/time/current-status');
+  }
+
+  async createScheduleAssignment(data: CreateScheduleAssignment): Promise<{ id: string }> {
+    return this.request<{ id: string }>('/v1/schedules/assignments', { method: 'POST', body: JSON.stringify(data) });
   }
 
   async clock(data: ClockRequest): Promise<TimeEvent> {

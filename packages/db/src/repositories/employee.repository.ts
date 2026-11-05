@@ -102,7 +102,7 @@ export class EmployeeRepository {
     userId: string,
   ): Promise<EmployeeProfile | null> {
     const rows = await tx<{ id: string }[]>`
-      SELECT id FROM employees WHERE user_id = ${userId} LIMIT 1
+      SELECT id FROM employees WHERE user_id = ${userId} AND organization_id = ${tx.__tenantContext.organizationId} LIMIT 1
     `;
     if (!rows[0]) return null;
     return this.findById(tx, rows[0].id);
@@ -134,17 +134,17 @@ export class EmployeeRepository {
              emp.employment_type as "employmentType",
              emp.start_date::text as "startDate"
       FROM employees e
-      LEFT JOIN departments d ON d.id = e.department_id
-      LEFT JOIN locations loc ON loc.id = e.location_id
-      LEFT JOIN employees m ON m.id = e.manager_id
+      LEFT JOIN departments d ON d.id = e.department_id AND d.organization_id = ${tx.__tenantContext.organizationId}
+      LEFT JOIN locations loc ON loc.id = e.location_id AND loc.organization_id = ${tx.__tenantContext.organizationId}
+      LEFT JOIN employees m ON m.id = e.manager_id AND m.organization_id = ${tx.__tenantContext.organizationId}
       LEFT JOIN LATERAL (
         SELECT job_title, employment_type, start_date
         FROM employments
-        WHERE employee_id = e.id
+        WHERE employee_id = e.id AND organization_id = ${tx.__tenantContext.organizationId}
         ORDER BY start_date DESC
         LIMIT 1
       ) emp ON true
-      WHERE e.id = ${id}
+      WHERE e.id = ${id} AND e.organization_id = ${tx.__tenantContext.organizationId}
       LIMIT 1
     `;
 
@@ -178,19 +178,20 @@ export class EmployeeRepository {
              emp.job_title as "jobTitle",
              CONCAT(m.first_name, ' ', m.last_name) as "managerName"
       FROM employees e
-      LEFT JOIN departments d ON d.id = e.department_id
-      LEFT JOIN locations loc ON loc.id = e.location_id
-      LEFT JOIN employees m ON m.id = e.manager_id
+      LEFT JOIN departments d ON d.id = e.department_id AND d.organization_id = ${tx.__tenantContext.organizationId}
+      LEFT JOIN locations loc ON loc.id = e.location_id AND loc.organization_id = ${tx.__tenantContext.organizationId}
+      LEFT JOIN employees m ON m.id = e.manager_id AND m.organization_id = ${tx.__tenantContext.organizationId}
       LEFT JOIN LATERAL (
         SELECT job_title
         FROM employments
-        WHERE employee_id = e.id
+        WHERE employee_id = e.id AND organization_id = ${tx.__tenantContext.organizationId}
         ORDER BY start_date DESC
         LIMIT 1
       ) emp ON true
-      WHERE (${searchPattern}::text IS NULL OR 
-             LOWER(e.first_name) LIKE ${searchPattern} OR 
-             LOWER(e.last_name) LIKE ${searchPattern} OR 
+      WHERE e.organization_id = ${tx.__tenantContext.organizationId}
+        AND (${searchPattern}::text IS NULL OR
+             LOWER(e.first_name) LIKE ${searchPattern} OR
+             LOWER(e.last_name) LIKE ${searchPattern} OR
              LOWER(e.email) LIKE ${searchPattern})
         AND (${filters.departmentId ?? null}::uuid IS NULL OR e.department_id = ${filters.departmentId ?? null})
         AND (${filters.locationId ?? null}::uuid IS NULL OR e.location_id = ${filters.locationId ?? null})
@@ -202,9 +203,10 @@ export class EmployeeRepository {
     const countResult = await tx<[{ count: string }]>`
       SELECT COUNT(*)::text as count
       FROM employees e
-      WHERE (${searchPattern}::text IS NULL OR 
-             LOWER(e.first_name) LIKE ${searchPattern} OR 
-             LOWER(e.last_name) LIKE ${searchPattern} OR 
+      WHERE e.organization_id = ${tx.__tenantContext.organizationId}
+        AND (${searchPattern}::text IS NULL OR
+             LOWER(e.first_name) LIKE ${searchPattern} OR
+             LOWER(e.last_name) LIKE ${searchPattern} OR
              LOWER(e.email) LIKE ${searchPattern})
         AND (${filters.departmentId ?? null}::uuid IS NULL OR e.department_id = ${filters.departmentId ?? null})
         AND (${filters.locationId ?? null}::uuid IS NULL OR e.location_id = ${filters.locationId ?? null})

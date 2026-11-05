@@ -41,7 +41,8 @@ export function calculateDailyTimesheet(
     totalBreakMinutes += s.totalBreakMinutes;
   }
 
-  const expectedHours = scheduleRule?.expectedHours ?? 8.0;
+  if (!scheduleRule) throw new Error("Schedule rule is required");
+  const expectedHours = scheduleRule.expectedHours;
   const expectedMinutes = Math.round(expectedHours * 60);
   const overtimeMinutes = totalWorkedMinutes - expectedMinutes;
 

@@ -1,27 +1,12 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Time Off & Leave Management E2E", () => {
-  test("renders time off balance summary cards and request action", async ({
-    page,
-  }) => {
+  test("asks signed-out users to sign in", async ({ page }) => {
     await page.goto("/en/time-off");
-
-    // Title & headers
-    await expect(page.locator("h1")).toContainText("Time Off & Leave");
-
-    // Balance summary cards
-    await expect(page.getByText("Remaining Balance")).toBeVisible();
-    await expect(page.getByText("Total Accrued")).toBeVisible();
-    await expect(page.getByText("Used to Date")).toBeVisible();
-
-    // Action buttons
-    const requestBtn = page.getByRole("link", { name: "Request Time Off" });
-    await expect(requestBtn).toBeVisible();
-
-    const calendarBtn = page.getByRole("link", {
-      name: "Team Absence Calendar",
-    });
-    await expect(calendarBtn).toBeVisible();
+    await expect(
+      page.getByText("Sign in to view your time off."),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "Sign in" })).toBeVisible();
   });
 
   test("navigates to request leave form and verifies form fields", async ({

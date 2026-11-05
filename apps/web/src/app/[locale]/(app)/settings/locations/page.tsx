@@ -25,7 +25,7 @@ import {
   DialogFooter,
 } from "@librehr/ui";
 import { apiClient } from "../../../../../lib/api-client.js";
-import type { Location, Holiday } from "@librehr/contracts";
+import type { Location, Holiday, LegalEntityOption } from "@librehr/contracts";
 
 export default function LocationsSettingsPage() {
   const params = useParams();
@@ -35,9 +35,25 @@ export default function LocationsSettingsPage() {
 
   const [locations, setLocations] = React.useState<Location[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState(false);
+  const [actionError, setActionError] = React.useState<
+    "actionError" | "legalEntityRequired" | null
+  >(null);
+  const [holidayError, setHolidayError] = React.useState(false);
+  const [holidayActionError, setHolidayActionError] = React.useState(false);
 
   // Dialog state: Create location
   const [createOpen, setCreateOpen] = React.useState(false);
+  const [legalEntities, setLegalEntities] = React.useState<LegalEntityOption[]>(
+    [],
+  );
+  const [legalEntityId, setLegalEntityId] = React.useState("");
+  const [legalEntitiesError, setLegalEntitiesError] = React.useState(false);
+  const [legalEntitiesLoading, setLegalEntitiesLoading] = React.useState(false);
+  const [newEntityName, setNewEntityName] = React.useState("");
+  const [newEntityTaxId, setNewEntityTaxId] = React.useState("");
+  const [creatingEntity, setCreatingEntity] = React.useState(false);
+  const [entityCreateError, setEntityCreateError] = React.useState(false);
   const [locName, setLocName] = React.useState("");
   const [city, setCity] = React.useState("");
   const [region, setRegion] = React.useState("CT");
@@ -59,10 +75,12 @@ export default function LocationsSettingsPage() {
   const loadLocations = React.useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError(false);
       const res = await apiClient.listLocations();
       setLocations(res);
     } catch {
-      // offline / mock fallback
+      setLocations([]);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -72,14 +90,34 @@ export default function LocationsSettingsPage() {
     loadLocations();
   }, [loadLocations]);
 
+  const loadLegalEntities = React.useCallback(async () => {
+    setLegalEntitiesLoading(true);
+    setLegalEntitiesError(false);
+    try {
+      setLegalEntities(await apiClient.listLegalEntities());
+    } catch {
+      setLegalEntities([]);
+      setLegalEntitiesError(true);
+    } finally {
+      setLegalEntitiesLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (createOpen) void loadLegalEntities();
+  }, [createOpen, loadLegalEntities]);
+
   const loadHolidays = React.useCallback(
     async (locId: string, year: number) => {
       try {
         setHolidaysLoading(true);
+        setHolidayError(false);
+        setHolidays([]);
         const res = await apiClient.listHolidays({ locationId: locId, year });
         setHolidays(res);
       } catch {
         setHolidays([]);
+        setHolidayError(true);
       } finally {
         setHolidaysLoading(false);
       }
@@ -89,6 +127,7 @@ export default function LocationsSettingsPage() {
 
   const openHolidayDialog = (loc: Location) => {
     setHolidayLoc(loc);
+    setHolidayActionError(false);
     loadHolidays(loc.id, selectedYear);
   };
 
@@ -101,6 +140,7 @@ export default function LocationsSettingsPage() {
 
   const handleSeedHolidays = async () => {
     if (!holidayLoc) return;
+    setHolidayActionError(false);
     try {
       setSeeding(true);
       const res = await apiClient.seedStatutoryHolidays({
@@ -111,7 +151,7 @@ export default function LocationsSettingsPage() {
       });
       setHolidays(res);
     } catch {
-      // handle error
+      setHolidayActionError(true);
     } finally {
       setSeeding(false);
     }
@@ -120,6 +160,7 @@ export default function LocationsSettingsPage() {
   const handleAddHoliday = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!holidayLoc || !newDate || !newName) return;
+    setHolidayActionError(false);
     try {
       setAddingHoliday(true);
       await apiClient.createHoliday({
@@ -133,7 +174,7 @@ export default function LocationsSettingsPage() {
       setNewName("");
       loadHolidays(holidayLoc.id, selectedYear);
     } catch {
-      // error handled
+      setHolidayActionError(true);
     } finally {
       setAddingHoliday(false);
     }
@@ -141,16 +182,43 @@ export default function LocationsSettingsPage() {
 
   const handleDeleteHoliday = async (id: string) => {
     if (!holidayLoc) return;
+    setHolidayActionError(false);
     try {
       await apiClient.deleteHoliday(id);
       loadHolidays(holidayLoc.id, selectedYear);
     } catch {
-      // error handled
+      setHolidayActionError(true);
+    }
+  };
+
+  const handleCreateEntity = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEntityCreateError(false);
+    setCreatingEntity(true);
+    try {
+      const created = await apiClient.createLegalEntity({
+        name: newEntityName.trim(),
+        cif: newEntityTaxId.trim(),
+        country: "ES",
+      });
+      setLegalEntities((current) => [...current, created]);
+      setLegalEntityId(created.id);
+      setNewEntityName("");
+      setNewEntityTaxId("");
+    } catch {
+      setEntityCreateError(true);
+    } finally {
+      setCreatingEntity(false);
     }
   };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    setActionError(null);
+    if (!legalEntityId) {
+      setActionError("legalEntityRequired");
+      return;
+    }
     setSubmitting(true);
     try {
       await apiClient.createLocation({
@@ -159,15 +227,15 @@ export default function LocationsSettingsPage() {
         region,
         country: "ES",
         timezone: "Europe/Madrid",
-        legalEntityId:
-          locations[0]?.legalEntityId ?? "00000000-0000-0000-0000-000000000001",
+        legalEntityId,
       });
       setLocName("");
       setCity("");
+      setLegalEntityId("");
       setCreateOpen(false);
       loadLocations();
     } catch {
-      // error handled
+      setActionError("actionError");
     } finally {
       setSubmitting(false);
     }
@@ -220,13 +288,100 @@ export default function LocationsSettingsPage() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{t("addLocation")}</DialogTitle>
-              <DialogDescription>
-                Register an official work center (centro de trabajo) for public
-                holidays and agreements.
-              </DialogDescription>
+              <DialogDescription>{t("locationDescription")}</DialogDescription>
             </DialogHeader>
 
+            {!legalEntitiesLoading &&
+              !legalEntitiesError &&
+              legalEntities.length === 0 && (
+                <form
+                  onSubmit={handleCreateEntity}
+                  className="space-y-3 rounded-card border border-border p-4"
+                >
+                  <p className="text-sm">{t("legalEntitiesEmpty")}</p>
+                  {entityCreateError && (
+                    <p role="alert" className="text-sm text-danger">
+                      {t("legalEntityCreateError")}
+                    </p>
+                  )}
+                  <div className="space-y-1">
+                    <label htmlFor="entity-name" className="text-sm">
+                      {t("legalEntityName")}
+                    </label>
+                    <Input
+                      id="entity-name"
+                      required
+                      value={newEntityName}
+                      onChange={(e) => setNewEntityName(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label htmlFor="entity-tax-id" className="text-sm">
+                      {t("legalEntityTaxId")}
+                    </label>
+                    <Input
+                      id="entity-tax-id"
+                      required
+                      value={newEntityTaxId}
+                      onChange={(e) => setNewEntityTaxId(e.target.value)}
+                    />
+                  </div>
+                  <Button type="submit" disabled={creatingEntity}>
+                    {creatingEntity
+                      ? tCommon("loading")
+                      : t("createLegalEntity")}
+                  </Button>
+                </form>
+              )}
             <form onSubmit={handleCreate} className="space-y-4">
+              {actionError && (
+                <p role="alert" className="text-sm text-danger">
+                  {t(actionError)}
+                </p>
+              )}
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="loc-entity"
+                  className="text-xs font-medium text-foreground"
+                >
+                  {t("legalEntityLabel")}
+                </label>
+                <select
+                  id="loc-entity"
+                  required
+                  value={legalEntityId}
+                  onChange={(e) => setLegalEntityId(e.target.value)}
+                  disabled={legalEntitiesLoading || legalEntitiesError}
+                  className="min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="">{t("legalEntityPlaceholder")}</option>
+                  {legalEntities.map((entity) => (
+                    <option key={entity.id} value={entity.id}>
+                      {entity.name}
+                    </option>
+                  ))}
+                </select>
+                {legalEntitiesLoading && (
+                  <p role="status">{tCommon("loading")}</p>
+                )}
+                {legalEntitiesError && (
+                  <div role="alert">
+                    <p>{t("legalEntitiesLoadError")}</p>
+                    <button
+                      type="button"
+                      className="text-primary underline"
+                      onClick={() => void loadLegalEntities()}
+                    >
+                      {t("retry")}
+                    </button>
+                  </div>
+                )}
+                {!legalEntitiesLoading &&
+                  !legalEntitiesError &&
+                  legalEntities.length === 0 && (
+                    <p>{t("legalEntitiesEmpty")}</p>
+                  )}
+              </div>
               <div className="space-y-1.5">
                 <label
                   htmlFor="loc-name"
@@ -303,6 +458,13 @@ export default function LocationsSettingsPage() {
         {loading ? (
           <div className="p-8 text-center text-sm text-muted-foreground">
             {tCommon("loading")}
+          </div>
+        ) : loadError ? (
+          <div role="alert" className="space-y-3 p-8 text-center text-sm">
+            <p>{t("loadError")}</p>
+            <Button variant="outline" onClick={() => void loadLocations()}>
+              {t("retry")}
+            </Button>
           </div>
         ) : locations.length === 0 ? (
           <div className="p-8 text-center text-sm text-muted-foreground">
@@ -396,11 +558,29 @@ export default function LocationsSettingsPage() {
               </Button>
             </div>
 
+            {holidayActionError && (
+              <p role="alert" className="text-sm text-danger">
+                {t("actionError")}
+              </p>
+            )}
             {/* List of holidays */}
             <div className="rounded-card border border-border bg-card divide-y divide-border">
               {holidaysLoading ? (
                 <div className="p-6 text-center text-xs text-muted-foreground">
                   {tCommon("loading")}
+                </div>
+              ) : holidayError ? (
+                <div role="alert" className="space-y-3 p-6 text-center text-sm">
+                  <p>{t("holidayLoadError")}</p>
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      holidayLoc &&
+                      void loadHolidays(holidayLoc.id, selectedYear)
+                    }
+                  >
+                    {t("retry")}
+                  </Button>
                 </div>
               ) : holidays.length === 0 ? (
                 <div className="p-6 text-center text-xs text-muted-foreground">

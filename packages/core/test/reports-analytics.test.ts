@@ -73,6 +73,28 @@ describe("Milestone M5 Core Domain Logic (RPT-001, RPT-002, LEA-009)", () => {
     );
   });
 
+  it("neutralizes spreadsheet formulas in text fields without changing numeric values", () => {
+    const csv = generateGestoriaCsv("2026-03", [
+      {
+        taxId: "=1+1",
+        firstName: "  +formula",
+        lastName: "@cmd",
+        contractType: "-formula",
+        workedDays: -1,
+        vacationDays: 0,
+        sickLeaveDays: 0,
+        maternityPaternityDays: 0,
+        unpaidLeaveDays: 0,
+        overtimeHours: -1.5,
+      },
+    ]);
+    expect(csv).toContain("'=1+1");
+    expect(csv).toContain("'+formula");
+    expect(csv).toContain("'@cmd");
+    expect(csv).toContain("'-formula");
+    expect(csv).toContain(",-1,0,0,0,0,-1.50");
+  });
+
   it("generates valid RFC 5545 iCalendar feed", () => {
     const events = [
       {

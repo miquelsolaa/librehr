@@ -23,6 +23,7 @@ import { LanguageSwitcher } from "../../../components/language-switcher";
 import { NotificationBell } from "../../../components/notification-bell";
 import { ClockWidget } from "../../../components/clock-widget";
 import { getStoredSession } from "@/lib/auth";
+import { getApiClient } from "@/lib/api-client";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -31,18 +32,27 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const tNav = useTranslations("nav");
 
-  const [userName, setUserName] = React.useState<string>("Marta Soler");
-  const [userRole, setUserRole] = React.useState<string>("admin");
-  const orgName = "Acme Serveis";
+  const [userName, setUserName] = React.useState<string | null>(null);
+  const [userRole, setUserRole] = React.useState<string | null>(null);
+  const [orgName, setOrgName] = React.useState("LibreHR");
 
   React.useEffect(() => {
     const session = getStoredSession();
-    if (session?.name) {
-      setUserName(session.name);
-    }
-    if (session?.role) {
-      setUserRole(session.role);
-    }
+    if (!session) return;
+    setUserName(session.name || session.email);
+    setUserRole(session.role);
+    let active = true;
+    void getApiClient(session.token)
+      .getOrganization()
+      .then((organization) => {
+        if (active) setOrgName(organization.name);
+      })
+      .catch(() => {
+        if (active) setOrgName("LibreHR");
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   const standardNavItems: NavItem[] = [
@@ -107,7 +117,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     },
     {
       href: `/${locale}/time/export`,
-      label: "Inspección Laboral",
+      label: tNav("inspectionRecords"),
       icon: <FileText className="h-4 w-4" />,
     },
     {
@@ -117,32 +127,68 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     },
   ];
 
-  const navItems = userRole === "auditor" ? auditorNavItems : standardNavItems;
+  const employeePaths = new Set(["home", "time-off", "time", "documents"]);
+  const managerPaths = new Set([
+    "home",
+    "people",
+    "time-off",
+    "time",
+    "documents",
+    "onboarding",
+    "reports",
+  ]);
+  const navItems =
+    userRole === "auditor"
+      ? auditorNavItems
+      : userRole === "admin"
+        ? standardNavItems
+        : standardNavItems.filter((item) => {
+            const path = item.href.slice(`/${locale}/`.length);
+            return userRole === "manager"
+              ? managerPaths.has(path)
+              : employeePaths.has(path);
+          });
 
-  // Mobile navigation only displays key actions per DESIGN.md
-  const mobileNavItems: NavItem[] = [
-    navItems[0]!,
-    navItems[1] ?? navItems[0]!,
-    navItems[2] ?? navItems[0]!,
-  ];
+  const mobilePrimaryPaths =
+    userRole === "auditor"
+      ? ["home", "time", "time/export"]
+      : ["home", "time-off", "time", "documents"];
+  const mobileNavItems = mobilePrimaryPaths
+    .map((path) => navItems.find((item) => item.href === `/${locale}/${path}`))
+    .filter((item): item is NavItem => item !== undefined);
+  const mobileOverflowItems = navItems.filter(
+    (item) => !mobileNavItems.some((primary) => primary.href === item.href),
+  );
 
   return (
     <div className="flex min-h-screen bg-background">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-input focus:bg-surface-raised focus:p-3 focus:text-foreground focus:ring-2 focus:ring-focus-ring"
+      >
+        {tNav("skipToContent")}
+      </a>
       {/* Desktop Sidebar */}
       <Sidebar
         items={navItems}
         currentPath={pathname}
         orgName={orgName}
+        ariaLabel={tNav("mainNavigation")}
+        workspaceLabel={tNav("workspace")}
         footer={
-          <div className="flex items-center gap-3">
-            <Avatar name={userName} size="sm" />
-            <div className="flex flex-col overflow-hidden text-xs">
-              <span className="truncate font-semibold text-foreground">
-                {userName}
-              </span>
-              <span className="text-muted-foreground">Admin</span>
+          userName ? (
+            <div className="flex items-center gap-3">
+              <Avatar name={userName} size="sm" />
+              <div className="flex flex-col overflow-hidden text-xs">
+                <span className="truncate font-semibold text-foreground">
+                  {userName}
+                </span>
+                {userRole && (
+                  <span className="text-muted-foreground">{userRole}</span>
+                )}
+              </div>
             </div>
-          </div>
+          ) : undefined
         }
       />
 
@@ -151,25 +197,39 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <Topbar
           actions={
             <div className="flex items-center gap-2">
-              <ClockWidget />
+              <div className="hidden sm:block">
+                <ClockWidget />
+              </div>
               <NotificationBell />
               <LanguageSwitcher />
               <ThemeToggle />
             </div>
           }
           userMenu={
-            <div className="flex items-center gap-2 md:hidden">
-              <Avatar name={userName} size="sm" />
-            </div>
+            userName ? (
+              <div className="flex items-center gap-2 md:hidden">
+                <Avatar name={userName} size="sm" />
+              </div>
+            ) : undefined
           }
         />
 
-        <main className="flex-1 p-4 pb-20 md:p-8 md:pb-8 max-w-[1280px] w-full mx-auto">
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="flex-1 p-4 pb-20 md:p-8 md:pb-8 max-w-[1280px] w-full mx-auto"
+        >
           {children}
         </main>
 
         {/* Mobile Bottom Navigation */}
-        <BottomNav items={mobileNavItems} currentPath={pathname} />
+        <BottomNav
+          items={mobileNavItems}
+          overflowItems={mobileOverflowItems}
+          currentPath={pathname}
+          ariaLabel={tNav("mobileNavigation")}
+          moreLabel={tNav("more")}
+        />
       </div>
     </div>
   );

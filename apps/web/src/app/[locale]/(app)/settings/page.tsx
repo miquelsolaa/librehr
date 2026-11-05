@@ -12,6 +12,7 @@ import {
   Globe,
   Webhook,
   ChevronRight,
+  Clock,
 } from "lucide-react";
 
 export default function SettingsPage() {
@@ -19,8 +20,15 @@ export default function SettingsPage() {
   const locale = (params?.["locale"] as string) ?? "es";
   const tNav = useTranslations("nav");
   const t = useTranslations("settings");
+  const tSchedule = useTranslations("scheduleSettings");
 
   const settingsCards = [
+    {
+      title: tSchedule("title"),
+      description: tSchedule("linkDescription"),
+      href: `/${locale}/settings/time`,
+      icon: <Clock className="h-5 w-5 text-primary" />,
+    },
     {
       title: t("departmentsTitle"),
       description: t("departmentsDescription"),

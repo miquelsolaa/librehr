@@ -21,6 +21,7 @@ import {
   LeaveRepository,
   HolidayRepository,
   EmployeeRepository,
+  DepartmentRepository,
   NotificationRepository,
   AuditRepository,
 } from "@librehr/db";
@@ -33,6 +34,7 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
   const leaveRepo = new LeaveRepository();
   const holidayRepo = new HolidayRepository();
   const employeeRepo = new EmployeeRepository();
+  const departmentRepo = new DepartmentRepository();
   const notificationRepo = new NotificationRepository();
   const auditRepo = new AuditRepository();
 
@@ -218,25 +220,11 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
         const isAdmin = user.role === "admin";
         const isManager = user.role === "manager";
 
-        let filterEmployeeId: string | undefined = requestedEmployeeId;
-
-        // Employees can only view their own requests
-        if (!isAdmin && !isManager) {
-          if (!currentEmp) return [];
-          filterEmployeeId = currentEmp.id;
-        } else if (isManager && !isAdmin && !requestedEmployeeId) {
-          const allRequests = await leaveRepo.getLeaveRequests(tx, {
-            status,
-            year,
-          });
-          return allRequests.filter((r) => {
-            if (currentEmp && r.employeeId === currentEmp.id) return true;
-            return true;
-          });
-        }
-
+        if (!isAdmin && !currentEmp) return [];
         return leaveRepo.getLeaveRequests(tx, {
-          employeeId: filterEmployeeId,
+          employeeId:
+            isAdmin || isManager ? requestedEmployeeId : currentEmp?.id,
+          managerEmployeeId: isManager ? currentEmp?.id : undefined,
           status,
           year,
         });
@@ -304,7 +292,7 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
             return { error: "NO_EMPLOYEE_PROFILE" as const };
           }
           employeeId = currentEmp.id;
-        } else if (currentEmp && currentEmp.id !== employeeId) {
+        } else if (!currentEmp || currentEmp.id !== employeeId) {
           // Submitting on behalf of another employee requires HR admin permission (LEA-010)
           const allowed = can(
             {
@@ -380,27 +368,57 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
           }
         }
 
-        // Check department team coverage (LEA-007)
+        // Coverage rules must be configured explicitly for the department.
         if (targetEmp.departmentId) {
-          const deptAbsences = await leaveRepo.getTeamAbsences(tx, {
-            startDate: reqData.startDate,
-            endDate: reqData.endDate,
-            departmentId: targetEmp.departmentId,
-          });
+          const department = await departmentRepo.findById(
+            tx,
+            targetEmp.departmentId,
+          );
+          if (!department || department.minPresencePercent === null) {
+            return {
+              error: "COVERAGE_NOT_CONFIGURED" as const,
+              message:
+                "Configure the department coverage policy before requesting leave.",
+            };
+          }
           const deptEmps = await employeeRepo.list(tx, {
             departmentId: targetEmp.departmentId,
             status: "active",
           });
-          const coverage = evaluateTeamCoverage({
-            teamSize: deptEmps.total,
-            activeAbsencesOnDate: deptAbsences.length,
-            minPresencePercent: 20, // default department quorum floor
-          });
-          if (!coverage.allowed) {
-            return {
-              error: "COVERAGE_THRESHOLD" as const,
-              message: coverage.reason ?? "Team coverage threshold reached",
-            };
+          for (const date of workingDaysCalc.breakdown.workingDays) {
+            const absences = await leaveRepo.getTeamAbsences(tx, {
+              startDate: date,
+              endDate: date,
+              departmentId: targetEmp.departmentId,
+            });
+            const requestedHalf =
+              (date === reqData.startDate && reqData.halfDayStart) ||
+              (date === reqData.endDate && reqData.halfDayEnd);
+            const existingHalf = absences.some(
+              (absence) =>
+                (date === absence.startDate && absence.halfDayStart) ||
+                (date === absence.endDate && absence.halfDayEnd),
+            );
+            if (
+              department.minPresencePercent > 0 &&
+              (requestedHalf || existingHalf)
+            ) {
+              return {
+                error: "COVERAGE_UNVERIFIABLE" as const,
+                message:
+                  "Half-day coverage cannot be verified because time-of-day details are unavailable.",
+              };
+            }
+            const coverage = evaluateTeamCoverage({
+              teamSize: deptEmps.total,
+              activeAbsencesOnDate: absences.length,
+              minPresencePercent: department.minPresencePercent,
+            });
+            if (!coverage.allowed)
+              return {
+                error: "COVERAGE_THRESHOLD" as const,
+                message: coverage.reason ?? "Team coverage threshold reached",
+              };
           }
         }
 
@@ -508,6 +526,30 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
         return c.json(problem, 403, {
           "Content-Type": "application/problem+json",
         });
+      }
+      if (result.error === "COVERAGE_UNVERIFIABLE") {
+        return c.json(
+          createProblemDetails({
+            status: 409,
+            title: "Coverage cannot be verified",
+            detail: result.message,
+            code: "COVERAGE_UNVERIFIABLE",
+          }),
+          409,
+          { "Content-Type": "application/problem+json" },
+        );
+      }
+      if (result.error === "COVERAGE_NOT_CONFIGURED") {
+        return c.json(
+          createProblemDetails({
+            status: 409,
+            title: "Coverage policy not configured",
+            detail: result.message,
+            code: "COVERAGE_NOT_CONFIGURED",
+          }),
+          409,
+          { "Content-Type": "application/problem+json" },
+        );
       }
       if (result.error === "OVERLAPPING_REQUEST") {
         const problem = createProblemDetails({

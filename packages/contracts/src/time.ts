@@ -24,6 +24,29 @@ export const TimeEventSchema = z.object({
 });
 export type TimeEvent = z.infer<typeof TimeEventSchema>;
 
+export const CreateScheduleAssignmentSchema = z.object({
+  employeeId: z.string().uuid(),
+  name: z.string().trim().min(1).max(100),
+  effectiveFrom: z.string().date(),
+  minimumDailyRestHours: z.number().min(0).max(24),
+  rules: z
+    .array(
+      z.object({
+        dayOfWeek: z.number().int().min(1).max(7),
+        expectedHours: z.number().min(0).max(24),
+        breakMinutes: z.number().int().min(0).max(1440),
+      }),
+    )
+    .length(7)
+    .refine(
+      (rules) => new Set(rules.map((rule) => rule.dayOfWeek)).size === 7,
+      "Configure each day exactly once",
+    ),
+});
+export type CreateScheduleAssignment = z.infer<
+  typeof CreateScheduleAssignmentSchema
+>;
+
 export const ClockRequestSchema = z.object({
   eventType: z.enum(["clock_in", "clock_out", "break_start", "break_end"]),
   occurredAt: z.string().datetime().optional(),

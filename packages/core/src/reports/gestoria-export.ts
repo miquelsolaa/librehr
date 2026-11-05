@@ -39,8 +39,19 @@ export function generateGestoriaCsv(
   const rows: string[] = [headers.join(",")];
 
   for (const emp of employees) {
-    const sanitize = (val: string | number | null | undefined) => {
-      const s = String(val ?? "").trim();
+    const sanitize = (
+      val: string | number | null | undefined,
+      numeric = false,
+    ) => {
+      const raw = String(val ?? "");
+      let s = raw.trim();
+      if (
+        typeof val === "string" &&
+        !numeric &&
+        (/^[=+@-]/.test(s) || /^[\t\r]/.test(raw))
+      ) {
+        s = `'${s}`;
+      }
       if (s.includes(",") || s.includes('"') || s.includes("\n")) {
         return `"${s.replace(/"/g, '""')}"`;
       }
@@ -59,7 +70,7 @@ export function generateGestoriaCsv(
       sanitize(emp.sickLeaveDays),
       sanitize(emp.maternityPaternityDays),
       sanitize(emp.unpaidLeaveDays),
-      sanitize(emp.overtimeHours.toFixed(2)),
+      sanitize(emp.overtimeHours.toFixed(2), true),
     ];
 
     rows.push(row.join(","));

@@ -31,6 +31,10 @@ export default function DocumentsPage() {
 
   const [documents, setDocuments] = React.useState<DocumentItem[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState<
+    "signInRequired" | "loadError" | null
+  >(null);
+  const [templateLoadError, setTemplateLoadError] = React.useState(false);
   const [categoryFilter, setCategoryFilter] = React.useState<string>("all");
   const [activeTab, setActiveTab] = React.useState<
     "list" | "upload" | "bulk" | "templates"
@@ -82,32 +86,39 @@ export default function DocumentsPage() {
 
   const handleAcknowledge = async (docId: string) => {
     const session = getStoredSession();
-    if (!session?.token) return;
+    if (!session?.token) {
+      setErrorMsg(t("signInRequired"));
+      return;
+    }
     try {
       const client = getApiClient(session.token);
       await client.acknowledgeDocument(docId);
       setAcknowledgedDocs((prev) => new Set([...prev, docId]));
     } catch {
-      // handled
+      setErrorMsg(t("acknowledgeError"));
     }
   };
 
   const fetchDocuments = React.useCallback(async () => {
     const session = getStoredSession();
     if (!session?.token) {
+      setDocuments([]);
+      setLoadError("signInRequired");
       setLoading(false);
       return;
     }
 
     try {
       setLoading(true);
+      setLoadError(null);
       const client = getApiClient(session.token);
       const params =
         categoryFilter !== "all" ? { category: categoryFilter } : undefined;
       const res = await client.listDocuments(params);
       setDocuments(res);
-    } catch (err) {
-      console.error("Failed to load documents", err);
+    } catch {
+      setDocuments([]);
+      setLoadError("loadError");
     } finally {
       setLoading(false);
     }
@@ -115,9 +126,13 @@ export default function DocumentsPage() {
 
   const fetchTemplates = React.useCallback(async () => {
     const session = getStoredSession();
-    if (!session?.token) return;
+    if (!session?.token) {
+      setErrorMsg(t("signInRequired"));
+      return;
+    }
     try {
       setTemplatesLoading(true);
+      setTemplateLoadError(false);
       const client = getApiClient(session.token);
       const [tList, empRes] = await Promise.all([
         client.listDocumentTemplates(),
@@ -128,8 +143,10 @@ export default function DocumentsPage() {
       if (empRes.items.length > 0 && !selectedEmployeeId) {
         setSelectedEmployeeId(empRes.items[0]!.id);
       }
-    } catch (err) {
-      console.error("Failed to load document templates", err);
+    } catch {
+      setTemplates([]);
+      setEmployeesList([]);
+      setTemplateLoadError(true);
     } finally {
       setTemplatesLoading(false);
     }
@@ -148,7 +165,11 @@ export default function DocumentsPage() {
   const handleCreateTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
     const session = getStoredSession();
-    if (!session?.token || !newTemplateName || !newTemplateContent) return;
+    if (!session?.token) {
+      setErrorMsg(t("signInRequired"));
+      return;
+    }
+    if (!newTemplateName || !newTemplateContent) return;
 
     try {
       setIsTemplateSubmitting(true);
@@ -174,7 +195,10 @@ export default function DocumentsPage() {
   const handleRenderPreview = async () => {
     if (!selectedTemplate || !selectedEmployeeId) return;
     const session = getStoredSession();
-    if (!session?.token) return;
+    if (!session?.token) {
+      setErrorMsg(t("signInRequired"));
+      return;
+    }
 
     try {
       setIsTemplateSubmitting(true);
@@ -199,7 +223,10 @@ export default function DocumentsPage() {
   const handleDeleteTemplate = async (templateId: string) => {
     if (!window.confirm(t("deleteTemplateConfirm"))) return;
     const session = getStoredSession();
-    if (!session?.token) return;
+    if (!session?.token) {
+      setErrorMsg(t("signInRequired"));
+      return;
+    }
 
     try {
       const client = getApiClient(session.token);
@@ -216,7 +243,10 @@ export default function DocumentsPage() {
     if (!uploadFile || !title) return;
 
     const session = getStoredSession();
-    if (!session?.token) return;
+    if (!session?.token) {
+      setErrorMsg(t("signInRequired"));
+      return;
+    }
 
     try {
       setUploading(true);
@@ -244,38 +274,48 @@ export default function DocumentsPage() {
           setUploadFile(null);
           setActiveTab("list");
           void fetchDocuments();
-        } catch (err: unknown) {
-          setErrorMsg((err as Error).message || "Failed to upload document");
+        } catch {
+          setErrorMsg(t("uploadError"));
         } finally {
           setUploading(false);
         }
       };
+      reader.onerror = () => {
+        setErrorMsg(t("uploadError"));
+        setUploading(false);
+      };
       reader.readAsDataURL(uploadFile);
-    } catch (err: unknown) {
-      setErrorMsg((err as Error).message || "Failed to process file");
+    } catch {
+      setErrorMsg(t("uploadError"));
       setUploading(false);
     }
   };
 
   const handleDelete = async (id: string) => {
     const session = getStoredSession();
-    if (!session?.token) return;
+    if (!session?.token) {
+      setErrorMsg(t("signInRequired"));
+      return;
+    }
 
-    if (!confirm("Are you sure you want to delete this document?")) return;
+    if (!confirm(t("deleteConfirm"))) return;
 
     try {
       const client = getApiClient(session.token);
       await client.deleteDocument(id);
       void fetchDocuments();
-    } catch (err) {
-      console.error("Failed to delete document", err);
+    } catch {
+      setErrorMsg(t("deleteError"));
     }
   };
 
   const handleBulkDryRun = async () => {
     if (bulkFiles.length === 0) return;
     const session = getStoredSession();
-    if (!session?.token) return;
+    if (!session?.token) {
+      setErrorMsg(t("signInRequired"));
+      return;
+    }
 
     try {
       setBulkProcessing(true);
@@ -304,8 +344,8 @@ export default function DocumentsPage() {
       const client = getApiClient(session.token);
       const report = await client.uploadBulkPayslips({ files, dryRun: true });
       setBulkReport(report);
-    } catch (err) {
-      console.error("Bulk match dry run failed", err);
+    } catch {
+      setErrorMsg(t("bulkError"));
     } finally {
       setBulkProcessing(false);
     }
@@ -314,7 +354,10 @@ export default function DocumentsPage() {
   const handleBulkCommit = async () => {
     if (bulkFiles.length === 0) return;
     const session = getStoredSession();
-    if (!session?.token) return;
+    if (!session?.token) {
+      setErrorMsg(t("signInRequired"));
+      return;
+    }
 
     try {
       setBulkProcessing(true);
@@ -343,11 +386,11 @@ export default function DocumentsPage() {
       const client = getApiClient(session.token);
       const report = await client.uploadBulkPayslips({ files, dryRun: false });
       setBulkReport(report);
-      setSuccessMsg(`Processed ${report.matchedCount} payslips successfully.`);
+      setSuccessMsg(t("bulkSuccess", { count: report.matchedCount }));
       setActiveTab("list");
       void fetchDocuments();
-    } catch (err) {
-      console.error("Bulk upload commit failed", err);
+    } catch {
+      setErrorMsg(t("bulkError"));
     } finally {
       setBulkProcessing(false);
     }
@@ -364,7 +407,7 @@ export default function DocumentsPage() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">{t("subtitle")}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant={activeTab === "list" ? "default" : "outline"}
             size="sm"
@@ -408,7 +451,10 @@ export default function DocumentsPage() {
       )}
 
       {errorMsg && (
-        <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-4 text-rose-800 dark:text-rose-300 flex items-center gap-2">
+        <div
+          role="alert"
+          className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-4 text-rose-800 dark:text-rose-300 flex items-center gap-2"
+        >
           <AlertCircle className="h-5 w-5 shrink-0" />
           <span className="text-sm font-medium">{errorMsg}</span>
         </div>
@@ -419,6 +465,7 @@ export default function DocumentsPage() {
           {/* Filters */}
           <div className="flex items-center gap-2">
             <select
+              aria-label={t("selectCategory")}
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
               className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
@@ -436,7 +483,19 @@ export default function DocumentsPage() {
           <div className="overflow-hidden rounded-lg border border-border bg-card">
             {loading ? (
               <div className="p-8 text-center text-sm text-muted-foreground">
-                Loading documents...
+                {t("loading")}
+              </div>
+            ) : loadError ? (
+              <div role="alert" className="space-y-3 p-8 text-center text-sm">
+                <p>{t(loadError)}</p>
+                {loadError === "loadError" && (
+                  <Button
+                    variant="outline"
+                    onClick={() => void fetchDocuments()}
+                  >
+                    {t("retry")}
+                  </Button>
+                )}
               </div>
             ) : documents.length === 0 ? (
               <div className="p-12 text-center text-sm text-muted-foreground">
@@ -516,6 +575,9 @@ export default function DocumentsPage() {
                               variant="ghost"
                               size="sm"
                               className="h-8 px-2 text-rose-600 hover:text-rose-700"
+                              aria-label={t("deleteDocument", {
+                                title: doc.title,
+                              })}
                               onClick={() => handleDelete(doc.id)}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -737,6 +799,13 @@ export default function DocumentsPage() {
           {templatesLoading ? (
             <div className="py-12 text-center text-sm text-muted-foreground">
               {t("loadingTemplates")}
+            </div>
+          ) : templateLoadError ? (
+            <div role="alert" className="space-y-3 p-8 text-center text-sm">
+              <p>{t("templatesLoadError")}</p>
+              <Button variant="outline" onClick={() => void fetchTemplates()}>
+                {t("retry")}
+              </Button>
             </div>
           ) : templates.length === 0 ? (
             <div className="rounded-card border border-dashed border-border p-12 text-center space-y-3">

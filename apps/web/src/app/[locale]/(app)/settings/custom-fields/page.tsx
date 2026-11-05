@@ -28,11 +28,14 @@ export default function CustomFieldsSettingsPage() {
   const params = useParams();
   const locale = (params?.["locale"] as string) ?? "es";
   const tCommon = useTranslations("common");
+  const t = useTranslations("settings");
 
   const [definitions, setDefinitions] = React.useState<CustomFieldDefinition[]>(
     [],
   );
   const [loading, setLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState(false);
+  const [actionError, setActionError] = React.useState(false);
 
   // Dialog state
   const [createOpen, setCreateOpen] = React.useState(false);
@@ -48,10 +51,12 @@ export default function CustomFieldsSettingsPage() {
   const loadDefinitions = React.useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError(false);
       const res = await apiClient.listCustomFields();
       setDefinitions(res);
     } catch {
-      // offline / mock fallback
+      setDefinitions([]);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -71,6 +76,7 @@ export default function CustomFieldsSettingsPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    setActionError(false);
     try {
       const options =
         fieldType === "select"
@@ -99,18 +105,19 @@ export default function CustomFieldsSettingsPage() {
 
       loadDefinitions();
     } catch {
-      // error handled
+      setActionError(true);
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDelete = async (id: string) => {
+    setActionError(false);
     try {
       await apiClient.deleteCustomField(id);
       loadDefinitions();
     } catch {
-      // error handled
+      setActionError(true);
     }
   };
 
@@ -150,6 +157,11 @@ export default function CustomFieldsSettingsPage() {
             </DialogHeader>
 
             <form onSubmit={handleCreate} className="space-y-4">
+              {actionError && (
+                <p role="alert" className="text-sm text-danger">
+                  {t("actionError")}
+                </p>
+              )}
               <div className="space-y-1.5">
                 <label
                   htmlFor="cf-name"
@@ -280,11 +292,23 @@ export default function CustomFieldsSettingsPage() {
         </Dialog>
       </div>
 
+      {actionError && !createOpen && (
+        <p role="alert" className="text-sm text-danger">
+          {t("actionError")}
+        </p>
+      )}
       {/* Definitions List */}
       <div className="rounded-card border border-border bg-surface divide-y divide-border">
         {loading ? (
           <div className="p-8 text-center text-sm text-muted-foreground">
             {tCommon("loading")}
+          </div>
+        ) : loadError ? (
+          <div role="alert" className="space-y-3 p-8 text-center text-sm">
+            <p>{t("loadError")}</p>
+            <Button variant="outline" onClick={() => void loadDefinitions()}>
+              {t("retry")}
+            </Button>
           </div>
         ) : definitions.length === 0 ? (
           <div className="p-8 text-center text-sm text-muted-foreground">

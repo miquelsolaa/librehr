@@ -13,6 +13,7 @@ export function NotificationBell() {
   const [error, setError] = React.useState<"signIn" | "unavailable" | null>(
     null,
   );
+  const [actionError, setActionError] = React.useState(false);
   const [unreadCount, setUnreadCount] = React.useState(0);
   const [notifications, setNotifications] = React.useState<NotificationItem[]>(
     [],
@@ -48,6 +49,7 @@ export function NotificationBell() {
     const session = getStoredSession();
     if (!session?.token) return;
 
+    setActionError(false);
     try {
       const client = getApiClient(session.token);
       await client.markNotificationRead(id);
@@ -56,7 +58,7 @@ export function NotificationBell() {
       );
       setUnreadCount((prev) => Math.max(0, prev - 1));
     } catch {
-      // Ignore
+      setActionError(true);
     }
   };
 
@@ -64,13 +66,14 @@ export function NotificationBell() {
     const session = getStoredSession();
     if (!session?.token) return;
 
+    setActionError(false);
     try {
       const client = getApiClient(session.token);
       await client.markAllNotificationsRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       setUnreadCount(0);
     } catch {
-      // Ignore
+      setActionError(true);
     }
   };
 
@@ -112,6 +115,11 @@ export function NotificationBell() {
             </div>
           </div>
 
+          {actionError && (
+            <p role="alert" className="mt-2 text-xs text-danger">
+              {t("actionError")}
+            </p>
+          )}
           <div className="mt-2 max-h-64 overflow-y-auto space-y-2">
             {error ? (
               <div

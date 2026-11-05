@@ -14,6 +14,7 @@ import {
   LocationRepository,
 } from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
+import { canSeeLeaveType } from "../policies/calendar-visibility.js";
 
 export function createCalendarRoutes(sql: Sql) {
   const router = new Hono();
@@ -252,10 +253,6 @@ export function createCalendarRoutes(sql: Sql) {
       },
     );
 
-    // GDPR Art. 9 Compliance: Non-privileged users (role: employee) only see generic "Away"
-    // Managers & HR Admins see actual statutory leave type name and code.
-    const isPrivileged = user.role === "admin" || user.role === "manager";
-
     return c.json(
       absences.map((a) => ({
         requestId: a.requestId,
@@ -267,8 +264,8 @@ export function createCalendarRoutes(sql: Sql) {
         endDate: a.endDate,
         halfDayStart: a.halfDayStart,
         halfDayEnd: a.halfDayEnd,
-        leaveTypeCode: isPrivileged ? a.leaveTypeCode : "away",
-        leaveTypeName: isPrivileged ? a.leaveTypeName : "Away",
+        leaveTypeCode: canSeeLeaveType(user, a) ? a.leaveTypeCode : "away",
+        leaveTypeName: canSeeLeaveType(user, a) ? a.leaveTypeName : "Away",
         status: a.status,
       })),
     );
@@ -294,10 +291,9 @@ export function createCalendarRoutes(sql: Sql) {
           endDate,
         });
 
-        const isPrivileged = user.role === "admin" || user.role === "manager";
         const events = absences.map((a) => ({
           uid: `absence-${a.requestId}`,
-          summary: `${a.employeeName} - ${isPrivileged ? a.leaveTypeName : "Away"}`,
+          summary: `${a.employeeName} - ${canSeeLeaveType(user, a) ? a.leaveTypeName : "Away"}`,
           startDateStr: a.startDate,
           endDateStr: a.endDate,
         }));

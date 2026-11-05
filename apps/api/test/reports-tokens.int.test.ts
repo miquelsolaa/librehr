@@ -89,6 +89,31 @@ describe("Milestone M5 API Integration Tests (RPT-001, RPT-002, ADM-006, LEA-009
     expect(res.status).toBe(401);
   });
 
+  it("does not expose unreliable summary figures to authenticated users", async () => {
+    const dummyApp = db
+      ? app
+      : createApp({ sql: {} as unknown as Sql, authPort });
+    for (const token of [adminToken, staffToken]) {
+      const res = await dummyApp.request("/v1/reports/summary", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      expect(res.status).toBe(503);
+    }
+  });
+
+  it("does not generate exports from placeholder payroll inputs", async () => {
+    const dummyApp = db
+      ? app
+      : createApp({ sql: {} as unknown as Sql, authPort });
+    const res = await dummyApp.request(
+      "/v1/reports/gestoria/export?periodYearMonth=2026-03",
+      {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      },
+    );
+    expect(res.status).toBe(503);
+  });
+
   it("prevents non-admin employees from downloading Gestoria payroll export", async () => {
     const dummyApp = db
       ? app

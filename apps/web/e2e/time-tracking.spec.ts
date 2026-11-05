@@ -8,9 +8,9 @@ test.describe("Time Tracking & Timesheet E2E", () => {
 
     await expect(page.locator("h1")).toContainText("Working Time Tracking");
 
-    await expect(page.getByText("Period Worked")).toBeVisible();
-    await expect(page.getByText("Today's Breaks")).toBeVisible();
-    await expect(page.getByText("Overtime")).toBeVisible();
+    await expect(
+      page.getByText("Your timesheet could not be loaded."),
+    ).toBeVisible();
 
     const exportBtn = page.getByRole("link", {
       name: "Official Labour Inspection Export",

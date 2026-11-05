@@ -1,234 +1,74 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import {
-  BarChart3,
-  Users,
-  Calendar,
-  Clock,
-  Download,
-  FileSpreadsheet,
-  TrendingUp,
-  Percent,
-} from "lucide-react";
-import { Button } from "@librehr/ui";
+import { BarChart3, FileSpreadsheet } from "lucide-react";
 import { getStoredSession } from "@/lib/auth";
-import { getApiClient } from "@/lib/api-client";
-import { MOCK_REPORTS_SUMMARY } from "@/lib/mock-data";
-import type { ReportsSummaryResponse } from "@librehr/contracts";
 
 export default function ReportsPage() {
   const t = useTranslations("reports");
-
-  const [summary, setSummary] = React.useState<ReportsSummaryResponse | null>(
-    null,
+  const locale = String(useParams()?.["locale"] ?? "ca");
+  const [state, setState] = React.useState<"loading" | "signIn" | "ready">(
+    "loading",
   );
-  const [loading, setLoading] = React.useState(true);
-  const [month, setMonth] = React.useState(
-    new Date().toISOString().slice(0, 7),
-  );
-  const [downloading, setDownloading] = React.useState(false);
-
-  const fetchSummary = React.useCallback(async () => {
-    const session = getStoredSession();
-    if (!session?.token) {
-      setSummary(MOCK_REPORTS_SUMMARY);
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const client = getApiClient(session.token);
-      const res = await client.getReportsSummary();
-      setSummary(res);
-    } catch {
-      setSummary(MOCK_REPORTS_SUMMARY);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   React.useEffect(() => {
-    void fetchSummary();
-  }, [fetchSummary]);
-
-  const handleDownloadGestoria = async () => {
-    const session = getStoredSession();
-    if (!session?.token) return;
-
-    try {
-      setDownloading(true);
-      const token = session.token;
-      const url = `${process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001"}/v1/reports/gestoria/export?periodYearMonth=${month}`;
-      const res = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!res.ok) throw new Error("Export download failed");
-
-      const blob = await res.blob();
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = downloadUrl;
-      a.download = `gestoria_payroll_${month}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    } catch (err) {
-      console.error("Failed to download gestoría export", err);
-    } finally {
-      setDownloading(false);
-    }
-  };
+    setState(getStoredSession()?.token ? "ready" : "signIn");
+  }, []);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-          <BarChart3 className="h-7 w-7 text-primary" />
+      <header className="space-y-1">
+        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-foreground">
+          <BarChart3 className="h-7 w-7 text-primary" aria-hidden="true" />
           {t("title")}
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">{t("subtitle")}</p>
-      </div>
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="rounded-card border border-border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between text-muted-foreground mb-2">
-            <span className="text-xs font-medium uppercase tracking-wider">
-              {t("kpiHeadcount")}
-            </span>
-            <Users className="h-4 w-4 text-primary" />
-          </div>
-          <div className="text-2xl font-bold text-foreground">
-            {loading ? "—" : (summary?.headcount.endingHeadcount ?? 0)}
-          </div>
-          <div className="text-xs text-muted-foreground mt-1">
-            {t("kpiNetChange")}:{" "}
-            <span
-              className={
-                (summary?.headcount.netChange ?? 0) >= 0
-                  ? "text-emerald-600 font-medium"
-                  : "text-rose-600 font-medium"
-              }
-            >
-              {(summary?.headcount.netChange ?? 0) >= 0 ? "+" : ""}
-              {summary?.headcount.netChange ?? 0}
-            </span>
-          </div>
-        </div>
-
-        <div className="rounded-card border border-border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between text-muted-foreground mb-2">
-            <span className="text-xs font-medium uppercase tracking-wider">
-              {t("kpiTurnover")}
-            </span>
-            <TrendingUp className="h-4 w-4 text-primary" />
-          </div>
-          <div className="text-2xl font-bold text-foreground">
-            {loading ? "—" : `${summary?.headcount.turnoverRatePercent ?? 0}%`}
-          </div>
-          <div className="text-xs text-muted-foreground mt-1">
-            Leavers: {summary?.headcount.leaversCount ?? 0}
-          </div>
-        </div>
-
-        <div className="rounded-card border border-border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between text-muted-foreground mb-2">
-            <span className="text-xs font-medium uppercase tracking-wider">
-              {t("kpiAbsenceRate")}
-            </span>
-            <Percent className="h-4 w-4 text-primary" />
-          </div>
-          <div className="text-2xl font-bold text-foreground">
-            {loading ? "—" : `${summary?.absences.absenceRatePercent ?? 0}%`}
-          </div>
-          <div className="text-xs text-muted-foreground mt-1">
-            {t("kpiTotalAbsences")}: {summary?.absences.totalAbsentDays ?? 0}{" "}
-            days
-          </div>
-        </div>
-
-        <div className="rounded-card border border-border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between text-muted-foreground mb-2">
-            <span className="text-xs font-medium uppercase tracking-wider">
-              {t("kpiPlannedDays")}
-            </span>
-            <Clock className="h-4 w-4 text-primary" />
-          </div>
-          <div className="text-2xl font-bold text-foreground">
-            {loading ? "—" : (summary?.absences.totalPlannedWorkingDays ?? 0)}
-          </div>
-          <div className="text-xs text-muted-foreground mt-1">
-            Workforce capacity
-          </div>
-        </div>
-      </div>
-
-      {/* Gestoría Export Section */}
-      <div className="rounded-card border border-border bg-card p-6 shadow-sm space-y-4">
-        <div className="flex items-start justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-              <FileSpreadsheet className="h-5 w-5 text-primary" />
-              {t("gestoriaTitle")}
-            </h2>
-            <p className="text-xs text-muted-foreground mt-1">
-              {t("gestoriaDesc")}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pt-2">
-          <div className="w-full sm:w-auto">
-            <label className="block text-xs font-medium text-muted-foreground mb-1">
-              {t("periodMonth")}
-            </label>
-            <input
-              type="month"
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
-
-          <div className="sm:self-end">
-            <Button
-              onClick={handleDownloadGestoria}
-              disabled={downloading}
-              className="flex items-center gap-2"
-            >
-              <Download className="h-4 w-4" />
-              {downloading ? "Generating..." : t("downloadGestoriaCsv")}
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* iCalendar Subscription Feed Section */}
-      <div className="rounded-card border border-border bg-card p-6 shadow-sm space-y-3">
-        <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-          <Calendar className="h-5 w-5 text-primary" />
-          {t("calendarFeedTitle")}
-        </h2>
-        <p className="text-xs text-muted-foreground">{t("calendarFeedDesc")}</p>
-        <div>
-          <a
-            href={`${process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001"}/v1/calendar/feed.ics`}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+        <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
+      </header>
+      {state === "loading" && (
+        <p role="status" className="text-sm text-muted-foreground">
+          {t("loading")}
+        </p>
+      )}
+      {state === "signIn" && (
+        <div className="space-y-3 rounded-card border border-border bg-surface p-6">
+          <p>{t("signInRequired")}</p>
+          <Link
+            href={`/${locale}/sign-in`}
+            className="inline-flex min-h-11 items-center rounded-input bg-primary px-4 text-sm font-medium text-primary-foreground"
           >
-            <Download className="h-4 w-4" />
-            {t("subscribeIcs")}
-          </a>
+            {t("signIn")}
+          </Link>
         </div>
-      </div>
+      )}
+      {state === "ready" && (
+        <>
+          <p
+            role="status"
+            className="rounded-input border border-border bg-surface p-4 text-sm text-muted-foreground"
+          >
+            {t("approximateData")}
+          </p>
+          <section className="space-y-4 rounded-card border border-border bg-surface p-6">
+            <div>
+              <h2 className="flex items-center gap-2 text-lg font-semibold">
+                <FileSpreadsheet
+                  className="h-5 w-5 text-primary"
+                  aria-hidden="true"
+                />
+                {t("gestoriaTitle")}
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {t("gestoriaDesc")}
+              </p>
+            </div>
+            <p role="status" className="text-sm text-muted-foreground">
+              {t("exportUnavailable")}
+            </p>
+          </section>
+        </>
+      )}
     </div>
   );
 }

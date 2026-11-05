@@ -17,6 +17,8 @@ export interface SidebarProps {
   logo?: React.ReactNode;
   footer?: React.ReactNode;
   className?: string;
+  ariaLabel?: string;
+  workspaceLabel?: string;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -26,11 +28,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
   logo,
   footer,
   className,
+  ariaLabel = "Main Navigation",
+  workspaceLabel = "Workspace",
 }) => {
+  const activeHref = currentPath
+    ? items
+        .filter(
+          (item) =>
+            currentPath === item.href ||
+            currentPath.startsWith(`${item.href}/`),
+        )
+        .sort((a, b) => b.href.length - a.href.length)[0]?.href
+    : undefined;
   return (
     <aside
       className={cn(
-        "hidden md:flex h-screen w-64 flex-col border-r border-border bg-surface",
+        "sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-border bg-surface md:flex",
         className,
       )}
     >
@@ -43,22 +56,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {orgName}
           </span>
           <span className="text-xs text-muted-foreground">
-            LibreHR Workspace
+            {workspaceLabel}
           </span>
         </div>
       </div>
 
       <nav
         className="flex-1 space-y-1 overflow-y-auto p-4"
-        aria-label="Main Navigation"
+        aria-label={ariaLabel}
       >
         {items.map((item) => {
-          const active =
-            item.isActive ?? (currentPath ? currentPath === item.href : false);
+          const active = item.isActive ?? activeHref === item.href;
           return (
             <a
               key={item.href}
               href={item.href}
+              aria-current={active ? "page" : undefined}
               className={cn(
                 "flex items-center gap-3 rounded-input px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
                 active

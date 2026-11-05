@@ -43,3 +43,24 @@ test.describe("Accessibility & Privacy Boundary Tests", () => {
     expect(thirdPartyRequests).toEqual([]);
   });
 });
+
+test.describe("Redesigned employee screens", () => {
+  for (const path of [
+    "/en/time",
+    "/en/time-off",
+    "/en/people",
+    "/en/people/org-chart",
+    "/en/documents",
+    "/en/onboarding",
+    "/en/reports",
+  ]) {
+    test(`${path} passes axe while signed out`, async ({ page }) => {
+      await page.goto(path);
+      await expect(page.locator("main h1")).toBeVisible();
+      const results = await new AxeBuilder({ page })
+        .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+        .analyze();
+      expect(results.violations).toEqual([]);
+    });
+  }
+});

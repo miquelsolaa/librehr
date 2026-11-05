@@ -14,9 +14,9 @@ import {
   GitFork,
   ArrowLeft,
 } from "lucide-react";
-import { Input, Badge } from "@librehr/ui";
-import { apiClient } from "../../../../../lib/api-client.js";
-import { MOCK_ORG_CHART_ROOTS } from "@/lib/mock-data";
+import { Input, Badge, Button } from "@librehr/ui";
+import { getApiClient } from "@/lib/api-client";
+import { getStoredSession } from "@/lib/auth";
 import type { OrgChartNode } from "@librehr/contracts";
 
 interface OrgNodeCardProps {
@@ -27,6 +27,7 @@ interface OrgNodeCardProps {
 
 function OrgNodeCard({ node, locale, search }: OrgNodeCardProps) {
   const [expanded, setExpanded] = React.useState(true);
+  const t = useTranslations("people");
   const hasReports = node.directReports && node.directReports.length > 0;
 
   const matchesSearch =
@@ -93,8 +94,8 @@ function OrgNodeCard({ node, locale, search }: OrgNodeCardProps) {
             <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0">
               <GitFork className="h-3 w-3" />
               <span>
-                {node.directReportsCount} direct &middot; {node.totalTeamCount}{" "}
-                total
+                {t("directReports", { count: node.directReportsCount })}{" "}
+                &middot; {t("totalReports", { count: node.totalTeamCount })}
               </span>
             </Badge>
 
@@ -102,16 +103,17 @@ function OrgNodeCard({ node, locale, search }: OrgNodeCardProps) {
               type="button"
               onClick={() => setExpanded(!expanded)}
               className="flex items-center gap-1 text-xs text-primary font-medium hover:underline p-1"
-              aria-label={expanded ? "Collapse subtree" : "Expand subtree"}
+              aria-label={expanded ? t("collapseSubtree") : t("expandSubtree")}
+              aria-expanded={expanded}
             >
               {expanded ? (
                 <>
-                  <span>Hide</span>
+                  <span>{t("hide")}</span>
                   <ChevronDown className="h-3.5 w-3.5" />
                 </>
               ) : (
                 <>
-                  <span>Show</span>
+                  <span>{t("show")}</span>
                   <ChevronRight className="h-3.5 w-3.5" />
                 </>
               )}
@@ -166,18 +168,30 @@ export default function OrgChartPage() {
   const [roots, setRoots] = React.useState<OrgChartNode[]>([]);
   const [totalEmployees, setTotalEmployees] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState<
+    "signInRequired" | "loadError" | null
+  >(null);
   const [search, setSearch] = React.useState("");
 
   const loadOrgChart = React.useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    const session = getStoredSession();
+    if (!session?.token) {
+      setRoots([]);
+      setTotalEmployees(0);
+      setLoadError("signInRequired");
+      setLoading(false);
+      return;
+    }
     try {
-      setLoading(true);
-      const res = await apiClient.getOrgChart();
+      const res = await getApiClient(session.token).getOrgChart();
       setRoots(res.roots);
       setTotalEmployees(res.totalEmployees);
     } catch {
-      // Offline fallback
-      setRoots(MOCK_ORG_CHART_ROOTS);
-      setTotalEmployees(14);
+      setRoots([]);
+      setTotalEmployees(0);
+      setLoadError("loadError");
     } finally {
       setLoading(false);
     }
@@ -202,13 +216,15 @@ export default function OrgChartPage() {
             </Link>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <span>Organizational Chart</span>
-            <Badge variant="outline" className="text-xs">
-              {totalEmployees} Employees
-            </Badge>
+            <span>{tPeople("orgChart")}</span>
+            {!loading && !loadError && (
+              <Badge variant="outline" className="text-xs">
+                {tPeople("orgChartCount", { count: totalEmployees })}
+              </Badge>
+            )}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Interactive reporting lines, team sizes, and department hierarchies.
+            {tPeople("orgChartDescription")}
           </p>
         </div>
 
@@ -218,10 +234,10 @@ export default function OrgChartPage() {
             href={`/${locale}/people`}
             className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
-            Directory
+            {tPeople("directory")}
           </Link>
           <span className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-sm">
-            Org Chart
+            {tPeople("orgChart")}
           </span>
         </div>
       </div>
@@ -231,7 +247,8 @@ export default function OrgChartPage() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search by name, title, or department..."
+            placeholder={tPeople("orgChartSearch")}
+            aria-label={tPeople("orgChartSearch")}
             className="pl-9"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -245,10 +262,29 @@ export default function OrgChartPage() {
           <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
             {tCommon("loading")}
           </div>
+        ) : loadError ? (
+          <div
+            role="alert"
+            className="flex h-64 flex-col items-center justify-center gap-3 text-center text-sm"
+          >
+            <p>{tPeople(loadError)}</p>
+            {loadError === "signInRequired" ? (
+              <Link
+                className="text-primary underline"
+                href={`/${locale}/sign-in`}
+              >
+                {tPeople("signIn")}
+              </Link>
+            ) : (
+              <Button variant="outline" onClick={() => void loadOrgChart()}>
+                {tPeople("retry")}
+              </Button>
+            )}
+          </div>
         ) : roots.length === 0 ? (
           <div className="flex h-64 flex-col items-center justify-center gap-2 text-center text-muted-foreground">
             <Users className="h-10 w-10 text-muted-foreground/60" />
-            <p className="text-sm">No reporting hierarchy configured yet.</p>
+            <p className="text-sm">{tPeople("orgChartEmpty")}</p>
           </div>
         ) : (
           <div className="flex items-start justify-center gap-12 min-w-max pb-12">

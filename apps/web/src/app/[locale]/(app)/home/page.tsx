@@ -1,242 +1,127 @@
-"use client";
+﻿"use client";
 
 import * as React from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Button, StatusPill, Skeleton } from "@librehr/ui";
-import { Clock, Calendar, CheckCircle, Activity, Building } from "lucide-react";
-import { getApiClient } from "@/lib/api-client";
+import { Calendar, Clock, FileText } from "lucide-react";
+import { ClockWidget } from "@/components/clock-widget";
 import { getStoredSession } from "@/lib/auth";
-
-interface ApiHealthData {
-  status: string;
-}
-
-interface UserMeData {
-  id: string;
-  email: string;
-  name?: string | undefined;
-}
-
-interface OrgData {
-  id: string;
-  name: string;
-  slug: string;
-}
+import { getApiClient } from "@/lib/api-client";
 
 export default function HomePage() {
-  const tHome = useTranslations("home");
+  const t = useTranslations("home");
+  const locale = String(useParams()?.["locale"] ?? "ca");
+  const [session, setSession] =
+    React.useState<ReturnType<typeof getStoredSession>>(null);
+  const [ready, setReady] = React.useState(false);
+  const [balance, setBalance] = React.useState<number | null>(null);
+  const [balanceError, setBalanceError] = React.useState(false);
 
-  const [loading, setLoading] = React.useState(true);
-  const [health, setHealth] = React.useState<ApiHealthData | null>(null);
-  const [user, setUser] = React.useState<UserMeData | null>(null);
-  const [org, setOrg] = React.useState<OrgData | null>(null);
-  const [balance, setBalance] = React.useState<{
-    currentBalance: number;
-    totalUsed: number;
-  } | null>(null);
-  const [clockStatus, setClockStatus] = React.useState<{
-    status: string;
-    todayTotalSeconds?: number;
-  } | null>(null);
-
-  React.useEffect(() => {
-    async function loadData() {
-      setLoading(true);
-      const session = getStoredSession();
-      const token = session?.token;
-      const client = getApiClient(token);
-
+  const loadBalance = React.useCallback(async () => {
+    const current = getStoredSession();
+    setSession(current);
+    setBalanceError(false);
+    if (current?.token) {
       try {
-        const healthRes = await client.health();
-        setHealth(healthRes);
+        const result = await getApiClient(current.token).getLeaveBalance();
+        setBalance(result.currentBalance);
       } catch {
-        setHealth({ status: "ok" });
+        setBalance(null);
+        setBalanceError(true);
       }
-
-      if (token) {
-        try {
-          const meRes = await client.getMe();
-          setUser(meRes.user);
-        } catch {
-          if (session) {
-            setUser({
-              id: session.userId,
-              email: session.email,
-              name: session.name,
-            });
-          }
-        }
-
-        try {
-          const orgRes = await client.getOrganization();
-          setOrg(orgRes);
-        } catch {
-          setOrg({
-            id: "org-1",
-            name: "Acme Serveis SL",
-            slug: "acme-serveis",
-          });
-        }
-
-        try {
-          const balRes = await client.getLeaveBalance();
-          setBalance({
-            currentBalance: balRes.currentBalance,
-            totalUsed: balRes.totalUsed,
-          });
-        } catch {
-          setBalance({ currentBalance: 21.0, totalUsed: 4.0 });
-        }
-
-        try {
-          const cRes = await client.getClockStatus();
-          setClockStatus(cRes);
-        } catch {
-          setClockStatus({ status: "clocked_in" });
-        }
-      } else {
-        // Mock default for view
-        setUser({
-          id: "usr_marta",
-          email: "admin@librehr.local",
-          name: "Marta Soler",
-        });
-        setOrg({ id: "org_1", name: "Acme Serveis SL", slug: "acme-serveis" });
-        setBalance({ currentBalance: 21.0, totalUsed: 4.0 });
-        setClockStatus({ status: "clocked_in" });
-      }
-
-      setLoading(false);
     }
-
-    void loadData();
+    setReady(true);
   }, []);
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-10 w-64" />
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <Skeleton className="h-32 rounded-card" />
-          <Skeleton className="h-32 rounded-card" />
-          <Skeleton className="h-32 rounded-card" />
-        </div>
-      </div>
-    );
-  }
-
-  const displayName = user?.name ?? "Admin";
-  const orgName = org?.name ?? "Acme Serveis SL";
-  const isHealthy = health?.status === "ok";
+  React.useEffect(() => {
+    void loadBalance();
+  }, [loadBalance]);
 
   return (
-    <div className="space-y-8 animate-in fade-in-50">
-      {/* Header */}
-      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
-            {tHome("welcome", { name: displayName })}
-          </h1>
-          <p className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1">
-            <Building className="h-4 w-4" />
-            <span>{tHome("organization", { orgName })}</span>
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <StatusPill
-            status={isHealthy ? "active" : "rejected"}
-            label={tHome("apiHealth", { status: health?.status ?? "unknown" })}
-          />
-        </div>
-      </div>
-
-      {/* Overview Cards */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {/* Clock widget per DESIGN.md */}
-        <div className="rounded-card border border-border bg-surface p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-muted-foreground">
-              {tHome("quickActions")}
-            </span>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </div>
-          <div className="mt-4">
-            <p className="text-xl font-bold text-foreground">
-              {clockStatus?.status === "clocked_in" ? "5h 42m" : "0h 00m"}
+    <div className="space-y-8">
+      <header className="space-y-2">
+        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+          {session?.name
+            ? t("welcome", { name: session.name })
+            : t("homeTitle")}
+        </h1>
+        <p className="max-w-2xl text-sm text-muted-foreground">
+          {t("homeIntro")}
+        </p>
+      </header>
+      {!ready ? (
+        <p role="status">{t("loadingHome")}</p>
+      ) : !session?.token ? (
+        <section className="rounded-card border border-border bg-surface p-6 space-y-3">
+          <p>{t("signInPrompt")}</p>
+          <Link
+            className="inline-flex min-h-11 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground"
+            href={`/${locale}/sign-in`}
+          >
+            {t("signIn")}
+          </Link>
+        </section>
+      ) : (
+        <div className="grid gap-5 md:grid-cols-2">
+          <section className="space-y-4 rounded-card border border-border bg-surface p-6">
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-primary" aria-hidden="true" />
+              <h2 className="text-lg font-semibold">{t("yourTime")}</h2>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {t("timeDescription")}
             </p>
-            <p className="text-xs text-muted-foreground">
-              {clockStatus?.status === "clocked_in"
-                ? "Jornada en curs (08:30)"
-                : "Jornada avui"}
-            </p>
-          </div>
-          <div className="mt-4">
-            <Button
-              className="w-full"
-              size="sm"
-              variant={
-                clockStatus?.status === "clocked_in" ? "outline" : "default"
-              }
+            <ClockWidget />
+            <Link
+              className="inline-block text-sm font-medium text-primary underline underline-offset-4"
+              href={`/${locale}/time`}
             >
-              <Clock className="mr-2 h-4 w-4" />
-              {clockStatus?.status === "clocked_in"
-                ? "Sortir / Pausa"
-                : tHome("clockIn")}
-            </Button>
-          </div>
+              {t("viewTime")}
+            </Link>
+          </section>
+          <section className="space-y-4 rounded-card border border-border bg-surface p-6">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-primary" aria-hidden="true" />
+              <h2 className="text-lg font-semibold">{t("yourTimeOff")}</h2>
+            </div>
+            {balanceError ? (
+              <div role="alert" className="space-y-2 text-sm">
+                <p>{t("balanceUnavailable")}</p>
+                <button
+                  type="button"
+                  className="font-medium text-primary underline underline-offset-4"
+                  onClick={() => void loadBalance()}
+                >
+                  {t("retryHome")}
+                </button>
+              </div>
+            ) : balance === null ? (
+              <p role="status">{t("loadingHome")}</p>
+            ) : (
+              <p className="text-3xl font-semibold tabular-nums">
+                {new Intl.NumberFormat(locale).format(balance)}{" "}
+                <span className="text-sm font-normal text-muted-foreground">
+                  {t("daysRemaining")}
+                </span>
+              </p>
+            )}
+            <Link
+              className="inline-block text-sm font-medium text-primary underline underline-offset-4"
+              href={`/${locale}/time-off`}
+            >
+              {t("viewTimeOff")}
+            </Link>
+          </section>
+          <Link
+            className="flex min-h-14 items-center gap-3 rounded-card border border-border bg-surface px-6 font-medium hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring md:col-span-2"
+            href={`/${locale}/documents`}
+          >
+            <FileText className="h-5 w-5 text-primary" aria-hidden="true" />
+            {t("viewDocuments")}
+          </Link>
         </div>
-
-        {/* Time Off Balance card */}
-        <div className="rounded-card border border-border bg-surface p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-muted-foreground">
-              Vacances
-            </span>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </div>
-          <div className="mt-4">
-            <p className="text-xl font-bold text-foreground">
-              {balance
-                ? `${balance.currentBalance.toFixed(1)} dies`
-                : "21.0 dies"}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {balance
-                ? `${balance.totalUsed.toFixed(1)} dies gaudits`
-                : "Disponibles per 2026"}
-            </p>
-          </div>
-          <div className="mt-4">
-            <Button variant="secondary" className="w-full" size="sm">
-              <Calendar className="mr-2 h-4 w-4" />
-              {tHome("requestLeave")}
-            </Button>
-          </div>
-        </div>
-
-        {/* System & Isolation verification */}
-        <div className="rounded-card border border-border bg-surface p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-muted-foreground">
-              Seguretat i RLS
-            </span>
-            <Activity className="h-4 w-4 text-muted-foreground" />
-          </div>
-          <div className="mt-4">
-            <p className="text-base font-semibold text-foreground">
-              Aïllament multi-inquilí
-            </p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              RLS actiu a PostgreSQL per organització
-            </p>
-          </div>
-          <div className="mt-4 flex items-center gap-1.5 text-xs text-success font-medium">
-            <CheckCircle className="h-4 w-4" />
-            <span>Verificat M0</span>
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

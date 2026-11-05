@@ -10,23 +10,26 @@ import type { ClockStatusResponse } from "@librehr/contracts";
 
 export function ClockWidget({ onClockChange }: { onClockChange?: () => void }) {
   const t = useTranslations("timeTracking");
-  const [status, setStatus] =
-    React.useState<ClockStatusResponse["status"]>("clocked_out");
+  const [status, setStatus] = React.useState<
+    ClockStatusResponse["status"] | null
+  >(null);
+  const [statusLoading, setStatusLoading] = React.useState(true);
+  const [actionError, setActionError] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
 
   const fetchStatus = React.useCallback(async () => {
+    setStatusLoading(true);
     const session = getStoredSession();
-    if (!session?.token) {
-      setStatus("clocked_in");
-      return;
-    }
-
     try {
+      if (!session?.token) throw new Error("Session unavailable");
       const client = getApiClient(session.token);
       const res = await client.getClockStatus();
       setStatus(res.status);
+      setActionError(false);
     } catch {
-      setStatus("clocked_in");
+      setStatus(null);
+    } finally {
+      setStatusLoading(false);
     }
   }, []);
 
@@ -38,9 +41,14 @@ export function ClockWidget({ onClockChange }: { onClockChange?: () => void }) {
     action: "clock_in" | "clock_out" | "break_start" | "break_end",
   ) => {
     const session = getStoredSession();
-    if (!session?.token) return;
+    if (!session?.token) {
+      setActionError(true);
+      setStatus(null);
+      return;
+    }
 
     setLoading(true);
+    setActionError(false);
     try {
       const client = getApiClient(session.token);
       await client.clock({
@@ -50,21 +58,42 @@ export function ClockWidget({ onClockChange }: { onClockChange?: () => void }) {
       await fetchStatus();
       onClockChange?.();
     } catch {
-      alert("Failed to record time event");
+      setActionError(true);
+      setStatus(null);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div
+      className="flex flex-wrap items-center gap-2"
+      aria-busy={loading || statusLoading}
+    >
+      {!statusLoading && status === null && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center gap-2 text-xs text-foreground"
+        >
+          <span>
+            {actionError ? t("actionFailed") : t("statusUnavailable")}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void fetchStatus()}
+          >
+            {t("retry")}
+          </Button>
+        </div>
+      )}
       {status === "clocked_out" && (
         <Button
           variant="default"
           size="sm"
           disabled={loading}
           onClick={() => void handleAction("clock_in")}
-          className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+          className="min-h-11 gap-1.5"
         >
           <Play className="h-3.5 w-3.5 fill-current" />
           <span>{t("clockIn")}</span>
@@ -78,7 +107,7 @@ export function ClockWidget({ onClockChange }: { onClockChange?: () => void }) {
             size="sm"
             disabled={loading}
             onClick={() => void handleAction("break_start")}
-            className="gap-1.5"
+            className="min-h-11 gap-1.5"
           >
             <Coffee className="h-3.5 w-3.5 text-amber-600" />
             <span>{t("startBreak")}</span>
@@ -89,7 +118,7 @@ export function ClockWidget({ onClockChange }: { onClockChange?: () => void }) {
             size="sm"
             disabled={loading}
             onClick={() => void handleAction("clock_out")}
-            className="gap-1.5"
+            className="min-h-11 gap-1.5"
           >
             <Square className="h-3.5 w-3.5 fill-current" />
             <span>{t("clockOut")}</span>
@@ -103,7 +132,7 @@ export function ClockWidget({ onClockChange }: { onClockChange?: () => void }) {
           size="sm"
           disabled={loading}
           onClick={() => void handleAction("break_end")}
-          className="gap-1.5 bg-amber-600 hover:bg-amber-700 text-white"
+          className="min-h-11 gap-1.5"
         >
           <Clock className="h-3.5 w-3.5" />
           <span>{t("endBreak")}</span>

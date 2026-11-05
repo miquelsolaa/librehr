@@ -26,6 +26,45 @@ export interface ScheduleRuleRow {
 }
 
 export class ScheduleRepository {
+  async createAssignment(
+    tx: TenantTx,
+    data: {
+      employeeId: string;
+      name: string;
+      effectiveFrom: string;
+      minimumDailyRestHours: number;
+      rules: Array<{
+        dayOfWeek: number;
+        expectedHours: number;
+        breakMinutes: number;
+      }>;
+    },
+  ): Promise<"NOT_FOUND" | "OVERLAP" | { id: string }> {
+    const orgId = tx.__tenantContext.organizationId;
+    const employees = await tx<
+      { id: string }[]
+    >`SELECT id FROM employees WHERE id = ${data.employeeId} AND organization_id = ${orgId} FOR UPDATE`;
+    if (!employees[0]) return "NOT_FOUND";
+    const overlaps = await tx<
+      { id: string }[]
+    >`SELECT id FROM employee_schedules WHERE employee_id = ${data.employeeId} AND organization_id = ${orgId} AND (effective_to IS NULL OR effective_to >= ${data.effectiveFrom}::date) LIMIT 1`;
+    if (overlaps[0]) return "OVERLAP";
+    const weeklyHours = data.rules.reduce(
+      (sum, rule) => sum + rule.expectedHours,
+      0,
+    );
+    const schedules = await tx<
+      { id: string }[]
+    >`INSERT INTO schedules (name, type, weekly_hours, minimum_daily_rest_hours, is_default) VALUES (${data.name}, 'fixed', ${weeklyHours}, ${data.minimumDailyRestHours}, false) RETURNING id`;
+    const schedule = schedules[0];
+    if (!schedule) throw new Error("Schedule creation failed");
+    for (const rule of data.rules) {
+      await tx`INSERT INTO schedule_rules (schedule_id, day_of_week, expected_hours, break_minutes) VALUES (${schedule.id}, ${rule.dayOfWeek}, ${rule.expectedHours}, ${rule.breakMinutes})`;
+    }
+    await tx`INSERT INTO employee_schedules (employee_id, schedule_id, effective_from) VALUES (${data.employeeId}, ${schedule.id}, ${data.effectiveFrom}::date)`;
+    return schedule;
+  }
+
   async list(tx: TenantTx): Promise<ScheduleRow[]> {
     return tx<ScheduleRow[]>`
       SELECT id, organization_id as "organizationId", name, type,
@@ -33,6 +72,7 @@ export class ScheduleRepository {
              minimum_daily_rest_hours::float as "minimumDailyRestHours",
              is_default as "isDefault", created_at as "createdAt", updated_at as "updatedAt"
       FROM schedules
+      WHERE organization_id = ${tx.__tenantContext.organizationId}
       ORDER BY is_default DESC, name ASC
     `;
   }
@@ -47,7 +87,7 @@ export class ScheduleRepository {
              minimum_daily_rest_hours::float as "minimumDailyRestHours",
              is_default as "isDefault", created_at as "createdAt", updated_at as "updatedAt"
       FROM schedules
-      WHERE id = ${scheduleId}
+      WHERE id = ${scheduleId} AND organization_id = ${tx.__tenantContext.organizationId}
       LIMIT 1
     `;
 
@@ -59,7 +99,7 @@ export class ScheduleRepository {
              core_start_minutes as "coreStartMinutes", core_end_minutes as "coreEndMinutes",
              break_minutes as "breakMinutes", created_at as "createdAt", updated_at as "updatedAt"
       FROM schedule_rules
-      WHERE schedule_id = ${scheduleId}
+      WHERE schedule_id = ${scheduleId} AND organization_id = ${tx.__tenantContext.organizationId}
       ORDER BY day_of_week ASC
     `;
 
@@ -77,6 +117,7 @@ export class ScheduleRepository {
       SELECT schedule_id as "scheduleId"
       FROM employee_schedules
       WHERE employee_id = ${employeeId}
+        AND organization_id = ${tx.__tenantContext.organizationId}
         AND effective_from <= ${checkDate}
         AND (effective_to IS NULL OR effective_to >= ${checkDate})
       ORDER BY effective_from DESC
@@ -87,7 +128,7 @@ export class ScheduleRepository {
 
     if (!scheduleId) {
       const defaultSched = await tx<{ id: string }[]>`
-        SELECT id FROM schedules WHERE is_default = true LIMIT 1
+        SELECT id FROM schedules WHERE is_default = true AND organization_id = ${tx.__tenantContext.organizationId} LIMIT 1
       `;
       scheduleId = defaultSched[0]?.id;
     }

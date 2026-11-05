@@ -15,7 +15,6 @@ import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
 import type {
   ChecklistInstance,
-  ChecklistTemplate,
   EmployeeImportValidationResponse,
 } from "@librehr/contracts";
 
@@ -26,11 +25,15 @@ export default function OnboardingPage() {
     "checklists",
   );
   const [instances, setInstances] = React.useState<ChecklistInstance[]>([]);
-  const [_templates, setTemplates] = React.useState<ChecklistTemplate[]>([]);
   const [selectedInstanceId, setSelectedInstanceId] = React.useState<
     string | null
   >(null);
   const [loading, setLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState<
+    "signInRequired" | "loadError" | null
+  >(null);
+  const [actionError, setActionError] = React.useState<string | null>(null);
+  const [pendingTaskId, setPendingTaskId] = React.useState<string | null>(null);
 
   // Bulk import state
   const [csvContent, setCsvContent] = React.useState("");
@@ -42,24 +45,24 @@ export default function OnboardingPage() {
   const fetchChecklists = React.useCallback(async () => {
     const session = getStoredSession();
     if (!session?.token) {
+      setInstances([]);
+      setLoadError("signInRequired");
       setLoading(false);
       return;
     }
 
     try {
       setLoading(true);
+      setLoadError(null);
       const client = getApiClient(session.token);
-      const [insts, tmpls] = await Promise.all([
-        client.listChecklistInstances(),
-        client.listChecklistTemplates(),
-      ]);
+      const insts = await client.listChecklistInstances();
       setInstances(insts);
-      setTemplates(tmpls);
       if (insts.length > 0 && !selectedInstanceId) {
         setSelectedInstanceId(insts[0]?.id ?? null);
       }
-    } catch (err) {
-      console.error("Failed to load checklists", err);
+    } catch {
+      setInstances([]);
+      setLoadError("loadError");
     } finally {
       setLoading(false);
     }
@@ -71,24 +74,35 @@ export default function OnboardingPage() {
 
   const handleToggleTask = async (taskId: string, isCompleted: boolean) => {
     const session = getStoredSession();
-    if (!session?.token) return;
+    if (!session?.token) {
+      setActionError(t("signInRequired"));
+      return;
+    }
 
     try {
+      setActionError(null);
+      setPendingTaskId(taskId);
       const client = getApiClient(session.token);
       await client.toggleChecklistTask(taskId, isCompleted);
-      void fetchChecklists();
-    } catch (err) {
-      console.error("Failed to toggle task", err);
+      await fetchChecklists();
+    } catch {
+      setActionError(t("taskError"));
+    } finally {
+      setPendingTaskId(null);
     }
   };
 
   const handleValidateCsv = async (dryRun: boolean) => {
     if (!csvContent.trim()) return;
     const session = getStoredSession();
-    if (!session?.token) return;
+    if (!session?.token) {
+      setActionError(t("signInRequired"));
+      return;
+    }
 
     try {
       setValidating(true);
+      setActionError(null);
       setImportSuccess(null);
       const client = getApiClient(session.token);
       const res = await client.importEmployeesCsv(csvContent, dryRun);
@@ -97,8 +111,8 @@ export default function OnboardingPage() {
         setImportSuccess(t("importSuccess", { count: res.importedCount ?? 0 }));
         setCsvContent("");
       }
-    } catch (err) {
-      console.error("CSV import failed", err);
+    } catch {
+      setActionError(t("importError"));
     } finally {
       setValidating(false);
     }
@@ -117,7 +131,7 @@ export default function OnboardingPage() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">{t("subtitle")}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant={activeTab === "checklists" ? "default" : "outline"}
             size="sm"
@@ -137,6 +151,15 @@ export default function OnboardingPage() {
         </div>
       </div>
 
+      {actionError && (
+        <p
+          role="alert"
+          className="rounded-lg border border-danger p-4 text-sm text-danger"
+        >
+          {actionError}
+        </p>
+      )}
+
       {activeTab === "checklists" && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Checklists List */}
@@ -146,7 +169,22 @@ export default function OnboardingPage() {
             </h2>
             {loading ? (
               <div className="p-4 text-sm text-muted-foreground">
-                Loading...
+                {t("loading")}
+              </div>
+            ) : loadError ? (
+              <div
+                role="alert"
+                className="space-y-3 rounded-lg border border-border p-6 text-center text-sm"
+              >
+                <p>{t(loadError)}</p>
+                {loadError === "loadError" && (
+                  <Button
+                    variant="outline"
+                    onClick={() => void fetchChecklists()}
+                  >
+                    {t("retry")}
+                  </Button>
+                )}
               </div>
             ) : instances.length === 0 ? (
               <div className="rounded-lg border border-border p-6 text-center text-sm text-muted-foreground bg-card">
@@ -161,10 +199,12 @@ export default function OnboardingPage() {
                 const isSelected = inst.id === selectedInstanceId;
 
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={inst.id}
+                    aria-pressed={isSelected}
                     onClick={() => setSelectedInstanceId(inst.id)}
-                    className={`cursor-pointer rounded-lg border p-4 transition-colors ${
+                    className={`w-full cursor-pointer rounded-lg border p-4 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus-ring ${
                       isSelected
                         ? "border-primary bg-primary/5"
                         : "border-border bg-card hover:bg-muted/30"
@@ -204,7 +244,7 @@ export default function OnboardingPage() {
                         />
                       </div>
                     </div>
-                  </div>
+                  </button>
                 );
               })
             )}
@@ -222,14 +262,14 @@ export default function OnboardingPage() {
                     {selectedInstance.title}
                   </h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Target Date: {selectedInstance.baseDate}
+                    {t("targetDate", { date: selectedInstance.baseDate })}
                   </p>
                 </div>
 
                 <div className="divide-y divide-border rounded-lg border border-border">
                   {(selectedInstance.tasks ?? []).length === 0 ? (
                     <div className="p-6 text-center text-sm text-muted-foreground">
-                      No tasks defined for this checklist.
+                      {t("noTasks")}
                     </div>
                   ) : (
                     selectedInstance.tasks?.map((task) => (
@@ -240,6 +280,9 @@ export default function OnboardingPage() {
                         <div className="flex items-start gap-3">
                           <button
                             type="button"
+                            aria-label={t("taskToggle", { title: task.title })}
+                            aria-pressed={task.isCompleted}
+                            disabled={pendingTaskId !== null}
                             onClick={() =>
                               handleToggleTask(task.id, !task.isCompleted)
                             }
@@ -268,10 +311,12 @@ export default function OnboardingPage() {
                             )}
                             <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
                               <span className="capitalize font-medium text-foreground">
-                                Role: {task.assignedRole}
+                                {t("roleLabel", { role: task.assignedRole })}
                               </span>
                               <span>•</span>
-                              <span>Due: {task.dueDate}</span>
+                              <span>
+                                {t("dueDate", { date: task.dueDate })}
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -282,7 +327,7 @@ export default function OnboardingPage() {
               </div>
             ) : (
               <div className="rounded-lg border border-border bg-card p-8 text-center text-sm text-muted-foreground">
-                Select a checklist to view its tasks.
+                {t("selectChecklist")}
               </div>
             )}
           </div>

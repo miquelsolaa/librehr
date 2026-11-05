@@ -5,6 +5,7 @@ import {
   date,
   boolean,
   index,
+  integer,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { primaryId, timestamps, organizationIdCol } from "./common.js";
@@ -23,6 +24,7 @@ export const departments = pgTable(
       onDelete: "set null",
     }),
     leadEmployeeId: uuid("lead_employee_id"),
+    minPresencePercent: integer("min_presence_percent"),
     ...timestamps,
   },
   (table) => [

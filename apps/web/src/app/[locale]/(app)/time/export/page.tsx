@@ -28,6 +28,9 @@ export default function TimeExportPage() {
   const [endDate, setEndDate] = React.useState(defaultEnd);
   const [employeeId, setEmployeeId] = React.useState("");
   const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<
+    "scheduleNotConfigured" | "exportUnavailable" | null
+  >(null);
   const [doc, setDoc] = React.useState<OfficialExportResponse | null>(null);
 
   const session = getStoredSession();
@@ -35,8 +38,13 @@ export default function TimeExportPage() {
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!session?.token) return;
+    if (!session?.token) {
+      setError("exportUnavailable");
+      return;
+    }
 
+    setError(null);
+    setDoc(null);
     setLoading(true);
     try {
       const client = getApiClient(session.token);
@@ -53,8 +61,15 @@ export default function TimeExportPage() {
       }
       const res = await client.getOfficialExport(queryParams);
       setDoc(res);
-    } catch {
-      alert("Failed to generate official export");
+    } catch (err: unknown) {
+      setError(
+        typeof err === "object" &&
+          err !== null &&
+          "code" in err &&
+          err.code === "SCHEDULE_NOT_CONFIGURED"
+          ? "scheduleNotConfigured"
+          : "exportUnavailable",
+      );
     } finally {
       setLoading(false);
     }
@@ -103,6 +118,11 @@ export default function TimeExportPage() {
             </div>
           </div>
 
+          {error && (
+            <p role="alert" className="text-sm text-danger">
+              {t(error)}
+            </p>
+          )}
           <form
             onSubmit={(e) => void handleGenerate(e)}
             className="flex flex-wrap items-center gap-3"

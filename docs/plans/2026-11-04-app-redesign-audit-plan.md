@@ -1,6 +1,6 @@
 ﻿# LibreHR application redesign: audit and delivery plan
 
-**Status:** Proposed; source audit only, 2026-11-04. This is not evidence that every screen works. The requested `UX_RESEARCH.md` is absent; `PERSONA.md` calls its personas fictional. Validate the proposed journeys with representative users before implementing screens, or obtain an explicit waiver of that prerequisite.
+**Status:** Proposed; source audit only, 2026-11-04. This is not evidence that every screen works. Secondary research was supplied on 2026-11-04 and summarized in `UX_RESEARCH.md`; its claims are not independently verified and it contains no primary user research. `PERSONA.md` calls its personas fictional. Validate proposed journeys with representative users before treating the UX as validated.
 
 **Goal:** Make everyday HR tasks understandable, trustworthy and usable on mobile and desktop, while preserving privacy, accessibility and existing behavior.
 
@@ -24,7 +24,8 @@ Use LibreHR's existing calm pine-and-neutral design language and original assets
 
 ### 0. Research, inventory and baseline
 
-- [ ] Obtain `UX_RESEARCH.md` or explicit waiver; map the supplied SCR IDs to PRD IDs, current route, role, API, dependencies and evidence. Flag IDs absent from PRD and screens without IDs.
+- [x] Record the supplied secondary research and distinguish its findings from hypotheses.
+- [ ] Map the supplied SCR IDs to PRD IDs, current route, role, API, dependencies and evidence. Flag IDs absent from PRD and screens without IDs; validate the proposed journeys with representative users.
 - [ ] Start isolated development infrastructure and use synthetic data; capture desktop and 360px screenshots and test each existing route, plus direct navigation, empty, loading, failure, forbidden and offline states. Record reproducible defects and classify missing routes separately from broken ones.
 - [ ] Capture baseline Playwright, axe, keyboard and browser-console results for ca/es/en and representative EMP, MGR, HR/OWN, PAY and AUD permissions. Verify server-side scope and tenant isolation separately from navigation visibility.
 
@@ -60,6 +61,15 @@ Use LibreHR's existing calm pine-and-neutral design language and original assets
 - [ ] Maintain a route/action/state matrix: each screen has a named test or manual evidence for loading, populated, empty, error, forbidden and offline states; each interactive action has a verified outcome. Cover ca/es/en, both themes, desktop and 360px, keyboard and axe.
 - [ ] Run `pnpm verify` with Docker available, plus `pnpm test:e2e`; resolve failures and review all skipped integration tests. Document any unresolved issue rather than asserting every screen works.
 - [ ] Update design documentation, translations, relevant PRD traceability and release notes. Review clean-room, privacy, tenancy and accessibility requirements per slice.
+
+## Implementation notes (in progress)
+
+- The home, navigation, time, time-off, people, organization chart, documents and onboarding views now distinguish a failed load from a genuine empty result. Browser coverage uses isolated synthetic API responses; this does not establish correctness of every endpoint, role or screen.
+- RPT-001 summary and RPT-002 gestoria export are temporarily unavailable in the UI and API. The existing report repository references nonexistent time and employment columns, uses hard-coded working-day and leave-type assumptions, and treats encrypted identifiers as exportable values. Their previous implementation used fixed employment dates, a fixed working-day count and placeholder payroll fields, and has not been validated for scoped access or correct period accounting. Restore these features only with real, permission-scoped data, accurate date and time calculations, and integration tests. Their temporary HTTP 503 responses are documented in OpenAPI.
+- The calendar feed download is not offered on the reports screen. Calendar JSON and ICS now mask leave types for unrelated managers and colleagues, and tests cover direct reports and cross-tenant results; broader within-organization visibility scopes still require review.
+- Location creation selects an existing legal entity or creates the first one; the API rejects entities belonging to another organization and audits creation.
+- Departments now require an explicitly configured coverage percentage; timesheets require explicit schedule rules. Administrators can configure both, but editing or closing existing schedule assignments remains outstanding.
+- The complete route and role matrix, the remaining settings and administrative workflows, primary usability research and database-backed isolation checks remain outstanding. Do not mark this plan complete on the basis of browser smoke tests.
 
 ## Dependencies and open decisions
 

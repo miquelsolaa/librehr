@@ -48,6 +48,7 @@ export class LocationRepository {
              name, country, region, city, timezone,
              created_at as "createdAt", updated_at as "updatedAt"
       FROM locations
+      WHERE organization_id = ${tx.__tenantContext.organizationId}
       ORDER BY name ASC
     `;
   }
@@ -58,7 +59,7 @@ export class LocationRepository {
              name, country, region, city, timezone,
              created_at as "createdAt", updated_at as "updatedAt"
       FROM locations
-      WHERE id = ${id}
+      WHERE id = ${id} AND organization_id = ${tx.__tenantContext.organizationId}
       LIMIT 1
     `;
     return rows[0] ?? null;
@@ -91,6 +92,7 @@ export class LocationRepository {
       SELECT id, organization_id as "organizationId", name, tax_id as "taxId",
              country, created_at as "createdAt", updated_at as "updatedAt"
       FROM legal_entities
+      WHERE organization_id = ${tx.__tenantContext.organizationId}
       ORDER BY name ASC
     `;
   }

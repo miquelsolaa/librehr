@@ -94,8 +94,17 @@ describe("Time Tracking Pure Domain (TIM-001 - TIM-006)", () => {
     expect(daily.hasAnomaly).toBe(false);
   });
 
+  it("requires an explicit schedule rule rather than assuming eight hours", () => {
+    expect(() => calculateDailyTimesheet("2026-11-02", [])).toThrow(
+      "Schedule rule is required",
+    );
+  });
+
   it("builds official Labour Inspection export with cryptographic SHA-256 integrity hash", () => {
-    const daily = calculateDailyTimesheet("2026-11-02", []);
+    const daily = calculateDailyTimesheet("2026-11-02", [], {
+      dayOfWeek: 1,
+      expectedHours: 8,
+    });
     const doc = buildInspectionExport(
       {
         organizationId: "00000000-0000-0000-0000-000000000001",

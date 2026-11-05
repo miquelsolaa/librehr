@@ -13,13 +13,13 @@
 <br />
 <div align="center">
   <a href="https://github.com/miquelsolaa/librehr">
-    <img src="docs/images/banner.png" alt="LibreHR — Open-Source HRIS for European SMBs" width="100%">
+    <img src="docs/images/banner.png" alt="LibreHR â€” Open-Source HRIS for European SMBs" width="100%">
   </a>
 
   <p align="center">
     Open-source (AGPL-3.0), self-hostable, multi-tenant Human Resources Information System (HRIS) designed for European SMBs, starting with Spain and Catalonia.
     <br />
-    <a href="docs/index.md"><strong>Explore the docs »</strong></a>
+    <a href="docs/index.md"><strong>Explore the docs Â»</strong></a>
     &middot;
     <a href="docs/brand.md">Brand Assets</a>
     <br />
@@ -75,63 +75,160 @@
 
 ## About The Project
 
-[![LibreHR Dashboard Preview][dashboard-light-screenshot]](https://github.com/miquelsolaa/librehr)
-
 > [!IMPORTANT]
 > **Clean-Room Guarantee:** LibreHR is designed and built strictly from first principles, public statutory law, and generic domain expertise. It is not affiliated with, nor copied from, any commercial HR vendor. See [`CLEANROOM.md`](CLEANROOM.md).
 
-LibreHR is an open-source HRIS purpose-built to free European SMBs from proprietary vendor lock-in, recurring per-seat fees, and compliance anxiety. While most existing HR platforms are either US-centric SaaS solutions or legacy enterprise software, LibreHR provides modern, pleasant software built directly around European privacy and labor mandates:
+LibreHR is a self-hostable HR information system for small and medium-sized organizations, starting with Spain and Catalonia. The project is under active development; available screens and their limitations are listed in the [functionality inventory](docs/functionality.md).
 
-- **Statutory Working Time Compliance:** Native support for mandatory daily time tracking (_registro de jornada_, Real Decreto-ley 8/2019) with immutable append-only records and SHA-256 tamper-evident hash chaining.
-- **First-Class European Leave Management:** Ledger-based leave tracking (no mutable balance columns), half-days, location-based public holiday calendars (national, regional, and municipal), and strict statutory carry-over policies.
-- **Privacy & GDPR by Design:** Fine-grained PostgreSQL Row-Level Security (RLS) ensuring strict multi-tenant isolation, AES-256-GCM envelope encryption for sensitive fields, structured ROPA templates, and zero third-party telemetry.
-- **Trilingual Native Experience:** Fully symmetric language support across Catalan (`ca`), Spanish (`es`), and English (`en`).
+- **People and organization:** employee directory, profiles, departments, locations, and an organization chart.
+- **Time off and working time:** leave requests and balances, team calendars, clock events, timesheets, and configurable schedules and coverage rules.
+- **Documents and onboarding:** employee documents and checklist views, with API capabilities documented in the inventory.
+- **Privacy and localization:** tenant-aware access controls and interfaces in Catalan, Spanish, and English.
+
+Reporting and gestoria exports are currently unavailable while their calculations are corrected. Time records still have local-date and overnight-shift limitations. Do not treat the current implementation as a guarantee of legal compliance; see [COMPLIANCE.md](COMPLIANCE.md).
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ### Screenshots
 
-#### Modern Dashboard & Dark Mode
+These screenshots show the current application with **fictional mock data** supplied locally for the captures. They are illustrations of the interface, not evidence that all workflows or integrations are complete. Reports show their current unavailable state. See the [functionality inventory](docs/functionality.md) for limitations and planned screens.
 
-|                                    Light Theme                                    |                                   Dark Theme                                   |
-| :-------------------------------------------------------------------------------: | :----------------------------------------------------------------------------: |
-| [![Dashboard Light][dashboard-light-screenshot]](docs/images/dashboard-light.png) | [![Dashboard Dark][dashboard-dark-screenshot]](docs/images/dashboard-dark.png) |
+Some captured time and reports screens contain existing compliance and official-export wording that has not been verified; it should not be read as a compliance claim.
 
-#### Employee Management & Time Off
+To regenerate the gallery, run the web app locally on port 3109, then run `node scripts/capture-readme.cjs` from the repository root. Set `SCREENSHOT_BASE_URL` to use another local URL. The capture script intercepts API requests with fictional responses; it does not require production data.
 
-|                        Employee Directory                        |                      Statutory Leave & Balances                      |
-| :--------------------------------------------------------------: | :------------------------------------------------------------------: |
-| [![People Directory][people-screenshot]](docs/images/people.png) | [![Time Off & Leave][time-off-screenshot]](docs/images/time-off.png) |
+<details>
+<summary>Getting started</summary>
 
-#### Tablet Kiosk Mode & Org Structure
+**Sign in**
 
-|                  Tablet Kiosk Terminal (PIN/Badge)                  |                            Org Chart Hierarchy                            |
-| :-----------------------------------------------------------------: | :-----------------------------------------------------------------------: |
-| [![Tablet Kiosk Terminal][kiosk-screenshot]](docs/images/kiosk.png) | [![Org Chart Hierarchy][org-chart-screenshot]](docs/images/org-chart.png) |
+[![Sign in screen](docs/images/screens/sign-in.png)](docs/images/screens/sign-in.png)
 
-#### Additional application views
+**Setup**
 
-These captures use fictional sample data; empty views illustrate screens with no records.
-These captures were taken from the in-progress `fix/leave-truthful-states` worktree,
-which is not yet integrated into this checkout.
+[![Setup screen](docs/images/screens/setup.png)](docs/images/screens/setup.png)
 
-|                                         Home                                         |                                      Working time                                       |
-| :----------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------: |
-| [![Home with sample data](docs/images/readme-home.png)](docs/images/readme-home.png) | [![Working time empty state](docs/images/readme-time.png)](docs/images/readme-time.png) |
+**Invitation**
 
-|                                            Reports                                            |                                           Documents                                            |
-| :-------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------: |
-| [![Reports with sample data](docs/images/readme-reports.png)](docs/images/readme-reports.png) | [![Documents empty state](docs/images/readme-documents.png)](docs/images/readme-documents.png) |
+[![Invitation screen](docs/images/screens/invitation.png)](docs/images/screens/invitation.png)
 
-|                                    Time off with sample balance                                     |                                   Time off when data cannot be loaded                                   |
-| :-------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------: |
-| [![Time off with sample balance](docs/images/readme-time-off.png)](docs/images/readme-time-off.png) | [![Time off retry state](docs/images/readme-time-off-error.png)](docs/images/readme-time-off-error.png) |
+</details>
 
-#### First-Run Experience
+<details>
+<summary>People and organization</summary>
 
-|                    Setup & Legal Entity Wizard                    |                   Clean Authentication                    |
-| :---------------------------------------------------------------: | :-------------------------------------------------------: |
-| [![Setup Wizard][setup-screenshot]](docs/images/setup-wizard.png) | [![Sign In][sign-in-screenshot]](docs/images/sign-in.png) |
+**Home**
+
+[![Home screen](docs/images/screens/home.png)](docs/images/screens/home.png)
+
+**People directory**
+
+[![People directory screen](docs/images/screens/people.png)](docs/images/screens/people.png)
+
+**Employee profile**
+
+[![Employee profile screen](docs/images/screens/profile.png)](docs/images/screens/profile.png)
+
+**Organization chart**
+
+[![Organization chart screen](docs/images/screens/org-chart.png)](docs/images/screens/org-chart.png)
+
+</details>
+
+<details>
+<summary>Time off and working time</summary>
+
+**Time off**
+
+[![Time off screen](docs/images/screens/time-off.png)](docs/images/screens/time-off.png)
+
+**Request time off**
+
+[![Request time off screen](docs/images/screens/leave-request.png)](docs/images/screens/leave-request.png)
+
+**Team absence calendar**
+
+[![Team absence calendar screen](docs/images/screens/calendar.png)](docs/images/screens/calendar.png)
+
+**Time tracking**
+
+[![Time tracking screen](docs/images/screens/time.png)](docs/images/screens/time.png)
+
+**Time corrections**
+
+[![Time corrections screen](docs/images/screens/time-corrections.png)](docs/images/screens/time-corrections.png)
+
+**Time export**
+
+[![Time export screen](docs/images/screens/time-export.png)](docs/images/screens/time-export.png)
+
+**Shift roster**
+
+[![Shift roster screen](docs/images/screens/shifts.png)](docs/images/screens/shifts.png)
+
+**Kiosk**
+
+[![Kiosk screen](docs/images/screens/kiosk.png)](docs/images/screens/kiosk.png)
+
+</details>
+
+<details>
+<summary>Documents, onboarding and reports</summary>
+
+**Documents**
+
+[![Documents screen](docs/images/screens/documents.png)](docs/images/screens/documents.png)
+
+**Onboarding**
+
+[![Onboarding screen](docs/images/screens/onboarding.png)](docs/images/screens/onboarding.png)
+
+**Reports (currently unavailable)**
+
+[![Reports (currently unavailable) screen](docs/images/screens/reports.png)](docs/images/screens/reports.png)
+
+</details>
+
+<details>
+<summary>Administration</summary>
+
+**Settings**
+
+[![Settings screen](docs/images/screens/settings.png)](docs/images/screens/settings.png)
+
+**Departments and coverage**
+
+[![Departments and coverage screen](docs/images/screens/settings-departments.png)](docs/images/screens/settings-departments.png)
+
+**Legal entities and locations**
+
+[![Legal entities and locations screen](docs/images/screens/settings-locations.png)](docs/images/screens/settings-locations.png)
+
+**Schedules**
+
+[![Schedules screen](docs/images/screens/settings-time.png)](docs/images/screens/settings-time.png)
+
+**Custom fields**
+
+[![Custom fields screen](docs/images/screens/settings-custom-fields.png)](docs/images/screens/settings-custom-fields.png)
+
+**Security**
+
+[![Security screen](docs/images/screens/settings-security.png)](docs/images/screens/settings-security.png)
+
+**Single sign-on**
+
+[![Single sign-on screen](docs/images/screens/settings-sso.png)](docs/images/screens/settings-sso.png)
+
+**API tokens**
+
+[![API tokens screen](docs/images/screens/settings-tokens.png)](docs/images/screens/settings-tokens.png)
+
+**Webhooks**
+
+[![Webhooks screen](docs/images/screens/settings-webhooks.png)](docs/images/screens/settings-webhooks.png)
+
+</details>
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -139,27 +236,18 @@ which is not yet integrated into this checkout.
 
 LibreHR separates presentation, orchestration, background workers, and domain calculations across a strict dependency boundary:
 
-```mermaid
-graph TD
-    User["Web Browser / Mobile PWA"]
-    Proxy["Reverse Proxy (Caddy / Nginx)"]
-    Web["Next.js App Router (apps/web)"]
-    API["Hono REST API (apps/api)"]
-    Worker["pg-boss Worker (apps/worker)"]
-    DB[("PostgreSQL 16 (Row-Level Security)")]
-    Mail["SMTP Gateway (Mailpit / External)"]
-    Storage["Object Storage (MinIO / Local)"]
-
-    User --> Proxy
-    Proxy -->|UI Routes| Web
-    Proxy -->|/v1/* & /healthz| API
-    Web -.->|Typed Client| API
-    API -->|withTenant RLS Tx| DB
-    API -->|Queue Jobs| DB
-    Worker -->|Process Jobs| DB
-    Worker -->|Send Emails| Mail
-    API --> Storage
+```text
+Browser
+   |
+Reverse proxy
+   |-- UI routes --> Next.js web app -- typed API client --+
+   |-- /v1/* ----------------------------------------------+--> Hono API
+                                                               |-- PostgreSQL (tenant data and job queue)
+                                                               |-- Object storage
+PostgreSQL job queue --> Background worker --> SMTP gateway
 ```
+
+The diagram is plain text so it remains readable in Markdown viewers that do not render Mermaid. See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -287,7 +375,7 @@ Before committing code or opening a pull request, run the comprehensive verifica
 pnpm verify
 ```
 
-This pipeline guarantees high code quality and strict boundaries:
+This pipeline runs the following checks:
 
 1. `pnpm typecheck` &mdash; Strict TypeScript typecheck across all 11 packages and apps.
 2. `pnpm lint` &mdash; ESLint checks enforcing import directions and coding standards.
@@ -322,15 +410,9 @@ pnpm run doctor
 
 ## Roadmap
 
-- [x] **M0 - Foundations:** Monorepo architecture, Docker infra stack, PostgreSQL RLS tenancy harness, auth skeleton, design tokens, trilingual i18n pipeline, and seed data.
-- [x] **M1 - People:** Setup wizard, employee directory & profiles, invitations, role-based authorization, and immutable audit logging.
-- [x] **M2 - Time Off:** Leave requests, approval chains, cancellation flows, append-only balance ledgers, and official holiday calendars.
-- [x] **M3 - Time Tracking:** Compliant daily time records (_jornada_), SHA-256 tamper-evident hash chaining, schedule assignment, and missing clock-out background jobs.
-- [x] **M4 - Documents & Lifecycle:** Employee document vault, bulk payslip distribution, onboarding checklists, and GDPR data subject request (DSR) export tools.
-- [x] **M5 - Insights, Hardening & v1.0 RC:** Workforce reporting, gestoría payroll CSV export, personal access tokens (PATs), iCal subscription feeds, and tamper-evident hash chain verification worker.
-- [x] **v1.1 - Advanced Enterprise & Platform Extensions:** Outbound webhooks (`ADM-006`), TOTP 2FA (`AUTH-003`), Enterprise OIDC SSO (`AUTH-004`), document merge templates (`DOC-007`), org chart (`ORG-004`), custom profile fields (`ORG-005`), emergency contacts (`EMP-002`), employee self-service (`EMP-005`), notification center (`NOT-002`), document read receipts (`DOC-006`), tablet kiosk (`TIM-010`), inspector role (`TIM-008`), time bank (`TIM-012`), team coverage rules (`LEA-007`), and approval delegations (`LEA-008`).
+LibreHR contains work across people, leave, time tracking, documents, onboarding, reporting, and administration. Implementation and review are ongoing; a feature's presence in the code does not imply that every related workflow is complete.
 
-See the full [ROADMAP.md](ROADMAP.md) and [PRD.md](PRD.md) for detailed requirements, architecture, and the pending post-v1.1 backlog.
+See the [functionality inventory](docs/functionality.md) for current coverage and known gaps, and [ROADMAP.md](ROADMAP.md) and [PRD.md](PRD.md) for planned requirements.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -401,14 +483,6 @@ Distributed under the **GNU Affero General Public License v3.0 or later (AGPL-3.
 [license-url]: https://www.gnu.org/licenses/agpl-3.0
 [ci-shield]: https://img.shields.io/github/actions/workflow/status/miquelsolaa/librehr/ci.yml?branch=main&style=for-the-badge&label=CI
 [ci-url]: https://github.com/miquelsolaa/librehr/actions
-[dashboard-light-screenshot]: docs/images/dashboard-light.png
-[dashboard-dark-screenshot]: docs/images/dashboard-dark.png
-[setup-screenshot]: docs/images/setup-wizard.png
-[time-off-screenshot]: docs/images/time-off.png
-[people-screenshot]: docs/images/people.png
-[sign-in-screenshot]: docs/images/sign-in.png
-[kiosk-screenshot]: docs/images/kiosk.png
-[org-chart-screenshot]: docs/images/org-chart.png
 [Next.js]: https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white
 [Next-url]: https://nextjs.org/
 [TypeScript]: https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white

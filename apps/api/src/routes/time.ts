@@ -332,6 +332,9 @@ export function createTimeRoutes(sql: Sql) {
           const emp = await employeeRepo.findById(tx, employeeId);
           if (!emp) return "NOT_FOUND";
           if (emp.userId !== user.id && user.role !== "auditor") {
+            const manager = emp.managerId
+              ? await employeeRepo.findById(tx, emp.managerId)
+              : null;
             const allowed = can(
               {
                 userId: user.id,
@@ -342,7 +345,7 @@ export function createTimeRoutes(sql: Sql) {
               {
                 organizationId: user.organizationId,
                 employeeId: emp.id,
-                managerId: emp.managerId ?? undefined,
+                managerId: manager?.userId ?? undefined,
               },
             );
             if (!allowed) return "FORBIDDEN";
@@ -370,21 +373,6 @@ export function createTimeRoutes(sql: Sql) {
           `${startDate}T00:00:00Z`,
           `${endDate}T23:59:59Z`,
         );
-
-        // Fetch schedule rules for employee
-        const schedData = await scheduleRepo.getForEmployee(tx, employeeId);
-        const rulesMap = new Map<
-          number,
-          { dayOfWeek: number; expectedHours: number }
-        >();
-        if (schedData) {
-          for (const r of schedData.rules) {
-            rulesMap.set(r.dayOfWeek, {
-              dayOfWeek: r.dayOfWeek,
-              expectedHours: r.expectedHours,
-            });
-          }
-        }
 
         // Group events by YYYY-MM-DD
         const eventsByDay = new Map<string, typeof events>();
@@ -426,9 +414,20 @@ export function createTimeRoutes(sql: Sql) {
           );
 
           const dayOfWeek = curr.getUTCDay() || 7;
-          const rule = rulesMap.get(dayOfWeek);
+          const schedule = await scheduleRepo.getForEmployee(
+            tx,
+            employeeId,
+            dayStr,
+          );
+          const rule = schedule?.rules.find(
+            (item) => item.dayOfWeek === dayOfWeek,
+          );
+          if (!rule) return "SCHEDULE_NOT_CONFIGURED" as const;
 
-          const daily = calculateDailyTimesheet(dayStr, sessions, rule);
+          const daily = calculateDailyTimesheet(dayStr, sessions, {
+            dayOfWeek: rule.dayOfWeek,
+            expectedHours: rule.expectedHours,
+          });
           dailySummaries.push(daily);
 
           curr.setUTCDate(curr.getUTCDate() + 1);
@@ -437,6 +436,20 @@ export function createTimeRoutes(sql: Sql) {
         return calculatePeriodTimesheet(dailySummaries);
       },
     );
+
+    if (data === "SCHEDULE_NOT_CONFIGURED") {
+      return c.json(
+        createProblemDetails({
+          status: 409,
+          title: "Schedule not configured",
+          detail:
+            "Configure a schedule rule for every day in the requested period.",
+          code: "SCHEDULE_NOT_CONFIGURED",
+        }),
+        409,
+        { "Content-Type": "application/problem+json" },
+      );
+    }
 
     if (data === "NO_EMPLOYEE" || data === "NOT_FOUND") {
       const problem = createProblemDetails({
@@ -499,6 +512,9 @@ export function createTimeRoutes(sql: Sql) {
         if (!emp) return null;
 
         if (emp.userId !== user.id && user.role !== "auditor") {
+          const manager = emp.managerId
+            ? await employeeRepo.findById(tx, emp.managerId)
+            : null;
           const allowed = can(
             {
               userId: user.id,
@@ -509,7 +525,7 @@ export function createTimeRoutes(sql: Sql) {
             {
               organizationId: user.organizationId,
               employeeId: emp.id,
-              managerId: emp.managerId ?? undefined,
+              managerId: manager?.userId ?? undefined,
             },
           );
           if (!allowed) return "FORBIDDEN";
@@ -577,7 +593,22 @@ export function createTimeRoutes(sql: Sql) {
             })),
           );
 
-          dailySummaries.push(calculateDailyTimesheet(dayStr, sessions));
+          const dayOfWeek = curr.getUTCDay() || 7;
+          const schedule = await scheduleRepo.getForEmployee(
+            tx,
+            employeeId,
+            dayStr,
+          );
+          const rule = schedule?.rules.find(
+            (item) => item.dayOfWeek === dayOfWeek,
+          );
+          if (!rule) return "SCHEDULE_NOT_CONFIGURED" as const;
+          dailySummaries.push(
+            calculateDailyTimesheet(dayStr, sessions, {
+              dayOfWeek: rule.dayOfWeek,
+              expectedHours: rule.expectedHours,
+            }),
+          );
           curr.setUTCDate(curr.getUTCDate() + 1);
         }
 
@@ -596,6 +627,20 @@ export function createTimeRoutes(sql: Sql) {
         );
       },
     );
+
+    if (doc === "SCHEDULE_NOT_CONFIGURED") {
+      return c.json(
+        createProblemDetails({
+          status: 409,
+          title: "Schedule not configured",
+          detail:
+            "Configure a schedule rule for every day in the requested period.",
+          code: "SCHEDULE_NOT_CONFIGURED",
+        }),
+        409,
+        { "Content-Type": "application/problem+json" },
+      );
+    }
 
     if (doc === "FORBIDDEN") {
       const problem = createProblemDetails({

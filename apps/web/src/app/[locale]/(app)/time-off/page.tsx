@@ -1,22 +1,19 @@
-"use client";
+﻿"use client";
 
 import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Button, StatusPill, type StatusPillType } from "@librehr/ui";
 import {
-  Calendar,
+  CalendarDays,
   Plus,
   Users,
-  Clock,
-  AlertCircle,
-  UserCheck,
   ShieldAlert,
+  UserCheck,
 } from "lucide-react";
+import { Button, StatusPill, type StatusPillType } from "@librehr/ui";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
-import { MOCK_LEAVE_BALANCE, MOCK_LEAVE_REQUESTS } from "@/lib/mock-data";
 import type {
   LeaveBalanceSummary,
   LeaveRequest,
@@ -24,50 +21,51 @@ import type {
   BlackoutPeriod,
 } from "@librehr/contracts";
 
+type PageData = {
+  balance: LeaveBalanceSummary;
+  requests: LeaveRequest[];
+  blackouts: BlackoutPeriod[] | null;
+  delegations: ApprovalDelegation[] | null;
+};
+
+function pillStatus(status: string): StatusPillType {
+  if (status === "approved" || status === "rejected" || status === "pending")
+    return status;
+  return "draft";
+}
+
 export default function TimeOffPage() {
   const params = useParams();
   const locale = (params?.["locale"] as string | undefined) ?? "ca";
-
   const t = useTranslations("timeOff");
-
-  const [balance, setBalance] = React.useState<LeaveBalanceSummary | null>(
-    null,
-  );
-  const [requests, setRequests] = React.useState<LeaveRequest[]>([]);
-  const [delegations, setDelegations] = React.useState<ApprovalDelegation[]>(
-    [],
-  );
-  const [blackouts, setBlackouts] = React.useState<BlackoutPeriod[]>([]);
+  const [data, setData] = React.useState<PageData | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<"session" | "load" | null>(null);
+  const [cancelError, setCancelError] = React.useState(false);
   const [cancellingId, setCancellingId] = React.useState<string | null>(null);
 
   const fetchData = React.useCallback(async () => {
+    setLoading(true);
+    setError(null);
     const session = getStoredSession();
     if (!session?.token) {
-      setBalance(MOCK_LEAVE_BALANCE);
-      setRequests(MOCK_LEAVE_REQUESTS);
+      setData(null);
+      setError("session");
       setLoading(false);
       return;
     }
-
     try {
       const client = getApiClient(session.token);
-      const [balRes, reqsRes, delRes, boRes] = await Promise.all([
-        client.getLeaveBalance().catch(() => null),
-        client.listLeaveRequests().catch(() => []),
-        client.listApprovalDelegations().catch(() => []),
-        client.listBlackoutPeriods().catch(() => []),
+      const [balance, requests, blackouts, delegations] = await Promise.all([
+        client.getLeaveBalance(),
+        client.listLeaveRequests(),
+        client.listBlackoutPeriods().catch(() => null),
+        client.listApprovalDelegations().catch(() => null),
       ]);
-
-      setBalance(balRes ?? MOCK_LEAVE_BALANCE);
-      setRequests(
-        reqsRes && reqsRes.length > 0 ? reqsRes : MOCK_LEAVE_REQUESTS,
-      );
-      setDelegations(delRes);
-      setBlackouts(boRes);
+      setData({ balance, requests, blackouts, delegations });
     } catch {
-      setBalance(MOCK_LEAVE_BALANCE);
-      setRequests(MOCK_LEAVE_REQUESTS);
+      setData(null);
+      setError("load");
     } finally {
       setLoading(false);
     }
@@ -79,267 +77,309 @@ export default function TimeOffPage() {
 
   const handleCancel = async (id: string) => {
     const session = getStoredSession();
-    if (!session?.token) return;
-
-    if (!confirm(t("confirmCancel"))) return;
-
+    if (!session?.token) {
+      setCancelError(true);
+      return;
+    }
+    if (!window.confirm(t("confirmCancel"))) return;
+    setCancelError(false);
     setCancellingId(id);
     try {
-      const client = getApiClient(session.token);
-      await client.cancelLeaveRequest(id);
+      await getApiClient(session.token).cancelLeaveRequest(id);
       await fetchData();
     } catch {
-      alert("Failed to cancel leave request");
+      setCancelError(true);
     } finally {
       setCancellingId(null);
     }
   };
 
-  const mapStatusToPill = (status: string): StatusPillType => {
+  const statusLabel = (status: string) => {
     switch (status) {
-      case "approved":
-        return "approved";
-      case "rejected":
-        return "rejected";
       case "pending":
-        return "pending";
+        return t("statusPending");
+      case "approved":
+        return t("statusApproved");
+      case "rejected":
+        return t("statusRejected");
       case "cancelled":
-        return "draft";
+        return t("statusCancelled");
       default:
-        return "draft";
+        return t("statusDraft");
     }
   };
 
   return (
     <div className="space-y-8">
-      {/* Header with Actions */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+      <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+        <div className="max-w-2xl space-y-2">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
             {t("title")}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t("subtitle")}</p>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {t("subtitle")}
+          </p>
         </div>
-
-        <div className="flex items-center gap-3">
-          <Link href={`/${locale}/time-off/calendar`}>
-            <Button variant="outline" className="gap-2">
-              <Users className="h-4 w-4" />
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button asChild variant="outline" className="min-h-11 gap-2">
+            <Link href={`/${locale}/time-off/calendar`}>
+              <Users aria-hidden="true" className="h-4 w-4" />
               {t("teamCalendar")}
-            </Button>
-          </Link>
-
-          <Link href={`/${locale}/time-off/request`}>
-            <Button variant="default" className="gap-2">
-              <Plus className="h-4 w-4" />
+            </Link>
+          </Button>
+          <Button asChild className="min-h-11 gap-2">
+            <Link href={`/${locale}/time-off/request`}>
+              <Plus aria-hidden="true" className="h-4 w-4" />
               {t("requestLeave")}
+            </Link>
+          </Button>
+        </div>
+      </header>
+
+      {loading ? (
+        <p
+          role="status"
+          className="rounded-card border border-border bg-surface p-6 text-sm text-muted-foreground"
+        >
+          {t("loading")}
+        </p>
+      ) : error ? (
+        <div
+          role="alert"
+          className="space-y-4 rounded-card border border-border bg-surface p-6"
+        >
+          <p className="text-sm text-foreground">
+            {error === "session" ? t("signInRequired") : t("loadError")}
+          </p>
+          {error === "session" ? (
+            <Button asChild variant="outline">
+              <Link href={`/${locale}/sign-in`}>{t("signIn")}</Link>
             </Button>
-          </Link>
+          ) : (
+            <Button variant="outline" onClick={() => void fetchData()}>
+              {t("retry")}
+            </Button>
+          )}
         </div>
-      </div>
+      ) : (
+        data && (
+          <>
+            <section
+              aria-label={t("currentBalance")}
+              className="overflow-hidden rounded-card border border-border bg-surface"
+            >
+              <div className="grid sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+                <div className="flex items-start gap-4 bg-accent p-6 sm:p-7">
+                  <div className="rounded-input bg-surface p-2.5 text-primary">
+                    <CalendarDays aria-hidden="true" className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-medium text-foreground">
+                      {t("currentBalance")}
+                    </h2>
+                    <p className="mt-2 text-4xl font-semibold tracking-tight tabular-nums text-foreground">
+                      {data.balance.currentBalance}{" "}
+                      <span className="text-sm font-normal text-muted-foreground">
+                        {t("days")}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+                <dl className="grid grid-cols-3 gap-3 p-5 sm:p-7">
+                  {(
+                    [
+                      ["totalAccrued", data.balance.totalAccrued],
+                      ["totalUsed", data.balance.totalUsed],
+                      ["totalCarryover", data.balance.totalCarryover],
+                    ] as const
+                  ).map(([key, value]) => (
+                    <div key={key} className="min-w-0">
+                      <dt className="text-xs leading-5 text-muted-foreground">
+                        {t(key)}
+                      </dt>
+                      <dd className="mt-2 text-xl font-semibold tabular-nums text-foreground">
+                        {value}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            </section>
 
-      {/* Balance Summary Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-sm font-medium">{t("currentBalance")}</span>
-            <Calendar className="h-4 w-4 text-primary" />
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold tracking-tight text-foreground">
-              {loading ? "..." : (balance?.currentBalance ?? 0)}
-            </span>
-            <span className="text-sm text-muted-foreground">days</span>
-          </div>
-        </div>
+            <section
+              aria-labelledby="leave-requests"
+              className="overflow-hidden rounded-card border border-border bg-surface"
+            >
+              <div className="border-b border-border px-5 py-4 sm:px-6">
+                <h2
+                  id="leave-requests"
+                  className="text-lg font-semibold text-foreground"
+                >
+                  {t("requestsTitle")}
+                </h2>
+              </div>
+              {cancelError && (
+                <p role="alert" className="px-6 pt-4 text-sm text-danger">
+                  {t("cancelError")}
+                </p>
+              )}
+              {data.requests.length === 0 ? (
+                <p className="px-6 py-10 text-sm text-muted-foreground">
+                  {t("noRequests")}
+                </p>
+              ) : (
+                <ul className="divide-y divide-border">
+                  {data.requests.map((request) => (
+                    <li
+                      key={request.id}
+                      className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6"
+                    >
+                      <div className="min-w-0 space-y-1">
+                        <p className="font-medium text-foreground">
+                          {request.leaveTypeName ?? t("leaveType")}
+                        </p>
+                        <p className="text-sm text-muted-foreground tabular-nums">
+                          {request.startDate} – {request.endDate}{" "}
+                          <span aria-hidden="true">·</span>{" "}
+                          {request.workingDays} {t("days")}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <StatusPill
+                          status={pillStatus(request.status)}
+                          label={statusLabel(request.status)}
+                        />
+                        {(request.status === "pending" ||
+                          request.status === "approved") && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="min-h-11"
+                            disabled={cancellingId !== null}
+                            onClick={() => void handleCancel(request.id)}
+                          >
+                            {cancellingId === request.id
+                              ? t("cancelling")
+                              : t("cancel")}
+                          </Button>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
 
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-sm font-medium">{t("totalAccrued")}</span>
-            <Clock className="h-4 w-4 text-emerald-600" />
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold tracking-tight text-foreground">
-              {loading ? "..." : (balance?.totalAccrued ?? 0)}
-            </span>
-            <span className="text-sm text-muted-foreground">days</span>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-sm font-medium">{t("totalUsed")}</span>
-            <AlertCircle className="h-4 w-4 text-amber-600" />
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold tracking-tight text-foreground">
-              {loading ? "..." : (balance?.totalUsed ?? 0)}
-            </span>
-            <span className="text-sm text-muted-foreground">days</span>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-sm font-medium">{t("totalCarryover")}</span>
-            <Clock className="h-4 w-4 text-indigo-600" />
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold tracking-tight text-foreground">
-              {loading ? "..." : (balance?.totalCarryover ?? 0)}
-            </span>
-            <span className="text-sm text-muted-foreground">days</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Requests Table */}
-      <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-4">
-        <h2 className="text-lg font-semibold text-foreground">
-          {t("requestsTitle")}
-        </h2>
-
-        {requests.length === 0 ? (
-          <div className="py-12 text-center text-sm text-muted-foreground">
-            {t("noRequests")}
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-border text-xs font-semibold uppercase text-muted-foreground">
-                <tr>
-                  <th className="pb-3">{t("leaveType")}</th>
-                  <th className="pb-3">{t("startDate")}</th>
-                  <th className="pb-3">{t("endDate")}</th>
-                  <th className="pb-3">{t("workingDays")}</th>
-                  <th className="pb-3">{t("status")}</th>
-                  <th className="pb-3 text-right">{t("actions")}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {requests.map((r) => (
-                  <tr key={r.id} className="hover:bg-muted/30">
-                    <td className="py-3.5 font-medium text-foreground">
-                      {r.leaveTypeName || "Vacation"}
-                    </td>
-                    <td className="py-3.5 text-muted-foreground">
-                      {r.startDate}
-                    </td>
-                    <td className="py-3.5 text-muted-foreground">
-                      {r.endDate}
-                    </td>
-                    <td className="py-3.5 font-semibold text-foreground">
-                      {r.workingDays}
-                    </td>
-                    <td className="py-3.5">
-                      <StatusPill
-                        status={mapStatusToPill(r.status)}
-                        label={r.status}
-                      />
-                    </td>
-                    <td className="py-3.5 text-right">
-                      {(r.status === "pending" || r.status === "approved") && (
-                        <button
-                          type="button"
-                          disabled={cancellingId === r.id}
-                          onClick={() => void handleCancel(r.id)}
-                          className="text-xs font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
+            {(data.blackouts === null || data.delegations === null) && (
+              <p
+                role="status"
+                className="rounded-input border border-border bg-surface p-4 text-sm text-muted-foreground"
+              >
+                {t("dataIncomplete")}{" "}
+                <button
+                  type="button"
+                  className="font-medium text-primary underline"
+                  onClick={() => void fetchData()}
+                >
+                  {t("retry")}
+                </button>
+              </p>
+            )}
+            <div className="grid gap-4 lg:grid-cols-2">
+              <section
+                aria-labelledby="blackouts"
+                className="rounded-card border border-border bg-surface p-5 sm:p-6"
+              >
+                <div className="flex items-start gap-3">
+                  <ShieldAlert
+                    aria-hidden="true"
+                    className="mt-0.5 h-5 w-5 shrink-0 text-primary"
+                  />
+                  <div>
+                    <h2
+                      id="blackouts"
+                      className="font-semibold text-foreground"
+                    >
+                      {t("blackoutTitle")}
+                    </h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {t("blackoutSubtitle")}
+                    </p>
+                  </div>
+                </div>
+                {data.blackouts !== null &&
+                  (data.blackouts.length ? (
+                    <ul className="mt-4 divide-y divide-border">
+                      {data.blackouts.map((bo) => (
+                        <li
+                          key={bo.id}
+                          className="flex flex-wrap justify-between gap-2 py-3 text-sm"
                         >
-                          {cancellingId === r.id
-                            ? "Cancelling..."
-                            : t("cancel")}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Advanced Leave: Blackouts & Delegations (LEA-007, LEA-008) */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Blackout Periods */}
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-4">
-          <div className="flex items-center gap-2.5">
-            <ShieldAlert className="h-5 w-5 text-amber-600" />
-            <div>
-              <h2 className="text-base font-semibold text-foreground">
-                {t("blackoutTitle")}
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                {t("blackoutSubtitle")}
-              </p>
-            </div>
-          </div>
-
-          {blackouts.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-4">
-              No active blackout periods scheduled.
-            </p>
-          ) : (
-            <div className="space-y-2.5">
-              {blackouts.map((bo) => (
-                <div
-                  key={bo.id}
-                  className="rounded-lg border border-amber-200/60 bg-amber-50/50 p-3 text-xs dark:border-amber-900/40 dark:bg-amber-950/20"
-                >
-                  <div className="flex justify-between items-center font-semibold text-amber-900 dark:text-amber-200">
-                    <span>{bo.reason}</span>
-                    <span className="font-mono">
-                      {bo.startDate} → {bo.endDate}
-                    </span>
+                          <span>{bo.reason}</span>
+                          <span className="tabular-nums text-muted-foreground">
+                            {bo.startDate} – {bo.endDate}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-5 text-sm text-muted-foreground">
+                      {t("noBlackouts")}
+                    </p>
+                  ))}
+              </section>
+              <section
+                aria-labelledby="delegations"
+                className="rounded-card border border-border bg-surface p-5 sm:p-6"
+              >
+                <div className="flex items-start gap-3">
+                  <UserCheck
+                    aria-hidden="true"
+                    className="mt-0.5 h-5 w-5 shrink-0 text-primary"
+                  />
+                  <div>
+                    <h2
+                      id="delegations"
+                      className="font-semibold text-foreground"
+                    >
+                      {t("delegationTitle")}
+                    </h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {t("delegationSubtitle")}
+                    </p>
                   </div>
                 </div>
-              ))}
+                {data.delegations !== null &&
+                  (data.delegations.length ? (
+                    <ul className="mt-4 divide-y divide-border">
+                      {data.delegations.map((del) => (
+                        <li key={del.id} className="space-y-1 py-3 text-sm">
+                          <div className="flex flex-wrap justify-between gap-2">
+                            <span>
+                              {t("delegate")}: {del.delegateName ?? "—"}
+                            </span>
+                            <span className="tabular-nums text-muted-foreground">
+                              {del.startDate} – {del.endDate}
+                            </span>
+                          </div>
+                          {del.reason && (
+                            <p className="text-muted-foreground">
+                              {del.reason}
+                            </p>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-5 text-sm text-muted-foreground">
+                      {t("noDelegations")}
+                    </p>
+                  ))}
+              </section>
             </div>
-          )}
-        </div>
-
-        {/* Approval Delegations */}
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-4">
-          <div className="flex items-center gap-2.5">
-            <UserCheck className="h-5 w-5 text-indigo-600" />
-            <div>
-              <h2 className="text-base font-semibold text-foreground">
-                {t("delegationTitle")}
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                {t("delegationSubtitle")}
-              </p>
-            </div>
-          </div>
-
-          {delegations.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-4">
-              No active approval delegations configured.
-            </p>
-          ) : (
-            <div className="space-y-2.5">
-              {delegations.map((del) => (
-                <div
-                  key={del.id}
-                  className="rounded-lg border border-border bg-muted/40 p-3 text-xs space-y-1"
-                >
-                  <div className="flex justify-between font-medium">
-                    <span>
-                      Delegate: {del.delegateName ?? del.delegateEmployeeId}
-                    </span>
-                    <span className="font-mono text-muted-foreground">
-                      {del.startDate} → {del.endDate}
-                    </span>
-                  </div>
-                  {del.reason && (
-                    <p className="text-muted-foreground">{del.reason}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+          </>
+        )
+      )}
     </div>
   );
 }

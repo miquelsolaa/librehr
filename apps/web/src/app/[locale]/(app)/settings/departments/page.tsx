@@ -16,6 +16,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@librehr/ui";
+import { DepartmentCoverageForm } from "@/components/department-coverage-form";
 import { apiClient } from "../../../../../lib/api-client.js";
 import type { Department } from "@librehr/contracts";
 
@@ -27,6 +28,8 @@ export default function DepartmentsSettingsPage() {
 
   const [departments, setDepartments] = React.useState<Department[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState(false);
+  const [actionError, setActionError] = React.useState(false);
 
   // Dialog state
   const [createOpen, setCreateOpen] = React.useState(false);
@@ -37,10 +40,12 @@ export default function DepartmentsSettingsPage() {
   const loadDepartments = React.useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError(false);
       const res = await apiClient.listDepartments();
       setDepartments(res);
     } catch {
-      // offline / mock fallback
+      setDepartments([]);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -53,6 +58,7 @@ export default function DepartmentsSettingsPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    setActionError(false);
     try {
       await apiClient.createDepartment({
         name: deptName,
@@ -63,7 +69,7 @@ export default function DepartmentsSettingsPage() {
       setCreateOpen(false);
       loadDepartments();
     } catch {
-      // error handled
+      setActionError(true);
     } finally {
       setSubmitting(false);
     }
@@ -104,6 +110,11 @@ export default function DepartmentsSettingsPage() {
             </DialogHeader>
 
             <form onSubmit={handleCreate} className="space-y-4">
+              {actionError && (
+                <p role="alert" className="text-sm text-danger">
+                  {t("actionError")}
+                </p>
+              )}
               <div className="space-y-1.5">
                 <label
                   htmlFor="dept-name"
@@ -164,6 +175,13 @@ export default function DepartmentsSettingsPage() {
           <div className="p-8 text-center text-sm text-muted-foreground">
             {tCommon("loading")}
           </div>
+        ) : loadError ? (
+          <div role="alert" className="space-y-3 p-8 text-center text-sm">
+            <p>{t("loadError")}</p>
+            <Button variant="outline" onClick={() => void loadDepartments()}>
+              {t("retry")}
+            </Button>
+          </div>
         ) : departments.length === 0 ? (
           <div className="p-8 text-center text-sm text-muted-foreground">
             No departments defined yet. Click &apos;{t("addDepartment")}&apos;
@@ -171,28 +189,42 @@ export default function DepartmentsSettingsPage() {
           </div>
         ) : (
           departments.map((d) => (
-            <div key={d.id} className="flex items-center justify-between p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-btn bg-primary/10 text-primary">
-                  <Building2 className="h-4 w-4" />
+            <div key={d.id} className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-btn bg-primary/10 text-primary">
+                    <Building2 className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground">
+                      {d.name}
+                    </h3>
+                    {d.parentName && (
+                      <span className="text-xs text-muted-foreground">
+                        Sub-department of {d.parentName}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-foreground">
-                    {d.name}
-                  </h3>
-                  {d.parentName && (
-                    <span className="text-xs text-muted-foreground">
-                      Sub-department of {d.parentName}
-                    </span>
-                  )}
-                </div>
-              </div>
 
-              {d.leadName && (
-                <span className="text-xs text-muted-foreground">
-                  Lead: {d.leadName}
-                </span>
-              )}
+                {d.leadName && (
+                  <span className="text-xs text-muted-foreground">
+                    Lead: {d.leadName}
+                  </span>
+                )}
+              </div>
+              <DepartmentCoverageForm
+                department={d}
+                onSaved={(value) =>
+                  setDepartments((current) =>
+                    current.map((item) =>
+                      item.id === d.id
+                        ? { ...item, minPresencePercent: value }
+                        : item,
+                    ),
+                  )
+                }
+              />
             </div>
           ))
         )}
