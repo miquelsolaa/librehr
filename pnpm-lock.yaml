@@ -269,8 +269,8 @@ importers:
         version: 3.25.76
     devDependencies:
       '@asteasolutions/zod-to-openapi':
-        specifier: ^7.3.0
-        version: 7.3.4(zod@3.25.76)
+        specifier: ^9.1.0
+        version: 9.1.0(zod@3.25.76)
       '@librehr/config':
         specifier: workspace:*
         version: link:../config
@@ -525,6 +525,11 @@ packages:
     resolution: {integrity: sha512-/2rThQ5zPi9OzVwes6U7lK1+Yvug0iXu25olp7S0XsYmOqnyMfxH7gdSQjn/+DSOHRg7wnotwGJSyL+fBKdnEA==}
     peerDependencies:
       zod: ^3.20.2
+
+  '@asteasolutions/zod-to-openapi@9.1.0':
+    resolution: {integrity: sha512-pLMeRgRYS7/vZIgAAkOe2P6+XGTifR1MT9pqDoxZ11EmcJJ+DPmdPqLN8ZZF4U8R9KHCCQCS9c2wtuE8wSrfkw==}
+    peerDependencies:
+      zod: ^4.0.0
 
   '@axe-core/playwright@4.14.0':
     resolution: {integrity: sha512-SGUhG5PIHd2eMdpgBF2PyQLOhX+qyDR2PT4cmoS4Qk2ak+jX/rrSvst9l0PGv5WTHolKpUMvVmoHpr4cZgf1RQ==}
@@ -5826,6 +5831,11 @@ snapshots:
       '@jridgewell/trace-mapping': 0.3.31
 
   '@asteasolutions/zod-to-openapi@7.3.4(zod@3.25.76)':
+    dependencies:
+      openapi3-ts: 4.6.2
+      zod: 3.25.76
+
+  '@asteasolutions/zod-to-openapi@9.1.0(zod@3.25.76)':
     dependencies:
       openapi3-ts: 4.6.2
       zod: 3.25.76
