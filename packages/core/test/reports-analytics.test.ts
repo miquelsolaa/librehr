@@ -7,6 +7,17 @@ import {
 } from "../src/index.js";
 
 describe("Milestone M5 Core Domain Logic (RPT-001, RPT-002, LEA-009)", () => {
+  it("counts departures on the last day as leavers outside closing headcount", () => {
+    const metrics = calculateHeadcountMetrics(
+      [{ id: "one", hireDate: "2025-01-01", terminationDate: "2026-12-31" }],
+      "2026-01-01",
+      "2026-12-31",
+    );
+    expect(metrics.startingHeadcount).toBe(1);
+    expect(metrics.endingHeadcount).toBe(0);
+    expect(metrics.leaversCount).toBe(1);
+    expect(metrics.netChange).toBe(-1);
+  });
   it("calculates accurate headcount metrics and turnover rates", () => {
     const employees = [
       { id: "e1", hireDate: "2025-01-01" }, // existing
@@ -93,6 +104,25 @@ describe("Milestone M5 Core Domain Logic (RPT-001, RPT-002, LEA-009)", () => {
     expect(csv).toContain("'@cmd");
     expect(csv).toContain("'-formula");
     expect(csv).toContain(",-1,0,0,0,0,-1.50");
+  });
+
+  it("quotes carriage returns in gestoría CSV fields", () => {
+    const csv = generateGestoriaCsv("2026-03", [
+      {
+        taxId: "X1234567A",
+        firstName: "Alex\rLee",
+        lastName: "Example",
+        contractType: "permanent",
+        workedDays: 1,
+        vacationDays: 0,
+        sickLeaveDays: 0,
+        maternityPaternityDays: 0,
+        unpaidLeaveDays: 0,
+        overtimeHours: 0,
+      },
+    ]);
+
+    expect(csv).toContain('"Alex\rLee"');
   });
 
   it("generates valid RFC 5545 iCalendar feed", () => {

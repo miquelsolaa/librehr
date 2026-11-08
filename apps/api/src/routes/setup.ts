@@ -5,6 +5,7 @@ import {
   SetupWizardRequestSchema,
 } from "@librehr/contracts";
 import { withTenant, EmployeeRepository, AuditRepository } from "@librehr/db";
+import { hashPassword, verifyPassword } from "../lib/password.js";
 
 export function createSetupRoutes(sql: Sql) {
   const router = new Hono();
@@ -27,6 +28,29 @@ export function createSetupRoutes(sql: Sql) {
     }
 
     const data = parse.data;
+
+    const existingUsers = await sql<{ password_hash: string | null }[]>`
+      SELECT password_hash FROM users WHERE email = ${data.adminEmail} LIMIT 1
+    `;
+    if (
+      existingUsers[0] &&
+      !(await verifyPassword(
+        data.adminPassword,
+        existingUsers[0].password_hash,
+      ))
+    ) {
+      return c.json(
+        createProblemDetails({
+          status: 401,
+          title: "Unauthorized",
+          detail: "Invalid email or password",
+          code: "INVALID_CREDENTIALS",
+        }),
+        401,
+        { "Content-Type": "application/problem+json" },
+      );
+    }
+    const passwordHash = await hashPassword(data.adminPassword);
 
     // Check if slug already exists
     const existingOrg = await sql<{ id: string }[]>`
@@ -56,7 +80,7 @@ export function createSetupRoutes(sql: Sql) {
     await withTenant(sql, { organizationId: orgId }, async (tx) => {
       // 2a. Legal Entity
       const entityRows = await tx<{ id: string }[]>`
-        INSERT INTO legal_entities (organization_id, name, cif, country)
+        INSERT INTO legal_entities (organization_id, name, tax_id, country)
         VALUES (${orgId}, ${data.legalEntityName}, ${data.legalEntityCif}, 'ES')
         RETURNING id
       `;
@@ -81,16 +105,33 @@ export function createSetupRoutes(sql: Sql) {
       // 2d. Create Admin User
       const userRows = await tx<{ id: string }[]>`
         INSERT INTO users (email, name, password_hash, email_verified)
-        VALUES (${data.adminEmail}, ${data.adminName}, ${data.adminPassword}, true)
-        ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name
+        VALUES (${data.adminEmail}, ${data.adminName}, ${passwordHash}, true)
+        ON CONFLICT (email) DO NOTHING
         RETURNING id
       `;
-      const adminUserId = userRows[0]!.id;
+      const adminUserId =
+        userRows[0]?.id ??
+        (
+          await tx<
+            { id: string; password_hash: string | null }[]
+          >`SELECT id, password_hash FROM users WHERE email = ${data.adminEmail} FOR UPDATE`
+        )[0];
+      const userId =
+        typeof adminUserId === "string"
+          ? adminUserId
+          : adminUserId &&
+              (await verifyPassword(
+                data.adminPassword,
+                adminUserId.password_hash,
+              ))
+            ? adminUserId.id
+            : null;
+      if (!userId) throw new Error("Account credentials changed during setup");
 
       // 2e. Create Membership as admin
       await tx`
         INSERT INTO memberships (organization_id, user_id, role)
-        VALUES (${orgId}, ${adminUserId}, 'admin')
+        VALUES (${orgId}, ${userId}, 'admin')
         ON CONFLICT (organization_id, user_id) DO UPDATE SET role = 'admin'
       `;
 
@@ -100,7 +141,7 @@ export function createSetupRoutes(sql: Sql) {
       const lastName = nameParts.slice(1).join(" ") || "Admin";
 
       const emp = await employeeRepo.create(tx, {
-        userId: adminUserId,
+        userId,
         departmentId: managementDeptId,
         locationId,
         firstName,
@@ -111,7 +152,7 @@ export function createSetupRoutes(sql: Sql) {
 
       // 2g. Initial Audit log entry
       await auditRepo.log(tx, {
-        actorId: adminUserId,
+        actorId: userId,
         action: "organization.bootstrap",
         resourceType: "organization",
         resourceId: orgId,

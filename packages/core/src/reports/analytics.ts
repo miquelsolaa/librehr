@@ -24,46 +24,40 @@ export function calculateHeadcountMetrics(
   startDateStr: string, // YYYY-MM-DD
   endDateStr: string, // YYYY-MM-DD
 ): HeadcountMetrics {
-  const startTimestamp = new Date(`${startDateStr}T00:00:00Z`).getTime();
-  const endTimestamp = new Date(`${endDateStr}T23:59:59Z`).getTime();
-
   let startingHeadcount = 0;
   let endingHeadcount = 0;
   let joinersCount = 0;
   let leaversCount = 0;
 
   for (const emp of employees) {
-    const hireTimestamp = new Date(`${emp.hireDate}T00:00:00Z`).getTime();
-    const termTimestamp = emp.terminationDate
-      ? new Date(`${emp.terminationDate}T23:59:59Z`).getTime()
-      : null;
+    const terminationDate = emp.terminationDate ?? null;
 
     // Was active at the start moment
     const activeAtStart =
-      hireTimestamp < startTimestamp &&
-      (!termTimestamp || termTimestamp >= startTimestamp);
+      emp.hireDate < startDateStr &&
+      (!terminationDate || terminationDate >= startDateStr);
     if (activeAtStart) {
       startingHeadcount++;
     }
 
-    // Was active at the end moment
+    // Closing headcount excludes departures effective on the last day.
     const activeAtEnd =
-      hireTimestamp <= endTimestamp &&
-      (!termTimestamp || termTimestamp >= endTimestamp);
+      emp.hireDate <= endDateStr &&
+      (!terminationDate || terminationDate > endDateStr);
     if (activeAtEnd) {
       endingHeadcount++;
     }
 
     // Joined during the period
-    if (hireTimestamp >= startTimestamp && hireTimestamp <= endTimestamp) {
+    if (emp.hireDate >= startDateStr && emp.hireDate <= endDateStr) {
       joinersCount++;
     }
 
     // Left during the period
     if (
-      termTimestamp &&
-      termTimestamp >= startTimestamp &&
-      termTimestamp <= endTimestamp
+      terminationDate &&
+      terminationDate >= startDateStr &&
+      terminationDate <= endDateStr
     ) {
       leaversCount++;
     }

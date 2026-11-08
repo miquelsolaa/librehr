@@ -21,6 +21,139 @@ test.beforeEach(async ({ page }) => {
   );
 });
 
+test("shows employment history and an error when it cannot be loaded", async ({
+  page,
+}) => {
+  let failing = false;
+  await page.route(
+    "**/v1/employees/person-history/employment-history",
+    (route) =>
+      failing
+        ? route.fulfill({ status: 503, headers: cors })
+        : route.fulfill({
+            headers: cors,
+            json: [
+              {
+                id: "00000000-0000-0000-0000-000000000099",
+                jobTitle: "Designer",
+                employmentType: "indefinido",
+                startDate: "2023-01-01",
+                endDate: "2024-12-31",
+              },
+            ],
+          }),
+  );
+  await page.route("**/v1/employees/person-history", (route) =>
+    route.fulfill({
+      headers: cors,
+      json: {
+        id: "person-history",
+        firstName: "Alex",
+        lastName: "Example",
+        status: "active",
+        email: "alex@example.invalid",
+      },
+    }),
+  );
+  await page.route("**/v1/people/person-history/emergency-contacts", (route) =>
+    route.fulfill({ headers: cors, json: [] }),
+  );
+  await page.goto("/en/people/person-history");
+  await expect(
+    page.getByRole("heading", { name: "Employment history" }),
+  ).toBeVisible();
+  await expect(page.getByText("Designer")).toBeVisible();
+  failing = true;
+  await page.reload();
+  await expect(
+    page
+      .getByRole("alert")
+      .filter({ hasText: "Employment history could not be loaded" }),
+  ).toBeVisible();
+});
+
+test("an administrator can append a period and sees errors without losing inputs", async ({
+  page,
+}) => {
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      "librehr_auth_session",
+      JSON.stringify({
+        userId: "admin",
+        organizationId: "sample",
+        email: "admin@example.invalid",
+        role: "admin",
+        token: "sample",
+      }),
+    ),
+  );
+  let fail = true;
+  let saved = false;
+  await page.route(
+    "**/v1/employees/person-history/employment-history",
+    async (route) => {
+      if (route.request().method() === "POST") {
+        if (fail) return route.fulfill({ status: 409, headers: cors });
+        saved = true;
+        return route.fulfill({
+          status: 201,
+          headers: cors,
+          json: {
+            id: "00000000-0000-0000-0000-000000000099",
+            jobTitle: "Engineer",
+            employmentType: "permanent",
+            startDate: "2025-01-01",
+            endDate: null,
+          },
+        });
+      }
+      return route.fulfill({
+        headers: cors,
+        json: saved
+          ? [
+              {
+                id: "00000000-0000-0000-0000-000000000099",
+                jobTitle: "Engineer",
+                employmentType: "permanent",
+                startDate: "2025-01-01",
+                endDate: null,
+              },
+            ]
+          : [],
+      });
+    },
+  );
+  await page.route("**/v1/employees/person-history", (route) =>
+    route.fulfill({
+      headers: cors,
+      json: {
+        id: "person-history",
+        firstName: "Alex",
+        lastName: "Example",
+        status: "active",
+        email: "alex@example.invalid",
+      },
+    }),
+  );
+  await page.route("**/v1/people/person-history/emergency-contacts", (route) =>
+    route.fulfill({ headers: cors, json: [] }),
+  );
+  await page.goto("/en/people/person-history");
+  await page.getByLabel("Job title").last().fill("Engineer");
+  await page.getByLabel("Employment type").last().fill("permanent");
+  await page.getByLabel("Start date").last().fill("2025-01-01");
+  await page.getByRole("button", { name: "Add period" }).click();
+  await expect(
+    page
+      .getByRole("alert")
+      .filter({ hasText: "Employment period could not be saved" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Job title").last()).toHaveValue("Engineer");
+  fail = false;
+  await page.getByRole("button", { name: "Add period" }).click();
+  await expect(page.getByText("Engineer", { exact: true })).toBeVisible();
+});
+
 test("an empty org chart stays empty and uses the signed-in session", async ({
   page,
 }) => {
@@ -74,4 +207,112 @@ test("org chart reports an API failure instead of sample hierarchy", async ({
     "could not be loaded",
   );
   await expect(page.getByText("Marta Soler")).toHaveCount(0);
+});
+
+test("employee profile reports a failed request without showing sample data", async ({
+  page,
+}) => {
+  await page.route("**/v1/employees/person-1", (route) =>
+    route.fulfill({ status: 503, headers: cors }),
+  );
+  await page.goto("/en/people/person-1");
+  await expect(page.locator("main").getByRole("alert")).toContainText(
+    "profile could not be loaded",
+  );
+  await expect(page.getByText("Joan Martí")).toHaveCount(0);
+});
+
+test("contact failure is visible while the actual employee profile remains available", async ({
+  page,
+}) => {
+  await page.route("**/v1/employees/person-1", (route) =>
+    route.fulfill({
+      headers: cors,
+      json: {
+        id: "person-1",
+        firstName: "Alex",
+        lastName: "Example",
+        status: "active",
+        email: "alex@example.invalid",
+        createdAt: "2026-01-01T00:00:00Z",
+        updatedAt: "2026-01-01T00:00:00Z",
+      },
+    }),
+  );
+  await page.route("**/v1/people/person-1/emergency-contacts", (route) =>
+    route.fulfill({ status: 503, headers: cors }),
+  );
+  await page.goto("/en/people/person-1");
+  await expect(page.getByText("Alex Example").first()).toBeVisible();
+  await expect(page.locator("main").getByRole("alert")).toContainText(
+    "Emergency contacts could not be loaded",
+  );
+  await expect(page.getByText("Maria Martí")).toHaveCount(0);
+});
+
+test("late contacts from a previous profile do not appear on another employee", async ({
+  page,
+}) => {
+  let releaseContacts: () => void = () => {};
+  let contactsRequested: () => void = () => {};
+  const waiting = new Promise<void>((resolve) => {
+    releaseContacts = resolve;
+  });
+  const requested = new Promise<void>((resolve) => {
+    contactsRequested = resolve;
+  });
+  const person = (id: string, firstName: string) => ({
+    id,
+    firstName,
+    lastName: "Example",
+    status: "active",
+    email: `${id}@example.invalid`,
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z",
+  });
+  await page.route("**/v1/employees**", (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/person-1"))
+      return route.fulfill({ headers: cors, json: person("person-1", "Alex") });
+    if (path.endsWith("/person-2"))
+      return route.fulfill({
+        headers: cors,
+        json: person("person-2", "Robin"),
+      });
+    return route.fulfill({
+      headers: cors,
+      json: { items: [person("person-2", "Robin")], total: 1 },
+    });
+  });
+  await page.route("**/v1/people/*/emergency-contacts", async (route) => {
+    if (route.request().url().includes("person-1")) {
+      contactsRequested();
+      await waiting;
+      return route
+        .fulfill({
+          headers: cors,
+          json: [
+            {
+              id: "old",
+              fullName: "Old Contact",
+              relationship: "Friend",
+              phonePrimary: "123",
+            },
+          ],
+        })
+        .catch(() => {});
+    }
+    return route.fulfill({ headers: cors, json: [] });
+  });
+  await page.route("**/v1/org/departments", (route) =>
+    route.fulfill({ headers: cors, json: [] }),
+  );
+  await page.goto("/en/people/person-1");
+  await expect(page.getByText("Alex Example").first()).toBeVisible();
+  await requested;
+  await page.getByRole("link", { name: "People" }).first().click();
+  await page.getByRole("link", { name: "View" }).first().click();
+  await expect(page.getByText("Robin Example").first()).toBeVisible();
+  releaseContacts();
+  await expect(page.getByText("Old Contact")).toHaveCount(0);
 });

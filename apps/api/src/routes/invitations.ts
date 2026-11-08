@@ -16,6 +16,7 @@ import { requireAuth } from "../middleware/auth.js";
 import { can } from "../policies/can.js";
 import type { AuthPort } from "../ports/auth.js";
 import type { MailPort } from "../ports/mail.js";
+import { hashPassword, verifyPassword } from "../lib/password.js";
 
 export function createInvitationRoutes(
   sql: Sql,
@@ -196,24 +197,65 @@ export function createInvitationRoutes(
       });
     }
 
+    const existing = await sql<{ password_hash: string | null }[]>`
+      SELECT password_hash FROM users WHERE email = ${invite.email} LIMIT 1
+    `;
+    if (
+      existing[0] &&
+      !(await verifyPassword(password, existing[0].password_hash))
+    ) {
+      return c.json(
+        createProblemDetails({
+          status: 401,
+          title: "Unauthorized",
+          detail: "Invalid email or password",
+          code: "INVALID_CREDENTIALS",
+        }),
+        401,
+        { "Content-Type": "application/problem+json" },
+      );
+    }
+    const passwordHash = await hashPassword(password);
+
     // Process acceptance in a tenant transaction
     const authUser = await withTenant(
       sql,
       { organizationId: invite.organizationId },
       async (tx) => {
         // 1. Mark invitation accepted
-        await invitationRepo.markAccepted(tx, invite.id);
+        if (!(await invitationRepo.markAccepted(tx, invite.id))) return null;
 
         // 2. Create or find User
         const userRows = await tx<
           { id: string; email: string; name: string }[]
         >`
           INSERT INTO users (email, name, password_hash, email_verified)
-          VALUES (${invite.email}, ${name}, ${password}, true)
-          ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name
+          VALUES (${invite.email}, ${name}, ${passwordHash}, true)
+          ON CONFLICT (email) DO NOTHING
           RETURNING id, email, name
         `;
-        const user = userRows[0]!;
+        let user = userRows[0];
+        if (!user) {
+          const rows = await tx<
+            {
+              id: string;
+              email: string;
+              name: string;
+              password_hash: string | null;
+            }[]
+          >`
+            SELECT id, email, name, password_hash FROM users WHERE email = ${invite.email} FOR UPDATE
+          `;
+          const account = rows[0];
+          if (
+            !account ||
+            !(await verifyPassword(password, account.password_hash))
+          )
+            throw new Error(
+              "Account credentials changed during invitation acceptance",
+            );
+          user = account;
+        }
 
         // 3. Create Membership
         await tx`
@@ -254,6 +296,18 @@ export function createInvitationRoutes(
       },
     );
 
+    if (!authUser) {
+      return c.json(
+        createProblemDetails({
+          status: 400,
+          title: "Invalid Invitation",
+          detail: "This invitation is invalid, expired, or already used.",
+          code: "INVALID_INVITATION",
+        }),
+        400,
+        { "Content-Type": "application/problem+json" },
+      );
+    }
     const session = await authPort.createSession(authUser);
     return c.json({
       user: session.user,

@@ -39,6 +39,7 @@ import type {
   RevealFieldResponse,
   SelfServiceUpdate,
 } from '../src/employees.js';
+import type { EmploymentPeriod, CreateEmploymentPeriod } from '../src/employment-history.js';
 import type {
   CreateInvitationRequest,
   InvitationResponse,
@@ -115,6 +116,7 @@ import type {
 } from '../src/lifecycle.js';
 import type {
   ReportsSummaryResponse,
+  HeadcountReportResponse,
 } from '../src/reports.js';
 import type {
   PersonalAccessTokenItem,
@@ -159,7 +161,7 @@ export class LibreHrApiClient {
     this.getHeaders = options.getHeaders;
   }
 
-  private async request<T>(path: string, init?: RequestInit): Promise<T> {
+  private async request<T>(path: string, init?: RequestInit, asText = false): Promise<T> {
     const extraHeaders = this.getHeaders ? await this.getHeaders() : {};
     const res = await this.fetchFn(`${this.baseUrl}${path}`, {
       ...init,
@@ -184,7 +186,7 @@ export class LibreHrApiClient {
       throw problem;
     }
 
-    return res.json() as Promise<T>;
+    return (asText ? res.text() : res.json()) as Promise<T>;
   }
 
   async health(): Promise<{ status: string }> {
@@ -232,6 +234,17 @@ export class LibreHrApiClient {
 
   async getEmployee(id: string): Promise<EmployeeProfile> {
     return this.request<EmployeeProfile>(`/v1/employees/${id}`);
+  }
+
+  async listEmploymentHistory(id: string): Promise<EmploymentPeriod[]> {
+    return this.request<EmploymentPeriod[]>(`/v1/employees/${id}/employment-history`);
+  }
+
+  async createEmploymentPeriod(id: string, data: CreateEmploymentPeriod): Promise<EmploymentPeriod> {
+    return this.request<EmploymentPeriod>(`/v1/employees/${id}/employment-history`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   async updateEmployee(id: string, data: UpdateEmployeeRequest): Promise<EmployeeProfile> {
@@ -684,6 +697,16 @@ export class LibreHrApiClient {
   }
 
   // Reports & Insights (M5)
+  async getHeadcountReport(startDate: string, endDate: string): Promise<HeadcountReportResponse> {
+    const params = new URLSearchParams({ startDate, endDate });
+    return this.request<HeadcountReportResponse>(`/v1/reports/headcount?${params}`);
+  }
+
+  async exportHeadcountCsv(startDate: string, endDate: string): Promise<string> {
+    const params = new URLSearchParams({ startDate, endDate });
+    return this.request<string>(`/v1/reports/headcount/export?${params}`, undefined, true);
+  }
+
   async getReportsSummary(params?: { periodStart?: string; periodEnd?: string }): Promise<ReportsSummaryResponse> {
     const searchParams = new URLSearchParams();
     if (params?.periodStart) searchParams.set('periodStart', params.periodStart);

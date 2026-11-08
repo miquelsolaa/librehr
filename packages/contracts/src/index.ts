@@ -5,6 +5,7 @@ export * from "./org.js";
 export * from "./invitations.js";
 export * from "./permissions.js";
 export * from "./employees.js";
+export * from "./employment-history.js";
 export * from "./leave.js";
 export * from "./time.js";
 export * from "./documents.js";

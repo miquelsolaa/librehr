@@ -33,10 +33,7 @@ import {
   DialogFooter,
 } from "@librehr/ui";
 import { apiClient } from "../../../../../lib/api-client.js";
-import {
-  MOCK_EMPLOYEE_PROFILE,
-  MOCK_EMERGENCY_CONTACTS,
-} from "@/lib/mock-data";
+import { EmploymentHistory } from "@/components/employment-history";
 import type {
   EmployeeProfile,
   TerminationReason,
@@ -56,6 +53,8 @@ export default function EmployeeDetailPage() {
 
   const [employee, setEmployee] = React.useState<EmployeeProfile | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const activeEmployeeId = React.useRef<string | null>(null);
+  const profileGeneration = React.useRef(0);
   const [revealedDni, setRevealedDni] = React.useState<string | null>(null);
   const [revealedIban, setRevealedIban] = React.useState<string | null>(null);
 
@@ -78,6 +77,7 @@ export default function EmployeeDetailPage() {
 
   // Emergency Contacts state
   const [contacts, setContacts] = React.useState<EmergencyContact[]>([]);
+  const [contactsError, setContactsError] = React.useState(false);
   const [contactOpen, setContactOpen] = React.useState(false);
   const [contactFullName, setContactFullName] = React.useState("");
   const [contactRelationship, setContactRelationship] =
@@ -126,42 +126,63 @@ export default function EmployeeDetailPage() {
   };
 
   const loadExtraData = React.useCallback(async (empId: string) => {
-    try {
-      const [cts, cfs, defs] = await Promise.all([
-        apiClient
-          .listEmergencyContacts(empId)
-          .catch(() => MOCK_EMERGENCY_CONTACTS),
-        apiClient.getEmployeeCustomFields(empId).catch(() => []),
-        apiClient.listCustomFields().catch(() => []),
-      ]);
-      setContacts(cts);
-      setCustomFields(cfs);
-      setAllDefinitions(defs);
-    } catch {
-      setContacts(MOCK_EMERGENCY_CONTACTS);
+    const generation = profileGeneration.current;
+    const [cts, cfs, defs] = await Promise.allSettled([
+      apiClient.listEmergencyContacts(empId),
+      apiClient.getEmployeeCustomFields(empId),
+      apiClient.listCustomFields(),
+    ]);
+    if (
+      activeEmployeeId.current !== empId ||
+      profileGeneration.current !== generation
+    )
+      return;
+    if (cts.status === "fulfilled") {
+      setContacts(cts.value);
+      setContactsError(false);
+    } else {
+      setContactsError(true);
     }
+    if (cfs.status === "fulfilled") setCustomFields(cfs.value);
+    if (defs.status === "fulfilled") setAllDefinitions(defs.value);
   }, []);
 
   React.useEffect(() => {
     if (!id) return;
+    const generation = ++profileGeneration.current;
+    activeEmployeeId.current = id;
     setLoading(true);
+    setEmployee(null);
+    setContacts([]);
+    setContactsError(false);
+    setCustomFields([]);
+    setAllDefinitions([]);
+    setRevealedDni(null);
+    setRevealedIban(null);
     apiClient
       .getEmployee(id)
       .then((emp) => {
+        if (profileGeneration.current !== generation) return;
         setEmployee(emp);
         setSelfPreferredName(emp.preferredName ?? "");
         setSelfPhone(emp.phone ?? "");
         setSelfAddress(emp.address ?? "");
       })
       .catch(() => {
-        setEmployee(MOCK_EMPLOYEE_PROFILE);
-        setSelfPreferredName(MOCK_EMPLOYEE_PROFILE.preferredName ?? "");
-        setSelfPhone(MOCK_EMPLOYEE_PROFILE.phone ?? "");
-        setSelfAddress(MOCK_EMPLOYEE_PROFILE.address ?? "");
+        if (profileGeneration.current !== generation) return;
+        setEmployee(null);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (profileGeneration.current === generation) setLoading(false);
+      });
 
     loadExtraData(id);
+    return () => {
+      if (profileGeneration.current === generation) {
+        activeEmployeeId.current = null;
+        profileGeneration.current++;
+      }
+    };
   }, [id, loadExtraData]);
 
   const handleRevealDni = async () => {
@@ -300,8 +321,8 @@ export default function EmployeeDetailPage() {
           <ArrowLeft className="h-4 w-4" />
           <span>{t("title")}</span>
         </Link>
-        <p className="text-sm text-muted-foreground">
-          Employee record not found.
+        <p role="alert" className="text-sm text-destructive">
+          {tProfile("loadError")}
         </p>
       </div>
     );
@@ -653,6 +674,8 @@ export default function EmployeeDetailPage() {
         </div>
       </div>
 
+      <EmploymentHistory key={employee.id} employeeId={employee.id} />
+
       {/* Sensitive Statutory Fields (EMP-004) */}
       <div className="rounded-card border border-border bg-surface p-6 space-y-4">
         <div className="flex items-center justify-between border-b border-border pb-3">
@@ -830,7 +853,12 @@ export default function EmployeeDetailPage() {
           </div>
 
           <div className="space-y-3">
-            {contacts.length === 0 ? (
+            {contactsError && (
+              <p role="alert" className="text-sm text-destructive">
+                {tProfile("contactsLoadError")}
+              </p>
+            )}
+            {!contactsError && contacts.length === 0 ? (
               <p className="text-xs text-muted-foreground py-2">
                 No emergency contacts registered yet.
               </p>

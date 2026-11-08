@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+export const HeadcountReportQuerySchema = z
+  .object({ startDate: z.string().date(), endDate: z.string().date() })
+  .refine((value) => value.startDate <= value.endDate);
+
 export const HeadcountMetricsSchema = z.object({
   startingHeadcount: z.number().int(),
   endingHeadcount: z.number().int(),
@@ -9,6 +13,15 @@ export const HeadcountMetricsSchema = z.object({
   turnoverRatePercent: z.number(),
 });
 export type HeadcountMetrics = z.infer<typeof HeadcountMetricsSchema>;
+
+export const HeadcountReportResponseSchema = z.object({
+  periodStart: z.string().date(),
+  periodEnd: z.string().date(),
+  headcount: HeadcountMetricsSchema,
+});
+export type HeadcountReportResponse = z.infer<
+  typeof HeadcountReportResponseSchema
+>;
 
 export const AbsenceMetricsSchema = z.object({
   totalAbsentDays: z.number(),
