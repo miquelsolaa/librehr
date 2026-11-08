@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { PgBoss } from "pg-boss";
 import pino from "pino";
 import { handleEmailSend } from "./queues/email.send.js";
@@ -6,6 +8,27 @@ import { handleTimeCloseDay } from "./queues/time.close-day.js";
 import { handleRetentionEnforce } from "./queues/retention.enforce.js";
 import { handleAuditVerifyChain } from "./queues/audit.verify-chain.js";
 
+function tryLoadEnv(): void {
+  if (typeof process.loadEnvFile === "function") {
+    const candidates = [
+      path.resolve(process.cwd(), ".env"),
+      path.resolve(process.cwd(), "../../.env"),
+    ];
+    for (const c of candidates) {
+      if (fs.existsSync(c)) {
+        try {
+          process.loadEnvFile(c);
+          break;
+        } catch {
+          // ignore unparseable env file
+        }
+      }
+    }
+  }
+}
+
+tryLoadEnv();
+
 const logger = pino({
   level: process.env["LOG_LEVEL"] || "info",
   timestamp: pino.stdTimeFunctions.isoTime,
@@ -13,8 +36,9 @@ const logger = pino({
 
 async function startWorker() {
   const dbUrl =
+    process.env["DATABASE_MIGRATION_URL"] ||
     process.env["DATABASE_URL"] ||
-    "postgres://librehr_app:librehr_dev_password@localhost:5432/librehr";
+    "postgres://librehr_owner:librehr_dev_password@localhost:5432/librehr";
 
   logger.info({ msg: "Bootstrapping LibreHR Background Worker (pg-boss)..." });
 
@@ -24,11 +48,26 @@ async function startWorker() {
   });
 
   boss.on("error", (err: unknown) => {
-    logger.error({ msg: "pg-boss internal error", err: String(err) });
+    logger.error({
+      msg: "pg-boss internal error",
+      err: err instanceof Error ? (err.stack ?? err.message) : String(err),
+    });
   });
 
   await boss.start();
   logger.info({ msg: "pg-boss started successfully" });
+
+  // Ensure queues exist in pg-boss
+  const queues = [
+    "email.send",
+    "leave.accrue",
+    "time.close-day",
+    "retention.enforce",
+    "audit.verify-chain",
+  ];
+  for (const q of queues) {
+    await boss.createQueue(q);
+  }
 
   // Register queues
   await boss.work("email.send", async (jobs: unknown) => {

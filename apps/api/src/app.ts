@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import type { Sql } from "postgres";
 import type { AuthPort } from "./ports/auth.js";
 import type { MailPort } from "./ports/mail.js";
@@ -18,6 +19,7 @@ import { createAuthRoutes } from "./routes/auth.js";
 import { createMeRoutes } from "./routes/me.js";
 import { createOrgRoutes } from "./routes/org.js";
 import { createEmployeeRoutes } from "./routes/employees.js";
+import { createEmploymentHistoryRoutes } from "./routes/employment-history.js";
 import { createDepartmentRoutes } from "./routes/departments.js";
 import { createLocationRoutes } from "./routes/locations.js";
 import { createInvitationRoutes } from "./routes/invitations.js";
@@ -54,6 +56,35 @@ export function createApp(deps: AppDependencies) {
   const app = new Hono();
 
   // 1. Global Middleware Pipeline (per ARCHITECTURE.md 3.2)
+  app.use(
+    "*",
+    cors({
+      origin: (origin) => {
+        if (!origin) return "http://localhost:3000";
+        const appUrl = process.env["APP_URL"] ?? "http://localhost:3000";
+        if (
+          origin === "http://localhost:3000" ||
+          origin === "http://127.0.0.1:3000" ||
+          origin === appUrl ||
+          origin.startsWith("http://localhost:") ||
+          origin.startsWith("http://127.0.0.1:")
+        ) {
+          return origin;
+        }
+        return null;
+      },
+      allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      allowHeaders: [
+        "Content-Type",
+        "Authorization",
+        "X-Request-ID",
+        "X-Tenant-ID",
+      ],
+      exposeHeaders: ["Content-Length", "X-Request-ID"],
+      maxAge: 600,
+      credentials: true,
+    }),
+  );
   app.use("*", requestIdMiddleware);
   app.use("*", loggerMiddleware);
   app.use("*", securityHeadersMiddleware);
@@ -89,6 +120,7 @@ export function createApp(deps: AppDependencies) {
   app.route("/v1", createMeRoutes(deps.sql));
   app.route("/v1", createOrgRoutes(deps.sql));
   app.route("/v1", createEmployeeRoutes(deps.sql));
+  app.route("/v1", createEmploymentHistoryRoutes(deps.sql));
   app.route("/v1", createDepartmentRoutes(deps.sql));
   app.route("/v1", createLocationRoutes(deps.sql));
   app.route(

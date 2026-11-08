@@ -6,6 +6,7 @@ import { ThemeProvider } from "../../components/theme-provider";
 import "../globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env["APP_URL"] ?? "http://localhost:3000"),
   title: "LibreHR",
   description: "Open-source, self-hostable HRIS for European SMBs",
   manifest: "/manifest.webmanifest",

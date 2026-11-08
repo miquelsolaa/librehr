@@ -1,5 +1,25 @@
 import fs from "node:fs";
+import path from "node:path";
 import { z } from "zod";
+
+function tryLoadEnv(): void {
+  if (typeof process.loadEnvFile === "function") {
+    const candidates = [
+      path.resolve(process.cwd(), ".env"),
+      path.resolve(process.cwd(), "../../.env"),
+    ];
+    for (const c of candidates) {
+      if (fs.existsSync(c)) {
+        try {
+          process.loadEnvFile(c);
+          break;
+        } catch {
+          // ignore unparseable env file
+        }
+      }
+    }
+  }
+}
 
 function resolveSecret(val?: string, fileVal?: string): string | undefined {
   if (fileVal && fs.existsSync(fileVal)) {
@@ -18,7 +38,11 @@ const RawEnvSchema = z.object({
     .default(
       "postgres://librehr_app:librehr_dev_password@localhost:5432/librehr",
     ),
-  DATABASE_MIGRATION_URL: z.string().optional(),
+  DATABASE_MIGRATION_URL: z
+    .string()
+    .default(
+      "postgres://librehr_owner:librehr_dev_password@localhost:5432/librehr",
+    ),
   BETTER_AUTH_SECRET: z
     .string()
     .default("dev_auth_secret_must_be_changed_in_production_min_32_chars"),
@@ -54,10 +78,12 @@ export interface ApiEnv {
   LOG_LEVEL: string;
 }
 
-export function loadEnv(
-  envInput: Record<string, string | undefined> = process.env,
-): ApiEnv {
-  const parsed = RawEnvSchema.parse(envInput);
+export function loadEnv(envInput?: Record<string, string | undefined>): ApiEnv {
+  if (!envInput) {
+    tryLoadEnv();
+  }
+  const input = envInput ?? process.env;
+  const parsed = RawEnvSchema.parse(input);
 
   const authSecret = resolveSecret(
     parsed.BETTER_AUTH_SECRET,
@@ -73,7 +99,8 @@ export function loadEnv(
     PORT: parsed.PORT,
     DATABASE_URL: parsed.DATABASE_URL,
     DATABASE_MIGRATION_URL:
-      parsed.DATABASE_MIGRATION_URL || parsed.DATABASE_URL,
+      parsed.DATABASE_MIGRATION_URL ||
+      "postgres://librehr_owner:librehr_dev_password@localhost:5432/librehr",
     BETTER_AUTH_SECRET: authSecret ?? parsed.BETTER_AUTH_SECRET,
     BETTER_AUTH_URL: parsed.BETTER_AUTH_URL,
     ENVELOPE_MASTER_KEY: envelopeKey ?? parsed.ENVELOPE_MASTER_KEY,
