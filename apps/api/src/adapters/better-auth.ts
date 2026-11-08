@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import type { Sql } from "postgres";
 import type { AuthPort, AuthSession } from "../ports/auth.js";
 import type { AuthUser } from "@librehr/contracts";
+import { verifyPassword } from "../lib/password.js";
 
 export class BetterAuthAdapter implements AuthPort {
   private sql: Sql;
@@ -12,9 +13,8 @@ export class BetterAuthAdapter implements AuthPort {
 
   async verifyCredentials(
     email: string,
-    _password: string,
+    password: string,
   ): Promise<AuthUser | null> {
-    // In dev / M0, verify user exists and load active membership
     const users = await this.sql<
       {
         id: string;
@@ -23,9 +23,10 @@ export class BetterAuthAdapter implements AuthPort {
         role: string;
         organization_id: string;
         two_factor_enabled: boolean;
+        password_hash: string | null;
       }[]
     >`
-      SELECT u.id, u.email, u.name, m.role, m.organization_id, COALESCE(u.two_factor_enabled, false) as two_factor_enabled
+      SELECT u.id, u.email, u.name, m.role, m.organization_id, u.password_hash, COALESCE(u.two_factor_enabled, false) as two_factor_enabled
       FROM users u
       JOIN memberships m ON m.user_id = u.id
       WHERE u.email = ${email}
@@ -33,7 +34,8 @@ export class BetterAuthAdapter implements AuthPort {
     `;
 
     const user = users[0];
-    if (!user) return null;
+    if (!user || !(await verifyPassword(password, user.password_hash)))
+      return null;
 
     return {
       id: user.id,

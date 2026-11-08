@@ -20,6 +20,7 @@ export type AuthUser = z.infer<typeof AuthUserSchema>;
 export const SessionResponseSchema = z.object({
   user: AuthUserSchema,
   expiresAt: z.string().datetime(),
+  token: z.string().optional(),
 });
 export type SessionResponse = z.infer<typeof SessionResponseSchema>;
 

@@ -7,14 +7,22 @@ const API_BASE_URL =
 export function getApiClient(token?: string): LibreHrApiClient {
   return new LibreHrApiClient({
     baseUrl: API_BASE_URL,
-    fetchFn: (input, init) => fetch(input, init),
+    fetchFn: (input, init) =>
+      fetch(input, {
+        ...init,
+        credentials: init?.credentials ?? "include",
+      }),
     getHeaders: () => (token ? { Authorization: `Bearer ${token}` } : {}),
   });
 }
 
 export const apiClient = new LibreHrApiClient({
   baseUrl: API_BASE_URL,
-  fetchFn: (input, init) => fetch(input, init),
+  fetchFn: (input, init) =>
+    fetch(input, {
+      ...init,
+      credentials: init?.credentials ?? "include",
+    }),
   getHeaders: () => {
     const token = getStoredSession()?.token;
     return token ? { Authorization: `Bearer ${token}` } : {};

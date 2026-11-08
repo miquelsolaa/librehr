@@ -52,7 +52,10 @@ export default function SignInPage() {
           name: res.user.name,
           organizationId: res.user.organizationId,
           role: res.user.role,
-          token: "librehr_session_token",
+          token:
+            "token" in res && typeof res.token === "string"
+              ? res.token
+              : "librehr_session_token",
         });
 
         router.push(`/${locale}/home`);
@@ -84,7 +87,10 @@ export default function SignInPage() {
         name: res.user.name,
         organizationId: res.user.organizationId,
         role: res.user.role,
-        token: "librehr_session_token",
+        token:
+          "token" in res && typeof res.token === "string"
+            ? res.token
+            : "librehr_session_token",
       });
 
       router.push(`/${locale}/home`);

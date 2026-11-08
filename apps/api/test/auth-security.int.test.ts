@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import type { Sql } from "postgres";
 import { createApp } from "../src/app.js";
 import type { AuthPort, AuthSession } from "../src/ports/auth.js";
@@ -73,6 +73,67 @@ describe("Enterprise Auth & Security Hardening API (AUTH-003, AUTH-004, DOC-007)
   const fakeSql = (async () => []) as unknown as Sql;
   const authPort = new FakeAuthPort();
   const app = createApp({ sql: fakeSql, authPort });
+
+  it("does not issue a two-factor challenge without a configured signing secret", async () => {
+    vi.stubEnv("SESSION_SECRET", "");
+    try {
+      const sql = (async () => [
+        {
+          id: "00000000-0000-0000-0000-000000000001",
+          email: "admin@librehr.local",
+          name: "Admin User",
+          twoFactorEnabled: true,
+          twoFactorSecret: "TESTSECRET",
+          twoFactorRecoveryCodes: [],
+        },
+      ]) as unknown as Sql;
+      const testApp = createApp({ sql, authPort: new FakeAuthPort() });
+      const res = await testApp.request("/v1/auth/sign-in", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: "admin@librehr.local",
+          password: "Password123!",
+        }),
+      });
+      expect(res.status).toBe(503);
+      expect(await res.json()).not.toHaveProperty("challengeToken");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("issues a challenge when a strong signing secret is configured", async () => {
+    vi.stubEnv(
+      "SESSION_SECRET",
+      "a-secure-test-secret-with-at-least-32-characters",
+    );
+    try {
+      const sql = (async () => [
+        {
+          id: "00000000-0000-0000-0000-000000000001",
+          email: "admin@librehr.local",
+          name: "Admin User",
+          twoFactorEnabled: true,
+          twoFactorSecret: "TESTSECRET",
+          twoFactorRecoveryCodes: [],
+        },
+      ]) as unknown as Sql;
+      const testApp = createApp({ sql, authPort: new FakeAuthPort() });
+      const res = await testApp.request("/v1/auth/sign-in", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: "admin@librehr.local",
+          password: "Password123!",
+        }),
+      });
+      expect(res.status).toBe(200);
+      expect(await res.json()).toHaveProperty("challengeToken");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 
   it("POST /v1/auth/2fa/setup requires authentication", async () => {
     const res = await app.request("/v1/auth/2fa/setup", {

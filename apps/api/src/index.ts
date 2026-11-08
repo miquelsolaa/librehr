@@ -30,9 +30,10 @@ async function bootstrap() {
     }
   }
 
-  // 2. Connect to database using application role
+  // 2. Connect to database using application role & dedicated auth role
   const sql = postgres(env.DATABASE_URL, { max: 20 });
-  const authPort = new BetterAuthAdapter(sql);
+  const authSql = postgres(env.DATABASE_MIGRATION_URL, { max: 5 });
+  const authPort = new BetterAuthAdapter(authSql);
   const mailPort = new SmtpMailAdapter({
     host: env.SMTP_HOST,
     port: env.SMTP_PORT,

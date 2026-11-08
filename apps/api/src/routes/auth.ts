@@ -21,17 +21,19 @@ import type { AuthPort } from "../ports/auth.js";
 import { createRateLimiter } from "../middleware/rate-limit.js";
 import { requireAuth } from "../middleware/auth.js";
 
-const CHALLENGE_SECRET =
-  process.env["SESSION_SECRET"] || "librehr_dev_challenge_signing_key_4782";
+function challengeSecret(): string | null {
+  const value = process.env["SESSION_SECRET"];
+  return value && value.length >= 32 ? value : null;
+}
 
-function createChallengeToken(userId: string): string {
+function createChallengeToken(userId: string, secret: string): string {
   const payload = JSON.stringify({
     userId,
     exp: Date.now() + 5 * 60 * 1000, // 5 minutes
   });
   const b64Payload = Buffer.from(payload).toString("base64url");
   const signature = crypto
-    .createHmac("sha256", CHALLENGE_SECRET)
+    .createHmac("sha256", secret)
     .update(b64Payload)
     .digest("base64url");
   return `${b64Payload}.${signature}`;
@@ -39,12 +41,14 @@ function createChallengeToken(userId: string): string {
 
 function verifyChallengeToken(token: string): string | null {
   try {
+    const secret = challengeSecret();
+    if (!secret) return null;
     const parts = token.split(".");
     if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
     const [b64Payload, signature] = parts;
 
     const expectedSig = crypto
-      .createHmac("sha256", CHALLENGE_SECRET)
+      .createHmac("sha256", secret)
       .update(b64Payload)
       .digest("base64url");
 
@@ -154,7 +158,20 @@ export function createAuthRoutes(authPort: AuthPort, sql: Sql) {
         }
       } else {
         // Return 2FA challenge response
-        const challengeToken = createChallengeToken(user.id);
+        const secret = challengeSecret();
+        if (!secret) {
+          return c.json(
+            createProblemDetails({
+              status: 503,
+              title: "Service unavailable",
+              detail: "Two-factor authentication is unavailable",
+              code: "TWO_FACTOR_UNAVAILABLE",
+            }),
+            503,
+            { "Content-Type": "application/problem+json" },
+          );
+        }
+        const challengeToken = createChallengeToken(user.id, secret);
         return c.json({
           requiresTwoFactor: true,
           challengeToken,
@@ -173,6 +190,7 @@ export function createAuthRoutes(authPort: AuthPort, sql: Sql) {
     return c.json({
       user: session.user,
       expiresAt: session.expiresAt.toISOString(),
+      token: session.token,
     });
   });
 
@@ -282,6 +300,7 @@ export function createAuthRoutes(authPort: AuthPort, sql: Sql) {
     return c.json({
       user: session.user,
       expiresAt: session.expiresAt.toISOString(),
+      token: session.token,
     });
   });
 
