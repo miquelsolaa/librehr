@@ -6,7 +6,7 @@
   "main": "./src/index.ts",
   "dependencies": {
     "@hono/node-server": "^1.13.8",
-    "@hono/zod-openapi": "^0.18.4",
+    "@hono/zod-openapi": "^1.6.3",
     "@librehr/contracts": "workspace:*",
     "@librehr/core": "workspace:*",
     "@librehr/db": "workspace:*",
