@@ -30,7 +30,7 @@
   },
   "devDependencies": {
     "@librehr/config": "workspace:*",
-    "@storybook/addon-a11y": "^8.5.5",
+    "@storybook/addon-a11y": "^10.6.5",
     "@storybook/addon-essentials": "^8.5.5",
     "@storybook/react": "^8.5.5",
     "@storybook/react-vite": "^8.5.5",
