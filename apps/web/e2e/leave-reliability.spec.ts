@@ -31,6 +31,8 @@ test.beforeEach(async ({ page }) => {
             totalAccrued: 10,
             totalUsed: 2,
             totalCarryover: 0,
+            totalAdjustments: 0,
+            entries: [],
           }
         : [],
     });
@@ -63,6 +65,8 @@ test("a failed balance request shows an error and can be retried", async ({
           totalAccrued: 10,
           totalUsed: 2,
           totalCarryover: 0,
+          totalAdjustments: 0,
+          entries: [],
         },
       });
   });
@@ -75,6 +79,59 @@ test("a failed balance request shows an error and can be retried", async ({
   await expect(
     page.getByRole("region", { name: "Remaining Balance" }).getByText("8 days"),
   ).toBeVisible();
+});
+
+test("balance history explains signed ledger entries", async ({ page }) => {
+  await page.route("**/v1/leave/balance", async (route) => {
+    if (route.request().method() === "OPTIONS")
+      return route.fulfill({ status: 204, headers: cors });
+    return route.fulfill({
+      headers: cors,
+      json: {
+        currentBalance: 8.5,
+        totalAccrued: 10,
+        totalUsed: 2,
+        totalCarryover: 0,
+        totalAdjustments: 0.5,
+        entries: [
+          {
+            id: "1",
+            employeeId: "1",
+            entryType: "accrual",
+            amount: 10,
+            unit: "days",
+            effectiveDate: "2026-01-01",
+            createdAt: "2026-01-01T00:00:00.000Z",
+          },
+          {
+            id: "2",
+            employeeId: "1",
+            entryType: "usage",
+            amount: -2,
+            unit: "days",
+            effectiveDate: "2026-02-01",
+            createdAt: "2026-02-01T00:00:00.000Z",
+          },
+          {
+            id: "3",
+            employeeId: "1",
+            entryType: "adjustment",
+            amount: 0.5,
+            unit: "days",
+            effectiveDate: "2026-03-01",
+            createdAt: "2026-03-01T00:00:00.000Z",
+            note: "Correction",
+          },
+        ],
+      },
+    });
+  });
+  await page.goto("/en/time-off");
+  const history = page.getByRole("region", { name: "Balance history" });
+  await expect(history.getByText("Accrual", { exact: true })).toBeVisible();
+  await expect(history.getByText("−2 days", { exact: true })).toBeVisible();
+  await expect(history.getByText("+0.5 days", { exact: true })).toBeVisible();
+  await expect(history.getByText("Correction", { exact: true })).toBeVisible();
 });
 
 test("an unavailable policy endpoint is reported without hiding balances", async ({

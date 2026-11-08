@@ -1,4 +1,5 @@
 import type { TimeEvent } from "./events.js";
+import { resolveCorrections } from "./resolve-corrections.js";
 
 export interface BreakInterval {
   breakStart: string; // ISO string
@@ -21,7 +22,7 @@ export interface WorkSession {
  */
 export function foldSessions(events: readonly TimeEvent[]): WorkSession[] {
   // Sort chronologically by occurredAt
-  const sorted = [...events].sort(
+  const sorted = resolveCorrections(events).sort(
     (a, b) =>
       new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime(),
   );

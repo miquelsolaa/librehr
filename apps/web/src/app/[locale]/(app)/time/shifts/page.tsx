@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import {
   Button,
+  ErrorState,
   Input,
   Badge,
   Dialog,
@@ -51,6 +52,10 @@ export default function ShiftRosterPage() {
   const [swaps, setSwaps] = React.useState<ShiftSwap[]>([]);
   const [employees, setEmployees] = React.useState<EmployeeListItem[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState(false);
+  const [generateError, setGenerateError] = React.useState(false);
+  const [swapError, setSwapError] = React.useState(false);
+  const [decisionError, setDecisionError] = React.useState(false);
 
   // Dialog state: Generate Rotational Roster
   const [genOpen, setGenOpen] = React.useState(false);
@@ -77,20 +82,16 @@ export default function ShiftRosterPage() {
   const loadData = React.useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError(false);
       const [tmplRes, patRes, assignRes, swapRes, empRes] = await Promise.all([
-        apiClient.listShiftTemplates().catch(() => []),
-        apiClient.listShiftPatterns().catch(() => []),
-        apiClient
-          .listShiftAssignments({
-            startDate: startDateStr,
-            endDate: endDateStr,
-          })
-          .catch(() => []),
-        apiClient.listShiftSwaps().catch(() => []),
-        apiClient
-          .listEmployees()
-          .then((r) => r.items)
-          .catch(() => []),
+        apiClient.listShiftTemplates(),
+        apiClient.listShiftPatterns(),
+        apiClient.listShiftAssignments({
+          startDate: startDateStr,
+          endDate: endDateStr,
+        }),
+        apiClient.listShiftSwaps(),
+        apiClient.listEmployees().then((r) => r.items),
       ]);
 
       setTemplates(tmplRes);
@@ -105,6 +106,8 @@ export default function ShiftRosterPage() {
         setSelectedEmpIds(empRes.map((e) => e.id));
         if (empRes[1]) setTargetEmpId(empRes[1].id);
       }
+    } catch {
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -120,6 +123,7 @@ export default function ShiftRosterPage() {
     if (!selectedPatternId || selectedEmpIds.length === 0) return;
     try {
       setGenerating(true);
+      setGenerateError(false);
       await apiClient.generateShiftRoster({
         patternId: selectedPatternId,
         anchorDate,
@@ -130,7 +134,7 @@ export default function ShiftRosterPage() {
       setGenOpen(false);
       loadData();
     } catch {
-      // error handled
+      setGenerateError(true);
     } finally {
       setGenerating(false);
     }
@@ -142,6 +146,7 @@ export default function ShiftRosterPage() {
     if (!targetEmpId || !myShiftDate || !targetShiftDate) return;
     try {
       setRequestingSwap(true);
+      setSwapError(false);
       await apiClient.createShiftSwap({
         targetEmployeeId: targetEmpId,
         requesterDate: myShiftDate,
@@ -152,7 +157,7 @@ export default function ShiftRosterPage() {
       setSwapReason("");
       loadData();
     } catch {
-      // error handled
+      setSwapError(true);
     } finally {
       setRequestingSwap(false);
     }
@@ -164,10 +169,11 @@ export default function ShiftRosterPage() {
     status: "approved" | "rejected",
   ) => {
     try {
+      setDecisionError(false);
       await apiClient.decideShiftSwap(id, { status });
       loadData();
     } catch {
-      // error handled
+      setDecisionError(true);
     }
   };
 
@@ -252,6 +258,17 @@ export default function ShiftRosterPage() {
       </span>
     );
   };
+
+  if (loadError) {
+    return (
+      <ErrorState
+        title={t("shiftsLoadError")}
+        description={t("shiftsLoadErrorDescription")}
+        retryLabel={t("retry")}
+        onRetry={() => void loadData()}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -344,6 +361,11 @@ export default function ShiftRosterPage() {
                   />
                 </div>
 
+                {swapError && (
+                  <p role="alert" className="text-sm text-danger">
+                    {t("shiftSwapError")}
+                  </p>
+                )}
                 <DialogFooter>
                   <Button
                     type="button"
@@ -467,6 +489,11 @@ export default function ShiftRosterPage() {
                   </div>
                 </div>
 
+                {generateError && (
+                  <p role="alert" className="text-sm text-danger">
+                    {t("shiftGenerateError")}
+                  </p>
+                )}
                 <DialogFooter>
                   <Button
                     type="button"
@@ -570,6 +597,11 @@ export default function ShiftRosterPage() {
         </button>
       </div>
 
+      {decisionError && (
+        <p role="alert" className="text-sm text-danger">
+          {t("shiftDecisionError")}
+        </p>
+      )}
       {activeTab === "grid" ? (
         /* Shift Roster Grid Matrix */
         <div className="rounded-card border border-border bg-card overflow-hidden shadow-sm">

@@ -473,7 +473,7 @@ export class EmployeeRepository {
       FROM employees
       WHERE status != 'terminated'
         AND (
-          email = ${identifier}
+          LOWER(email) = LOWER(${identifier})
           OR badge_id = ${identifier}
           OR (${isUuid ? identifier : null}::uuid IS NOT NULL AND id = ${isUuid ? identifier : null}::uuid)
         )

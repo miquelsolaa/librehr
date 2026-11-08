@@ -10,6 +10,7 @@ import {
 } from "@librehr/contracts";
 import {
   foldSessions,
+  splitSessionsByLocalDay,
   calculateDailyTimesheet,
   calculatePeriodTimesheet,
   buildInspectionExport,
@@ -24,9 +25,29 @@ import {
   ScheduleRepository,
   OrganizationRepository,
   AuditRepository,
+  type TimeEventRow,
 } from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
 import { can } from "../policies/can.js";
+
+function foldRecordedEvents(events: TimeEventRow[]) {
+  return foldSessions(
+    events.map((event) => ({
+      id: event.id,
+      organizationId: event.organizationId,
+      employeeId: event.employeeId,
+      eventType: event.eventType as
+        "clock_in" | "clock_out" | "break_start" | "break_end" | "correction",
+      occurredAt: event.occurredAt.toISOString(),
+      recordedAt: event.recordedAt.toISOString(),
+      source: event.source as "web" | "mobile" | "manual" | "import",
+      actorId: event.actorId,
+      ...(event.refEventId ? { refEventId: event.refEventId } : {}),
+      hash: event.hash,
+      prevHash: event.prevHash,
+    })),
+  );
+}
 
 export function createTimeRoutes(sql: Sql) {
   const router = new Hono();
@@ -366,22 +387,17 @@ export function createTimeRoutes(sql: Sql) {
           }
         }
 
-        // Fetch events for period
-        const events = await timeRepo.getEventsForEmployee(
-          tx,
-          employeeId,
-          `${startDate}T00:00:00Z`,
-          `${endDate}T23:59:59Z`,
-        );
+        const org = await orgRepo.findById(tx, user.organizationId);
+        if (!org) return "NOT_FOUND" as const;
+        // Include the enclosing session when it starts or ends outside the period.
+        const events = await timeRepo.getEventsForEmployee(tx, employeeId);
 
-        // Group events by YYYY-MM-DD
-        const eventsByDay = new Map<string, typeof events>();
-        for (const ev of events) {
-          const dayKey = ev.occurredAt.toISOString().slice(0, 10);
-          const list = eventsByDay.get(dayKey) ?? [];
-          list.push(ev);
-          eventsByDay.set(dayKey, list);
-        }
+        const sessionsByDay = splitSessionsByLocalDay(
+          foldRecordedEvents(events),
+          startDate,
+          endDate,
+          org.timezone,
+        );
 
         // Generate daily summaries between startDate and endDate
         const dailySummaries = [];
@@ -390,28 +406,7 @@ export function createTimeRoutes(sql: Sql) {
 
         while (curr <= end) {
           const dayStr = curr.toISOString().slice(0, 10);
-          const dayEvents = eventsByDay.get(dayStr) ?? [];
-
-          const sessions = foldSessions(
-            dayEvents.map((e) => ({
-              id: e.id,
-              organizationId: e.organizationId,
-              employeeId: e.employeeId,
-              eventType: e.eventType as
-                | "clock_in"
-                | "clock_out"
-                | "break_start"
-                | "break_end"
-                | "correction",
-              occurredAt: e.occurredAt.toISOString(),
-              recordedAt: e.recordedAt.toISOString(),
-              source:
-                (e.source as "web" | "mobile" | "manual" | "import") ?? "web",
-              actorId: e.actorId,
-              hash: e.hash,
-              prevHash: e.prevHash,
-            })),
-          );
+          const sessions = sessionsByDay.get(dayStr) ?? [];
 
           const dayOfWeek = curr.getUTCDay() || 7;
           const schedule = await scheduleRepo.getForEmployee(
@@ -419,10 +414,13 @@ export function createTimeRoutes(sql: Sql) {
             employeeId,
             dayStr,
           );
-          const rule = schedule?.rules.find(
+          if (!schedule) return "SCHEDULE_NOT_CONFIGURED" as const;
+          const rule = schedule.rules.find(
             (item) => item.dayOfWeek === dayOfWeek,
-          );
-          if (!rule) return "SCHEDULE_NOT_CONFIGURED" as const;
+          ) ?? {
+            dayOfWeek,
+            expectedHours: 0,
+          };
 
           const daily = calculateDailyTimesheet(dayStr, sessions, {
             dayOfWeek: rule.dayOfWeek,
@@ -546,23 +544,17 @@ export function createTimeRoutes(sql: Sql) {
         }
 
         const org = await orgRepo.findById(tx, user.organizationId);
-        const orgName = org?.name ?? "LibreHR Organization";
+        if (!org) return null;
+        const orgName = org.name;
 
-        const events = await timeRepo.getEventsForEmployee(
-          tx,
-          employeeId,
-          `${startDate}T00:00:00Z`,
-          `${endDate}T23:59:59Z`,
+        const events = await timeRepo.getEventsForEmployee(tx, employeeId);
+
+        const sessionsByDay = splitSessionsByLocalDay(
+          foldRecordedEvents(events),
+          startDate,
+          endDate,
+          org.timezone,
         );
-
-        // Group by day
-        const eventsByDay = new Map<string, typeof events>();
-        for (const ev of events) {
-          const dayKey = ev.occurredAt.toISOString().slice(0, 10);
-          const list = eventsByDay.get(dayKey) ?? [];
-          list.push(ev);
-          eventsByDay.set(dayKey, list);
-        }
 
         const dailySummaries = [];
         const curr = new Date(startDate);
@@ -570,28 +562,7 @@ export function createTimeRoutes(sql: Sql) {
 
         while (curr <= end) {
           const dayStr = curr.toISOString().slice(0, 10);
-          const dayEvents = eventsByDay.get(dayStr) ?? [];
-
-          const sessions = foldSessions(
-            dayEvents.map((e) => ({
-              id: e.id,
-              organizationId: e.organizationId,
-              employeeId: e.employeeId,
-              eventType: e.eventType as
-                | "clock_in"
-                | "clock_out"
-                | "break_start"
-                | "break_end"
-                | "correction",
-              occurredAt: e.occurredAt.toISOString(),
-              recordedAt: e.recordedAt.toISOString(),
-              source:
-                (e.source as "web" | "mobile" | "manual" | "import") ?? "web",
-              actorId: e.actorId,
-              hash: e.hash,
-              prevHash: e.prevHash,
-            })),
-          );
+          const sessions = sessionsByDay.get(dayStr) ?? [];
 
           const dayOfWeek = curr.getUTCDay() || 7;
           const schedule = await scheduleRepo.getForEmployee(
@@ -599,10 +570,13 @@ export function createTimeRoutes(sql: Sql) {
             employeeId,
             dayStr,
           );
-          const rule = schedule?.rules.find(
+          if (!schedule) return "SCHEDULE_NOT_CONFIGURED" as const;
+          const rule = schedule.rules.find(
             (item) => item.dayOfWeek === dayOfWeek,
-          );
-          if (!rule) return "SCHEDULE_NOT_CONFIGURED" as const;
+          ) ?? {
+            dayOfWeek,
+            expectedHours: 0,
+          };
           dailySummaries.push(
             calculateDailyTimesheet(dayStr, sessions, {
               dayOfWeek: rule.dayOfWeek,

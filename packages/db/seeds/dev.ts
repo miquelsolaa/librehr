@@ -1,6 +1,17 @@
 import crypto from "node:crypto";
 import postgres from "postgres";
 
+async function hashPassword(password: string): Promise<string> {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const key = await new Promise<Buffer>((resolve, reject) => {
+    crypto.scrypt(password, salt, 64, (err, derivedKey) => {
+      if (err) reject(err);
+      else resolve(derivedKey as Buffer);
+    });
+  });
+  return `scrypt$${salt}$${key.toString("hex")}`;
+}
+
 export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
   const url =
     connectionUrl ||
@@ -264,13 +275,14 @@ export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
       // Insert users and create employee records map
       const empIdByEmail = new Map<string, string>();
       const userIdByEmail = new Map<string, string>();
+      const devPasswordHash = await hashPassword("Password123!");
 
       // First pass: create users & base employees (without managerId to allow arbitrary order)
-      for (const u of usersList) {
+      for (const [idx, u] of usersList.entries()) {
         const userRows = await tx`
           INSERT INTO "users" ("email", "name", "password_hash", "email_verified")
-          VALUES (${u.email}, ${u.name}, '$2a$10$devPasswordHash1234567890abcdefghijklmnopqrstuv', true)
-          ON CONFLICT ("email") DO UPDATE SET "name" = EXCLUDED."name"
+          VALUES (${u.email}, ${u.name}, ${devPasswordHash}, true)
+          ON CONFLICT ("email") DO UPDATE SET "name" = EXCLUDED."name", "password_hash" = EXCLUDED."password_hash"
           RETURNING "id"
         `;
         const userId = userRows[0]?.["id"] as string;
@@ -285,15 +297,19 @@ export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
         const nameParts = u.name.split(" ");
         const firstName = nameParts[0] ?? "User";
         const lastName = nameParts.slice(1).join(" ") || "";
+        const badgeId = String(1001 + idx);
 
         const empRows = await tx`
           INSERT INTO "employees" (
             "organization_id", "user_id", "department_id", "location_id",
-            "first_name", "last_name", "email", "phone", "status"
+            "first_name", "last_name", "email", "phone", "status",
+            "pin_hash", "pin_salt", "badge_id"
           )
           VALUES (
             ${orgId}, ${userId}, ${u.deptId}, ${u.locId},
-            ${firstName}, ${lastName}, ${u.email}, ${u.phone}, ${u.status}
+            ${firstName}, ${lastName}, ${u.email}, ${u.phone}, ${u.status},
+            '8ea092a8015b7f4e96d99819caed8bb5ddcd0f636cf2d11aff9a5a3c51cc2ff8', '00112233445566778899aabbccddeeff',
+            ${badgeId}
           )
           RETURNING "id"
         `;
@@ -306,9 +322,10 @@ export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
         `;
 
         // Emergency contact
+        const emergencyContactName = `Contacte d'Urgència (${firstName})`;
         await tx`
           INSERT INTO "emergency_contacts" ("organization_id", "employee_id", "full_name", "relationship", "phone_primary", "is_primary")
-          VALUES (${orgId}, ${empId}, 'Contacte d''Urgència (${firstName})', 'partner', '+34 600 000 000', true)
+          VALUES (${orgId}, ${empId}, ${emergencyContactName}, 'partner', '+34 600 000 000', true)
         `;
 
         // Leave ledger accrual & carryover
@@ -679,7 +696,9 @@ export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
             (${orgId}, ${schedId}, 2, 8.00, 540, 1020, 60),
             (${orgId}, ${schedId}, 3, 8.00, 540, 1020, 60),
             (${orgId}, ${schedId}, 4, 8.00, 540, 1020, 60),
-            (${orgId}, ${schedId}, 5, 8.00, 540, 1020, 60)
+            (${orgId}, ${schedId}, 5, 8.00, 540, 1020, 60),
+            (${orgId}, ${schedId}, 6, 0.00, 0, 0, 0),
+            (${orgId}, ${schedId}, 7, 0.00, 0, 0, 0)
         `;
       }
 
@@ -711,7 +730,7 @@ export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
 
 if (process.argv[1] && process.argv[1].endsWith("dev.ts")) {
   seedDevDatabase().catch((err) => {
-    process.stderr.write(`Seed error: ${String(err)}\n`);
+    console.error("Seed error details:", err);
     process.exit(1);
   });
 }

@@ -191,6 +191,7 @@ export default function TimeOffPage() {
                       ["totalAccrued", data.balance.totalAccrued],
                       ["totalUsed", data.balance.totalUsed],
                       ["totalCarryover", data.balance.totalCarryover],
+                      ["totalAdjustments", data.balance.totalAdjustments],
                     ] as const
                   ).map(([key, value]) => (
                     <div key={key} className="min-w-0">
@@ -204,6 +205,73 @@ export default function TimeOffPage() {
                   ))}
                 </dl>
               </div>
+            </section>
+
+            <section
+              aria-labelledby="balance-history"
+              className="overflow-hidden rounded-card border border-border bg-surface"
+            >
+              <div className="border-b border-border px-5 py-4 sm:px-6">
+                <h2
+                  id="balance-history"
+                  className="text-lg font-semibold text-foreground"
+                >
+                  {t("balanceHistory")}
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {t("balanceHistoryDescription")}
+                </p>
+              </div>
+              {data.balance.entries.length === 0 ? (
+                <p className="px-6 py-6 text-sm text-muted-foreground">
+                  {t("noBalanceEntries")}
+                </p>
+              ) : (
+                <ul className="divide-y divide-border">
+                  {data.balance.entries.map((entry) => {
+                    const label = [
+                      "accrual",
+                      "usage",
+                      "adjustment",
+                      "carryover",
+                      "expiry",
+                      "reversal",
+                    ].includes(entry.entryType)
+                      ? t(`ledger.${entry.entryType}`)
+                      : entry.entryType;
+                    const amount = new Intl.NumberFormat(locale, {
+                      maximumFractionDigits: 2,
+                    }).format(Math.abs(entry.amount));
+                    return (
+                      <li
+                        key={entry.id}
+                        className="flex flex-wrap justify-between gap-3 px-5 py-4 sm:px-6"
+                      >
+                        <div>
+                          <p className="font-medium">{label}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {entry.effectiveDate}
+                          </p>
+                          {entry.note && (
+                            <p className="text-sm text-muted-foreground">
+                              {entry.note}
+                            </p>
+                          )}
+                        </div>
+                        <span className="font-medium tabular-nums">
+                          {entry.amount < 0 ? "−" : entry.amount > 0 ? "+" : ""}
+                          {amount}{" "}
+                          {entry.unit === "days"
+                            ? t("days")
+                            : entry.unit === "hours"
+                              ? t("ledgerHours")
+                              : entry.unit}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </section>
 
             <section

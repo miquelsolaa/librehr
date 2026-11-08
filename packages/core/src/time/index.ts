@@ -1,5 +1,7 @@
 export * from "./events.js";
 export * from "./fold-sessions.js";
+export * from "./resolve-corrections.js";
+export * from "./local-day-sessions.js";
 export * from "./hash-chain.js";
 export * from "./schedules.js";
 export * from "./timesheet-calculator.js";
