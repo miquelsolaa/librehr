@@ -22,7 +22,7 @@
     "@librehr/config": "workspace:*",
     "@librehr/testing": "workspace:*",
     "@types/node": "^22.13.4",
-    "@types/nodemailer": "^6.4.17",
+    "@types/nodemailer": "^8.0.2",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "vitest": "^3.0.5"
