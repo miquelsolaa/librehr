@@ -410,7 +410,19 @@ export default function WebhooksSettingsPage() {
                 <div className="pt-2 border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="text-muted-foreground mr-1">Events:</span>
-                    {hook.events.map((ev) => (
+                    {(Array.isArray(hook.events)
+                      ? hook.events
+                      : typeof hook.events === "string"
+                        ? (() => {
+                            try {
+                              const parsed = JSON.parse(hook.events);
+                              return Array.isArray(parsed) ? parsed : [];
+                            } catch {
+                              return [];
+                            }
+                          })()
+                        : []
+                    ).map((ev: string) => (
                       <span
                         key={ev}
                         className="px-2 py-0.5 rounded-full bg-surface-raised border border-border text-[11px] font-mono text-foreground"

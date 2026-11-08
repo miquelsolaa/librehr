@@ -14,6 +14,21 @@ export interface SsoConfigRow {
   updatedAt: Date;
 }
 
+function parseDomains(domains: unknown): string[] {
+  if (Array.isArray(domains)) {
+    return domains as string[];
+  }
+  if (typeof domains === "string") {
+    try {
+      const parsed = JSON.parse(domains);
+      if (Array.isArray(parsed)) return parsed as string[];
+    } catch {
+      // ignore
+    }
+  }
+  return [];
+}
+
 export class SsoRepository {
   async getConfig(tx: TenantTx): Promise<SsoConfigRow | null> {
     const rows = await tx<SsoConfigRow[]>`
@@ -32,7 +47,12 @@ export class SsoRepository {
       FROM sso_configurations
       LIMIT 1
     `;
-    return rows[0] ?? null;
+    const row = rows[0];
+    if (!row) return null;
+    return {
+      ...row,
+      allowedDomains: parseDomains(row.allowedDomains),
+    };
   }
 
   async saveConfig(
@@ -58,7 +78,7 @@ export class SsoRepository {
           issuer_url = ${data.issuerUrl},
           enabled = ${data.enabled},
           enforce_sso = ${data.enforceSso},
-          allowed_domains = ${JSON.stringify(data.allowedDomains)}::jsonb,
+          allowed_domains = ${tx.json(data.allowedDomains)},
           updated_at = now()
         WHERE id = ${existing.id}
         RETURNING
@@ -74,7 +94,11 @@ export class SsoRepository {
           created_at as "createdAt",
           updated_at as "updatedAt"
       `;
-      return rows[0]!;
+      const row = rows[0]!;
+      return {
+        ...row,
+        allowedDomains: parseDomains(row.allowedDomains),
+      };
     }
 
     const rows = await tx<SsoConfigRow[]>`
@@ -88,7 +112,7 @@ export class SsoRepository {
         ${data.issuerUrl},
         ${data.enabled},
         ${data.enforceSso},
-        ${JSON.stringify(data.allowedDomains)}::jsonb
+        ${tx.json(data.allowedDomains)}
       )
       RETURNING
         id,
@@ -103,6 +127,10 @@ export class SsoRepository {
         created_at as "createdAt",
         updated_at as "updatedAt"
     `;
-    return rows[0]!;
+    const row = rows[0]!;
+    return {
+      ...row,
+      allowedDomains: parseDomains(row.allowedDomains),
+    };
   }
 }

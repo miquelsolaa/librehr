@@ -14,6 +14,21 @@ export interface WebhookRow {
   updatedAt: Date;
 }
 
+function parseEvents(events: unknown): string[] {
+  if (Array.isArray(events)) {
+    return events as string[];
+  }
+  if (typeof events === "string") {
+    try {
+      const parsed = JSON.parse(events);
+      if (Array.isArray(parsed)) return parsed as string[];
+    } catch {
+      // ignore
+    }
+  }
+  return [];
+}
+
 export class WebhookRepository {
   async list(tx: TenantTx): Promise<WebhookRow[]> {
     const rows = await tx<WebhookRow[]>`
@@ -32,7 +47,10 @@ export class WebhookRepository {
       FROM webhooks
       ORDER BY created_at DESC
     `;
-    return rows;
+    return rows.map((r) => ({
+      ...r,
+      events: parseEvents(r.events),
+    }));
   }
 
   async getById(tx: TenantTx, id: string): Promise<WebhookRow | null> {
@@ -53,7 +71,12 @@ export class WebhookRepository {
       WHERE id = ${id}
       LIMIT 1
     `;
-    return rows[0] ?? null;
+    const row = rows[0];
+    if (!row) return null;
+    return {
+      ...row,
+      events: parseEvents(row.events),
+    };
   }
 
   async create(
@@ -78,7 +101,7 @@ export class WebhookRepository {
         ${data.name},
         ${data.url},
         ${data.secret},
-        ${JSON.stringify(data.events)}::jsonb,
+        ${tx.json(data.events)},
         ${enabled}
       )
       RETURNING
@@ -94,7 +117,11 @@ export class WebhookRepository {
         created_at as "createdAt",
         updated_at as "updatedAt"
     `;
-    return rows[0]!;
+    const row = rows[0]!;
+    return {
+      ...row,
+      events: parseEvents(row.events),
+    };
   }
 
   async update(
@@ -124,7 +151,7 @@ export class WebhookRepository {
         name = ${name},
         url = ${url},
         secret = ${secret},
-        events = ${JSON.stringify(events)}::jsonb,
+        events = ${tx.json(events)},
         enabled = ${enabled},
         updated_at = now()
       WHERE id = ${id}
@@ -141,7 +168,12 @@ export class WebhookRepository {
         created_at as "createdAt",
         updated_at as "updatedAt"
     `;
-    return rows[0] ?? null;
+    const row = rows[0];
+    if (!row) return null;
+    return {
+      ...row,
+      events: parseEvents(row.events),
+    };
   }
 
   async delete(tx: TenantTx, id: string): Promise<boolean> {

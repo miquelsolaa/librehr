@@ -48,7 +48,7 @@ export class AuditRepository {
         ${data.action},
         ${data.resourceType},
         ${data.resourceId ?? null},
-        ${data.metadata ? JSON.stringify(data.metadata) : null}::jsonb
+        ${data.metadata ? tx.json(data.metadata as never) : null}
       )
       RETURNING id, organization_id as "organizationId", actor_id as "actorId",
                 action, resource_type as "resourceType", resource_id as "resourceId",

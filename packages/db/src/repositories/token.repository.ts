@@ -20,6 +20,21 @@ export interface CreatedTokenResult {
   plainToken: string; // only returned once upon generation
 }
 
+function parseScopes(scopes: unknown): string[] {
+  if (Array.isArray(scopes)) {
+    return scopes as string[];
+  }
+  if (typeof scopes === "string") {
+    try {
+      const parsed = JSON.parse(scopes);
+      if (Array.isArray(parsed)) return parsed as string[];
+    } catch {
+      // ignore
+    }
+  }
+  return [];
+}
+
 export class TokenRepository {
   /**
    * Hashes a raw token with SHA-256 for secure storage.
@@ -54,7 +69,7 @@ export class TokenRepository {
         ${data.name},
         ${tokenHash},
         ${prefix},
-        ${JSON.stringify(data.scopes)}::jsonb,
+        ${tx.json(data.scopes)},
         ${data.expiresAt ?? null}
       )
       RETURNING id, organization_id as "organizationId", user_id as "userId",
@@ -63,8 +78,12 @@ export class TokenRepository {
                 created_at as "createdAt", updated_at as "updatedAt"
     `;
 
+    const row = rows[0]!;
     return {
-      token: rows[0]!,
+      token: {
+        ...row,
+        scopes: parseScopes(row.scopes),
+      },
       plainToken,
     };
   }
@@ -73,7 +92,7 @@ export class TokenRepository {
     tx: TenantTx,
     userId: string,
   ): Promise<PersonalAccessTokenRow[]> {
-    return tx<PersonalAccessTokenRow[]>`
+    const rows = await tx<PersonalAccessTokenRow[]>`
       SELECT id, organization_id as "organizationId", user_id as "userId",
              name, token_hash as "tokenHash", prefix, scopes,
              expires_at as "expiresAt", last_used_at as "lastUsedAt",
@@ -82,6 +101,10 @@ export class TokenRepository {
       WHERE user_id = ${userId}
       ORDER BY created_at DESC
     `;
+    return rows.map((r) => ({
+      ...r,
+      scopes: parseScopes(r.scopes),
+    }));
   }
 
   async findByTokenHash(
@@ -98,7 +121,12 @@ export class TokenRepository {
         AND (expires_at IS NULL OR expires_at > now())
       LIMIT 1
     `;
-    return rows[0] ?? null;
+    const row = rows[0];
+    if (!row) return null;
+    return {
+      ...row,
+      scopes: parseScopes(row.scopes),
+    };
   }
 
   async recordUsage(tx: TenantTx, tokenId: string): Promise<void> {

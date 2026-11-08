@@ -317,7 +317,19 @@ export default function TokensSettingsPage() {
                   </div>
                   <div className="flex flex-wrap items-center gap-2 pt-1">
                     <div className="flex gap-1">
-                      {token.scopes.map((s) => (
+                      {(Array.isArray(token.scopes)
+                        ? token.scopes
+                        : typeof token.scopes === "string"
+                          ? (() => {
+                              try {
+                                const parsed = JSON.parse(token.scopes);
+                                return Array.isArray(parsed) ? parsed : [];
+                              } catch {
+                                return [];
+                              }
+                            })()
+                          : []
+                      ).map((s: string) => (
                         <Badge
                           key={s}
                           variant="outline"
