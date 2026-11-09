@@ -87,7 +87,7 @@ describe("department coverage configuration", () => {
         new DepartmentRepository().create(tx, { name: "Other team" }),
       )
     ).id;
-    app = createApp({ sql: db.sql, authPort: auth });
+    app = createApp({ sql: await db.appSql(), authPort: auth });
   }, 30000);
   afterAll(async () => {
     if (db) await db.close();

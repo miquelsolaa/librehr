@@ -67,7 +67,7 @@ describe("Phase 1 API Integration Tests (ORG-004, ORG-005, EMP-002, EMP-005)", (
     db = await getTestDatabase();
     if (db) {
       await runMigrations(db.connectionString);
-      app = createApp({ sql: db.sql, authPort });
+      app = createApp({ sql: await db.appSql(), authPort });
     }
   });
 

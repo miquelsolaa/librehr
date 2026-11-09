@@ -78,7 +78,7 @@ describe("Time Tracking API Integration Tests (TIM-001 - TIM-006)", () => {
     db = await getTestDatabase();
     if (db) {
       await runMigrations(db.connectionString);
-      app = createApp({ sql: db.sql, authPort });
+      app = createApp({ sql: await db.appSql(), authPort });
     }
   });
 

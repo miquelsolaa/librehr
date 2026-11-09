@@ -42,7 +42,7 @@ describe("Setup Wizard & Invitations API (ORG-001, AUTH-005)", () => {
     db = await getTestDatabase();
     if (db) {
       await runMigrations(db.connectionString);
-      app = createApp({ sql: db.sql, authPort });
+      app = createApp({ sql: await db.appSql(), authPort });
     }
   });
 

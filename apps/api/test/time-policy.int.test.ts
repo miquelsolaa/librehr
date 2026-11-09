@@ -108,7 +108,7 @@ describe("time schedule requirements", () => {
       if (!otherSchedule) throw new Error("Schedule creation failed");
       await tx`INSERT INTO schedule_rules (schedule_id, day_of_week, expected_hours) VALUES (${otherSchedule.id}, 1, 8)`;
     });
-    app = createApp({ sql: db.sql, authPort: auth });
+    app = createApp({ sql: await db.appSql(), authPort: auth });
   }, 30000);
   afterAll(async () => {
     if (db) await db.close();

@@ -23,7 +23,10 @@ describe("password creation and invitation acceptance", () => {
     db = database;
     await runMigrations(db.connectionString);
     await db.sql`INSERT INTO organizations (id, name, slug) VALUES (${org}, 'Test Org', 'password-test')`;
-    app = createApp({ sql: db.sql, authPort: new BetterAuthAdapter(db.sql) });
+    app = createApp({
+      sql: await db.appSql(),
+      authPort: new BetterAuthAdapter(await db.appSql()),
+    });
   }, 30000);
   afterAll(async () => {
     if (db) await db.close();
@@ -66,7 +69,7 @@ describe("password creation and invitation acceptance", () => {
       await verifyPassword("correct-pass-123", rows[0]?.password_hash ?? null),
     ).toBe(true);
     expect(
-      await new BetterAuthAdapter(db.sql).verifyCredentials(
+      await new BetterAuthAdapter(await db.appSql()).verifyCredentials(
         email,
         "wrong-password",
       ),
@@ -105,7 +108,7 @@ describe("password creation and invitation acceptance", () => {
       await verifyPassword("secure-password", rows[0]?.password_hash ?? null),
     ).toBe(true);
     expect(
-      await new BetterAuthAdapter(db.sql).verifyCredentials(
+      await new BetterAuthAdapter(await db.appSql()).verifyCredentials(
         email,
         "wrong-password",
       ),
@@ -153,7 +156,7 @@ describe("password creation and invitation acceptance", () => {
         tx`INSERT INTO memberships (user_id, role) VALUES (${rows[0]!.id}, 'employee')`,
     );
     expect(
-      await new BetterAuthAdapter(db.sql).verifyCredentials(
+      await new BetterAuthAdapter(await db.appSql()).verifyCredentials(
         email,
         "legacy-plaintext",
       ),

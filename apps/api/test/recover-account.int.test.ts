@@ -29,7 +29,11 @@ describe("operator account recovery", () => {
     )!;
     await db.sql`INSERT INTO sessions (user_id, token, expires_at) VALUES (${recovered.id}, 'session-recover', now() + interval '1 day'), (${other.id}, 'session-other', now() + interval '1 day')`;
     expect(
-      await recoverAccount(db.sql, recovered.email, "new-password-123"),
+      await recoverAccount(
+        await db.appSql(),
+        recovered.email,
+        "new-password-123",
+      ),
     ).toBe(true);
     const records = await db.sql<
       { password_hash: string }[]

@@ -40,7 +40,7 @@ describe("typed route errors against Postgres", () => {
     await runMigrations(db.connectionString);
     await db.sql`INSERT INTO organizations (id, name, slug) VALUES (${org}, 'Errors', 'route-errors-test')`;
     await db.sql`INSERT INTO users (id, email, name) VALUES (${admin.id}, ${admin.email}, ${admin.name})`;
-    app = createApp({ sql: db.sql, authPort: auth });
+    app = createApp({ sql: await db.appSql(), authPort: auth });
   }, 30000);
   afterAll(async () => {
     if (db) await db.close();
