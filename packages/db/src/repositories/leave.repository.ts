@@ -631,9 +631,18 @@ export class LeaveRepository {
     return rows[0]!;
   }
 
+  /**
+   * Approval delegations visible in `scope` (LEA-008). The scope is
+   * explicit: `organization` lists every delegation of the tenant
+   * (optionally those involving one employee), `participant` only those where
+   * the employee is the manager or the delegate. There is no default, so a
+   * missing employee can never widen a list to the whole organization.
+   */
   async listApprovalDelegations(
     tx: TenantTx,
-    employeeId?: string | undefined,
+    scope:
+      | { kind: "organization"; employeeId?: string | undefined }
+      | { kind: "participant"; employeeId: string },
   ): Promise<
     {
       id: string;
@@ -648,6 +657,7 @@ export class LeaveRepository {
       createdAt: Date;
     }[]
   > {
+    const employeeId = scope.employeeId ?? null;
     return tx<
       {
         id: string;
@@ -672,9 +682,9 @@ export class LeaveRepository {
       FROM approval_delegations ad
       JOIN employees m ON m.id = ad.manager_employee_id
       JOIN employees d ON d.id = ad.delegate_employee_id
-      WHERE (${employeeId ?? null}::uuid IS NULL
-             OR ad.manager_employee_id = ${employeeId ?? null}::uuid
-             OR ad.delegate_employee_id = ${employeeId ?? null}::uuid)
+      WHERE ((${scope.kind === "organization"} AND ${employeeId}::uuid IS NULL)
+             OR ad.manager_employee_id = ${employeeId}::uuid
+             OR ad.delegate_employee_id = ${employeeId}::uuid)
       ORDER BY ad.start_date DESC
     `;
   }
