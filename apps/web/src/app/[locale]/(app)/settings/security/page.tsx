@@ -13,9 +13,37 @@ import {
   Check,
   ArrowLeft,
 } from "lucide-react";
-import { Button, Input } from "@librehr/ui";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+} from "@librehr/ui";
 import { getApiClient } from "@/lib/api-client";
 import { getStoredSession } from "@/lib/auth";
+
+type DisableErrorKey =
+  | "twoFactorDisableInvalidCode"
+  | "twoFactorDisableSessionExpired"
+  | "twoFactorDisableForbidden"
+  | "twoFactorDisableRateLimited"
+  | "twoFactorDisableError";
+
+/** Maps the API problem (RFC 9457) from POST /v1/auth/2fa/disable to a message. */
+function disableErrorKey(err: unknown): DisableErrorKey {
+  if (typeof err !== "object" || err === null) return "twoFactorDisableError";
+  const code = "code" in err ? err.code : undefined;
+  const status = "status" in err ? err.status : undefined;
+  if (code === "INVALID_2FA_CODE") return "twoFactorDisableInvalidCode";
+  if (status === 401) return "twoFactorDisableSessionExpired";
+  if (status === 403) return "twoFactorDisableForbidden";
+  if (status === 429) return "twoFactorDisableRateLimited";
+  return "twoFactorDisableError";
+}
 
 export default function SecuritySettingsPage() {
   const params = useParams();
@@ -23,7 +51,6 @@ export default function SecuritySettingsPage() {
 
   const t = useTranslations("settings");
   const tCommon = useTranslations("common");
-  const tAuth = useTranslations("auth");
 
   const [session, setSession] = React.useState(getStoredSession());
   const [twoFactorEnabled, setTwoFactorEnabled] = React.useState(false);
@@ -44,6 +71,11 @@ export default function SecuritySettingsPage() {
   } | null>(null);
   const [verificationCode, setVerificationCode] = React.useState("");
   const [copiedCodes, setCopiedCodes] = React.useState(false);
+
+  // Disable dialog state
+  const [isDisableOpen, setIsDisableOpen] = React.useState(false);
+  const [disableCode, setDisableCode] = React.useState("");
+  const [disableError, setDisableError] = React.useState<string | null>(null);
 
   const isAdmin = session?.role === "admin";
 
@@ -110,21 +142,30 @@ export default function SecuritySettingsPage() {
     }
   };
 
-  const handleDisable = async () => {
-    if (!window.confirm(t("disable2FaConfirm"))) return;
+  const openDisableDialog = () => {
+    setDisableCode("");
+    setDisableError(null);
+    setSuccessMessage(null);
+    setIsDisableOpen(true);
+  };
+
+  const handleDisable = async (e: React.FormEvent) => {
+    e.preventDefault();
     // AUTH-003: the API requires a current TOTP or recovery code to disable.
-    const code = window.prompt(tAuth("twoFactorCodeLabel"))?.trim();
+    const code = disableCode.trim();
     if (!code) return;
 
     setActionLoading(true);
-    setErrorMessage(null);
+    setDisableError(null);
     try {
       const client = getApiClient();
       await client.disableTwoFactor({ code });
       setTwoFactorEnabled(false);
+      setIsDisableOpen(false);
       setSuccessMessage(t("twoFactorDisabledSuccess"));
-    } catch {
-      setErrorMessage(t("twoFactorDisableError"));
+    } catch (err) {
+      setDisableCode("");
+      setDisableError(t(disableErrorKey(err)));
     } finally {
       setActionLoading(false);
     }
@@ -230,7 +271,7 @@ export default function SecuritySettingsPage() {
               <Button
                 variant="outline"
                 className="text-danger border-danger/30 hover:bg-danger/10"
-                onClick={handleDisable}
+                onClick={openDisableDialog}
                 isLoading={actionLoading}
               >
                 {t("disableTwoFactor")}
@@ -295,6 +336,77 @@ export default function SecuritySettingsPage() {
           </div>
         )}
       </div>
+
+      <Dialog
+        open={isDisableOpen}
+        onOpenChange={(open) => {
+          if (!actionLoading) setIsDisableOpen(open);
+        }}
+      >
+        <DialogContent>
+          <form onSubmit={handleDisable} className="space-y-4" noValidate>
+            <DialogHeader>
+              <DialogTitle>{t("disableTwoFactor")}</DialogTitle>
+              <DialogDescription>
+                {t("disable2FaConfirm")}{" "}
+                {t("disableTwoFactorDialogDescription")}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-1.5">
+              <label
+                htmlFor="disable-2fa-code"
+                className="text-sm font-medium text-foreground"
+              >
+                {t("disableTwoFactorCodeLabel")}
+              </label>
+              <Input
+                id="disable-2fa-code"
+                name="code"
+                type="text"
+                inputMode="text"
+                autoComplete="one-time-code"
+                autoCapitalize="off"
+                spellCheck={false}
+                required
+                aria-invalid={disableError ? true : undefined}
+                aria-describedby={
+                  disableError ? "disable-2fa-error" : undefined
+                }
+                value={disableCode}
+                onChange={(e) => setDisableCode(e.target.value)}
+                className="font-mono tracking-widest"
+              />
+              {disableError && (
+                <p
+                  id="disable-2fa-error"
+                  role="alert"
+                  className="text-sm text-danger"
+                >
+                  {disableError}
+                </p>
+              )}
+            </div>
+            <DialogFooter className="gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsDisableOpen(false)}
+                disabled={actionLoading}
+              >
+                {tCommon("cancel")}
+              </Button>
+              <Button
+                type="submit"
+                variant="danger"
+                isLoading={actionLoading}
+                disabled={!disableCode.trim()}
+              >
+                {t("disableTwoFactorConfirm")}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Setup 2FA Modal */}
       {isSetupOpen && setupData && (

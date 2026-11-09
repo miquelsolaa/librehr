@@ -398,7 +398,14 @@
     "locationsEmpty": "Todavía no hay centros de trabajo configurados.",
     "holidayYear": "Año",
     "backToSettings": "Volver a la configuración",
-    "ssoGenericOidc": "OIDC genérico"
+    "ssoGenericOidc": "OIDC genérico",
+    "disableTwoFactorDialogDescription": "Para desactivar la autenticación en dos pasos, introduce un código actual de tu aplicación autenticadora o uno de tus códigos de recuperación.",
+    "disableTwoFactorCodeLabel": "Código de autenticación o de recuperación",
+    "disableTwoFactorConfirm": "Desactivar doble factor",
+    "twoFactorDisableInvalidCode": "El código no es válido. Revisa tu aplicación autenticadora e inténtalo de nuevo.",
+    "twoFactorDisableSessionExpired": "Tu sesión ha caducado. Vuelve a iniciar sesión para cambiar la configuración de seguridad.",
+    "twoFactorDisableForbidden": "No tienes permiso para cambiar la autenticación en dos pasos de esta cuenta.",
+    "twoFactorDisableRateLimited": "Demasiados intentos. Espera unos minutos e inténtalo de nuevo."
   },
   "setup": {
     "title": "Bienvenido a LibreHR",
@@ -425,7 +432,11 @@
     "legalEntityNamePlaceholder": "p. ej., Acme Iberia S.L.",
     "locationNamePlaceholder": "p. ej., Barcelona Diagonal",
     "next": "Siguiente",
-    "summaryTitle": "Resumen"
+    "summaryTitle": "Resumen",
+    "adminPasswordHint": "Mínimo 8 caracteres. No reutilices una contraseña.",
+    "alreadyCompletedTitle": "La configuración ya se ha completado",
+    "alreadyCompletedDescription": "Esta instancia de LibreHR ya tiene una organización. Inicia sesión con tu cuenta o pide a un administrador que te invite.",
+    "goToSignIn": "Ir a iniciar sesión"
   },
   "invitations": {
     "title": "Aceptar Invitación",
