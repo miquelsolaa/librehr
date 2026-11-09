@@ -265,15 +265,23 @@ export default function SecuritySettingsPage() {
 
             <div className="flex items-center justify-between rounded-input border border-border bg-background p-4">
               <div>
-                <div className="text-sm font-medium text-foreground">
+                <div
+                  id="require-2fa-label"
+                  className="text-sm font-medium text-foreground"
+                >
                   {t("requireTwoFactorAll")}
                 </div>
-                <div className="text-xs text-muted-foreground">
+                <div
+                  id="require-2fa-hint"
+                  className="text-xs text-muted-foreground"
+                >
                   {t("requireTwoFactorHint")}
                 </div>
               </div>
               <input
                 type="checkbox"
+                aria-labelledby="require-2fa-label"
+                aria-describedby="require-2fa-hint"
                 checked={requireTwoFactor}
                 onChange={handleToggleOrgRequirement}
                 disabled={actionLoading || isLoading}

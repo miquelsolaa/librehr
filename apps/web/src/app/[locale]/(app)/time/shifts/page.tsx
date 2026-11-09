@@ -740,7 +740,13 @@ export default function ShiftRosterPage() {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Focusable so keyboard users can scroll the wide roster. */}
+          <div
+            className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+            role="region"
+            aria-label={t("tabRoster")}
+            tabIndex={0}
+          >
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-border bg-muted/40 font-semibold text-muted-foreground">

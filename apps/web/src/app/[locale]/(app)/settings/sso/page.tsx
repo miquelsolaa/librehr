@@ -292,15 +292,23 @@ export default function SsoSettingsPage() {
             <div className="pt-2 border-t border-border space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-sm font-medium text-foreground">
+                  <div
+                    id="sso-enabled-label"
+                    className="text-sm font-medium text-foreground"
+                  >
                     {t("ssoEnabledLabel")}
                   </div>
-                  <div className="text-xs text-muted-foreground">
+                  <div
+                    id="sso-enabled-hint"
+                    className="text-xs text-muted-foreground"
+                  >
                     {t("ssoEnabledHint")}
                   </div>
                 </div>
                 <input
                   type="checkbox"
+                  aria-labelledby="sso-enabled-label"
+                  aria-describedby="sso-enabled-hint"
                   checked={enabled}
                   onChange={(e) => setEnabled(e.target.checked)}
                   className="h-5 w-5 rounded border-border text-primary focus:ring-primary cursor-pointer"
@@ -309,15 +317,23 @@ export default function SsoSettingsPage() {
 
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-sm font-medium text-foreground">
+                  <div
+                    id="sso-enforce-label"
+                    className="text-sm font-medium text-foreground"
+                  >
                     {t("ssoEnforceLabel")}
                   </div>
-                  <div className="text-xs text-muted-foreground">
+                  <div
+                    id="sso-enforce-hint"
+                    className="text-xs text-muted-foreground"
+                  >
                     {t("ssoEnforceHint")}
                   </div>
                 </div>
                 <input
                   type="checkbox"
+                  aria-labelledby="sso-enforce-label"
+                  aria-describedby="sso-enforce-hint"
                   checked={enforceSso}
                   onChange={(e) => setEnforceSso(e.target.checked)}
                   className="h-5 w-5 rounded border-border text-primary focus:ring-primary cursor-pointer"
