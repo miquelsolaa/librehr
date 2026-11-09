@@ -1,6 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const isCI = !!process.env["CI"];
+// Overridable so parallel checkouts can each run the suite against their own
+// build instead of silently reusing another server on :3000.
+const port = process.env["PLAYWRIGHT_WEB_PORT"] ?? "3000";
+const baseURL = `http://localhost:${port}`;
 
 export default defineConfig({
   testDir: "./",
@@ -10,7 +14,7 @@ export default defineConfig({
   ...(isCI ? { workers: 1 } : {}),
   reporter: "list",
   use: {
-    baseURL: process.env["PLAYWRIGHT_TEST_BASE_URL"] ?? "http://localhost:3000",
+    baseURL: process.env["PLAYWRIGHT_TEST_BASE_URL"] ?? baseURL,
     trace: "on-first-retry",
   },
   projects: [
@@ -27,8 +31,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "pnpm start",
-    url: "http://localhost:3000",
+    command: `pnpm exec next start --port ${port}`,
+    cwd: "..",
+    url: baseURL,
     reuseExistingServer: !isCI,
     timeout: 120 * 1000,
   },

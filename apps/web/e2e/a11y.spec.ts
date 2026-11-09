@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { corsHeaders } from "./support/mock-api";
 
 const WCAG_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 
@@ -233,14 +234,7 @@ const API_FIXTURES: Record<string, unknown> = {
 async function mockApi(page: Page): Promise<void> {
   await page.route(/\/v1\//, async (route) => {
     const request = route.request();
-    const headers = {
-      "access-control-allow-origin":
-        request.headers()["origin"] ?? "http://localhost:3000",
-      "access-control-allow-credentials": "true",
-      "access-control-allow-headers": "authorization, content-type",
-      "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-      vary: "Origin",
-    };
+    const headers = corsHeaders(request);
     if (request.method() === "OPTIONS") {
       return route.fulfill({ status: 204, headers });
     }

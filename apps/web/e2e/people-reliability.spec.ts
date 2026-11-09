@@ -1,11 +1,5 @@
 import { expect, test } from "@playwright/test";
-
-const cors = {
-  "access-control-allow-origin": "http://localhost:3000",
-  "access-control-allow-credentials": "true",
-  "access-control-allow-headers": "*",
-  "access-control-allow-methods": "GET, OPTIONS",
-};
+import { mockRoute } from "./support/mock-api";
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() =>
@@ -26,13 +20,13 @@ test("shows employment history and an error when it cannot be loaded", async ({
   page,
 }) => {
   let failing = false;
-  await page.route(
+  await mockRoute(
+    page,
     "**/v1/employees/person-history/employment-history",
     (route) =>
       failing
-        ? route.fulfill({ status: 503, headers: cors })
+        ? route.fulfill({ status: 503 })
         : route.fulfill({
-            headers: cors,
             json: [
               {
                 id: "00000000-0000-0000-0000-000000000099",
@@ -44,9 +38,8 @@ test("shows employment history and an error when it cannot be loaded", async ({
             ],
           }),
   );
-  await page.route("**/v1/employees/person-history", (route) =>
+  await mockRoute(page, "**/v1/employees/person-history", (route) =>
     route.fulfill({
-      headers: cors,
       json: {
         id: "person-history",
         firstName: "Alex",
@@ -56,8 +49,10 @@ test("shows employment history and an error when it cannot be loaded", async ({
       },
     }),
   );
-  await page.route("**/v1/people/person-history/emergency-contacts", (route) =>
-    route.fulfill({ headers: cors, json: [] }),
+  await mockRoute(
+    page,
+    "**/v1/people/person-history/emergency-contacts",
+    (route) => route.fulfill({ json: [] }),
   );
   await page.goto("/en/people/person-history");
   await expect(
@@ -90,15 +85,15 @@ test("an administrator can append a period and sees errors without losing inputs
   );
   let fail = true;
   let saved = false;
-  await page.route(
+  await mockRoute(
+    page,
     "**/v1/employees/person-history/employment-history",
     async (route) => {
       if (route.request().method() === "POST") {
-        if (fail) return route.fulfill({ status: 409, headers: cors });
+        if (fail) return route.fulfill({ status: 409 });
         saved = true;
         return route.fulfill({
           status: 201,
-          headers: cors,
           json: {
             id: "00000000-0000-0000-0000-000000000099",
             jobTitle: "Engineer",
@@ -109,7 +104,6 @@ test("an administrator can append a period and sees errors without losing inputs
         });
       }
       return route.fulfill({
-        headers: cors,
         json: saved
           ? [
               {
@@ -124,9 +118,8 @@ test("an administrator can append a period and sees errors without losing inputs
       });
     },
   );
-  await page.route("**/v1/employees/person-history", (route) =>
+  await mockRoute(page, "**/v1/employees/person-history", (route) =>
     route.fulfill({
-      headers: cors,
       json: {
         id: "person-history",
         firstName: "Alex",
@@ -136,8 +129,10 @@ test("an administrator can append a period and sees errors without losing inputs
       },
     }),
   );
-  await page.route("**/v1/people/person-history/emergency-contacts", (route) =>
-    route.fulfill({ headers: cors, json: [] }),
+  await mockRoute(
+    page,
+    "**/v1/people/person-history/emergency-contacts",
+    (route) => route.fulfill({ json: [] }),
   );
   await page.goto("/en/people/person-history");
   await page.getByLabel("Job title").last().fill("Engineer");
@@ -158,13 +153,10 @@ test("an administrator can append a period and sees errors without losing inputs
 test("an empty org chart stays empty and uses the signed-in session", async ({
   page,
 }) => {
-  await page.route("**/v1/people/org-chart", async (route) => {
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers: cors });
+  await mockRoute(page, "**/v1/people/org-chart", async (route) => {
     // The session rides on the httpOnly cookie; no token reaches the page.
     expect(route.request().headers()["authorization"]).toBeUndefined();
     return route.fulfill({
-      headers: cors,
       json: { roots: [], totalEmployees: 0 },
     });
   });
@@ -179,14 +171,12 @@ test("directory reports an API failure and retries without sample people", async
   page,
 }) => {
   let failing = true;
-  await page.route("**/v1/employees**", async (route) => {
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers: cors });
-    if (failing) return route.fulfill({ status: 503, headers: cors });
-    return route.fulfill({ headers: cors, json: { items: [], total: 0 } });
+  await mockRoute(page, "**/v1/employees**", async (route) => {
+    if (failing) return route.fulfill({ status: 503 });
+    return route.fulfill({ json: { items: [], total: 0 } });
   });
-  await page.route("**/v1/org/departments", async (route) =>
-    route.fulfill({ headers: cors, json: [] }),
+  await mockRoute(page, "**/v1/org/departments", async (route) =>
+    route.fulfill({ json: [] }),
   );
   await page.goto("/en/people");
   await expect(page.locator("main").getByRole("alert")).toContainText(
@@ -201,8 +191,8 @@ test("directory reports an API failure and retries without sample people", async
 test("org chart reports an API failure instead of sample hierarchy", async ({
   page,
 }) => {
-  await page.route("**/v1/people/org-chart", async (route) =>
-    route.fulfill({ status: 503, headers: cors }),
+  await mockRoute(page, "**/v1/people/org-chart", async (route) =>
+    route.fulfill({ status: 503 }),
   );
   await page.goto("/en/people/org-chart");
   await expect(page.locator("main").getByRole("alert")).toContainText(
@@ -214,8 +204,8 @@ test("org chart reports an API failure instead of sample hierarchy", async ({
 test("employee profile reports a failed request without showing sample data", async ({
   page,
 }) => {
-  await page.route("**/v1/employees/person-1", (route) =>
-    route.fulfill({ status: 503, headers: cors }),
+  await mockRoute(page, "**/v1/employees/person-1", (route) =>
+    route.fulfill({ status: 503 }),
   );
   await page.goto("/en/people/person-1");
   await expect(page.locator("main").getByRole("alert")).toContainText(
@@ -227,9 +217,8 @@ test("employee profile reports a failed request without showing sample data", as
 test("contact failure is visible while the actual employee profile remains available", async ({
   page,
 }) => {
-  await page.route("**/v1/employees/person-1", (route) =>
+  await mockRoute(page, "**/v1/employees/person-1", (route) =>
     route.fulfill({
-      headers: cors,
       json: {
         id: "person-1",
         firstName: "Alex",
@@ -241,13 +230,18 @@ test("contact failure is visible while the actual employee profile remains avail
       },
     }),
   );
-  await page.route("**/v1/people/person-1/emergency-contacts", (route) =>
-    route.fulfill({ status: 503, headers: cors }),
+  await mockRoute(
+    page,
+    "**/v1/employees/person-1/employment-history",
+    (route) => route.fulfill({ json: [] }),
+  );
+  await mockRoute(page, "**/v1/people/person-1/emergency-contacts", (route) =>
+    route.fulfill({ status: 503 }),
   );
   await page.goto("/en/people/person-1");
   await expect(page.getByText("Alex Example").first()).toBeVisible();
-  await expect(page.locator("main").getByRole("alert")).toContainText(
-    "Emergency contacts could not be loaded",
+  await expect(page.locator("main").getByRole("alert")).toHaveText(
+    /Emergency contacts could not be loaded/,
   );
   await expect(page.getByText("Maria Martí")).toHaveCount(0);
 });
@@ -272,27 +266,26 @@ test("late contacts from a previous profile do not appear on another employee", 
     createdAt: "2026-01-01T00:00:00Z",
     updatedAt: "2026-01-01T00:00:00Z",
   });
-  await page.route("**/v1/employees**", (route) => {
+  await mockRoute(page, "**/v1/employees**", (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/employment-history"))
+      return route.fulfill({ json: [] });
     if (path.endsWith("/person-1"))
-      return route.fulfill({ headers: cors, json: person("person-1", "Alex") });
+      return route.fulfill({ json: person("person-1", "Alex") });
     if (path.endsWith("/person-2"))
       return route.fulfill({
-        headers: cors,
         json: person("person-2", "Robin"),
       });
     return route.fulfill({
-      headers: cors,
       json: { items: [person("person-2", "Robin")], total: 1 },
     });
   });
-  await page.route("**/v1/people/*/emergency-contacts", async (route) => {
+  await mockRoute(page, "**/v1/people/*/emergency-contacts", async (route) => {
     if (route.request().url().includes("person-1")) {
       contactsRequested();
       await waiting;
       return route
         .fulfill({
-          headers: cors,
           json: [
             {
               id: "old",
@@ -304,10 +297,10 @@ test("late contacts from a previous profile do not appear on another employee", 
         })
         .catch(() => {});
     }
-    return route.fulfill({ headers: cors, json: [] });
+    return route.fulfill({ json: [] });
   });
-  await page.route("**/v1/org/departments", (route) =>
-    route.fulfill({ headers: cors, json: [] }),
+  await mockRoute(page, "**/v1/org/departments", (route) =>
+    route.fulfill({ json: [] }),
   );
   await page.goto("/en/people/person-1");
   await expect(page.getByText("Alex Example").first()).toBeVisible();

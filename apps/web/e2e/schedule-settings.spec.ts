@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import { mockRoute } from "./support/mock-api";
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() =>
     localStorage.setItem(
@@ -20,16 +21,8 @@ test("an administrator assigns an explicitly configured seven-day schedule", asy
   const employeeId = "11111111-1111-4111-8111-111111111111";
   let payload:
     { rules: Array<{ expectedHours: number }>; employeeId: string } | undefined;
-  await page.route("**/v1/employees**", async (route) => {
-    const headers = {
-      "access-control-allow-origin": "*",
-      "access-control-allow-headers": "*",
-      "access-control-allow-methods": "GET, OPTIONS",
-    };
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers });
+  await mockRoute(page, "**/v1/employees**", async (route) => {
     return route.fulfill({
-      headers,
       json: {
         items: [
           {
@@ -44,16 +37,9 @@ test("an administrator assigns an explicitly configured seven-day schedule", asy
       },
     });
   });
-  await page.route("**/v1/schedules/assignments", async (route) => {
-    const headers = {
-      "access-control-allow-origin": "*",
-      "access-control-allow-headers": "*",
-      "access-control-allow-methods": "POST, OPTIONS",
-    };
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers });
+  await mockRoute(page, "**/v1/schedules/assignments", async (route) => {
     payload = route.request().postDataJSON();
-    return route.fulfill({ status: 201, headers, json: { id: employeeId } });
+    return route.fulfill({ status: 201, json: { id: employeeId } });
   });
   await page.goto("/en/settings/time");
   await page.getByLabel("Employee", { exact: true }).selectOption(employeeId);
@@ -85,16 +71,8 @@ test("schedule failures retain entered values and remain accessible", async ({
   page,
 }) => {
   const employeeId = "11111111-1111-4111-8111-111111111111";
-  await page.route("**/v1/employees**", async (route) => {
-    const headers = {
-      "access-control-allow-origin": "*",
-      "access-control-allow-headers": "*",
-      "access-control-allow-methods": "GET, OPTIONS",
-    };
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers });
+  await mockRoute(page, "**/v1/employees**", async (route) => {
     return route.fulfill({
-      headers,
       json: {
         items: [
           {
@@ -109,17 +87,9 @@ test("schedule failures retain entered values and remain accessible", async ({
       },
     });
   });
-  await page.route("**/v1/schedules/assignments", async (route) => {
-    const headers = {
-      "access-control-allow-origin": "*",
-      "access-control-allow-headers": "*",
-      "access-control-allow-methods": "POST, OPTIONS",
-    };
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers });
+  await mockRoute(page, "**/v1/schedules/assignments", async (route) => {
     return route.fulfill({
       status: 409,
-      headers,
       json: { code: "SCHEDULE_OVERLAP", status: 409, title: "Conflict" },
     });
   });
@@ -150,15 +120,8 @@ test("schedule failures retain entered values and remain accessible", async ({
 test("schedule configuration is accessible with keyboard and axe", async ({
   page,
 }) => {
-  await page.route("**/v1/employees**", async (route) => {
-    const headers = {
-      "access-control-allow-origin": "*",
-      "access-control-allow-headers": "*",
-      "access-control-allow-methods": "GET, OPTIONS",
-    };
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers });
-    return route.fulfill({ headers, json: { items: [], total: 0 } });
+  await mockRoute(page, "**/v1/employees**", async (route) => {
+    return route.fulfill({ json: { items: [], total: 0 } });
   });
   await page.goto("/en/settings/time");
   await expect(

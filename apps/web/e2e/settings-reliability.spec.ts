@@ -1,10 +1,5 @@
 ﻿import { test, expect } from "@playwright/test";
-
-const headers = {
-  "access-control-allow-origin": "*",
-  "access-control-allow-headers": "*",
-  "access-control-allow-methods": "GET, POST, OPTIONS",
-};
+import { mockRoute } from "./support/mock-api";
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() =>
@@ -30,14 +25,12 @@ for (const [screen, endpoint] of [
     page,
   }) => {
     let fail = true;
-    await page.route(endpoint, async (route) => {
-      if (route.request().method() === "OPTIONS")
-        return route.fulfill({ status: 204, headers });
+    await mockRoute(page, endpoint, async (route) => {
       if (fail) {
         fail = false;
-        return route.fulfill({ status: 503, headers });
+        return route.fulfill({ status: 503 });
       }
-      return route.fulfill({ headers, json: [] });
+      return route.fulfill({ json: [] });
     });
     await page.goto(`/en/settings/${screen}`);
     const alert = page.locator("main").getByRole("alert");
@@ -50,12 +43,10 @@ for (const [screen, endpoint] of [
 test("failed department creation retains the entered name", async ({
   page,
 }) => {
-  await page.route("**/v1/org/departments", async (route) => {
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers });
+  await mockRoute(page, "**/v1/org/departments", async (route) => {
     if (route.request().method() === "POST")
-      return route.fulfill({ status: 503, headers });
-    return route.fulfill({ headers, json: [] });
+      return route.fulfill({ status: 503 });
+    return route.fulfill({ json: [] });
   });
   await page.goto("/en/settings/departments");
   await page.getByRole("button", { name: "Add Department" }).click();
@@ -72,23 +63,14 @@ test("department coverage must be explicitly set and saved", async ({
 }) => {
   const id = "11111111-1111-4111-8111-111111111111";
   let saved: number | undefined;
-  await page.route("**/v1/org/departments**", async (route) => {
-    const cors = {
-      "access-control-allow-origin": "*",
-      "access-control-allow-headers": "*",
-      "access-control-allow-methods": "GET, PUT, OPTIONS",
-    };
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers: cors });
+  await mockRoute(page, "**/v1/org/departments**", async (route) => {
     if (route.request().method() === "PUT") {
       saved = route.request().postDataJSON().minPresencePercent;
       return route.fulfill({
-        headers: cors,
         json: { minPresencePercent: saved },
       });
     }
     return route.fulfill({
-      headers: cors,
       json: [
         {
           id,
