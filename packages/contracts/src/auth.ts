@@ -56,11 +56,19 @@ export type TwoFactorSetupResponse = z.infer<
   typeof TwoFactorSetupResponseSchema
 >;
 
-export const TwoFactorEnableRequestSchema = z.object({
-  code: z.string().min(6).max(6),
-  secret: z.string().min(16),
-  recoveryCodes: z.array(z.string()),
-});
+/**
+ * Confirms the pending setup from /2fa/setup with a current TOTP code. The
+ * secret and recovery codes stay on the server; strict, so a client still
+ * sending them is refused instead of silently ignored.
+ */
+export const TwoFactorEnableRequestSchema = z
+  .object({
+    code: z
+      .string()
+      .trim()
+      .regex(/^\d{6}$/, "Enter the 6-digit code from your authenticator"),
+  })
+  .strict();
 export type TwoFactorEnableRequest = z.infer<
   typeof TwoFactorEnableRequestSchema
 >;
@@ -120,7 +128,8 @@ export const SaveSsoConfigRequestSchema = z.object({
   clientId: z.string().min(1, "Client ID is required"),
   /**
    * Write-only. Omit it to keep the stored secret; required for the first
-   * configuration. It is stored encrypted and never returned.
+   * configuration and whenever the provider, client id or issuer changes.
+   * It is stored encrypted and never returned.
    */
   clientSecret: z.string().min(1, "Client Secret is required").optional(),
   issuerUrl: z.string().min(1, "Issuer URL is required"),

@@ -99,7 +99,40 @@ export function generateTotpCode(
 }
 
 /**
- * Verifies a TOTP code against a secret allowing clock drift (+/- window intervals).
+ * Returns the 30-second time step a TOTP code matches within the allowed
+ * clock drift (+/- `windowSteps`), or null. Callers store the accepted step
+ * and refuse the same or an earlier one, so a code cannot be replayed.
+ *
+ * @example
+ * const step = matchTotpStep(secret, "123456");
+ * if (step !== null && step > lastAcceptedStep) accept(step);
+ */
+export function matchTotpStep(
+  secretBase32: string,
+  code: string,
+  timestampMs: number = Date.now(),
+  windowSteps = 1,
+): number | null {
+  if (!code || code.length !== 6 || !/^\d{6}$/.test(code)) {
+    return null;
+  }
+
+  const currentCounter = Math.floor(timestampMs / 1000 / 30);
+
+  for (let offset = -windowSteps; offset <= windowSteps; offset++) {
+    const step = currentCounter + offset;
+    const expected = computeTotpCode(secretBase32, step);
+    if (crypto.timingSafeEqual(Buffer.from(code), Buffer.from(expected))) {
+      return step;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Verifies a TOTP code against a secret allowing clock drift (+/- window
+ * intervals). Does not prevent replay; see {@link matchTotpStep}.
  */
 export function verifyTotpCode(
   secretBase32: string,
@@ -107,20 +140,21 @@ export function verifyTotpCode(
   timestampMs: number = Date.now(),
   windowSteps = 1,
 ): boolean {
-  if (!code || code.length !== 6 || !/^\d{6}$/.test(code)) {
-    return false;
-  }
+  return matchTotpStep(secretBase32, code, timestampMs, windowSteps) !== null;
+}
 
-  const currentCounter = Math.floor(timestampMs / 1000 / 30);
-
-  for (let offset = -windowSteps; offset <= windowSteps; offset++) {
-    const expected = computeTotpCode(secretBase32, currentCounter + offset);
-    if (crypto.timingSafeEqual(Buffer.from(code), Buffer.from(expected))) {
-      return true;
-    }
-  }
-
-  return false;
+/**
+ * Stored form of a recovery code: hex SHA-256 of the trimmed, lower-cased
+ * code (the format {@link generateRecoveryCodes} produces).
+ *
+ * @example
+ * hashRecoveryCode(" ABCD-1234 ") === hashRecoveryCode("abcd-1234"); // true
+ */
+export function hashRecoveryCode(code: string): string {
+  return crypto
+    .createHash("sha256")
+    .update(code.trim().toLowerCase())
+    .digest("hex");
 }
 
 /**

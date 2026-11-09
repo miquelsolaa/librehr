@@ -29,6 +29,7 @@ import {
 import { z } from "zod";
 import { ForbiddenError, NotFoundError } from "../errors/index.js";
 import { IdParamSchema, parseParams } from "../lib/validate.js";
+import { clientIp } from "../lib/client-ip.js";
 import { requireAuth } from "../middleware/auth.js";
 import { can, permissionScope } from "../policies/can.js";
 import { canOnEmployee, resolvePolicyContext } from "../policies/context.js";
@@ -39,7 +40,16 @@ import {
   toEmployeeProfile,
 } from "../policies/employee-visibility.js";
 
-export function createEmployeeRoutes(sql: Sql) {
+export interface EmployeeRouteOptions {
+  /** TRUST_PROXY: hops whose X-Forwarded-For entries are believed. */
+  trustProxy?: number | undefined;
+}
+
+export function createEmployeeRoutes(
+  sql: Sql,
+  options: EmployeeRouteOptions = {},
+) {
+  const trustProxy = options.trustProxy ?? 0;
   const router = new Hono();
   const employeeRepo = new EmployeeRepository();
   const auditRepo = new AuditRepository();
@@ -444,7 +454,9 @@ export function createEmployeeRoutes(sql: Sql) {
           resourceId: id,
           metadata: {
             field,
-            ip: c.req.header("x-forwarded-for") ?? "127.0.0.1",
+            // Resolved like rate limiting: a client-supplied
+            // X-Forwarded-For is only believed through trusted proxies.
+            ip: clientIp(c, trustProxy),
           },
         });
 

@@ -17,7 +17,7 @@ import { createRateLimiter } from "../middleware/rate-limit.js";
 import { permissionScope } from "../policies/can.js";
 import { ForbiddenError } from "../errors/index.js";
 import { parseJsonBody } from "../lib/validate.js";
-import { KioskLockout } from "../lib/kiosk-lockout.js";
+import { FailureLockout } from "../lib/failure-lockout.js";
 import { clientIp } from "../lib/client-ip.js";
 import type { TimeChainSigner } from "@librehr/db";
 import type { TimeTrackingConfig } from "../lib/time-tracking-config.js";
@@ -54,7 +54,7 @@ export function createTimeKioskRoutes(
   const employeeRepo = new EmployeeRepository();
   const auditRepo = new AuditRepository();
   const { kiosk } = options.config;
-  const lockout = new KioskLockout({
+  const lockout = new FailureLockout({
     failureWindowMs: kiosk.failureWindowMs,
     lockoutMs: kiosk.lockoutMs,
   });

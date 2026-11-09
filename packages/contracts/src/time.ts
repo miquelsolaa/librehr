@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { storableText } from "./common.js";
 
 export const TimeEventTypeSchema = z.enum([
   "clock_in",
@@ -58,7 +59,7 @@ export const ClockRequestSchema = z
   .object({
     eventType: z.enum(["clock_in", "clock_out", "break_start", "break_end"]),
     occurredAt: z.string().datetime().optional(),
-    notes: z.string().max(500).optional(),
+    notes: storableText(z.string().max(500)).optional(),
   })
   .strict();
 export type ClockRequest = z.infer<typeof ClockRequestSchema>;
@@ -146,13 +147,15 @@ export const CreateTimeCorrectionSchema = z.object({
   refEventId: z.string().uuid().optional(),
   proposedEventType: TimeEventTypeSchema,
   proposedOccurredAt: z.string().datetime(),
-  reason: z.string().min(5, "Reason is mandatory for audit trail"),
+  reason: storableText(
+    z.string().min(5, "Reason is mandatory for audit trail"),
+  ),
 });
 export type CreateTimeCorrection = z.infer<typeof CreateTimeCorrectionSchema>;
 
 export const DecideTimeCorrectionSchema = z.object({
   decision: z.enum(["approve", "reject"]),
-  reason: z.string().optional(),
+  reason: storableText(z.string()).optional(),
 });
 export type DecideTimeCorrection = z.infer<typeof DecideTimeCorrectionSchema>;
 

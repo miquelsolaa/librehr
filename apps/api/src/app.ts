@@ -41,6 +41,7 @@ import {
   resolveTimeTrackingConfig,
   type TimeTrackingConfigInput,
 } from "./lib/time-tracking-config.js";
+import type { TwoFactorConfigInput } from "./lib/two-factor-config.js";
 import { createScheduleRoutes } from "./routes/schedules.js";
 import { createDocumentRoutes } from "./routes/documents.js";
 import { createChecklistRoutes } from "./routes/checklists.js";
@@ -72,6 +73,8 @@ export interface AppDependencies {
   timeChainKey?: string | undefined;
   /** Overrides of the time-tracking policy defaults (clock window, kiosk lockout). */
   timeTracking?: TimeTrackingConfigInput | undefined;
+  /** Overrides of the 2FA defaults (AUTH-003); see lib/two-factor-config.ts. */
+  twoFactor?: TwoFactorConfigInput | undefined;
   /** NODE_ENV from the validated env: production always sets Secure cookies. */
   nodeEnv?: "development" | "test" | "production" | undefined;
   /** TRUST_PROXY from the validated env (trusted reverse-proxy hops). */
@@ -159,9 +162,12 @@ export function createApp(deps: AppDependencies) {
   app.use("*", createAuthMiddleware(deps.authPort, deps.sql));
   app.use(
     "*",
+    // The resolved config: an unset NODE_ENV is production (closed), and the
+    // CORS_ORIGINS cookie clients are trusted by CORS and CSRF alike.
     createCsrfMiddleware({
       appUrl: config.appUrl,
-      nodeEnv: deps.nodeEnv,
+      allowedOrigins: config.corsOrigins,
+      nodeEnv: config.nodeEnv,
     }),
   );
   app.use("*", tenantContextMiddleware);
@@ -198,11 +204,15 @@ export function createApp(deps: AppDependencies) {
       sessionSecret: deps.sessionSecret,
       nodeEnv: deps.nodeEnv,
       trustProxy: deps.trustProxy,
+      twoFactor: deps.twoFactor,
     }),
   );
   app.route("/v1", createMeRoutes(deps.sql));
   app.route("/v1", createOrgRoutes(deps.sql));
-  app.route("/v1", createEmployeeRoutes(deps.sql));
+  app.route(
+    "/v1",
+    createEmployeeRoutes(deps.sql, { trustProxy: deps.trustProxy }),
+  );
   app.route("/v1", createEmploymentHistoryRoutes(deps.sql));
   app.route("/v1", createDepartmentRoutes(deps.sql));
   app.route("/v1", createLocationRoutes(deps.sql));

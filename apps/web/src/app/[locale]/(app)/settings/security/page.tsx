@@ -126,11 +126,9 @@ export default function SecuritySettingsPage() {
     setErrorMessage(null);
     try {
       const client = getApiClient();
-      await client.enableTwoFactor({
-        secret: setupData.secret,
-        code: verificationCode.trim(),
-        recoveryCodes: setupData.recoveryCodes,
-      });
+      // AUTH-003: the secret and recovery codes stay on the server; only the
+      // code confirming the pending setup is sent.
+      await client.enableTwoFactor({ code: verificationCode.trim() });
 
       setTwoFactorEnabled(true);
       setIsSetupOpen(false);

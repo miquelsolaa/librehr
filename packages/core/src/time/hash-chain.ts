@@ -105,14 +105,86 @@ export type ChainIssueKind =
   | "seq_gap"
   | "broken_link"
   | "employee_mismatch"
-  | "unknown_version";
+  | "unknown_version"
+  | ChainHeadIssueKind;
+
+/**
+ * Chain-level findings about the newest link (see {@link checkChainHead}):
+ * - `head_missing`: chained rows exist but no anchor was ever written.
+ * - `head_mismatch`: the anchored link is gone or differs (tail truncated or
+ *   rewritten).
+ * - `head_regressed`: the head recorded by the previous verification run is
+ *   gone or differs (rows and anchor were both rewound).
+ */
+export type ChainHeadIssueKind =
+  "head_missing" | "head_mismatch" | "head_regressed";
+
+/** A chain position and the stored hash at it. */
+export interface ChainHead {
+  seq: number;
+  hash: string;
+}
+
+export interface ChainHeadEvidence {
+  /** Newest chained row found by the verifier, or null when there is none. */
+  newest: ChainHead | null;
+  /** The stored anchor, read before the rows, or null when absent. */
+  anchor: ChainHead | null;
+  /** Stored hash of the row at `anchor.seq`, or null when no such row. */
+  hashAtAnchorSeq: string | null;
+  /** Head recorded by the previous verification run, or null. */
+  previous: ChainHead | null;
+  /** Stored hash of the row at `previous.seq`, or null when no such row. */
+  hashAtPreviousSeq: string | null;
+}
+
+/**
+ * Checks a chain's newest link against its anchor and the previous run's
+ * record (TIM-002). Per-row verification cannot see rows that were removed
+ * from the end of a chain; these checks can.
+ *
+ * The anchor is read before the rows, so rows appended during the run are
+ * newer than the anchor and still pass: the requirement is that the anchored
+ * link is still stored unchanged, not that it is the newest.
+ *
+ * @example
+ * checkChainHead({
+ *   newest: { seq: 2, hash: "b" }, anchor: { seq: 3, hash: "c" },
+ *   hashAtAnchorSeq: null, previous: null, hashAtPreviousSeq: null,
+ * }); // ["head_mismatch"] (row 3 was deleted)
+ */
+export function checkChainHead(
+  evidence: ChainHeadEvidence,
+): ChainHeadIssueKind[] {
+  const issues: ChainHeadIssueKind[] = [];
+  const { newest, anchor, previous } = evidence;
+  if (anchor === null) {
+    if (newest !== null) issues.push("head_missing");
+  } else if (
+    evidence.hashAtAnchorSeq === null ||
+    !timingSafeHexEqual(evidence.hashAtAnchorSeq, anchor.hash)
+  ) {
+    issues.push("head_mismatch");
+  }
+  if (
+    previous !== null &&
+    (evidence.hashAtPreviousSeq === null ||
+      !timingSafeHexEqual(evidence.hashAtPreviousSeq, previous.hash))
+  ) {
+    issues.push("head_regressed");
+  }
+  return issues;
+}
 
 /** Version of rows written before the keyed chain; unverifiable by design. */
 export const LEGACY_CHAIN_VERSION = 1;
 
 export interface ChainIssue {
-  /** Event id only: never names or other personal data. */
-  eventId: string;
+  /**
+   * Event id only: never names or other personal data. Null for a head
+   * finding on an employee with no stored chained rows.
+   */
+  eventId: string | null;
   seq: number | null;
   kind: ChainIssueKind;
 }

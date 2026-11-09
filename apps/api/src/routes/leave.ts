@@ -1059,14 +1059,45 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
   router.get("/leave/delegations", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
     const empId = c.req.query("employeeId");
+    // A malformed id must not reach the uuid cast (500).
+    if (
+      empId !== undefined &&
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        empId,
+      )
+    ) {
+      return c.json(
+        createProblemDetails({
+          status: 400,
+          title: "Validation Error",
+          detail: "employeeId must be a UUID",
+          code: "VALIDATION_ERROR",
+        }),
+        400,
+        { "Content-Type": "application/problem+json" },
+      );
+    }
 
     const result = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        const currentEmp = await employeeRepo.findByUserId(tx, user.id);
-        const targetId = user.role === "admin" ? empId : currentEmp?.id;
-        return leaveRepo.listApprovalDelegations(tx, targetId);
+        // Admins see the organization's delegations (optionally filtered);
+        // everyone else only those they take part in. A user without a
+        // linked employee takes part in none, so the list is empty rather
+        // than unfiltered (delegation reasons may be sensitive).
+        if (user.role === "admin") {
+          return leaveRepo.listApprovalDelegations(tx, {
+            kind: "organization",
+            employeeId: empId,
+          });
+        }
+        const { employeeId } = await resolvePolicyContext(c, tx);
+        if (!employeeId) return [];
+        return leaveRepo.listApprovalDelegations(tx, {
+          kind: "participant",
+          employeeId,
+        });
       },
     );
 

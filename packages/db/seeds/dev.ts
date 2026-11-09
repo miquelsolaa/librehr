@@ -16,6 +16,10 @@ async function scryptHash(secret: string): Promise<string> {
   return `scrypt$${salt}$${key.toString("hex")}`;
 }
 
+/** The API's development TIME_CHAIN_KEY default (apps/api/src/env.ts). */
+const DEV_TIME_CHAIN_KEY =
+  "dev_time_chain_key_must_be_changed_in_production_32";
+
 /**
  * Thrown when the dev seed is pointed at a production environment. The seed
  * writes well-known credentials, so it must never run there.
@@ -515,35 +519,63 @@ export async function seedDevDatabase(
       }
 
       // 9. Seed Time Events with valid Hash Chain (Real Decreto-ley 8/2019)
+      // Only chained v2 rows are accepted (migration 0025). The seed cannot
+      // import @librehr/core, so it repeats the v2 canonical payload of
+      // core/time/hash-chain.ts; keyed with the API's dev TIME_CHAIN_KEY so
+      // the dev chain verifies.
       if (laiaEmpId) {
-        let prevHash = "0".repeat(64);
+        const chainKey = env["TIME_CHAIN_KEY"] || DEV_TIME_CHAIN_KEY;
+        let prevHash: string | null = null;
         const punches = [
           { type: "clock_in", time: "2026-11-02T08:31:00.000Z" },
           { type: "break_start", time: "2026-11-02T13:45:00.000Z" },
           { type: "break_end", time: "2026-11-02T14:40:00.000Z" },
         ];
 
-        for (const p of punches) {
-          const canonical = JSON.stringify({
+        for (const [index, p] of punches.entries()) {
+          const link: Record<string, string | number | null> & {
+            id: string;
+            seq: number;
+          } = {
+            id: crypto.randomUUID(),
+            organizationId: orgId,
             employeeId: laiaEmpId,
+            seq: index + 1,
             eventType: p.type,
             occurredAt: p.time,
+            recordedAt: p.time,
+            source: "web",
+            actorId: laiaEmpId,
+            refEventId: null,
+            reason: null,
             prevHash,
-          });
-          const hash = crypto
-            .createHash("sha256")
-            .update(canonical)
+          };
+          const payload: string = [
+            "librehr.time_event.v2",
+            ...Object.entries(link).map(
+              ([name, value]) => `${name}=${JSON.stringify(value)}`,
+            ),
+          ].join("\n");
+          const hash: string = crypto
+            .createHmac("sha256", chainKey)
+            .update(payload, "utf-8")
             .digest("hex");
 
           await tx`
             INSERT INTO "time_events" (
-              "organization_id", "employee_id", "event_type", "occurred_at", "recorded_at",
-              "source", "actor_id", "prev_hash", "hash"
+              "id", "organization_id", "employee_id", "event_type", "occurred_at", "recorded_at",
+              "source", "actor_id", "prev_hash", "hash", "hash_version", "seq"
             )
             VALUES (
-              ${orgId}, ${laiaEmpId}, ${p.type}, ${p.time}, ${p.time},
-              'web', ${laiaEmpId}, ${prevHash}, ${hash}
+              ${link.id}, ${orgId}, ${laiaEmpId}, ${p.type}, ${p.time}, ${p.time},
+              'web', ${laiaEmpId}, ${prevHash}, ${hash}, 2, ${link.seq}
             )
+          `;
+          await tx`
+            INSERT INTO "time_event_chain_heads" ("organization_id", "employee_id", "last_seq", "last_hash")
+            VALUES (${orgId}, ${laiaEmpId}, ${link.seq}, ${hash})
+            ON CONFLICT ("organization_id", "employee_id") DO UPDATE
+              SET "last_seq" = EXCLUDED."last_seq", "last_hash" = EXCLUDED."last_hash", "updated_at" = now()
           `;
           prevHash = hash;
         }

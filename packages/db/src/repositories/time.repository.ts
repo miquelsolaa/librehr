@@ -142,7 +142,35 @@ export class TimeRepository {
       RETURNING ${eventColumns(tx)}
     `;
 
+    // Same transaction and lock as the event: the anchor always names the
+    // newest link, so a later deletion of the chain's tail is detectable.
+    await tx`
+      INSERT INTO time_event_chain_heads (
+        organization_id, employee_id, last_seq, last_hash
+      ) VALUES (
+        ${link.organizationId}, ${link.employeeId}, ${link.seq}, ${hash}
+      )
+      ON CONFLICT (organization_id, employee_id) DO UPDATE
+        SET last_seq = EXCLUDED.last_seq,
+            last_hash = EXCLUDED.last_hash,
+            updated_at = now()
+    `;
+
     return rows[0]!;
+  }
+
+  /** The anchored newest link of an employee's chain (TIM-002), if any. */
+  async getChainHead(
+    tx: TenantTx,
+    employeeId: string,
+  ): Promise<{ seq: number; hash: string } | null> {
+    const rows = await tx<{ seq: number; hash: string }[]>`
+      SELECT last_seq::float8 as "seq", last_hash as "hash"
+      FROM time_event_chain_heads
+      WHERE employee_id = ${employeeId}
+      LIMIT 1
+    `;
+    return rows[0] ?? null;
   }
 
   /** One page of an employee's chained rows, in chain order, after `afterSeq`. */
@@ -181,12 +209,16 @@ export class TimeRepository {
     `;
   }
 
-  /** Employees of the current tenant that have at least one time event. */
+  /**
+   * Employees of the current tenant that have at least one time event or a
+   * chain anchor (an anchor without rows means the whole chain was removed).
+   */
   async listEmployeesWithEvents(tx: TenantTx): Promise<string[]> {
     const rows = await tx<{ employeeId: string }[]>`
-      SELECT DISTINCT employee_id as "employeeId"
-      FROM time_events
-      ORDER BY employee_id
+      SELECT employee_id as "employeeId" FROM time_events
+      UNION
+      SELECT employee_id FROM time_event_chain_heads
+      ORDER BY 1
     `;
     return rows.map((r) => r.employeeId);
   }
