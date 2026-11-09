@@ -7,6 +7,7 @@ import {
   DsrRepository,
   AuditRepository,
 } from "@librehr/db";
+import { IdParamSchema, parseParams } from "../lib/validate.js";
 import { requireAuth } from "../middleware/auth.js";
 
 export function createDsrRoutes(sql: Sql) {
@@ -18,7 +19,9 @@ export function createDsrRoutes(sql: Sql) {
   // GET /employees/:id/dsr-export - GDPR Art. 15/20 Machine-readable DSR Export (ADM-004)
   router.get("/employees/:id/dsr-export", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const employeeId = c.req.param("id");
+    const { id: employeeId } = parseParams(c, IdParamSchema, {
+      detail: "Employee not found",
+    });
 
     const data = await withTenant(
       sql,
