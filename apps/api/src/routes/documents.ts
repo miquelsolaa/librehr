@@ -24,6 +24,7 @@ import {
   decryptEnvelope,
 } from "@librehr/db";
 import { ForbiddenError, NotFoundError } from "../errors/index.js";
+import { businessToday } from "../lib/business-date.js";
 import { IdParamSchema, parseParams } from "../lib/validate.js";
 import { requireAuth } from "../middleware/auth.js";
 import { can, permissionScope } from "../policies/can.js";
@@ -787,6 +788,7 @@ export function createDocumentRoutes(sql: Sql, storagePort: StoragePort) {
             organization: {
               name: org?.name ?? "LibreHR",
             },
+            currentDate: await businessToday(c, tx, emp.locationId),
             ...(parsed.data.customFields
               ? {
                   custom: parsed.data.customFields as Record<

@@ -1,3 +1,4 @@
+import { isoDayOfWeek } from "../calendar/business-date.js";
 import type { WorkSession } from "./fold-sessions.js";
 import type { ScheduleRule } from "./schedules.js";
 
@@ -28,7 +29,7 @@ export function calculateDailyTimesheet(
   sessions: WorkSession[],
   scheduleRule?: ScheduleRule,
 ): DayTimesheetSummary {
-  const dayOfWeek = new Date(date + "T00:00:00Z").getUTCDay() || 7; // Convert 0 (Sun) to 7
+  const dayOfWeek = isoDayOfWeek(date);
   let totalWorkedMinutes = 0;
   let totalBreakMinutes = 0;
   let hasAnomaly = false;

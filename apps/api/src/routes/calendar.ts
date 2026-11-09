@@ -8,13 +8,18 @@ import {
   SeedStatutoryHolidaysRequestSchema,
   TeamAbsencesQuerySchema,
 } from "@librehr/contracts";
-import { generateIcsCalendar, resolveLocationHolidays } from "@librehr/core";
+import {
+  addDays,
+  generateIcsCalendar,
+  resolveLocationHolidays,
+} from "@librehr/core";
 import {
   withTenant,
   HolidayRepository,
   LeaveRepository,
   LocationRepository,
 } from "@librehr/db";
+import { businessToday } from "../lib/business-date.js";
 import {
   IdParamSchema,
   parseJsonBody,
@@ -42,12 +47,15 @@ export function createCalendarRoutes(sql: Sql) {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
     const query = parseQuery(c, ListHolidaysQuerySchema);
     const locationId = query.locationId;
-    const year = query.year ?? new Date().getFullYear();
 
     const holidays = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
+        // The current year of the location's calendar, not of the server.
+        const year =
+          query.year ??
+          Number((await businessToday(c, tx, locationId)).slice(0, 4));
         await holidayRepo.ensureCalendarForLocation(tx, locationId, year);
         return holidayRepo.getHolidaysForLocation(tx, locationId, year);
       },
@@ -216,18 +224,14 @@ export function createCalendarRoutes(sql: Sql) {
   router.get("/calendar/team-absences", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
     const query = parseQuery(c, TeamAbsencesQuerySchema);
-    const startDate = query.startDate ?? new Date().toISOString().slice(0, 10);
-    const endDate =
-      query.endDate ??
-      new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-        .toISOString()
-        .slice(0, 10);
     const departmentId = query.departmentId;
 
     const absences = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
+        const startDate = query.startDate ?? (await businessToday(c, tx));
+        const endDate = query.endDate ?? addDays(startDate, 30);
         return leaveRepo.getTeamAbsences(tx, {
           startDate,
           endDate,
@@ -258,17 +262,13 @@ export function createCalendarRoutes(sql: Sql) {
   router.get("/calendar/feed.ics", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
 
-    const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .slice(0, 10);
-    const endDate = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .slice(0, 10);
-
     const icsContent = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
+        const today = await businessToday(c, tx);
+        const startDate = addDays(today, -30);
+        const endDate = addDays(today, 90);
         const absences = await leaveRepo.getTeamAbsences(tx, {
           startDate,
           endDate,

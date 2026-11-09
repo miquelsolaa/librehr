@@ -26,6 +26,27 @@ export class OrganizationRepository {
     return rows[0] ?? null;
   }
 
+  /**
+   * IANA time zone that business dates follow (ORG-001/ADM-003): the
+   * location's when one is given and set, else the organization's.
+   */
+  async getBusinessTimeZone(
+    tx: TenantTx,
+    locationId?: string | null | undefined,
+  ): Promise<string> {
+    const rows = await tx<{ timezone: string }[]>`
+      SELECT COALESCE(l.timezone, o.timezone) AS timezone
+      FROM organizations o
+      LEFT JOIN locations l
+        ON l.id = ${locationId ?? null}::uuid AND l.organization_id = o.id
+      WHERE o.id = ${tx.__tenantContext.organizationId}
+      LIMIT 1
+    `;
+    const zone = rows[0]?.timezone;
+    if (!zone) throw new Error("Organization not found for tenant context");
+    return zone;
+  }
+
   async findBySlug(
     tx: TenantTx,
     slug: string,

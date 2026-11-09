@@ -1,3 +1,5 @@
+import { addDays } from "./business-date.js";
+
 export interface ICalEvent {
   uid: string;
   summary: string;
@@ -31,11 +33,7 @@ export function generateIcsCalendar(
   for (const event of events) {
     const dtStart = event.startDateStr.replace(/-/g, "");
     // In iCal, end date for full day events is non-inclusive (the day after)
-    const endParts = event.endDateStr.split("-").map(Number);
-    const endDate = new Date(
-      Date.UTC(endParts[0]!, endParts[1]! - 1, endParts[2]! + 1),
-    );
-    const dtEnd = endDate.toISOString().slice(0, 10).replace(/-/g, "");
+    const dtEnd = addDays(event.endDateStr, 1).replace(/-/g, "");
 
     lines.push("BEGIN:VEVENT");
     lines.push(`UID:${event.uid}`);

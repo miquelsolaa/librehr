@@ -20,8 +20,8 @@ export function isOwnRequest(
 }
 
 /**
- * LEA-004 / TIM-003: nobody decides (approves or rejects) their own leave
- * request or time correction, whatever their role or scope. Managers were
+ * LEA-004 / TIM-003 / TIM-005: nobody decides (approves or rejects) their own
+ * leave request, time correction or shift swap, whatever their role or scope. Managers were
  * already blocked through `NOT_SELF_APPROVABLE` in `can.ts`; this extends the
  * rule to organization-scoped approvers (admins) and to LEA-008 delegates.
  *

@@ -11,14 +11,17 @@ import {
   DecideShiftSwapRequestSchema,
 } from "@librehr/contracts";
 import {
+  addDays,
   generateRotationalRoster,
   type RotationalPattern,
   type ShiftDefinition,
 } from "@librehr/core";
 import { withTenant, ShiftRepository, EmployeeRepository } from "@librehr/db";
 import { NotFoundError, ValidationError } from "../errors/index.js";
+import { businessToday } from "../lib/business-date.js";
 import { IdParamSchema, parseJsonBody, parseParams } from "../lib/validate.js";
 import { requireAuth } from "../middleware/auth.js";
+import { assertNotSelfApproval } from "../policies/approvals.js";
 import {
   inEmployeeFilter,
   requireEmployeesInScope,
@@ -131,19 +134,15 @@ export function createShiftRoutes(sql: Sql) {
   // 5. GET /shifts/assignments - Get shift roster
   router.get("/shifts/assignments", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const startDate =
-      c.req.query("startDate") ?? new Date().toISOString().slice(0, 10);
-    const endDate =
-      c.req.query("endDate") ??
-      new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-        .toISOString()
-        .slice(0, 10);
     const employeeId = c.req.query("employeeId");
 
     const assignments = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
+        const startDate =
+          c.req.query("startDate") ?? (await businessToday(c, tx));
+        const endDate = c.req.query("endDate") ?? addDays(startDate, 30);
         // Employees see their own roster, managers theirs and their reports'.
         const filter = scopedEmployeeFilter(
           await resolvePolicyContext(c, tx),
@@ -403,6 +402,17 @@ export function createShiftRoutes(sql: Sql) {
         // Both rosters change, so both employees must be the decider's
         // reports (and a manager cannot decide their own swap).
         const ctx = await resolvePolicyContext(c, tx);
+        // Nobody decides a swap of their own roster, admins included: both
+        // the requester and the target are parties to it.
+        for (const partyId of [swap.requesterId, swap.targetEmployeeId]) {
+          const party = await employeeRepo.findById(tx, partyId);
+          if (party) {
+            assertNotSelfApproval(ctx, {
+              employeeId: party.id,
+              userId: party.userId,
+            });
+          }
+        }
         await requireEmployeesInScope(
           ctx,
           ROSTER_PERMISSION,

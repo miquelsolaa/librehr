@@ -44,8 +44,9 @@ export function renderDocumentTemplate(
   context: TemplateMergeContext,
   fallback = "[Missing Value]",
 ): string {
-  const defaultDate =
-    context.currentDate ?? new Date().toISOString().slice(0, 10);
+  // The caller supplies "today" in the organization's time zone; the core
+  // never reads the system clock or assumes UTC.
+  const defaultDate = context.currentDate ?? fallback;
 
   return template.replace(
     /\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g,

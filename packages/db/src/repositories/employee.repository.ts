@@ -301,17 +301,25 @@ export class EmployeeRepository {
     const emp = inserted[0]!;
 
     if (data.jobTitle) {
-      const startDate = data.startDate ?? new Date().toISOString().slice(0, 10);
       const employmentType = data.employmentType ?? "indefinido";
+      // Without an explicit start date the employment starts "today" in the
+      // employee's location (else organization) time zone, never the UTC date.
       await tx`
         INSERT INTO employments (
           employee_id, job_title, employment_type, start_date
-        ) VALUES (
+        )
+        SELECT
           ${emp.id},
           ${data.jobTitle},
           ${employmentType},
-          ${startDate}
-        )
+          COALESCE(
+            ${data.startDate ?? null}::date,
+            (now() AT TIME ZONE COALESCE(l.timezone, o.timezone))::date
+          )
+        FROM organizations o
+        LEFT JOIN locations l
+          ON l.id = ${emp.locationId ?? null}::uuid AND l.organization_id = o.id
+        WHERE o.id = ${emp.organizationId}
       `;
     }
 

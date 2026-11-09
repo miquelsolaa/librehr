@@ -127,6 +127,20 @@ describe("shifts and calendar scope", () => {
     it("lets admin/HR decide", async () => {
       expect((await decide(a.admin, swapId)).status).toBe(200);
     });
+    it("forbids an admin deciding a swap they requested or are the target of", async () => {
+      const own = await requestSwap(a.admin, a.peer.employeeId);
+      const ownRes = await decide(a.admin, own);
+      expect(ownRes.status).toBe(403);
+      expect(await ownRes.json()).toMatchObject({
+        code: "SELF_APPROVAL_FORBIDDEN",
+      });
+      const targeted = await requestSwap(a.peer, a.admin.employeeId);
+      const targetedRes = await decide(a.admin, targeted);
+      expect(targetedRes.status).toBe(403);
+      expect(await targetedRes.json()).toMatchObject({
+        code: "SELF_APPROVAL_FORBIDDEN",
+      });
+    });
   });
 
   it("hides swaps that involve nobody in the caller's scope", async () => {

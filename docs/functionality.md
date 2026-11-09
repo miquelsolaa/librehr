@@ -88,8 +88,9 @@ tests.
 - Research supplied for the redesign is secondary research, not completed
   primary usability validation. Legal status and compliance claims require
   independent review.
-- Approvals (LEA-004, TIM-003): nobody approves or rejects their own leave
-  request or time correction, administrators included; the API answers 403
+- Approvals (LEA-004, TIM-003, TIM-005): nobody approves or rejects their own
+  leave request, time correction or shift swap (as requester or as target),
+  administrators included; the API answers 403
   with code `SELF_APPROVAL_FORBIDDEN`. Built-in roles do not separate Owner
   and HR Admin (both are `admin`), so an organization whose only approver is a
   single admin without a manager cannot get that admin's requests decided.
