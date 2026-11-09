@@ -36,9 +36,10 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
-      DATABASE_URL: postgres://${POSTGRES_USER:-librehr}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-librehr}
+      # Requests run as the restricted runtime role (NOBYPASSRLS), so row-level
+      # security isolates tenants; the owner role only runs migrations.
+      DATABASE_URL: postgres://librehr_app:${LIBREHR_APP_PASSWORD:?set LIBREHR_APP_PASSWORD}@postgres:5432/${POSTGRES_DB:-librehr}
       DATABASE_MIGRATION_URL: postgres://librehr_owner:${LIBREHR_OWNER_PASSWORD:?set LIBREHR_OWNER_PASSWORD}@postgres:5432/${POSTGRES_DB:-librehr}
-      DATABASE_APP_URL: postgres://librehr_app:${LIBREHR_APP_PASSWORD:?set LIBREHR_APP_PASSWORD}@postgres:5432/${POSTGRES_DB:-librehr}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET (openssl rand -base64 32)}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:?set BETTER_AUTH_URL (public API URL)}
       ENVELOPE_MASTER_KEY: ${ENVELOPE_MASTER_KEY:?set ENVELOPE_MASTER_KEY (openssl rand -base64 32)}
@@ -65,7 +66,9 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgres://${POSTGRES_USER:-librehr}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-librehr}
+      # The worker connects as the owner role because it creates and owns
+      # pg-boss's schema. The owner has no BYPASSRLS: any tenant data a job
+      # touches still goes through withTenant and RLS.
       DATABASE_MIGRATION_URL: postgres://librehr_owner:${LIBREHR_OWNER_PASSWORD:?set LIBREHR_OWNER_PASSWORD}@postgres:5432/${POSTGRES_DB:-librehr}
       # No app secrets: the worker does not decrypt fields or sign time
       # events today. Add ENVELOPE_MASTER_KEY / TIME_CHAIN_KEY when it does.
