@@ -170,12 +170,12 @@ export default function TimeExportPage() {
                     {t("exportVerificationTitle")}
                   </p>
                   <p className="text-emerald-700 dark:text-emerald-400 font-mono break-all">
-                    {t("contentHash")}: {doc.documentContentHash}
+                    {t("contentHash")}: {doc.contentHash}
                   </p>
                   <p className="text-muted-foreground">
                     {t("exportGeneratedAt", {
-                      generatedAt: doc.metadata.generatedAt,
-                      organization: doc.metadata.organizationName,
+                      generatedAt: doc.generatedAt,
+                      organization: doc.organizationName,
                     })}
                   </p>
                 </div>
@@ -186,11 +186,11 @@ export default function TimeExportPage() {
             <div className="rounded-lg border border-border p-6 bg-card print:border-none print:p-0">
               <div className="flex justify-between items-center pb-4 border-b border-border">
                 <div>
-                  <h3 className="font-bold text-lg">
-                    {doc.metadata.organizationName}
-                  </h3>
+                  <h3 className="font-bold text-lg">{doc.organizationName}</h3>
                   <p className="text-sm text-muted-foreground">
-                    {t("exportEmployee", { name: doc.metadata.employeeName })}
+                    {t("exportEmployee", {
+                      name: doc.employees[0]?.name ?? "",
+                    })}
                   </p>
                 </div>
                 <Button
@@ -208,33 +208,24 @@ export default function TimeExportPage() {
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr className="border-b border-border font-semibold uppercase text-muted-foreground">
-                      <th className="py-2">{t("date")}</th>
-                      <th className="py-2">{t("colWorkedMinutes")}</th>
-                      <th className="py-2">{t("colOvertimeMinutes")}</th>
+                      {doc.columns.map((label) => (
+                        <th key={label} className="py-2 pr-2">
+                          {label}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {doc.days.map((d) => (
-                      <tr key={d.date}>
-                        <td className="py-2 font-medium">{d.date}</td>
-                        <td className="py-2">
-                          {d.totalWorkedMinutes}m (
-                          {Math.round(d.totalWorkedMinutes / 6) / 10}h)
-                        </td>
-                        <td className="py-2">{d.overtimeMinutes}m</td>
+                    {doc.rows.map((cells, rowIndex) => (
+                      <tr key={rowIndex}>
+                        {cells.map((cell, cellIndex) => (
+                          <td key={cellIndex} className="py-2 pr-2">
+                            {cell}
+                          </td>
+                        ))}
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot>
-                    <tr className="border-t-2 border-border font-bold">
-                      <td className="py-3 uppercase">{t("total")}</td>
-                      <td className="py-3">
-                        {doc.totalWorkedMinutes}m (
-                        {Math.round(doc.totalWorkedMinutes / 6) / 10}h)
-                      </td>
-                      <td className="py-3">{doc.totalOvertimeMinutes}m</td>
-                    </tr>
-                  </tfoot>
                 </table>
               </div>
             </div>

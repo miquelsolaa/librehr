@@ -49,6 +49,16 @@ const auth: AuthPort = {
   },
   async revokeSession() {},
 };
+/** Period total of a timesheet, or of the single employee of an export (TIM-006). */
+function workedMinutes(path: string, body: unknown): unknown {
+  const doc = body as {
+    totalWorkedMinutes?: number;
+    employees?: { totalWorkedMinutes: number | null }[];
+  };
+  return path === "/v1/time/export"
+    ? doc.employees?.[0]?.totalWorkedMinutes
+    : doc.totalWorkedMinutes;
+}
 describe("time schedule requirements", () => {
   let db: TestDatabase;
   let app: ReturnType<typeof createApp>;
@@ -256,7 +266,7 @@ describe("time schedule requirements", () => {
         { headers: { Authorization: "Bearer test" } },
       );
       expect(response.status).toBe(200);
-      expect(await response.json()).toMatchObject({ totalWorkedMinutes: 180 });
+      expect(workedMinutes(path, await response.json())).toBe(180);
     }
   });
   it("applies a referenced correction to local-day timesheets and exports", async () => {
@@ -274,7 +284,7 @@ describe("time schedule requirements", () => {
         { headers: { Authorization: "Bearer test" } },
       );
       expect(response.status).toBe(200);
-      expect(await response.json()).toMatchObject({ totalWorkedMinutes: 240 });
+      expect(workedMinutes(path, await response.json())).toBe(240);
     }
   });
 });

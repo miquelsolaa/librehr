@@ -177,21 +177,94 @@ export const TimeCorrectionItemSchema = z.object({
 });
 export type TimeCorrectionItem = z.infer<typeof TimeCorrectionItemSchema>;
 
+/** Longest period one Labour Inspectorate export may cover (a leap year). */
+export const OFFICIAL_EXPORT_MAX_DAYS = 366;
+
+const DAY_MS = 86_400_000;
+
+/** Inclusive number of calendar days between two valid `YYYY-MM-DD` dates. */
+function inclusiveDays(startDate: string, endDate: string): number {
+  // Both are plain calendar dates, so UTC midnights differ by whole days.
+  return (Date.parse(endDate) - Date.parse(startDate)) / DAY_MS + 1;
+}
+
+/**
+ * TIM-006 Labour Inspectorate export query. `employeeId` only applies to the
+ * employee scope (default: the caller's own employee record).
+ */
+export const OfficialExportQuerySchema = z
+  .object({
+    format: z.enum(["json", "csv", "pdf"]).default("json"),
+    scope: z.enum(["employee", "organization"]).default("employee"),
+    employeeId: z.string().uuid().optional(),
+    startDate: z.string().date(),
+    endDate: z.string().date(),
+    locale: z.enum(["ca", "es", "en"]).default("es"),
+  })
+  .superRefine((value, ctx) => {
+    if (value.scope === "organization" && value.employeeId !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["employeeId"],
+        message: "employeeId is only allowed with scope=employee",
+      });
+    }
+    if (value.endDate < value.startDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["endDate"],
+        message: "endDate must be on or after startDate",
+      });
+    } else if (
+      inclusiveDays(value.startDate, value.endDate) > OFFICIAL_EXPORT_MAX_DAYS
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["endDate"],
+        message: `The period cannot exceed ${OFFICIAL_EXPORT_MAX_DAYS} days`,
+      });
+    }
+  });
+export type OfficialExportQuery = z.input<typeof OfficialExportQuerySchema>;
+
+/** TIM-002 chain verification result of one employee's records. */
+export const ChainStatusSchema = z.enum([
+  "verified",
+  "tampered",
+  "legacy_only",
+  "empty",
+]);
+export type ChainStatus = z.infer<typeof ChainStatusSchema>;
+
+/**
+ * JSON form of the TIM-006 export. `rows` holds the same display cells as the
+ * CSV (in `columns` order); `contentHash` is the SHA-256 of the CSV body.
+ */
 export const OfficialExportResponseSchema = z.object({
-  metadata: z.object({
-    organizationId: z.string().uuid(),
-    organizationName: z.string(),
-    employeeId: z.string().uuid(),
-    employeeName: z.string(),
-    periodStart: z.string(),
-    periodEnd: z.string(),
-    generatedAt: z.string(),
-    generatorActorId: z.string(),
-  }),
-  days: z.array(DayTimesheetSummarySchema),
-  totalWorkedMinutes: z.number(),
-  totalOvertimeMinutes: z.number(),
-  documentContentHash: z.string(),
+  exportId: z.string().uuid(),
+  contentHash: z.string().regex(/^[0-9a-f]{64}$/),
+  scope: z.enum(["employee", "organization"]),
+  locale: z.enum(["ca", "es", "en"]),
+  periodStart: z.string().date(),
+  periodEnd: z.string().date(),
+  timeZone: z.string(),
+  generatedAt: z.string().datetime(),
+  organizationName: z.string(),
+  generatedBy: z.object({ name: z.string(), role: z.string() }),
+  metadataLines: z.array(z.string()),
+  columns: z.array(z.string()),
+  rows: z.array(z.array(z.string())),
+  employees: z.array(
+    z.object({
+      employeeId: z.string().uuid(),
+      name: z.string(),
+      scheduleConfigured: z.boolean(),
+      chainStatus: ChainStatusSchema.nullable(),
+      /** Null when the schedule is not configured (no days computed). */
+      totalWorkedMinutes: z.number().nullable(),
+      totalOvertimeMinutes: z.number().nullable(),
+    }),
+  ),
 });
 export type OfficialExportResponse = z.infer<
   typeof OfficialExportResponseSchema

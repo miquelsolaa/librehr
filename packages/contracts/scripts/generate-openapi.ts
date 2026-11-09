@@ -78,6 +78,7 @@ import {
   CreateTimeCorrectionSchema,
   DecideTimeCorrectionSchema,
   TimeCorrectionItemSchema,
+  OfficialExportQuerySchema,
   OfficialExportResponseSchema,
   KioskClockRequestSchema,
   KioskClockResponseSchema,
@@ -1042,15 +1043,40 @@ registry.registerPath({
 registry.registerPath({
   method: "get",
   path: "/v1/time/export",
-  summary: "Export a configured employee timesheet",
-  request: { query: TimesheetQuerySchema },
+  summary:
+    "Labour Inspectorate working-time record (TIM-006) for one employee or the organization, as JSON, CSV or PDF",
+  description:
+    "Every format carries the same export id and content hash (SHA-256 of the CSV body, every line before the final `# sha256=` line, without the BOM), also sent as the X-Export-Id and X-Content-SHA256 headers. Each successful export is written to the audit log (ADM-002).",
+  request: { query: OfficialExportQuerySchema },
   responses: {
     200: {
-      description: "Inspection export",
-      content: { "application/json": { schema: OfficialExportResponseSchema } },
+      description:
+        "Inspection export. Headers: X-Export-Id, X-Content-SHA256, Cache-Control: no-store; csv and pdf are sent as attachments.",
+      content: {
+        "application/json": { schema: OfficialExportResponseSchema },
+        "text/csv": { schema: z.string() },
+        "application/pdf": { schema: z.string().openapi({ format: "binary" }) },
+      },
+    },
+    400: {
+      description:
+        "Invalid query (dates, period over 366 days, format or locale)",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    401: {
+      description: "Not authenticated",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    403: {
+      description: "Employee or organization outside the caller's scope",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    404: {
+      description: "Employee not found",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
     409: {
-      description: "Schedule rule not configured",
+      description: "Schedule rule not configured (employee scope)",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
   },
@@ -2050,12 +2076,15 @@ export class LibreHrApiClient {
     return this.request<PeriodTimesheetResponse>(\`/v1/time/timesheet?\${searchParams.toString()}\`);
   }
 
-  async getOfficialExport(params: { startDate: string; endDate: string; employeeId?: string }): Promise<OfficialExportResponse> {
+  async getOfficialExport(params: { startDate: string; endDate: string; employeeId?: string; scope?: 'employee' | 'organization'; locale?: 'ca' | 'es' | 'en' }): Promise<OfficialExportResponse> {
     const searchParams = new URLSearchParams({
       startDate: params.startDate,
       endDate: params.endDate,
+      format: 'json',
     });
     if (params.employeeId) searchParams.set('employeeId', params.employeeId);
+    if (params.scope) searchParams.set('scope', params.scope);
+    if (params.locale) searchParams.set('locale', params.locale);
     return this.request<OfficialExportResponse>(\`/v1/time/export?\${searchParams.toString()}\`);
   }
 

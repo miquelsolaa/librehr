@@ -3,7 +3,6 @@ import {
   validateRestPeriod,
   calculateDailyTimesheet,
   calculatePeriodTimesheet,
-  buildInspectionExport,
   foldSessions,
   type TimeEvent,
 } from "../src/index.js";
@@ -98,29 +97,6 @@ describe("Time Tracking Pure Domain (TIM-001 - TIM-006)", () => {
     expect(() => calculateDailyTimesheet("2026-11-02", [])).toThrow(
       "Schedule rule is required",
     );
-  });
-
-  it("builds official Labour Inspection export with cryptographic SHA-256 integrity hash", () => {
-    const daily = calculateDailyTimesheet("2026-11-02", [], {
-      dayOfWeek: 1,
-      expectedHours: 8,
-    });
-    const doc = buildInspectionExport(
-      {
-        organizationId: "00000000-0000-0000-0000-000000000001",
-        organizationName: "Acme Corp",
-        employeeId: "11111111-1111-1111-1111-111111111111",
-        employeeName: "Marta Garcia",
-        periodStart: "2026-11-01",
-        periodEnd: "2026-11-30",
-        generatedAt: "2026-12-01T00:00:00Z",
-        generatorActorId: "admin-1",
-      },
-      [daily],
-    );
-
-    expect(doc.documentContentHash).toMatch(/^[a-f0-9]{64}$/);
-    expect(doc.metadata.organizationName).toBe("Acme Corp");
   });
 
   it("computes period totals accurately across multiple days", () => {

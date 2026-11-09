@@ -563,12 +563,15 @@ export class LibreHrApiClient {
     return this.request<PeriodTimesheetResponse>(`/v1/time/timesheet?${searchParams.toString()}`);
   }
 
-  async getOfficialExport(params: { startDate: string; endDate: string; employeeId?: string }): Promise<OfficialExportResponse> {
+  async getOfficialExport(params: { startDate: string; endDate: string; employeeId?: string; scope?: 'employee' | 'organization'; locale?: 'ca' | 'es' | 'en' }): Promise<OfficialExportResponse> {
     const searchParams = new URLSearchParams({
       startDate: params.startDate,
       endDate: params.endDate,
+      format: 'json',
     });
     if (params.employeeId) searchParams.set('employeeId', params.employeeId);
+    if (params.scope) searchParams.set('scope', params.scope);
+    if (params.locale) searchParams.set('locale', params.locale);
     return this.request<OfficialExportResponse>(`/v1/time/export?${searchParams.toString()}`);
   }
 

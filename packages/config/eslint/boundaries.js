@@ -97,7 +97,7 @@ const coreIoPatterns = [
   {
     // node:crypto is deliberately allowed: hashing/HMAC/random bytes are pure
     // computations that core needs (identity/totp.ts, time/hash-chain.ts,
-    // time/kiosk.ts, time/exports.ts, webhooks/signer.ts) and they do no I/O.
+    // time/kiosk.ts, time/inspection-export.ts, webhooks/signer.ts) and they do no I/O.
     regex: `^node:(?!crypto$).+$`,
     message: `${NO_IO}: only node:crypto is allowed among Node built-ins`,
   },
