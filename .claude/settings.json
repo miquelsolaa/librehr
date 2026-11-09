@@ -1,18 +1,49 @@
 {
   "permissions": {
     "allow": [
-      "pnpm *",
-      "git status",
-      "git diff*",
-      "git log*",
-      "git add*",
-      "git commit*",
-      "docker compose *"
+      "Bash(pnpm verify)",
+      "Bash(pnpm test)",
+      "Bash(pnpm test *)",
+      "Bash(pnpm test:int)",
+      "Bash(pnpm test:int *)",
+      "Bash(pnpm test:e2e)",
+      "Bash(pnpm test:e2e *)",
+      "Bash(pnpm lint)",
+      "Bash(pnpm typecheck)",
+      "Bash(pnpm format)",
+      "Bash(pnpm i18n:check)",
+      "Bash(pnpm contracts:generate)",
+      "Bash(pnpm db:migrate)",
+      "Bash(pnpm db:generate)",
+      "Bash(pnpm infra:up)",
+      "Bash(pnpm dev)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(docker compose up *)",
+      "Bash(docker compose ps *)",
+      "Bash(docker compose logs *)"
     ],
-    "deny": ["cat .env*", "read .env*", "read infra/secrets/**", "read data/**"]
+    "deny": [
+      "Bash(cat .env*)",
+      "Read(./.env*)",
+      "Read(./infra/secrets/**)",
+      "Read(./data/**)",
+      "Edit(./.env*)",
+      "Edit(./infra/secrets/**)",
+      "Edit(./data/**)"
+    ]
   },
   "hooks": {
-    "post_edit": "pnpm prettier --write",
-    "pre_commit": "pnpm lint-staged"
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          { "type": "command", "command": "node .claude/hooks/format.mjs" }
+        ]
+      }
+    ]
   }
 }
