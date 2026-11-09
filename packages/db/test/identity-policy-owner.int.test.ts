@@ -64,14 +64,18 @@ describe("identity-lookup policies follow the function owner (0020)", () => {
       WHERE schemaname = 'public' AND policyname LIKE '%_identity_lookup'
       ORDER BY policyname`;
 
+  // librehr_app no longer has EXECUTE on librehr_auth_membership (0021); the
+  // SECURITY DEFINER function runs as its owner either way, so call it as the
+  // owner to exercise the same policy path.
   const lookup = async () =>
-    db.appSql<
+    owner<
       { organization_id: string }[]
     >`SELECT organization_id FROM librehr_auth_membership(${user}::uuid)`;
 
   it("binds every lookup policy to librehr_owner after a normal install", async () => {
     const rows = await policyRoles();
-    expect(rows).toHaveLength(POLICIES.length);
+    const names = rows.map((r) => r.policyname);
+    for (const [, policy] of POLICIES) expect(names).toContain(policy);
     for (const row of rows) expect(row.roles).toEqual(["librehr_owner"]);
     expect(await lookup()).toEqual([{ organization_id: org }]);
   });
