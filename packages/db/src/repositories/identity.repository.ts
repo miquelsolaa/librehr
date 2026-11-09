@@ -1,10 +1,14 @@
 import type { Sql } from "postgres";
 import { jsonStringArray } from "./json-array.js";
+import { hashBearerToken } from "../crypto/token-hash.js";
 
 /**
  * Identity lookups that run before a tenant context exists. They go through
  * the SECURITY DEFINER functions of migrations 0019/0020, the only way the runtime
  * role (NOBYPASSRLS) can read these tenant tables without `withTenant`.
+ *
+ * Callers pass raw session and invitation tokens; only their SHA-256 digest
+ * (`hashBearerToken`) is stored, so each lookup hashes before querying.
  */
 
 export interface MembershipLookup {
@@ -81,7 +85,7 @@ export class IdentityRepository {
   ): Promise<MembershipLookup | null> {
     const rows = await sql<MembershipLookup[]>`
       SELECT organization_id AS "organizationId", role
-      FROM librehr_auth_session_bind_org(${token})
+      FROM librehr_auth_session_bind_org(${hashBearerToken(token)})
     `;
     return rows[0] ?? null;
   }
@@ -92,7 +96,7 @@ export class IdentityRepository {
              two_factor_enabled AS "twoFactorEnabled",
              organization_id AS "organizationId", role,
              expires_at AS "expiresAt"
-      FROM librehr_auth_session(${token})
+      FROM librehr_auth_session(${hashBearerToken(token)})
     `;
     return rows[0] ?? null;
   }
@@ -115,7 +119,7 @@ export class IdentityRepository {
       SELECT id, organization_id AS "organizationId",
              organization_name AS "organizationName", email, role,
              expires_at AS "expiresAt", accepted_at AS "acceptedAt"
-      FROM librehr_auth_invitation(${token})
+      FROM librehr_auth_invitation(${hashBearerToken(token)})
     `;
     return rows[0] ?? null;
   }

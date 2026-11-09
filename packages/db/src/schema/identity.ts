@@ -48,6 +48,7 @@ export const sessions = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    // SHA-256 hex of the bearer token (hashBearerToken); never the raw token.
     token: text("token").notNull().unique(),
     expiresAt: timestamp("expires_at", {
       withTimezone: true,
@@ -92,6 +93,7 @@ export const invitations = pgTable(
     }),
     email: text("email").notNull(),
     role: text("role").notNull().default("employee"),
+    // SHA-256 hex of the bearer token (hashBearerToken); never the raw token.
     token: text("token").notNull().unique(),
     expiresAt: timestamp("expires_at", {
       withTimezone: true,

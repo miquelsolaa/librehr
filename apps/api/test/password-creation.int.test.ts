@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { getTestDatabase, type TestDatabase } from "@librehr/testing";
-import { withTenant } from "@librehr/db";
+import { hashBearerToken, withTenant } from "@librehr/db";
 import { runMigrations } from "@librehr/db/migrate";
 import { createApp } from "../src/app.js";
 import { BetterAuthAdapter } from "../src/adapters/better-auth.js";
@@ -54,7 +54,7 @@ describe("password creation and invitation acceptance", () => {
       db.sql,
       { organizationId: org },
       (tx) =>
-        tx`INSERT INTO invitations (email, role, token, expires_at) VALUES (${email}, 'employee', ${token}, now() + interval '1 day')`,
+        tx`INSERT INTO invitations (email, role, token, expires_at) VALUES (${email}, 'employee', ${hashBearerToken(token)}, now() + interval '1 day')`,
     );
   };
 
@@ -139,7 +139,7 @@ describe("password creation and invitation acceptance", () => {
       (tx) =>
         tx<
           { accepted_at: Date | null }[]
-        >`SELECT accepted_at FROM invitations WHERE token = ${token}`,
+        >`SELECT accepted_at FROM invitations WHERE token = ${hashBearerToken(token)}`,
     );
     expect(rows[0]?.accepted_at).toBeNull();
     const accepted = await post("/v1/invitations/accept", {

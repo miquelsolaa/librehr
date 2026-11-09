@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import type { Sql } from "postgres";
-import { IdentityRepository } from "@librehr/db";
+import { IdentityRepository, hashBearerToken } from "@librehr/db";
 import type { AuthPort, AuthSession, SessionSubject } from "../ports/auth.js";
 import { verifyPassword } from "../lib/password.js";
 
@@ -60,7 +60,7 @@ export class BetterAuthAdapter implements AuthPort {
 
     await this.sql`
       INSERT INTO sessions (user_id, token, expires_at, organization_id)
-      VALUES (${user.id}, ${token}, ${expiresAt}, ${user.organizationId ?? null})
+      VALUES (${user.id}, ${hashBearerToken(token)}, ${expiresAt}, ${user.organizationId ?? null})
     `;
 
     // Picks the pinned org (or the default membership), refusing memberships
@@ -109,6 +109,7 @@ export class BetterAuthAdapter implements AuthPort {
   }
 
   async revokeSession(token: string): Promise<void> {
-    await this.sql`DELETE FROM sessions WHERE token = ${token}`;
+    await this
+      .sql`DELETE FROM sessions WHERE token = ${hashBearerToken(token)}`;
   }
 }

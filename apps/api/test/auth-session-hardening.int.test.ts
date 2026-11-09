@@ -6,7 +6,7 @@ import {
   type RoleSeparatedDatabase,
   type TestDatabase,
 } from "@librehr/testing";
-import { TokenRepository, withTenant } from "@librehr/db";
+import { TokenRepository, hashBearerToken, withTenant } from "@librehr/db";
 import { runMigrations } from "@librehr/db/migrate";
 import {
   generateTotpCode,
@@ -200,8 +200,20 @@ describe("auth and session hardening", () => {
       );
       expect((await me(token)).status).toBe(401);
       const [row] = await db.adminSql<{ n: number }[]>`
-        SELECT count(*)::int AS n FROM sessions WHERE token = ${token}`;
+        SELECT count(*)::int AS n FROM sessions WHERE token = ${hashBearerToken(token)}`;
       expect(row?.n).toBe(0);
+    });
+
+    it("stores only the SHA-256 of the session token, never the token itself", async () => {
+      const token = cookieOf(await signIn(admin));
+      const rows = await db.adminSql<{ raw: number; hashed: number }[]>`
+        SELECT count(*) FILTER (WHERE token = ${token})::int AS raw,
+               count(*) FILTER (WHERE token = ${hashBearerToken(token)})::int AS hashed
+        FROM sessions`;
+      expect(rows[0]).toEqual({ raw: 0, hashed: 1 });
+      // A leaked stored value is not a usable session.
+      expect((await me(hashBearerToken(token))).status).toBe(401);
+      expect((await me(token)).status).toBe(200);
     });
   });
 

@@ -1,6 +1,7 @@
 import type { Sql } from "postgres";
 import type { TenantTx } from "../with-tenant.js";
 import { decryptEnvelope, encryptEnvelope } from "../crypto/envelope.js";
+import { hashBearerToken } from "../crypto/token-hash.js";
 
 export interface UserRow {
   id: string;
@@ -164,16 +165,18 @@ export class UserRepository {
     return rows.length > 0;
   }
 
-  /** Deletes every session of the user except `keepToken` (if given). */
+  /** Deletes every session of the user except `keepToken` (a raw token, if given). */
   async revokeOtherSessions(
     tx: TenantTx | Sql,
     userId: string,
     keepToken: string | undefined,
   ): Promise<number> {
+    const keepHash =
+      keepToken === undefined ? null : hashBearerToken(keepToken);
     const result = await tx`
       DELETE FROM sessions
       WHERE user_id = ${userId}
-        AND (${keepToken ?? null}::text IS NULL OR token <> ${keepToken ?? null})
+        AND (${keepHash}::text IS NULL OR token <> ${keepHash})
     `;
     return result.count;
   }

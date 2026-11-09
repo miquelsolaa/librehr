@@ -37,6 +37,26 @@ All LibreHR database migrations are designed to be forward-only and safe to run 
    curl -f http://localhost:3001/readyz
    ```
 
+## Hashed session and invitation tokens (migration 0026)
+
+Session tokens and invitation-link tokens are now stored as SHA-256 digests
+instead of in plain text, so a database dump or backup no longer contains
+usable sessions or invitation links. Migration `0026_hash_bearer_tokens.sql`
+rewrites the existing rows: signed-in users stay signed in and pending
+invitation links keep working.
+
+- Run the migration and start the new API together. An older API still running
+  after the migration would write raw tokens that the new code never matches
+  (its users would just have to sign in again).
+- The migration briefly lifts `FORCE ROW LEVEL SECURITY` on `invitations`
+  inside its own transaction, which requires the migration role to own the
+  table. Installs that completed
+  [the restricted-roles upgrade](#upgrading-existing-installs-to-the-restricted-database-roles)
+  already satisfy this.
+- Backups taken before this upgrade still contain raw tokens. They expire
+  (sessions after 7 days, invitations after 7 days), but protect and expire
+  those backups under your retention policy.
+
 ## pg-boss queue policy
 
 The worker creates its queues with the `exclusive` policy so that a job sent
