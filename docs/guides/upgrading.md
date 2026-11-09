@@ -37,6 +37,39 @@ All LibreHR database migrations are designed to be forward-only and safe to run 
    curl -f http://localhost:3001/readyz
    ```
 
+## pg-boss queue policy
+
+The worker creates its queues with the `exclusive` policy so that a job sent
+with a `singletonKey` (for example one accrual run per organization and date)
+is not queued twice. pg-boss never changes the policy of a queue that already
+exists, so a database whose queues were created by an earlier version keeps
+the `standard` policy, where `singletonKey` does not deduplicate. At startup
+the worker logs a warning for each such queue (`msg: "pg-boss queue has an
+unexpected policy..."` with `queue`, `actualPolicy` and `expectedPolicy`).
+
+To fix a queue named in that warning:
+
+1. Stop whatever enqueues to the queue (for the scheduled queues, nothing
+   else is needed) and wait until it is empty:
+
+   ```sql
+   SELECT state, count(*) FROM pgboss.job WHERE name = '<queue>' GROUP BY state;
+   ```
+
+   Only `completed`, `cancelled` or `failed` rows should remain. Note any
+   `failed` jobs you still want to re-drive.
+
+2. Stop the worker, then delete the queue (this also deletes its job rows):
+
+   ```bash
+   docker compose --env-file .env -f infra/compose/docker-compose.yml stop worker
+   docker compose --env-file .env -f infra/compose/docker-compose.yml run --rm -w /app/apps/worker worker \
+     node --input-type=module -e "import { PgBoss } from 'pg-boss'; const b = new PgBoss({ connectionString: process.env.DATABASE_MIGRATION_URL, schema: 'pgboss' }); await b.start(); await b.deleteQueue(process.argv[1]); await b.stop();" '<queue>'
+   ```
+
+3. Start the worker. It recreates the queue with the `exclusive` policy and
+   the warning no longer appears.
+
 ## Upgrading existing installs to the restricted database roles
 
 From this release the API serves every request as the `librehr_app` role

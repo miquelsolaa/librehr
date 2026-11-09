@@ -134,3 +134,21 @@ LibreHR is designed to be easily self-hostable on any standard Linux server, VPS
 - [ ] Run `pnpm doctor` or verify RLS is forced on all tenant tables.
 - [ ] Setup daily automated backups using `infra/scripts/backup.sh`.
 - [ ] Configure outbound SMTP settings to deliver transactional invites and password resets.
+
+## 3. Background job data retention
+
+The worker queues jobs in the `pgboss` schema. Job payloads are stored in those
+tables until pg-boss deletes them, and email jobs carry personal data: the
+recipient address and invitation or password-reset URLs. The worker sets every
+queue to:
+
+- **`retentionSeconds` = 7 days**: a job still waiting to run (created or
+  retrying) is deleted after 7 days.
+- **`deleteAfterSeconds` = 3 days**: a finished job (completed, cancelled or
+  failed) is deleted 3 days after it finished. Inspect and re-drive failed
+  jobs within that window.
+
+The worker applies these values at startup, including to queues created by
+earlier versions (`QUEUE_RETENTION` in `apps/worker/src/lib/queue-setup.ts`).
+Database backups contain whatever job rows existed when they were taken, so
+expire backups under your retention policy as well.
