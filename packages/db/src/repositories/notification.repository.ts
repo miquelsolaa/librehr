@@ -67,11 +67,13 @@ export class NotificationRepository {
     return { items, unreadCount };
   }
 
-  async markAsRead(tx: TenantTx, id: string): Promise<boolean> {
+  /** Marks one of the user's own notifications read; false if none matched. */
+  async markAsRead(tx: TenantTx, id: string, userId: string): Promise<boolean> {
     const result = await tx`
       UPDATE notifications
       SET read = true, updated_at = now()
-      WHERE id = ${id}
+      WHERE id = ${id} AND user_id = ${userId}
+        AND organization_id = ${tx.__tenantContext.organizationId}
     `;
     return result.count > 0;
   }

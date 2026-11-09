@@ -27,6 +27,7 @@ import {
 } from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
 import { can } from "../policies/can.js";
+import { canOnEmployee, resolvePolicyContext } from "../policies/context.js";
 import type { MailPort } from "../ports/mail.js";
 
 export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
@@ -135,18 +136,10 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
         const isSelf = emp.userId === user.id;
         const allowed =
           isSelf ||
-          can(
-            {
-              userId: user.id,
-              organizationId: user.organizationId,
-              role: user.role,
-            },
+          canOnEmployee(
+            await resolvePolicyContext(c, tx),
             "leave.request.read",
-            {
-              organizationId: user.organizationId,
-              employeeId: emp.id,
-              managerId: emp.managerId ?? undefined,
-            },
+            emp,
           );
 
         if (!allowed) {
@@ -633,19 +626,12 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
         const targetEmp = await employeeRepo.findById(tx, req.employeeId);
         if (!targetEmp) return { error: "NOT_FOUND" as const };
 
-        // Permission check
-        const allowed = can(
-          {
-            userId: user.id,
-            organizationId: user.organizationId,
-            role: user.role,
-          },
+        // Permission check: managerId is an employee id, compared to the
+        // approver's linked employee by the policy context.
+        const allowed = canOnEmployee(
+          await resolvePolicyContext(c, tx),
           "leave.request.approve",
-          {
-            organizationId: user.organizationId,
-            employeeId: targetEmp.id,
-            managerId: targetEmp.managerId ?? undefined,
-          },
+          targetEmp,
         );
 
         const approverEmp = await employeeRepo.findByUserId(tx, user.id);

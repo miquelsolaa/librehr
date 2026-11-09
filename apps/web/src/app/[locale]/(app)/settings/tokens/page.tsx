@@ -28,7 +28,10 @@ import {
   Badge,
 } from "@librehr/ui";
 import { apiClient } from "../../../../../lib/api-client.js";
-import type { PersonalAccessTokenItem } from "@librehr/contracts";
+import type {
+  PersonalAccessTokenItem,
+  PersonalAccessTokenScope,
+} from "@librehr/contracts";
 
 export default function TokensSettingsPage() {
   const params = useParams();
@@ -56,7 +59,9 @@ export default function TokensSettingsPage() {
   // Create token dialog state
   const [createOpen, setCreateOpen] = React.useState(false);
   const [name, setName] = React.useState("");
-  const [scopes, setScopes] = React.useState<string[]>(["read"]);
+  const [scopes, setScopes] = React.useState<PersonalAccessTokenScope[]>([
+    "read",
+  ]);
   const [expiresInDays, setExpiresInDays] = React.useState<number>(30);
   const [submitting, setSubmitting] = React.useState(false);
 
@@ -81,7 +86,7 @@ export default function TokensSettingsPage() {
     loadTokens();
   }, [loadTokens]);
 
-  const toggleScope = (scope: string) => {
+  const toggleScope = (scope: PersonalAccessTokenScope) => {
     setScopes((prev) =>
       prev.includes(scope) ? prev.filter((s) => s !== scope) : [...prev, scope],
     );

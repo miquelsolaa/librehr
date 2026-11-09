@@ -90,7 +90,7 @@ export class CustomFieldRepository {
              field_type as "fieldType", options, required, visibility,
              created_at as "createdAt", updated_at as "updatedAt"
       FROM custom_field_definitions
-      WHERE id = ${id}
+      WHERE id = ${id} AND organization_id = ${tx.__tenantContext.organizationId}
       LIMIT 1
     `;
 
@@ -177,6 +177,7 @@ export class CustomFieldRepository {
       FROM custom_field_values v
       INNER JOIN custom_field_definitions d ON d.id = v.field_definition_id
       WHERE v.employee_id = ${employeeId}
+        AND v.organization_id = ${tx.__tenantContext.organizationId}
       ORDER BY d.name ASC
     `;
 
