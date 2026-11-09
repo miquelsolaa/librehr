@@ -1,49 +1,40 @@
-import fs from "node:fs";
-import path from "node:path";
 import { PgBoss } from "pg-boss";
 import pino from "pino";
+import { loadWorkerEnv } from "./env.js";
 import { handleEmailSend } from "./queues/email.send.js";
 import { handleLeaveAccrue } from "./queues/leave.accrue.js";
 import { handleTimeCloseDay } from "./queues/time.close-day.js";
 import { handleRetentionEnforce } from "./queues/retention.enforce.js";
 import { handleAuditVerifyChain } from "./queues/audit.verify-chain.js";
+import { createSmtpMailer } from "./lib/smtp-mailer.js";
+import { processBatch, type BatchJob } from "./lib/process-batch.js";
+import { parsePayload } from "./lib/payload.js";
+import {
+  AuditVerifyChainPayloadSchema,
+  QUEUES,
+  QUEUE_POLICY,
+  type QueueName,
+} from "./lib/enqueue.js";
 
-function tryLoadEnv(): void {
-  if (typeof process.loadEnvFile === "function") {
-    const candidates = [
-      path.resolve(process.cwd(), ".env"),
-      path.resolve(process.cwd(), "../../.env"),
-    ];
-    for (const c of candidates) {
-      if (fs.existsSync(c)) {
-        try {
-          process.loadEnvFile(c);
-          break;
-        } catch {
-          // ignore unparseable env file
-        }
-      }
-    }
-  }
-}
-
-tryLoadEnv();
+const env = loadWorkerEnv();
 
 const logger = pino({
-  level: process.env["LOG_LEVEL"] || "info",
+  level: env.LOG_LEVEL,
   timestamp: pino.stdTimeFunctions.isoTime,
 });
 
 async function startWorker() {
-  const dbUrl =
-    process.env["DATABASE_MIGRATION_URL"] ||
-    process.env["DATABASE_URL"] ||
-    "postgres://librehr_owner:librehr_dev_password@localhost:5432/librehr";
-
   logger.info({ msg: "Bootstrapping LibreHR Background Worker (pg-boss)..." });
 
+  const mailer = env.SMTP ? createSmtpMailer(env.SMTP) : null;
+  if (!mailer) {
+    logger.warn({
+      msg: "SMTP_HOST is not set: email.send jobs will fail and be retried until SMTP is configured",
+    });
+  }
+
   const boss = new PgBoss({
-    connectionString: dbUrl,
+    connectionString: env.DATABASE_URL,
     schema: "pgboss",
   });
 
@@ -57,70 +48,37 @@ async function startWorker() {
   await boss.start();
   logger.info({ msg: "pg-boss started successfully" });
 
-  // Ensure queues exist in pg-boss
-  const queues = [
-    "email.send",
-    "leave.accrue",
-    "time.close-day",
-    "retention.enforce",
-    "audit.verify-chain",
-  ];
-  for (const q of queues) {
-    await boss.createQueue(q);
+  // createQueue does not change the policy of a queue that already exists. Databases whose
+  // queues were created before this change keep the `standard` policy, where singletonKey does
+  // not dedupe; recreate those queues (pre-release dev data only).
+  for (const q of Object.keys(QUEUES) as QueueName[]) {
+    await boss.createQueue(q, { policy: QUEUE_POLICY });
   }
 
-  // Register queues
-  await boss.work("email.send", async (jobs: unknown) => {
-    const jobList = Array.isArray(jobs) ? jobs : [jobs];
-    for (const job of jobList) {
-      if (!job) continue;
-      logger.info({
-        msg: "Processing email.send",
-        jobId: (job as { id?: string }).id,
-      });
-      const dummyMailer = {
-        sendMail: async () => {},
-      };
-      await handleEmailSend(
-        job as unknown as Parameters<typeof handleEmailSend>[0],
-        dummyMailer,
-      );
-    }
-  });
+  // perJobResults: every job in a batch is settled on its own, so one bad job cannot fail or
+  // block the rest of the batch.
+  const register = (
+    queue: QueueName,
+    handler: (job: BatchJob<unknown>) => Promise<unknown>,
+  ) =>
+    boss.work<unknown>(queue, { perJobResults: true }, (jobs) =>
+      processBatch(queue, jobs, handler, logger),
+    );
 
-  await boss.work("leave.accrue", async (jobs: unknown) => {
-    const job = Array.isArray(jobs) ? jobs[0] : jobs;
-    if (job)
-      await handleLeaveAccrue(
-        job as unknown as Parameters<typeof handleLeaveAccrue>[0],
-      );
-  });
+  await register("email.send", (job) => handleEmailSend(job, mailer));
+  await register("leave.accrue", (job) => handleLeaveAccrue(job, logger));
+  await register("time.close-day", handleTimeCloseDay);
+  await register("retention.enforce", handleRetentionEnforce);
+  await register("audit.verify-chain", async (job) =>
+    handleAuditVerifyChain({
+      data: parsePayload(
+        "audit.verify-chain",
+        AuditVerifyChainPayloadSchema,
+        job.data,
+      ),
+    }),
+  );
 
-  await boss.work("time.close-day", async (jobs: unknown) => {
-    const job = Array.isArray(jobs) ? jobs[0] : jobs;
-    if (job)
-      await handleTimeCloseDay(
-        job as unknown as Parameters<typeof handleTimeCloseDay>[0],
-      );
-  });
-
-  await boss.work("retention.enforce", async (jobs: unknown) => {
-    const job = Array.isArray(jobs) ? jobs[0] : jobs;
-    if (job)
-      await handleRetentionEnforce(
-        job as unknown as Parameters<typeof handleRetentionEnforce>[0],
-      );
-  });
-
-  await boss.work("audit.verify-chain", async (jobs: unknown) => {
-    const job = Array.isArray(jobs) ? jobs[0] : jobs;
-    if (job)
-      await handleAuditVerifyChain(
-        job as unknown as Parameters<typeof handleAuditVerifyChain>[0],
-      );
-  });
-
-  // Graceful shutdown
   const shutdown = async (signal: string) => {
     logger.info({ msg: `Received ${signal}, gracefully stopping worker...` });
     await boss.stop({ graceful: true, timeout: 5000 });
@@ -133,8 +91,11 @@ async function startWorker() {
 }
 
 if (process.argv[1] && process.argv[1].endsWith("index.ts")) {
-  startWorker().catch((err) => {
-    logger.error({ msg: "Fatal worker start error", err: String(err) });
+  startWorker().catch((err: unknown) => {
+    logger.error({
+      msg: "Fatal worker start error",
+      err: err instanceof Error ? err.message : String(err),
+    });
     process.exit(1);
   });
 }
