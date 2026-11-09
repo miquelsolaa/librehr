@@ -10,6 +10,8 @@ import type { Page, Request, Route } from "@playwright/test";
  */
 
 const ALLOWED_METHODS = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
+const EXPOSED_HEADERS =
+  "Content-Length, X-Request-ID, X-Export-Id, X-Content-SHA256";
 
 type FulfillOptions = NonNullable<Parameters<Route["fulfill"]>[0]>;
 
@@ -24,6 +26,8 @@ export function corsHeaders(request: Request): Record<string, string> {
     "access-control-allow-headers":
       requestHeaders["access-control-request-headers"] ?? "content-type",
     "access-control-allow-methods": ALLOWED_METHODS,
+    // Same list as the API: scripts can only read exposed headers cross-origin.
+    "access-control-expose-headers": EXPOSED_HEADERS,
     vary: "Origin",
   };
 }

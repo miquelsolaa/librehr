@@ -106,7 +106,7 @@ test("official export explains missing schedule without an alert dialog", async 
     });
   });
   await page.goto("/en/time/export");
-  await page.getByRole("button", { name: "Generate Export" }).click();
+  await page.getByRole("button", { name: "Preview" }).click();
   await expect(page.locator("main").getByRole("alert")).toContainText(
     "configure a schedule",
   );

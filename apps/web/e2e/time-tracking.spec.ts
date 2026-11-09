@@ -36,8 +36,14 @@ test.describe("Time Tracking & Timesheet E2E", () => {
     await expect(page.locator("h1")).toContainText(
       "Official Labour Inspection Export",
     );
+    await expect(page.getByLabel("Start date")).toBeVisible();
+    await expect(page.getByLabel("End date")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Preview" })).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Generate Export" }),
+      page.getByRole("button", { name: "Download CSV" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Download PDF" }),
     ).toBeVisible();
   });
 });
