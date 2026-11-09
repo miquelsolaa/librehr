@@ -1,4 +1,5 @@
 import type { Sql } from "postgres";
+import { jsonStringArray } from "./json-array.js";
 
 /**
  * Identity lookups that run before a tenant context exists. They go through
@@ -50,19 +51,20 @@ export interface SsoConfigLookup {
   allowedDomains: string[];
 }
 
-// jsonb arrays written by older code may hold a JSON-encoded string.
-function stringArray(value: unknown): string[] {
-  let parsed = value;
-  if (typeof value === "string") {
-    try {
-      parsed = JSON.parse(value);
-    } catch {
-      return [];
-    }
-  }
-  return Array.isArray(parsed)
-    ? parsed.filter((v): v is string => typeof v === "string")
-    : [];
+const stringArray = jsonStringArray;
+
+/**
+ * Personal access token scopes, mirroring PAT_SCOPES in
+ * @librehr/contracts/tokens (the db package does not depend on contracts;
+ * the api test `stored-arrays.test.ts` asserts the two lists match).
+ * Unknown stored values are dropped so the auth path only ever sees scopes
+ * the policy knows: a dropped scope grants less, never more.
+ */
+export const KNOWN_PAT_SCOPES = ["read", "write", "admin"] as const;
+
+function patScopes(value: unknown): string[] {
+  const known: readonly string[] = KNOWN_PAT_SCOPES;
+  return [...new Set(stringArray(value).filter((s) => known.includes(s)))];
 }
 
 export class IdentityRepository {
@@ -105,7 +107,7 @@ export class IdentityRepository {
       FROM librehr_auth_personal_access_token(${tokenHash})
     `;
     const row = rows[0];
-    return row ? { ...row, scopes: stringArray(row.scopes) } : null;
+    return row ? { ...row, scopes: patScopes(row.scopes) } : null;
   }
 
   async invitation(sql: Sql, token: string): Promise<InvitationLookup | null> {

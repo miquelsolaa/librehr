@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   CreatePersonalAccessTokenSchema,
   CreateWebhookRequestSchema,
+  PAT_SCOPES,
   parsePatScopes,
   parseWebhookEvents,
   WEBHOOK_SUBSCRIBABLE_EVENTS,
 } from "@librehr/contracts";
 import { WEBHOOK_EVENTS } from "@librehr/core";
+import { KNOWN_PAT_SCOPES } from "@librehr/db";
 
 // ADM-006: stored jsonb arrays are validated, never cast. Writes reject
 // unknown values; reads drop them (fail closed: fewer scopes or deliveries).
@@ -58,6 +60,10 @@ describe("parsePatScopes / parseWebhookEvents", () => {
         events: ["employee.created", "everything"],
       }).success,
     ).toBe(false);
+  });
+
+  it("keeps the db auth-path scope list in sync with the contracts enum", () => {
+    expect([...KNOWN_PAT_SCOPES]).toEqual([...PAT_SCOPES]);
   });
 
   it("only offers events the core engine knows", () => {
