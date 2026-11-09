@@ -7,24 +7,29 @@ on:
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
+# Least privilege by default; write scopes are granted per job below.
+permissions:
+  contents: read
+
 jobs:
   release:
-    name: Changesets Release & Container Build
+    name: Changesets Release
     runs-on: ubuntu-latest
     permissions:
+      # changesets/action pushes the version branch and tags, and opens the
+      # "Version Packages" pull request.
       contents: write
       pull-requests: write
-      packages: write
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: '.nvmrc'
           cache: 'pnpm'
@@ -34,13 +39,46 @@ jobs:
 
       - name: Create Release Pull Request or Publish
         id: changesets
-        uses: changesets/action@v1
+        uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1.9.0
         with:
           publish: pnpm changeset publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate CycloneDX SBOM
+  sbom:
+    name: Generate CycloneDX SBOM
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # cyclonedx-npm reads the tree through `npm ls`, which reports pnpm's
+      # symlinked node_modules layout as errors; --ignore-npm-errors is the
+      # tool's documented switch for trees npm itself considers invalid.
+      # Any other failure (crash, empty output) fails the job.
+      - name: Generate SBOM
         run: |
-          npx @cyclonedx/cyclonedx-npm --output-file bom.json
-        continue-on-error: true
+          pnpm dlx @cyclonedx/cyclonedx-npm@6.0.1 --ignore-npm-errors --output-file bom.json
+          test -s bom.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom-cyclonedx
+          path: bom.json
+          if-no-files-found: error

@@ -1,9 +1,20 @@
 name: Nightly Backup & Restore Drill
 
+# The automated drill (pg_dump -> restore into an ephemeral Postgres ->
+# verify row counts/checksums) is NOT implemented yet. Until it is:
+#   - the nightly schedule is disabled, so the Actions tab never shows a
+#     green "drill passed" that verified nothing, and no known-red nightly
+#     run trains people to ignore failures;
+#   - a manual run fails loudly with the reason below.
+# Re-enable the schedule in the same PR that implements the drill
+# (PRD.md, non-functional requirements: "documented backup/restore").
 on:
-  schedule:
-    - cron: '0 3 * * *' # Every night at 03:00 UTC
+  # schedule:
+  #   - cron: '0 3 * * *' # Every night at 03:00 UTC
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   backup-restore-drill:
@@ -11,11 +22,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Run Backup & Restore Drill
         run: |
-          # TODO(ADM-005): Implement automated pg_dump -> restore into ephemeral Postgres container and verify checksums
-          echo "Executing nightly backup/restore drill stub..."
-          bash infra/scripts/backup.sh || true
-          bash infra/scripts/restore.sh || true
+          echo "::error::Restore drill not implemented: infra/scripts/backup.sh and restore.sh exist, but no job yet provisions a database, restores the dump and verifies it."
+          exit 1
