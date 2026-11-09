@@ -4,7 +4,6 @@ import {
   type AuthUser,
   createProblemDetails,
   ClockRequestSchema,
-  KioskClockRequestSchema,
   TimesheetQuerySchema,
   CreateTimeBankEntrySchema,
 } from "@librehr/contracts";
@@ -14,9 +13,8 @@ import {
   calculateDailyTimesheet,
   calculatePeriodTimesheet,
   buildInspectionExport,
-  computeEventHash,
-  verifyKioskPin,
   calculateTimeBankBalance,
+  isWithinClockWindow,
 } from "@librehr/core";
 import {
   withTenant,
@@ -26,9 +24,13 @@ import {
   OrganizationRepository,
   AuditRepository,
   type TimeEventRow,
+  type TimeChainSigner,
 } from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
 import { permissionScope } from "../policies/can.js";
+import { TimeEventOutOfWindowError } from "../errors/index.js";
+import { parseJsonBody } from "../lib/validate.js";
+import type { TimeTrackingConfig } from "../lib/time-tracking-config.js";
 import {
   canOnEmployee,
   requireEmployeeInScope,
@@ -45,7 +47,7 @@ function foldRecordedEvents(events: TimeEventRow[]) {
         "clock_in" | "clock_out" | "break_start" | "break_end" | "correction",
       occurredAt: event.occurredAt.toISOString(),
       recordedAt: event.recordedAt.toISOString(),
-      source: event.source as "web" | "mobile" | "manual" | "import",
+      source: event.source as "web" | "mobile" | "kiosk" | "manual" | "import",
       actorId: event.actorId,
       ...(event.refEventId ? { refEventId: event.refEventId } : {}),
       hash: event.hash,
@@ -54,7 +56,10 @@ function foldRecordedEvents(events: TimeEventRow[]) {
   );
 }
 
-export function createTimeRoutes(sql: Sql) {
+export function createTimeRoutes(
+  sql: Sql,
+  options: { sign: TimeChainSigner; config: TimeTrackingConfig },
+) {
   const router = new Hono();
   const timeRepo = new TimeRepository();
   const employeeRepo = new EmployeeRepository();
@@ -120,29 +125,26 @@ export function createTimeRoutes(sql: Sql) {
     return c.json(result);
   });
 
-  // 2. POST /time/clock - Append clock event with hash chaining
+  // 2. POST /time/clock - Append clock event to the employee's hash chain
   router.post("/time/clock", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const body = await c.req.json().catch(() => null);
-    const parsed = ClockRequestSchema.safeParse(body);
+    const clockData = await parseJsonBody(c, ClockRequestSchema);
 
-    if (!parsed.success) {
-      const problem = createProblemDetails({
-        status: 400,
-        title: "Bad Request",
-        detail: parsed.error.errors.map((e) => e.message).join(", "),
-        code: "VALIDATION_ERROR",
-        errors: parsed.error.issues.map((i) => ({
-          field: i.path.join("."),
-          message: i.message,
-        })),
-      });
-      return c.json(problem, 400, {
-        "Content-Type": "application/problem+json",
-      });
+    // TIM-002/TIM-003: a direct punch is "now". A client clock may drift a
+    // little, but a backdated punch must go through a correction.
+    let occurredAt: Date | undefined;
+    if (clockData.occurredAt) {
+      occurredAt = new Date(clockData.occurredAt);
+      if (
+        !isWithinClockWindow(
+          occurredAt,
+          new Date(),
+          options.config.clockToleranceMs,
+        )
+      ) {
+        throw new TimeEventOutOfWindowError(options.config.clockToleranceMs);
+      }
     }
-
-    const clockData = parsed.data;
 
     const result = await withTenant(
       sql,
@@ -151,34 +153,15 @@ export function createTimeRoutes(sql: Sql) {
         const emp = await employeeRepo.findByUserId(tx, user.id);
         if (!emp) return { error: "NO_EMPLOYEE" as const };
 
-        const latest = await timeRepo.getLatestEvent(tx, emp.id);
-        const prevHash = latest?.hash ?? null;
-
-        const occurredAt = clockData.occurredAt
-          ? new Date(clockData.occurredAt)
-          : new Date();
-        const recordedAt = new Date();
-
-        const hash = computeEventHash(prevHash, {
+        const created = await timeRepo.appendEvent(tx, options.sign, {
           organizationId: user.organizationId,
           employeeId: emp.id,
           eventType: clockData.eventType,
-          occurredAt: occurredAt.toISOString(),
-          recordedAt: recordedAt.toISOString(),
-          source: clockData.source,
-          actorId: user.id,
-          reason: clockData.notes,
-        });
-
-        const created = await timeRepo.appendEvent(tx, {
-          employeeId: emp.id,
-          eventType: clockData.eventType,
           occurredAt,
-          source: clockData.source,
+          // Set by the route, never by the client: only the kiosk route records "kiosk".
+          source: "web",
           actorId: user.id,
           reason: clockData.notes,
-          prevHash,
-          hash,
         });
 
         return { event: created };
@@ -214,115 +197,6 @@ export function createTimeRoutes(sql: Sql) {
       },
       201,
     );
-  });
-
-  // TIM-010: POST /time/kiosk/clock - Tablet Kiosk mode clocking with PIN/badge verification
-  router.post("/time/kiosk/clock", requireAuth, async (c) => {
-    const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const body = await c.req.json().catch(() => null);
-    const parsed = KioskClockRequestSchema.safeParse(body);
-
-    if (!parsed.success) {
-      const problem = createProblemDetails({
-        status: 400,
-        title: "Bad Request",
-        detail: parsed.error.errors.map((err) => err.message).join(", "),
-        code: "VALIDATION_ERROR",
-        errors: parsed.error.issues.map((i) => ({
-          field: i.path.join("."),
-          message: i.message,
-        })),
-      });
-      return c.json(problem, 400, {
-        "Content-Type": "application/problem+json",
-      });
-    }
-
-    const { identifier, pin, eventType } = parsed.data;
-
-    const result = await withTenant(
-      sql,
-      { organizationId: user.organizationId, userId: user.id },
-      async (tx) => {
-        const emp = await employeeRepo.findByIdentifier(tx, identifier);
-        if (!emp || !emp.pinHash || !emp.pinSalt) {
-          return { error: "INVALID_CREDENTIALS" as const };
-        }
-
-        const validPin = verifyKioskPin(pin, emp.pinHash, emp.pinSalt);
-        if (!validPin) {
-          return { error: "INVALID_CREDENTIALS" as const };
-        }
-
-        const latest = await timeRepo.getLatestEvent(tx, emp.id);
-        const prevHash = latest ? latest.hash : null;
-        const now = new Date();
-        const occurredAtStr = now.toISOString();
-
-        const canonical = {
-          organizationId: user.organizationId,
-          employeeId: emp.id,
-          eventType,
-          occurredAt: occurredAtStr,
-          recordedAt: occurredAtStr,
-          source: "kiosk",
-          actorId: emp.userId ?? user.id,
-        };
-
-        const hash = computeEventHash(prevHash, canonical);
-
-        await timeRepo.appendEvent(tx, {
-          employeeId: emp.id,
-          eventType,
-          occurredAt: now,
-          source: "kiosk",
-          actorId: emp.userId ?? user.id,
-          prevHash,
-          hash,
-        });
-
-        await auditRepo.log(tx, {
-          actorId: user.id,
-          action: "time.kiosk_clock",
-          resourceType: "time_event",
-          resourceId: emp.id,
-          metadata: {
-            eventType,
-            source: "kiosk",
-          },
-        });
-
-        let newStatus: "clocked_in" | "on_break" | "clocked_out" =
-          "clocked_out";
-        if (eventType === "clock_in" || eventType === "break_end") {
-          newStatus = "clocked_in";
-        } else if (eventType === "break_start") {
-          newStatus = "on_break";
-        }
-
-        return {
-          success: true,
-          employeeName: `${emp.firstName} ${emp.lastName}`,
-          eventType,
-          occurredAt: occurredAtStr,
-          newStatus,
-        };
-      },
-    );
-
-    if (result.error === "INVALID_CREDENTIALS") {
-      const problem = createProblemDetails({
-        status: 401,
-        title: "Unauthorized",
-        detail: "Invalid identifier or PIN",
-        code: "INVALID_CREDENTIALS",
-      });
-      return c.json(problem, 401, {
-        "Content-Type": "application/problem+json",
-      });
-    }
-
-    return c.json(result);
   });
 
   // 3. GET /time/timesheet - Calculated daily/weekly/monthly breakdown

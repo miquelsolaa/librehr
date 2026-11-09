@@ -9,3 +9,4 @@ export * from "./exports.js";
 export * from "./kiosk.js";
 export * from "./time-bank.js";
 export * from "./rotational-shifts.js";
+export * from "./clock-window.js";

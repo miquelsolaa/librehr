@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   pgTable,
   text,
@@ -8,6 +9,9 @@ import {
   numeric,
   boolean,
   date,
+  smallint,
+  bigint,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { primaryId, organizationIdCol, timestamps } from "./common.js";
 import { organizations } from "./platform.js";
@@ -35,8 +39,10 @@ export const timeEvents = pgTable(
     actorId: uuid("actor_id").notNull(),
     refEventId: uuid("ref_event_id"), // For corrections, references the original event
     reason: text("reason"), // Required for corrections
-    prevHash: text("prev_hash"), // SHA-256 hash of previous event in chain
-    hash: text("hash").notNull(), // SHA-256(prev_hash || canonical_json(event))
+    prevHash: text("prev_hash"), // hash of the previous event in the employee's chain
+    hash: text("hash").notNull(), // v1: SHA-256 (legacy); v2: HMAC-SHA256 over the canonical payload
+    hashVersion: smallint("hash_version").notNull().default(1), // 1 = legacy, 2 = keyed chain
+    seq: bigint("seq", { mode: "number" }), // per-employee chain position (v2 only)
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .defaultNow()
       .notNull(),
@@ -45,6 +51,9 @@ export const timeEvents = pgTable(
     index("time_events_org_idx").on(table.organizationId),
     index("time_events_employee_idx").on(table.employeeId),
     index("time_events_occurred_idx").on(table.occurredAt),
+    uniqueIndex("time_events_chain_seq_uidx")
+      .on(table.organizationId, table.employeeId, table.seq)
+      .where(sql`${table.seq} IS NOT NULL`),
   ],
 );
 

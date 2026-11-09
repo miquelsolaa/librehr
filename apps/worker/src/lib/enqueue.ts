@@ -1,4 +1,3 @@
-import { z } from "zod";
 import type { SendOptions } from "pg-boss";
 import {
   EmailJobPayloadSchema,
@@ -16,13 +15,13 @@ import {
   RetentionEnforcePayloadSchema,
   retentionEnforceSingletonKey,
 } from "../queues/retention.enforce.js";
-import { isoDate, parsePayload } from "./payload.js";
+import {
+  AuditVerifyChainPayloadSchema,
+  auditVerifyChainSingletonKey,
+} from "../queues/audit.verify-chain.js";
+import { parsePayload } from "./payload.js";
 
-// Kept here rather than in audit.verify-chain.ts, which is being rewritten in another workstream.
-export const AuditVerifyChainPayloadSchema = z.object({
-  organizationId: z.string().min(1),
-  runDate: z.string().regex(isoDate),
-});
+export { AuditVerifyChainPayloadSchema };
 
 /**
  * Every queue, its payload schema and its dedup key.
@@ -49,8 +48,7 @@ export const QUEUES = {
   },
   "audit.verify-chain": {
     schema: AuditVerifyChainPayloadSchema,
-    key: (p: z.output<typeof AuditVerifyChainPayloadSchema>) =>
-      `${p.organizationId}:${p.runDate}`,
+    key: auditVerifyChainSingletonKey,
   },
 } as const;
 

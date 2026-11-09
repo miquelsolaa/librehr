@@ -88,7 +88,7 @@ LibreHR is designed to be easily self-hostable on any standard Linux server, VPS
    | `BETTER_AUTH_SECRET`     | yes      | Validated at startup (unique, 32+ characters) but not used by the current release                                             |
    | `SESSION_SECRET`         | yes      | Signs two-factor sign-in challenges                                                                                           |
    | `ENVELOPE_MASTER_KEY`    | yes      | Encrypts sensitive fields at rest. **Back it up: losing it loses that data**                                                  |
-   | `TIME_CHAIN_KEY`         | yes      | Will key the tamper-evidence chain of time-tracking events; not read by the current release, required for an upcoming release |
+   | `TIME_CHAIN_KEY`         | yes      | Keys the tamper-evidence chain of time records (api and worker). **Keep it: changing it makes existing records unverifiable** |
    | `BETTER_AUTH_URL`        | yes      | Public URL of the API (production refuses a `localhost` value)                                                                |
    | `APP_URL`                | yes      | Public URL of the web app (production refuses a `localhost` value)                                                            |
    | `SMTP_HOST`              | yes      | Your SMTP relay (`SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` are optional)                                             |

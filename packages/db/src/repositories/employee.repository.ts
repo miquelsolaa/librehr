@@ -476,7 +476,8 @@ export class EmployeeRepository {
     tx: TenantTx,
     employeeId: string,
     pinHash: string,
-    pinSalt: string,
+    /** Only legacy SHA-256 hashes used a separate salt; scrypt hashes embed theirs. */
+    pinSalt: string | null,
     badgeId?: string | null | undefined,
   ): Promise<void> {
     await tx`
@@ -484,6 +485,24 @@ export class EmployeeRepository {
       SET pin_hash = ${pinHash},
           pin_salt = ${pinSalt},
           badge_id = ${badgeId !== undefined ? badgeId : null},
+          updated_at = now()
+      WHERE id = ${employeeId}
+    `;
+  }
+
+  /**
+   * Replaces only the stored PIN hash, e.g. to upgrade a legacy SHA-256 hash
+   * to scrypt after a successful kiosk login. Badge and other fields are kept.
+   */
+  async upgradeKioskPinHash(
+    tx: TenantTx,
+    employeeId: string,
+    pinHash: string,
+  ): Promise<void> {
+    await tx`
+      UPDATE employees
+      SET pin_hash = ${pinHash},
+          pin_salt = NULL,
           updated_at = now()
       WHERE id = ${employeeId}
     `;

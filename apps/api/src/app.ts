@@ -32,6 +32,15 @@ import { createCalendarRoutes } from "./routes/calendar.js";
 import { createNotificationRoutes } from "./routes/notifications.js";
 import { createTimeRoutes } from "./routes/time.js";
 import { createTimeCorrectionRoutes } from "./routes/time-corrections.js";
+import { createTimeKioskRoutes } from "./routes/time-kiosk.js";
+import {
+  createTimeChainSigner,
+  resolveTimeChainKey,
+} from "./lib/time-chain.js";
+import {
+  resolveTimeTrackingConfig,
+  type TimeTrackingConfigInput,
+} from "./lib/time-tracking-config.js";
 import { createScheduleRoutes } from "./routes/schedules.js";
 import { createDocumentRoutes } from "./routes/documents.js";
 import { createChecklistRoutes } from "./routes/checklists.js";
@@ -54,6 +63,13 @@ export interface AppDependencies {
   storagePort?: StoragePort | undefined;
   /** From the validated env; 2FA challenges are refused without it. */
   sessionSecret?: string | undefined;
+  /**
+   * HMAC key of the time-event chain (TIM-002), from the validated env.
+   * Required in production; tests and local runs fall back to the dev key.
+   */
+  timeChainKey?: string | undefined;
+  /** Overrides of the time-tracking policy defaults (clock window, kiosk lockout). */
+  timeTracking?: TimeTrackingConfigInput | undefined;
   /** NODE_ENV from the validated env: production always sets Secure cookies. */
   nodeEnv?: "development" | "test" | "production" | undefined;
   /** TRUST_PROXY from the validated env (trusted reverse-proxy hops). */
@@ -62,6 +78,10 @@ export interface AppDependencies {
 
 export function createApp(deps: AppDependencies) {
   const app = new Hono();
+  const signTimeEvent = createTimeChainSigner(
+    resolveTimeChainKey(deps.timeChainKey),
+  );
+  const timeTracking = resolveTimeTrackingConfig(deps.timeTracking);
 
   // 1. Global Middleware Pipeline (per ARCHITECTURE.md 3.2)
   app.use(
@@ -158,8 +178,22 @@ export function createApp(deps: AppDependencies) {
   app.route("/v1", createLeaveRoutes(deps.sql, deps.mailPort));
   app.route("/v1", createCalendarRoutes(deps.sql));
   app.route("/v1", createNotificationRoutes(deps.sql));
-  app.route("/v1", createTimeRoutes(deps.sql));
-  app.route("/v1", createTimeCorrectionRoutes(deps.sql));
+  app.route(
+    "/v1",
+    createTimeRoutes(deps.sql, { sign: signTimeEvent, config: timeTracking }),
+  );
+  app.route(
+    "/v1",
+    createTimeKioskRoutes(deps.sql, {
+      sign: signTimeEvent,
+      config: timeTracking,
+      trustProxy: deps.trustProxy,
+    }),
+  );
+  app.route(
+    "/v1",
+    createTimeCorrectionRoutes(deps.sql, { sign: signTimeEvent }),
+  );
   app.route("/v1", createScheduleRoutes(deps.sql));
 
   // M4 & M5 Modules

@@ -19,8 +19,8 @@ export default function KioskModePage() {
 
   const [currentTime, setCurrentTime] = React.useState<string>("");
   const [currentDate, setCurrentDate] = React.useState<string>("");
-  const [identifier, setIdentifier] = React.useState("laia.puig@librehr.local");
-  const [pin, setPin] = React.useState("1234");
+  const [identifier, setIdentifier] = React.useState("");
+  const [pin, setPin] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [successEvent, setSuccessEvent] =

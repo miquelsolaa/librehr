@@ -47,12 +47,20 @@ export type CreateScheduleAssignment = z.infer<
   typeof CreateScheduleAssignmentSchema
 >;
 
-export const ClockRequestSchema = z.object({
-  eventType: z.enum(["clock_in", "clock_out", "break_start", "break_end"]),
-  occurredAt: z.string().datetime().optional(),
-  source: z.enum(["web", "mobile", "kiosk"]).default("web"),
-  notes: z.string().optional(),
-});
+/**
+ * Direct clock request. The event source is set by the server from the route,
+ * never from the body, and `occurredAt`, when given, must be within the
+ * server's clock tolerance; older punches go through a correction (TIM-003).
+ * Strict, so a client that sends `source` is told so instead of being
+ * silently ignored.
+ */
+export const ClockRequestSchema = z
+  .object({
+    eventType: z.enum(["clock_in", "clock_out", "break_start", "break_end"]),
+    occurredAt: z.string().datetime().optional(),
+    notes: z.string().max(500).optional(),
+  })
+  .strict();
 export type ClockRequest = z.infer<typeof ClockRequestSchema>;
 
 export const KioskClockRequestSchema = z.object({

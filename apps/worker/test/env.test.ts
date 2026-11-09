@@ -73,7 +73,36 @@ describe("worker env", () => {
     const env = loadWorkerEnv({
       NODE_ENV: "production",
       DATABASE_URL: "postgres://u:strong@db/librehr",
+      TIME_CHAIN_KEY: "prod-time-chain-key-9d1c5f3a7e2b6d0c4a8f",
     });
     expect(env.SMTP).toBeNull();
+  });
+
+  it("requires a real TIME_CHAIN_KEY in production", () => {
+    expect(() =>
+      loadWorkerEnv({
+        NODE_ENV: "production",
+        DATABASE_URL: "postgres://u:strong@db/librehr",
+      }),
+    ).toThrow(/TIME_CHAIN_KEY/);
+    expect(() =>
+      loadWorkerEnv({
+        NODE_ENV: "production",
+        DATABASE_URL: "postgres://u:strong@db/librehr",
+        TIME_CHAIN_KEY: "dev_time_chain_key_must_be_changed_in_production_32",
+      }),
+    ).toThrow(/TIME_CHAIN_KEY/);
+    const env = loadWorkerEnv({
+      NODE_ENV: "production",
+      DATABASE_URL: "postgres://u:strong@db/librehr",
+      TIME_CHAIN_KEY: "prod-time-chain-key-9d1c5f3a7e2b6d0c4a8f",
+    });
+    expect(env.TIME_CHAIN_KEY).toBe("prod-time-chain-key-9d1c5f3a7e2b6d0c4a8f");
+  });
+
+  it("uses the development chain key outside production", () => {
+    expect(
+      loadWorkerEnv({ NODE_ENV: "test" }).TIME_CHAIN_KEY.length,
+    ).toBeGreaterThanOrEqual(32);
   });
 });
