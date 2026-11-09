@@ -7,6 +7,7 @@ import {
   timestamp,
   uuid,
   index,
+  bigint,
 } from "drizzle-orm/pg-core";
 import { primaryId, timestamps, organizationIdCol } from "./common.js";
 import { organizations } from "./platform.js";
@@ -33,6 +34,8 @@ export const users = pgTable(
       withTimezone: true,
       mode: "date",
     }),
+    // AUTH-003: newest accepted TOTP time step; older or equal steps are replays (0025c).
+    twoFactorLastStep: bigint("two_factor_last_step", { mode: "number" }),
     ...timestamps,
   },
   (table) => [index("users_email_idx").on(table.email)],

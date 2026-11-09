@@ -13,8 +13,8 @@ import {
   generateTotpSecret,
   generateTotpUri,
   generateRecoveryCodes,
-  verifyTotpCode,
-  verifyRecoveryCode,
+  hashRecoveryCode,
+  matchTotpStep,
 } from "@librehr/core";
 import {
   AuditRepository,
@@ -33,6 +33,7 @@ import {
 } from "../lib/session-cookie.js";
 import { ConflictError, UnauthorizedError } from "../errors/index.js";
 import { parseJsonBody } from "../lib/validate.js";
+import { FailureLockout } from "../lib/failure-lockout.js";
 import {
   resolveTwoFactorConfig,
   type TwoFactorConfigInput,
@@ -183,37 +184,74 @@ export function createAuthRoutes(
       detail: "Invalid email or password",
     });
 
+  // Per-account lockout of second-factor checks (AUTH-003): the IP buckets
+  // above do not stop a guesser that rotates IPs against one account.
+  const secondFactorLockout = new FailureLockout({
+    failureWindowMs: twoFactor.lockout.failureWindowMs,
+    lockoutMs: twoFactor.lockout.lockoutMs,
+  });
+  const lockoutKey = (userId: string) => `2fa:${userId}`;
+
   /**
-   * Checks a TOTP or single-use recovery code. A matching recovery code is
-   * burned. A legacy plaintext TOTP secret is re-encrypted once a code has
-   * been verified against it.
+   * Checks a TOTP or single-use recovery code for an account.
+   *
+   * - "locked": the account had too many recent failures; nothing is checked.
+   * - A TOTP code is accepted only for a time step later than the last one
+   *   accepted (no replay, also not by parallel requests).
+   * - A recovery code is burned in the same conditional UPDATE that accepts
+   *   it, so it works once even under concurrency.
+   * A legacy plaintext TOTP secret is re-encrypted once a code verified
+   * against it.
    */
   const verifySecondFactor = async (
     userRow: UserRow,
     rawCode: string,
-  ): Promise<boolean> => {
+  ): Promise<"ok" | "invalid" | "locked"> => {
+    const key = lockoutKey(userRow.id);
+    if (secondFactorLockout.lockedFor([key]) > 0) return "locked";
+
     const code = rawCode.trim();
     const secret = userRow.twoFactorSecret;
-    let valid = secret ? verifyTotpCode(secret, code) : false;
+    const step = secret ? matchTotpStep(secret, code) : null;
+    const valid =
+      step !== null
+        ? await userRepo.consumeTotpStep(sql, userRow.id, step)
+        : await userRepo.burnRecoveryCode(
+            sql,
+            userRow.id,
+            hashRecoveryCode(code),
+          );
 
-    if (!valid && userRow.twoFactorRecoveryCodes) {
-      const matchedIdx = verifyRecoveryCode(
-        code,
-        userRow.twoFactorRecoveryCodes,
-      );
-      if (matchedIdx !== -1) {
-        valid = true;
-        const remaining = [...userRow.twoFactorRecoveryCodes];
-        remaining.splice(matchedIdx, 1);
-        await userRepo.updateRecoveryCodes(sql, userRow.id, remaining);
-      }
+    if (!valid) {
+      secondFactorLockout.recordFailure([
+        { key, limit: twoFactor.lockout.maxFailures },
+      ]);
+      return "invalid";
     }
-
-    if (valid && secret && userRow.twoFactorSecretIsPlaintext) {
+    secondFactorLockout.reset(key);
+    if (secret && userRow.twoFactorSecretIsPlaintext) {
       await userRepo.reencryptTwoFactorSecret(sql, userRow.id, secret);
     }
-    return valid;
+    return "ok";
   };
+
+  const secondFactorLocked = (c: Context, userId: string) =>
+    c.json(
+      createProblemDetails({
+        status: 429,
+        title: "Too Many Requests",
+        detail:
+          "Too many failed two-factor attempts. Please wait before retrying.",
+        code: "TWO_FACTOR_LOCKED",
+      }),
+      429,
+      {
+        "Content-Type": "application/problem+json",
+        "Retry-After": Math.ceil(
+          secondFactorLockout.lockedFor([lockoutKey(userId)]) / 1000,
+        ).toString(),
+      },
+    );
 
   router.post("/sign-in", perIp(), signInLimit, async (c) => {
     const body = await c.req.json().catch(() => null);
@@ -256,9 +294,12 @@ export function createAuthRoutes(
     const userRow = await userRepo.findById(sql, user.id);
     if (userRow?.twoFactorEnabled) {
       if (parsed.data.twoFactorCode) {
-        if (!(await verifySecondFactor(userRow, parsed.data.twoFactorCode))) {
-          throw invalidCode();
-        }
+        const result = await verifySecondFactor(
+          userRow,
+          parsed.data.twoFactorCode,
+        );
+        if (result === "locked") return secondFactorLocked(c, userRow.id);
+        if (result === "invalid") throw invalidCode();
       } else {
         // Return 2FA challenge response
         const secret = signingSecret;
@@ -336,9 +377,9 @@ export function createAuthRoutes(
       );
     }
 
-    if (!(await verifySecondFactor(userRow, parsed.data.code))) {
-      throw invalidCode();
-    }
+    const result = await verifySecondFactor(userRow, parsed.data.code);
+    if (result === "locked") return secondFactorLocked(c, userRow.id);
+    if (result === "invalid") throw invalidCode();
 
     // Same deterministic default membership as password sign-in, bound
     // through the new session's token.
@@ -417,8 +458,8 @@ export function createAuthRoutes(
       });
     }
 
-    const isValid = verifyTotpCode(pending.secret, code);
-    if (!isValid) {
+    const step = matchTotpStep(pending.secret, code);
+    if (step === null) {
       return c.json(
         createProblemDetails({
           status: 400,
@@ -444,11 +485,14 @@ export function createAuthRoutes(
       async (tx) => {
         // Promotes exactly the setup that was verified, only if it is still
         // pending: a concurrent setup or enable makes this a conflict.
+        // The confirming code's step counts as used, so it cannot also
+        // satisfy the next sign-in or the disable endpoint.
         if (
           !(await userRepo.promotePendingTwoFactor(
             tx,
             user.id,
             pending.setupId,
+            step,
           ))
         ) {
           throw alreadyEnabled();
@@ -487,9 +531,9 @@ export function createAuthRoutes(
       });
     }
 
-    if (!(await verifySecondFactor(userRow, parsed.data.code))) {
-      throw invalidCode();
-    }
+    const result = await verifySecondFactor(userRow, parsed.data.code);
+    if (result === "locked") return secondFactorLocked(c, userRow.id);
+    if (result === "invalid") throw invalidCode();
 
     await userRepo.disableTwoFactor(sql, user.id);
     await withTenant(

@@ -8,7 +8,11 @@ import {
 } from "@librehr/testing";
 import { TokenRepository, withTenant } from "@librehr/db";
 import { runMigrations } from "@librehr/db/migrate";
-import { generateTotpCode, generateTotpSecret } from "@librehr/core";
+import {
+  generateTotpCode,
+  generateTotpSecret,
+  hashRecoveryCode,
+} from "@librehr/core";
 import type { ProblemDetails } from "@librehr/contracts";
 import { createApp } from "../src/app.js";
 import { BetterAuthAdapter } from "../src/adapters/better-auth.js";
@@ -34,6 +38,13 @@ describe("auth and session hardening", () => {
   const password = "hardening-password";
   const sessionSecret = "a-secure-test-secret-with-at-least-32-characters";
   const legacySecret = generateTotpSecret();
+  const bruteUser = "c9000000-0000-0000-0000-000000000007";
+  const bruteSecret = generateTotpSecret();
+  const burnUser = "c9000000-0000-0000-0000-000000000008";
+  const burnCode = "a1b2-c3d4";
+  /** A valid code for the next 30-second step (accepted with +1 drift). */
+  const nextStepCode = (secret: string) =>
+    generateTotpCode(secret, Date.now() + 30_000);
 
   const emailOf = (id: string) => `${id.slice(-1)}-hardening@example.invalid`;
 
@@ -97,12 +108,20 @@ describe("auth and session hardening", () => {
       twoFactor,
       legacy,
       setupUser,
+      bruteUser,
+      burnUser,
     ]) {
       await sql`INSERT INTO users (id, email, name, password_hash)
         VALUES (${id}, ${emailOf(id)}, 'Test User', ${hash})`;
     }
     await sql`UPDATE users SET two_factor_enabled = true,
       two_factor_secret = ${legacySecret} WHERE id = ${legacy}`;
+    await sql`UPDATE users SET two_factor_enabled = true,
+      two_factor_secret = ${bruteSecret} WHERE id = ${bruteUser}`;
+    await sql`UPDATE users SET two_factor_enabled = true,
+      two_factor_secret = ${generateTotpSecret()},
+      two_factor_recovery_codes = ${sql.json([hashRecoveryCode(burnCode)])}
+      WHERE id = ${burnUser}`;
     await withTenant(sql, { organizationId: org }, async (tx) => {
       for (const [id, role] of [
         [admin, "admin"],
@@ -111,6 +130,8 @@ describe("auth and session hardening", () => {
         [twoFactor, "employee"],
         [legacy, "employee"],
         [setupUser, "employee"],
+        [bruteUser, "employee"],
+        [burnUser, "employee"],
       ] as const) {
         await tx`INSERT INTO memberships (organization_id, user_id, role)
           VALUES (${org}, ${id}, ${role})`;
@@ -353,9 +374,17 @@ describe("auth and session hardening", () => {
     });
 
     it("disables 2FA with a valid code and audit-logs it without secrets", async () => {
-      const res = await post(
+      // The code that enabled 2FA is spent: its step cannot disable it.
+      const replay = await post(
         "/v1/auth/2fa/disable",
         { code: generateTotpCode(secret) },
+        withCookie(token),
+      );
+      expect(replay.status).toBe(401);
+
+      const res = await post(
+        "/v1/auth/2fa/disable",
+        { code: nextStepCode(secret) },
         withCookie(token),
       );
       expect(res.status).toBe(200);
@@ -387,11 +416,91 @@ describe("auth and session hardening", () => {
       expect(stored).not.toBe(legacySecret);
       expect(stored).not.toContain(legacySecret);
 
-      // Still verifies after re-encryption.
+      // Still verifies after re-encryption, with the code of a later step.
       const again = await signIn(legacy, {
-        twoFactorCode: generateTotpCode(legacySecret),
+        twoFactorCode: nextStepCode(legacySecret),
       });
       expect(again.status).toBe(200);
+    });
+
+    it("rejects a TOTP code replayed within its time step", async () => {
+      // The step the previous test accepted, read back to avoid clock races.
+      const [row] = await db.adminSql<{ step: string }[]>`
+        SELECT two_factor_last_step::text AS step FROM users WHERE id = ${legacy}`;
+      const lastStep = Number(row?.step);
+      const codeAt = (step: number) =>
+        generateTotpCode(legacySecret, step * 30_000);
+
+      const replay = await signIn(legacy, { twoFactorCode: codeAt(lastStep) });
+      expect(replay.status).toBe(401);
+      expect(((await replay.json()) as ProblemDetails).code).toBe(
+        "INVALID_2FA_CODE",
+      );
+      // Nor is an earlier step accepted after a later one.
+      const earlier = await signIn(legacy, {
+        twoFactorCode: codeAt(lastStep - 1),
+      });
+      expect(earlier.status).toBe(401);
+    });
+
+    it("locks an account's second factor after repeated failures from rotating IPs", async () => {
+      // One trusted proxy hop, so every X-Forwarded-For is a distinct client
+      // IP and no IP-based bucket is ever hit.
+      const proxied = createApp({
+        sql: db.appSql,
+        authPort: new BetterAuthAdapter(db.appSql),
+        sessionSecret,
+        trustProxy: 1,
+      });
+      const fromIp = (i: number, path: string, body: unknown) =>
+        post(path, body, { "X-Forwarded-For": `203.0.113.${i}` }, proxied);
+      const challenge = (await (
+        await fromIp(200, "/v1/auth/sign-in", {
+          email: emailOf(bruteUser),
+          password,
+        })
+      ).json()) as { challengeToken: string };
+      const valid = generateTotpCode(bruteSecret);
+      const wrong = valid === "000000" ? "111111" : "000000";
+
+      const statuses: number[] = [];
+      for (let i = 0; i < 10; i++) {
+        const res = await fromIp(i, "/v1/auth/2fa/verify", {
+          challengeToken: challenge.challengeToken,
+          code: wrong,
+        });
+        statuses.push(res.status);
+      }
+      expect(statuses).toEqual(Array(10).fill(401));
+
+      // Locked: even the right code, from a fresh IP, is refused.
+      const locked = await fromIp(50, "/v1/auth/2fa/verify", {
+        challengeToken: challenge.challengeToken,
+        code: valid,
+      });
+      expect(locked.status).toBe(429);
+      expect(((await locked.json()) as ProblemDetails).code).toBe(
+        "TWO_FACTOR_LOCKED",
+      );
+      expect(Number(locked.headers.get("retry-after"))).toBeGreaterThan(0);
+
+      // Sign-in carrying the second factor shares the account lockout.
+      const signInLocked = await fromIp(51, "/v1/auth/sign-in", {
+        email: emailOf(bruteUser),
+        password,
+        twoFactorCode: valid,
+      });
+      expect(signInLocked.status).toBe(429);
+    });
+
+    it("burns a recovery code once under concurrent use", async () => {
+      const results = await Promise.all(
+        [1, 2, 3].map(() => signIn(burnUser, { twoFactorCode: burnCode })),
+      );
+      expect(results.map((r) => r.status).sort()).toEqual([200, 401, 401]);
+      const [row] = await db.adminSql<{ codes: string[] }[]>`
+        SELECT two_factor_recovery_codes AS codes FROM users WHERE id = ${burnUser}`;
+      expect(row?.codes).toEqual([]);
     });
   });
 

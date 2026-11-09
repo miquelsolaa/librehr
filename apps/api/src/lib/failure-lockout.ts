@@ -4,7 +4,7 @@ interface FailureRecord {
   lockedUntil: number;
 }
 
-export interface KioskLockoutOptions {
+export interface FailureLockoutOptions {
   failureWindowMs: number;
   lockoutMs: number;
 }
@@ -13,19 +13,19 @@ export interface KioskLockoutOptions {
 const PRUNE_THRESHOLD = 10_000;
 
 /**
- * Counts failed kiosk PIN attempts per key (an identifier or a client IP) and
+ * Counts failed attempts per key (a kiosk identifier, a client IP, an account) and
  * locks a key out for `lockoutMs` once it reaches its limit within
- * `failureWindowMs` (TIM-010).
+ * `failureWindowMs` (kiosk PINs: TIM-010; second factors: AUTH-003).
  *
  * State is per process, like the request rate limiter: with several API
  * instances each one counts separately, so the effective limit is N per
  * instance.
  */
-export class KioskLockout {
+export class FailureLockout {
   private readonly records = new Map<string, FailureRecord>();
 
   constructor(
-    private readonly options: KioskLockoutOptions,
+    private readonly options: FailureLockoutOptions,
     private readonly now: () => number = Date.now,
   ) {}
 

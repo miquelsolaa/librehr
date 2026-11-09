@@ -8,7 +8,37 @@ import {
   generateTotpUri,
   generateRecoveryCodes,
   verifyRecoveryCode,
+  matchTotpStep,
+  hashRecoveryCode,
 } from "../src/identity/totp.js";
+
+describe("TOTP replay support (AUTH-003)", () => {
+  it("returns the matched time step within the drift window", () => {
+    const secret = generateTotpSecret();
+    const now = 1_800_000_000_000;
+    const step = Math.floor(now / 30_000);
+    expect(matchTotpStep(secret, generateTotpCode(secret, now), now)).toBe(
+      step,
+    );
+    expect(
+      matchTotpStep(secret, generateTotpCode(secret, now - 30_000), now),
+    ).toBe(step - 1);
+    expect(
+      matchTotpStep(secret, generateTotpCode(secret, now + 30_000), now),
+    ).toBe(step + 1);
+    expect(
+      matchTotpStep(secret, generateTotpCode(secret, now - 90_000), now),
+    ).toBeNull();
+    expect(matchTotpStep(secret, "12345", now)).toBeNull();
+  });
+
+  it("hashes recovery codes in the stored format", () => {
+    const { plainCodes, hashedCodes } = generateRecoveryCodes(2);
+    expect(hashRecoveryCode(` ${plainCodes[0]!.toUpperCase()} `)).toBe(
+      hashedCodes[0],
+    );
+  });
+});
 
 describe("TOTP Two-Factor Authentication", () => {
   it("encodes and decodes base32 symmetrically", () => {

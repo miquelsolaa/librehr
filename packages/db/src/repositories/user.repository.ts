@@ -133,18 +133,22 @@ export class UserRepository {
 
   /**
    * Enables 2FA by promoting the pending setup identified by `setupId` to the
-   * active secret and recovery codes. A single UPDATE, so it only succeeds while 2FA is off and that exact setup
-   * is still pending and unexpired; returns false otherwise.
+   * active secret and recovery codes, recording `acceptedStep` (the TOTP step
+   * that confirmed it) as used. A single UPDATE, so it only succeeds while
+   * 2FA is off and that exact setup is still pending and unexpired; returns
+   * false otherwise.
    */
   async promotePendingTwoFactor(
     tx: TenantTx | Sql,
     userId: string,
     setupId: string,
+    acceptedStep: number,
   ): Promise<boolean> {
     const rows = await tx<{ id: string }[]>`
       UPDATE users
       SET
         two_factor_enabled = true,
+        two_factor_last_step = ${acceptedStep},
         two_factor_secret = two_factor_pending_secret,
         two_factor_recovery_codes = two_factor_pending_recovery_codes,
         two_factor_pending_secret = NULL,
@@ -206,17 +210,47 @@ export class UserRepository {
     `;
   }
 
-  async updateRecoveryCodes(
+  /**
+   * Records `step` as the newest accepted TOTP time step, only if it is later
+   * than the stored one. One conditional UPDATE, so of two requests carrying
+   * the same code only one succeeds; returns false for a replay.
+   */
+  async consumeTotpStep(
     tx: TenantTx | Sql,
     userId: string,
-    hashedRecoveryCodes: string[],
-  ): Promise<void> {
-    await tx`
+    step: number,
+  ): Promise<boolean> {
+    const rows = await tx<{ id: string }[]>`
       UPDATE users
-      SET
-        two_factor_recovery_codes = ${JSON.stringify(hashedRecoveryCodes)}::jsonb,
-        updated_at = now()
+      SET two_factor_last_step = ${step}, updated_at = now()
       WHERE id = ${userId}
+        AND two_factor_enabled = true
+        AND (two_factor_last_step IS NULL OR two_factor_last_step < ${step})
+      RETURNING id
     `;
+    return rows.length > 0;
+  }
+
+  /**
+   * Burns a recovery code: removes its hash from the stored array in one
+   * conditional UPDATE, so of two parallel requests with the same code only
+   * one succeeds. Returns false when the code is not (or no longer) stored.
+   */
+  async burnRecoveryCode(
+    tx: TenantTx | Sql,
+    userId: string,
+    codeHash: string,
+  ): Promise<boolean> {
+    const rows = await tx<{ id: string }[]>`
+      UPDATE users
+      SET two_factor_recovery_codes = two_factor_recovery_codes - ${codeHash}::text,
+          updated_at = now()
+      WHERE id = ${userId}
+        AND two_factor_enabled = true
+        AND jsonb_typeof(two_factor_recovery_codes) = 'array'
+        AND two_factor_recovery_codes @> jsonb_build_array(${codeHash}::text)
+      RETURNING id
+    `;
+    return rows.length > 0;
   }
 }
