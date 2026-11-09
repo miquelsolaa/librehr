@@ -28,6 +28,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@librehr/ui";
+import { calendarDateInZone, daysInMonth, isoDate } from "@librehr/i18n";
 import { apiClient } from "@/lib/api-client";
 import type {
   ShiftTemplate,
@@ -58,8 +59,17 @@ export default function ShiftRosterPage() {
     }
   };
 
-  const [currentYear, setCurrentYear] = React.useState(2026);
-  const [currentMonth, setCurrentMonth] = React.useState(11); // November (1-indexed)
+  // The roster opens on the current month in the organization's time zone
+  // (the browser's zone until /me answers). Month is 1-indexed.
+  const [initialDate] = React.useState(() =>
+    calendarDateInZone(
+      new Date(),
+      Intl.DateTimeFormat().resolvedOptions().timeZone,
+    ),
+  );
+  const [currentYear, setCurrentYear] = React.useState(initialDate.year);
+  const [currentMonth, setCurrentMonth] = React.useState(initialDate.month);
+  const [periodReady, setPeriodReady] = React.useState(false);
 
   const [templates, setTemplates] = React.useState<ShiftTemplate[]>([]);
   const [patterns, setPatterns] = React.useState<ShiftPattern[]>([]);
@@ -75,24 +85,57 @@ export default function ShiftRosterPage() {
   // Dialog state: Generate Rotational Roster
   const [genOpen, setGenOpen] = React.useState(false);
   const [selectedPatternId, setSelectedPatternId] = React.useState("");
-  const [anchorDate, setAnchorDate] = React.useState("2026-11-01");
-  const [genStartDate, setGenStartDate] = React.useState("2026-11-01");
-  const [genEndDate, setGenEndDate] = React.useState("2026-11-30");
+  const [anchorDate, setAnchorDate] = React.useState("");
+  const [genStartDate, setGenStartDate] = React.useState("");
+  const [genEndDate, setGenEndDate] = React.useState("");
   const [selectedEmpIds, setSelectedEmpIds] = React.useState<string[]>([]);
   const [generating, setGenerating] = React.useState(false);
 
   // Dialog state: Shift Swap Request
   const [swapOpen, setSwapOpen] = React.useState(false);
   const [targetEmpId, setTargetEmpId] = React.useState("");
-  const [myShiftDate, setMyShiftDate] = React.useState("2026-11-05");
-  const [targetShiftDate, setTargetShiftDate] = React.useState("2026-11-06");
+  const [myShiftDate, setMyShiftDate] = React.useState("");
+  const [targetShiftDate, setTargetShiftDate] = React.useState("");
   const [swapReason, setSwapReason] = React.useState("");
   const [requestingSwap, setRequestingSwap] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState<"grid" | "swaps">("grid");
 
-  const startDateStr = `${currentYear}-${String(currentMonth).padStart(2, "0")}-01`;
-  const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
-  const endDateStr = `${currentYear}-${String(currentMonth).padStart(2, "0")}-${String(daysInMonth).padStart(2, "0")}`;
+  const startDateStr = isoDate(currentYear, currentMonth, 1);
+  const monthLength = daysInMonth(currentYear, currentMonth);
+  const endDateStr = isoDate(currentYear, currentMonth, monthLength);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    apiClient
+      .getMe()
+      .then((me) => me.organization.timezone)
+      .catch(() => undefined)
+      .then((timeZone) => {
+        if (cancelled) return;
+        const today = timeZone
+          ? calendarDateInZone(new Date(), timeZone)
+          : initialDate;
+        setCurrentYear(today.year);
+        setCurrentMonth(today.month);
+        const first = isoDate(today.year, today.month, 1);
+        const todayStr = isoDate(today.year, today.month, today.day);
+        setAnchorDate(first);
+        setGenStartDate(first);
+        setGenEndDate(
+          isoDate(
+            today.year,
+            today.month,
+            daysInMonth(today.year, today.month),
+          ),
+        );
+        setMyShiftDate(todayStr);
+        setTargetShiftDate(todayStr);
+        setPeriodReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [initialDate]);
 
   const loadData = React.useCallback(async () => {
     try {
@@ -129,8 +172,8 @@ export default function ShiftRosterPage() {
   }, [startDateStr, endDateStr]);
 
   React.useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (periodReady) loadData();
+  }, [loadData, periodReady]);
 
   // Handle Roster Generation
   const handleGenerateRoster = async (e: React.FormEvent) => {
@@ -200,8 +243,8 @@ export default function ShiftRosterPage() {
   const totalNightHours = nightShiftsCount * 8; // 8h night shift (22:00-06:00) per ET art. 36
   const pendingSwaps = swaps.filter((s) => s.status === "pending").length;
 
-  // Build grid data: Employee -> Day (1..daysInMonth) -> Assignment
-  const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  // Build grid data: Employee -> Day (1..monthLength) -> Assignment
+  const daysArray = Array.from({ length: monthLength }, (_, i) => i + 1);
 
   // Group assignments by employeeId and date
   const assignmentMap = new Map<string, ShiftAssignment>();
@@ -767,7 +810,7 @@ export default function ShiftRosterPage() {
                 {rosterEmployees.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={daysInMonth + 1}
+                      colSpan={monthLength + 1}
                       className="p-8 text-center text-muted-foreground"
                     >
                       {t("rosterEmpty", { action: t("generateRosterButton") })}
@@ -783,7 +826,7 @@ export default function ShiftRosterPage() {
                         {emp.firstName} {emp.lastName}
                       </td>
                       {daysArray.map((day) => {
-                        const dateStr = `2026-11-${String(day).padStart(2, "0")}`;
+                        const dateStr = isoDate(currentYear, currentMonth, day);
                         const assign = assignmentMap.get(
                           `${emp.id}_${dateStr}`,
                         );
