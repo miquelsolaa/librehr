@@ -67,6 +67,9 @@ describe("Time Off API Integration Tests (LEA-001 - LEA-010, NOT-001, NOT-002)",
     db = await getTestDatabase();
     if (db) {
       await runMigrations(db.connectionString);
+      // Sessions belong to an existing organization; business dates read its
+      // time zone.
+      await db.sql`INSERT INTO organizations (id, name, slug) VALUES (${orgId}, 'Leave API test', 'leave-api-test') ON CONFLICT (id) DO NOTHING`;
       app = createApp({ sql: await db.appSql(), authPort });
     }
   });
