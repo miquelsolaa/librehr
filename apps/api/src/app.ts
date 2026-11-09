@@ -12,6 +12,7 @@ import { requestIdMiddleware } from "./middleware/request-id.js";
 import { loggerMiddleware } from "./middleware/logger.js";
 import { securityHeadersMiddleware } from "./middleware/security-headers.js";
 import { createAuthMiddleware } from "./middleware/auth.js";
+import { createCsrfMiddleware } from "./middleware/csrf.js";
 import { tenantContextMiddleware } from "./middleware/tenant-context.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { createHealthRoutes } from "./routes/health.js";
@@ -52,6 +53,10 @@ export interface AppDependencies {
   storagePort?: StoragePort | undefined;
   /** From the validated env; 2FA challenges are refused without it. */
   sessionSecret?: string | undefined;
+  /** NODE_ENV from the validated env: production always sets Secure cookies. */
+  nodeEnv?: "development" | "test" | "production" | undefined;
+  /** TRUST_PROXY from the validated env (trusted reverse-proxy hops). */
+  trustProxy?: number | undefined;
 }
 
 export function createApp(deps: AppDependencies) {
@@ -91,6 +96,13 @@ export function createApp(deps: AppDependencies) {
   app.use("*", loggerMiddleware);
   app.use("*", securityHeadersMiddleware);
   app.use("*", createAuthMiddleware(deps.authPort, deps.sql));
+  app.use(
+    "*",
+    createCsrfMiddleware({
+      appUrl: process.env["APP_URL"] ?? "http://localhost:3000",
+      nodeEnv: deps.nodeEnv,
+    }),
+  );
   app.use("*", tenantContextMiddleware);
 
   // 2. Health & Readiness
@@ -122,6 +134,8 @@ export function createApp(deps: AppDependencies) {
     "/v1/auth",
     createAuthRoutes(deps.authPort, deps.sql, {
       sessionSecret: deps.sessionSecret,
+      nodeEnv: deps.nodeEnv,
+      trustProxy: deps.trustProxy,
     }),
   );
   app.route("/v1", createMeRoutes(deps.sql));
@@ -132,7 +146,10 @@ export function createApp(deps: AppDependencies) {
   app.route("/v1", createLocationRoutes(deps.sql));
   app.route(
     "/v1",
-    createInvitationRoutes(deps.sql, deps.authPort, deps.mailPort),
+    createInvitationRoutes(deps.sql, deps.authPort, deps.mailPort, {
+      nodeEnv: deps.nodeEnv,
+      trustProxy: deps.trustProxy,
+    }),
   );
   app.route("/v1", createSetupRoutes(deps.sql));
   app.route("/v1", createAuditRoutes(deps.sql));

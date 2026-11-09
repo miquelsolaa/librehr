@@ -24,6 +24,7 @@ import {
   EmployeeRepository,
   AuditRepository,
   EmergencyContactRepository,
+  AccessRevocationRepository,
 } from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
 import { can } from "../policies/can.js";
@@ -33,6 +34,7 @@ export function createEmployeeRoutes(sql: Sql) {
   const employeeRepo = new EmployeeRepository();
   const auditRepo = new AuditRepository();
   const emergencyRepo = new EmergencyContactRepository();
+  const accessRevocationRepo = new AccessRevocationRepository();
 
   router.get("/employees", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
@@ -377,6 +379,10 @@ export function createEmployeeRoutes(sql: Sql) {
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
         const result = await employeeRepo.terminate(tx, id, parse.data);
+        // EMP-007: when the date is today or past (org time zone) the user's
+        // sessions and tokens in this org go now; a future date is enforced
+        // by the identity lookups once it arrives.
+        const access = await accessRevocationRepo.revokeIfTerminated(tx, id);
         await auditRepo.log(tx, {
           actorId: user.id,
           action: "employee.terminate",
@@ -385,6 +391,9 @@ export function createEmployeeRoutes(sql: Sql) {
           metadata: {
             reason: parse.data.terminationReason,
             date: parse.data.terminationDate,
+            accessRevoked: access.revoked,
+            sessionsRevoked: access.sessions,
+            tokensRevoked: access.tokens,
           },
         });
         return result;

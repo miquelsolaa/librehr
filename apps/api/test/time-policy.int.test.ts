@@ -31,7 +31,7 @@ const auth: AuthPort = {
   async verifyCredentials() {
     return null;
   },
-  async createSession(u) {
+  async createSession(u: AuthUser) {
     return { user: u, token: u.id, expiresAt: new Date(Date.now() + 60000) };
   },
   async getSession(token) {

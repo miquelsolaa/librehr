@@ -11,9 +11,10 @@ import { withTenant } from "../src/with-tenant.js";
 import { seedDevDatabase } from "../seeds/dev.js";
 
 const APPEND_ONLY_TABLES = ["time_events", "leave_ledger", "audit_log"];
+// Callable by librehr_app: each one is keyed by a secret the caller holds.
 const LOOKUP_FUNCTIONS = [
-  "librehr_auth_membership",
   "librehr_auth_session",
+  "librehr_auth_session_bind_org",
   "librehr_auth_personal_access_token",
   "librehr_auth_invitation",
   "librehr_auth_sso_config",
@@ -109,14 +110,19 @@ describe("runtime and owner roles", () => {
     >`SELECT count(*)::int AS n FROM memberships`;
     expect(visible?.n).toBe(0);
 
+    // The runtime role reaches memberships only through a secret it holds:
+    // here, a session token bound to the default membership.
+    const token = "runtime-role-bind-token";
+    await db.adminSql`INSERT INTO sessions (user_id, token, expires_at)
+      VALUES (${user}, ${token}, now() + interval '1 hour')`;
     const [viaFunction] = await db.appSql<
       { organization_id: string }[]
-    >`SELECT organization_id FROM librehr_auth_membership(${user}::uuid)`;
+    >`SELECT organization_id FROM librehr_auth_session_bind_org(${token})`;
     expect(viaFunction?.organization_id).toBe(orgA);
 
     // The lookup flag does not outlive the function call.
     const flag = await db.appSql.begin(async (tx) => {
-      await tx`SELECT * FROM librehr_auth_membership(${user}::uuid)`;
+      await tx`SELECT * FROM librehr_auth_session(${token})`;
       return tx<
         { value: string | null }[]
       >`SELECT current_setting('librehr.identity_lookup', true) AS value`;
@@ -152,6 +158,22 @@ describe("runtime and owner roles", () => {
       expect(row.public_exec, row.proname).toBe(false);
       expect(row.app_exec, row.proname).toBe(true);
     }
+  });
+
+  it("refuses the secret-less membership lookup to the runtime role", async () => {
+    await expect(
+      db.appSql`SELECT * FROM librehr_auth_membership(${user}::uuid)`,
+    ).rejects.toThrow(/permission denied/i);
+    const [row] = await db.adminSql<
+      { app_exec: boolean; prosecdef: boolean }[]
+    >`
+      SELECT has_function_privilege('librehr_app', p.oid, 'EXECUTE') AS app_exec,
+             p.prosecdef
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public' AND p.proname = 'librehr_auth_membership'
+    `;
+    expect(row).toEqual({ app_exec: false, prosecdef: true });
   });
 
   // 00-roles.sh drops BYPASSRLS from the owner: migrations (above) and the dev

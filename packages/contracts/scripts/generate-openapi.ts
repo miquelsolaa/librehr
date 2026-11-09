@@ -1691,6 +1691,13 @@ export class LibreHrApiClient {
     });
   }
 
+  // Revokes the current session server-side and clears the session cookie.
+  async signOut(): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>('/v1/auth/sign-out', {
+      method: 'POST',
+    });
+  }
+
   async getMe(): Promise<MeResponse> {
     return this.request<MeResponse>('/v1/me');
   }
@@ -2305,10 +2312,10 @@ export class LibreHrApiClient {
     });
   }
 
-  async disableTwoFactor(data?: { code?: string }): Promise<{ success: boolean }> {
+  async disableTwoFactor(data: { code: string }): Promise<{ success: boolean }> {
     return this.request<{ success: boolean }>('/v1/auth/2fa/disable', {
       method: 'POST',
-      body: JSON.stringify(data ?? {}),
+      body: JSON.stringify(data),
     });
   }
 

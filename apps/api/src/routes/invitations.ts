@@ -19,11 +19,16 @@ import { can } from "../policies/can.js";
 import type { AuthPort } from "../ports/auth.js";
 import type { MailPort } from "../ports/mail.js";
 import { hashPassword, verifyPassword } from "../lib/password.js";
+import {
+  setSessionCookie,
+  type SessionCookieOptions,
+} from "../lib/session-cookie.js";
 
 export function createInvitationRoutes(
   sql: Sql,
   authPort: AuthPort,
   mailPort?: MailPort,
+  cookieOptions: SessionCookieOptions = {},
 ) {
   const router = new Hono();
   const invitationRepo = new InvitationRepository();
@@ -315,6 +320,14 @@ export function createInvitationRoutes(
       );
     }
     const session = await authPort.createSession(authUser);
+    if (!session) {
+      throw new UnauthorizedError({
+        code: "INVALID_INVITATION",
+        detail: "This invitation is invalid, expired, or already used.",
+      });
+    }
+    // The session lives only in the httpOnly cookie (AUTH-001/002).
+    setSessionCookie(c, session.token, session.expiresAt, cookieOptions);
     return c.json({
       user: session.user,
       expiresAt: session.expiresAt.toISOString(),

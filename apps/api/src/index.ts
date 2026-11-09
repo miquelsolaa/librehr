@@ -49,6 +49,8 @@ async function bootstrap() {
     authPort,
     mailPort,
     sessionSecret: env.SESSION_SECRET,
+    nodeEnv: env.NODE_ENV,
+    trustProxy: env.TRUST_PROXY,
   });
 
   // 4. Start HTTP server
