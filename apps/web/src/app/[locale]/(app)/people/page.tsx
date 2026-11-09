@@ -57,14 +57,14 @@ export default function PeoplePage() {
     setLoading(true);
     setLoadError(null);
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setEmployees([]);
       setLoadError("signInRequired");
       setLoading(false);
       return;
     }
     try {
-      const res = await getApiClient(session.token).listEmployees({
+      const res = await getApiClient().listEmployees({
         search: search || undefined,
         departmentId: selectedDept || undefined,
         status:
@@ -87,9 +87,9 @@ export default function PeoplePage() {
 
   const fetchDepartments = React.useCallback(() => {
     const session = getStoredSession();
-    if (!session?.token) return;
+    if (!session) return;
     setDepartmentsError(false);
-    void getApiClient(session.token)
+    void getApiClient()
       .listDepartments()
       .then((depts) => setDepartments(depts))
       .catch(() => {
@@ -107,8 +107,8 @@ export default function PeoplePage() {
     setInviteError("");
     try {
       const session = getStoredSession();
-      if (!session?.token) throw new Error("Session unavailable");
-      await getApiClient(session.token).createInvitation({
+      if (!session) throw new Error("Session unavailable");
+      await getApiClient().createInvitation({
         email: inviteEmail,
         role: inviteRole,
       });

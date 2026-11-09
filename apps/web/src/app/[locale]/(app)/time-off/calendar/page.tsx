@@ -28,7 +28,7 @@ export default function TeamCalendarPage() {
 
   const fetchAbsences = React.useCallback(async () => {
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setLoading(false);
       return;
     }
@@ -50,7 +50,7 @@ export default function TeamCalendarPage() {
         .toISOString()
         .slice(0, 10);
 
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       const res = await client.listTeamAbsences({
         startDate: startOfMonth,
         endDate: endOfMonth,

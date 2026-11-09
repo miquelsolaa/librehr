@@ -30,9 +30,9 @@ export default function RequestLeavePage() {
 
   React.useEffect(() => {
     const session = getStoredSession();
-    if (!session?.token) return;
+    if (!session) return;
 
-    const client = getApiClient(session.token);
+    const client = getApiClient();
     Promise.all([
       client.listLeaveTypes().catch(() => []),
       client.listBlackoutPeriods().catch(() => []),
@@ -68,7 +68,7 @@ export default function RequestLeavePage() {
     setError(null);
 
     const session = getStoredSession();
-    if (!session?.token) return;
+    if (!session) return;
 
     if (!startDate || !endDate) {
       setError("Please select both start and end dates.");
@@ -77,7 +77,7 @@ export default function RequestLeavePage() {
 
     setSubmitting(true);
     try {
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       await client.createLeaveRequest({
         leaveTypeId: selectedType,
         startDate,

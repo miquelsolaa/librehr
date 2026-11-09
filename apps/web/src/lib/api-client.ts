@@ -1,30 +1,27 @@
 import { LibreHrApiClient } from "@librehr/contracts";
-import { getStoredSession } from "@/lib/auth";
 
 const API_BASE_URL =
   process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
-export function getApiClient(token?: string): LibreHrApiClient {
+/**
+ * Browser API client. Authentication rides on the httpOnly session cookie the
+ * API sets at sign-in (`credentials: "include"`); the client never handles a
+ * token. Personal access tokens (Authorization: Bearer) are for non-browser
+ * API clients only.
+ */
+function createClient(): LibreHrApiClient {
   return new LibreHrApiClient({
     baseUrl: API_BASE_URL,
     fetchFn: (input, init) =>
       fetch(input, {
         ...init,
-        credentials: init?.credentials ?? "include",
+        credentials: "include",
       }),
-    getHeaders: () => (token ? { Authorization: `Bearer ${token}` } : {}),
   });
 }
 
-export const apiClient = new LibreHrApiClient({
-  baseUrl: API_BASE_URL,
-  fetchFn: (input, init) =>
-    fetch(input, {
-      ...init,
-      credentials: init?.credentials ?? "include",
-    }),
-  getHeaders: () => {
-    const token = getStoredSession()?.token;
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  },
-});
+export const apiClient = createClient();
+
+export function getApiClient(): LibreHrApiClient {
+  return apiClient;
+}

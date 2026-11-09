@@ -21,8 +21,8 @@ export function ClockWidget({ onClockChange }: { onClockChange?: () => void }) {
     setStatusLoading(true);
     const session = getStoredSession();
     try {
-      if (!session?.token) throw new Error("Session unavailable");
-      const client = getApiClient(session.token);
+      if (!session) throw new Error("Session unavailable");
+      const client = getApiClient();
       const res = await client.getClockStatus();
       setStatus(res.status);
       setActionError(false);
@@ -41,7 +41,7 @@ export function ClockWidget({ onClockChange }: { onClockChange?: () => void }) {
     action: "clock_in" | "clock_out" | "break_start" | "break_end",
   ) => {
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setActionError(true);
       setStatus(null);
       return;
@@ -50,7 +50,7 @@ export function ClockWidget({ onClockChange }: { onClockChange?: () => void }) {
     setLoading(true);
     setActionError(false);
     try {
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       await client.clock({
         eventType: action,
         source: "web",

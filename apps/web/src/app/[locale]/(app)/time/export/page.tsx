@@ -38,7 +38,7 @@ export default function TimeExportPage() {
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!session?.token) {
+    if (!session) {
       setError("exportUnavailable");
       return;
     }
@@ -47,7 +47,7 @@ export default function TimeExportPage() {
     setDoc(null);
     setLoading(true);
     try {
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       const queryParams: {
         startDate: string;
         endDate: string;

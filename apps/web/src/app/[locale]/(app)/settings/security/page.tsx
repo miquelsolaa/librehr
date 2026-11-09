@@ -23,6 +23,7 @@ export default function SecuritySettingsPage() {
 
   const t = useTranslations("settings");
   const tCommon = useTranslations("common");
+  const tAuth = useTranslations("auth");
 
   const [session, setSession] = React.useState(getStoredSession());
   const [twoFactorEnabled, setTwoFactorEnabled] = React.useState(false);
@@ -110,12 +111,15 @@ export default function SecuritySettingsPage() {
 
   const handleDisable = async () => {
     if (!window.confirm(t("disable2FaConfirm"))) return;
+    // AUTH-003: the API requires a current TOTP or recovery code to disable.
+    const code = window.prompt(tAuth("twoFactorCodeLabel"))?.trim();
+    if (!code) return;
 
     setActionLoading(true);
     setErrorMessage(null);
     try {
       const client = getApiClient();
-      await client.disableTwoFactor();
+      await client.disableTwoFactor({ code });
       setTwoFactorEnabled(false);
       setSuccessMessage(t("twoFactorDisabledSuccess"));
     } catch {

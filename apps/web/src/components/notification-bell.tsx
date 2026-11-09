@@ -21,7 +21,7 @@ export function NotificationBell() {
 
   const fetchNotifications = React.useCallback(async () => {
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setNotifications([]);
       setUnreadCount(0);
       setError("signIn");
@@ -29,7 +29,7 @@ export function NotificationBell() {
     }
 
     try {
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       const res = await client.listNotifications();
       setError(null);
       setNotifications(res.items);
@@ -47,11 +47,11 @@ export function NotificationBell() {
 
   const markAsRead = async (id: string) => {
     const session = getStoredSession();
-    if (!session?.token) return;
+    if (!session) return;
 
     setActionError(false);
     try {
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       await client.markNotificationRead(id);
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
@@ -64,11 +64,11 @@ export function NotificationBell() {
 
   const markAllRead = async () => {
     const session = getStoredSession();
-    if (!session?.token) return;
+    if (!session) return;
 
     setActionError(false);
     try {
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       await client.markAllNotificationsRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       setUnreadCount(0);

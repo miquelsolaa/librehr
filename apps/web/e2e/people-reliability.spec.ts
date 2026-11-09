@@ -1,7 +1,8 @@
 import { expect, test } from "@playwright/test";
 
 const cors = {
-  "access-control-allow-origin": "*",
+  "access-control-allow-origin": "http://localhost:3000",
+  "access-control-allow-credentials": "true",
   "access-control-allow-headers": "*",
   "access-control-allow-methods": "GET, OPTIONS",
 };
@@ -160,7 +161,8 @@ test("an empty org chart stays empty and uses the signed-in session", async ({
   await page.route("**/v1/people/org-chart", async (route) => {
     if (route.request().method() === "OPTIONS")
       return route.fulfill({ status: 204, headers: cors });
-    expect(route.request().headers()["authorization"]).toBe("Bearer sample");
+    // The session rides on the httpOnly cookie; no token reaches the page.
+    expect(route.request().headers()["authorization"]).toBeUndefined();
     return route.fulfill({
       headers: cors,
       json: { roots: [], totalEmployees: 0 },

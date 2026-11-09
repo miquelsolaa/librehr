@@ -44,7 +44,7 @@ export default function OnboardingPage() {
 
   const fetchChecklists = React.useCallback(async () => {
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setInstances([]);
       setLoadError("signInRequired");
       setLoading(false);
@@ -54,7 +54,7 @@ export default function OnboardingPage() {
     try {
       setLoading(true);
       setLoadError(null);
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       const insts = await client.listChecklistInstances();
       setInstances(insts);
       if (insts.length > 0 && !selectedInstanceId) {
@@ -74,7 +74,7 @@ export default function OnboardingPage() {
 
   const handleToggleTask = async (taskId: string, isCompleted: boolean) => {
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setActionError(t("signInRequired"));
       return;
     }
@@ -82,7 +82,7 @@ export default function OnboardingPage() {
     try {
       setActionError(null);
       setPendingTaskId(taskId);
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       await client.toggleChecklistTask(taskId, isCompleted);
       await fetchChecklists();
     } catch {
@@ -95,7 +95,7 @@ export default function OnboardingPage() {
   const handleValidateCsv = async (dryRun: boolean) => {
     if (!csvContent.trim()) return;
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setActionError(t("signInRequired"));
       return;
     }
@@ -104,7 +104,7 @@ export default function OnboardingPage() {
       setValidating(true);
       setActionError(null);
       setImportSuccess(null);
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       const res = await client.importEmployeesCsv(csvContent, dryRun);
       setImportReport(res);
       if (!dryRun && res.valid) {
