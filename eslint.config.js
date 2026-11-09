@@ -13,6 +13,7 @@ export default [
       "packages/contracts/generated/**",
       "packages/db/migrations/meta/**",
       "scripts/**",
+      ".claude/worktrees/**",
     ],
   },
 ];

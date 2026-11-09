@@ -41,3 +41,6 @@ yarn-debug.log*
 pnpm-debug.log*
 .claude/scratch/*
 !.claude/scratch/.gitignore
+
+# Claude Code agent worktrees
+.claude/worktrees/
