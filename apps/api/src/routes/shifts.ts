@@ -21,6 +21,7 @@ import { NotFoundError, ValidationError } from "../errors/index.js";
 import { businessToday } from "../lib/business-date.js";
 import { IdParamSchema, parseJsonBody, parseParams } from "../lib/validate.js";
 import { requireAuth } from "../middleware/auth.js";
+import { assertNotSelfApproval } from "../policies/approvals.js";
 import {
   inEmployeeFilter,
   requireEmployeesInScope,
@@ -401,6 +402,17 @@ export function createShiftRoutes(sql: Sql) {
         // Both rosters change, so both employees must be the decider's
         // reports (and a manager cannot decide their own swap).
         const ctx = await resolvePolicyContext(c, tx);
+        // Nobody decides a swap of their own roster, admins included: both
+        // the requester and the target are parties to it.
+        for (const partyId of [swap.requesterId, swap.targetEmployeeId]) {
+          const party = await employeeRepo.findById(tx, partyId);
+          if (party) {
+            assertNotSelfApproval(ctx, {
+              employeeId: party.id,
+              userId: party.userId,
+            });
+          }
+        }
         await requireEmployeesInScope(
           ctx,
           ROSTER_PERMISSION,
