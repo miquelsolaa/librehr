@@ -21,8 +21,12 @@ import type { AuthPort } from "../ports/auth.js";
 import { createRateLimiter } from "../middleware/rate-limit.js";
 import { requireAuth } from "../middleware/auth.js";
 
-function challengeSecret(): string | null {
-  const value = process.env["SESSION_SECRET"];
+export interface AuthRouteOptions {
+  /** Signing key for 2FA challenge tokens; comes from the validated env. */
+  sessionSecret?: string | undefined;
+}
+
+function challengeSecret(value: string | undefined): string | null {
   return value && value.length >= 32 ? value : null;
 }
 
@@ -39,9 +43,11 @@ function createChallengeToken(userId: string, secret: string): string {
   return `${b64Payload}.${signature}`;
 }
 
-function verifyChallengeToken(token: string): string | null {
+function verifyChallengeToken(
+  token: string,
+  secret: string | null,
+): string | null {
   try {
-    const secret = challengeSecret();
     if (!secret) return null;
     const parts = token.split(".");
     if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
@@ -72,8 +78,13 @@ function verifyChallengeToken(token: string): string | null {
   }
 }
 
-export function createAuthRoutes(authPort: AuthPort, sql: Sql) {
+export function createAuthRoutes(
+  authPort: AuthPort,
+  sql: Sql,
+  options: AuthRouteOptions = {},
+) {
   const router = new Hono();
+  const signingSecret = challengeSecret(options.sessionSecret);
   const userRepo = new UserRepository();
 
   // Rate limit: 10 attempts per minute on sign-in
@@ -158,7 +169,7 @@ export function createAuthRoutes(authPort: AuthPort, sql: Sql) {
         }
       } else {
         // Return 2FA challenge response
-        const secret = challengeSecret();
+        const secret = signingSecret;
         if (!secret) {
           return c.json(
             createProblemDetails({
@@ -212,7 +223,10 @@ export function createAuthRoutes(authPort: AuthPort, sql: Sql) {
       );
     }
 
-    const userId = verifyChallengeToken(parsed.data.challengeToken);
+    const userId = verifyChallengeToken(
+      parsed.data.challengeToken,
+      signingSecret,
+    );
     if (!userId) {
       return c.json(
         createProblemDetails({

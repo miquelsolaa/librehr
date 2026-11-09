@@ -50,6 +50,8 @@ export interface AppDependencies {
   authPort: AuthPort;
   mailPort?: MailPort | undefined;
   storagePort?: StoragePort | undefined;
+  /** From the validated env; 2FA challenges are refused without it. */
+  sessionSecret?: string | undefined;
 }
 
 export function createApp(deps: AppDependencies) {
@@ -116,7 +118,12 @@ export function createApp(deps: AppDependencies) {
   });
 
   // 4. API v1 Modules
-  app.route("/v1/auth", createAuthRoutes(deps.authPort, deps.sql));
+  app.route(
+    "/v1/auth",
+    createAuthRoutes(deps.authPort, deps.sql, {
+      sessionSecret: deps.sessionSecret,
+    }),
+  );
   app.route("/v1", createMeRoutes(deps.sql));
   app.route("/v1", createOrgRoutes(deps.sql));
   app.route("/v1", createEmployeeRoutes(deps.sql));
