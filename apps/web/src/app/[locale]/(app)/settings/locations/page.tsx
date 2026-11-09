@@ -32,6 +32,8 @@ export default function LocationsSettingsPage() {
   const locale = (params?.["locale"] as string) ?? "es";
   const t = useTranslations("settings");
   const tCommon = useTranslations("common");
+  const tNav = useTranslations("nav");
+  const tRegions = useTranslations("regions");
 
   const [locations, setLocations] = React.useState<Location[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -267,8 +269,8 @@ export default function LocationsSettingsPage() {
             href={`/${locale}/settings`}
             className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
           >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            <span>Settings</span>
+            <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>{tNav("settings")}</span>
           </Link>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             {t("locationsTitle")}
@@ -392,7 +394,7 @@ export default function LocationsSettingsPage() {
                 <Input
                   id="loc-name"
                   required
-                  placeholder="e.g. Barcelona Diagonal"
+                  placeholder={t("locationNamePlaceholder")}
                   value={locName}
                   onChange={(e) => setLocName(e.target.value)}
                 />
@@ -408,7 +410,7 @@ export default function LocationsSettingsPage() {
                 <Input
                   id="loc-city"
                   required
-                  placeholder="e.g. Barcelona"
+                  placeholder={t("cityPlaceholder")}
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
                 />
@@ -427,13 +429,11 @@ export default function LocationsSettingsPage() {
                   value={region}
                   onChange={(e) => setRegion(e.target.value)}
                 >
-                  <option value="CT">Catalunya (CT)</option>
-                  <option value="MD">Comunidad de Madrid (MD)</option>
-                  <option value="AN">Andalucía (AN)</option>
-                  <option value="VC">Comunitat Valenciana (VC)</option>
-                  <option value="PV">País Vasco / Euskadi (PV)</option>
-                  <option value="GA">Galicia (GA)</option>
-                  <option value="IB">Illes Balears (IB)</option>
+                  {["CT", "MD", "AN", "VC", "PV", "GA", "IB"].map((code) => (
+                    <option key={code} value={code}>
+                      {tRegions(code)} ({code})
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -468,7 +468,7 @@ export default function LocationsSettingsPage() {
           </div>
         ) : locations.length === 0 ? (
           <div className="p-8 text-center text-sm text-muted-foreground">
-            No work centers configured yet.
+            {t("locationsEmpty")}
           </div>
         ) : (
           locations.map((loc) => (
@@ -526,13 +526,14 @@ export default function LocationsSettingsPage() {
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/40 p-3">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold text-muted-foreground">
-                  Year:
+                  {t("holidayYear")}:
                 </span>
                 {[2025, 2026, 2027].map((y) => (
                   <button
                     key={y}
                     type="button"
                     onClick={() => handleYearChange(y)}
+                    aria-pressed={selectedYear === y}
                     className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
                       selectedYear === y
                         ? "bg-primary text-primary-foreground font-semibold"
@@ -674,7 +675,7 @@ export default function LocationsSettingsPage() {
               variant="outline"
               onClick={() => setHolidayLoc(null)}
             >
-              Close
+              {tCommon("close")}
             </Button>
           </DialogFooter>
         </DialogContent>
