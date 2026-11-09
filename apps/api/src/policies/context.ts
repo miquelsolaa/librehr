@@ -81,6 +81,18 @@ export function inEmployeeFilter(
   return filter.allowed === "all" || filter.allowed.has(employeeId);
 }
 
+/** {@link requireEmployeeInScope} for every distinct id in a batch. */
+export async function requireEmployeesInScope<E extends ScopedEmployee>(
+  ctx: PolicyUserContext,
+  permission: Permission,
+  ids: readonly string[],
+  load: (id: string) => Promise<E | null>,
+): Promise<void> {
+  for (const id of new Set(ids)) {
+    await requireEmployeeInScope(ctx, permission, () => load(id));
+  }
+}
+
 /** The scope-relevant fields of an employee row. */
 export interface ScopedEmployee {
   id: string;

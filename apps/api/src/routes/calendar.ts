@@ -23,6 +23,13 @@ import {
 } from "../lib/validate.js";
 import { requireAuth } from "../middleware/auth.js";
 import { canSeeLeaveType } from "../policies/calendar-visibility.js";
+import { can } from "../policies/can.js";
+
+const canConfigureOrg = (user: AuthUser) =>
+  can(
+    { userId: user.id, organizationId: user.organizationId, role: user.role },
+    "org.write",
+  );
 
 export function createCalendarRoutes(sql: Sql) {
   const router = new Hono();
@@ -59,11 +66,12 @@ export function createCalendarRoutes(sql: Sql) {
   // 1b. POST /calendar/holidays - Add a holiday to a location's calendar (LEA-003)
   router.post("/calendar/holidays", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    if (user.role !== "admin" && user.role !== "manager") {
+    // LEA-003: holiday calendars are organization settings (admin/HR).
+    if (!canConfigureOrg(user)) {
       const problem = createProblemDetails({
         status: 403,
         title: "Forbidden",
-        detail: "Only administrators and managers can configure holidays",
+        detail: "Only administrators and HR can configure holidays",
         code: "FORBIDDEN",
       });
       return c.json(problem, 403, {
@@ -107,11 +115,12 @@ export function createCalendarRoutes(sql: Sql) {
   // 1c. DELETE /calendar/holidays/:id - Remove a holiday (LEA-003)
   router.delete("/calendar/holidays/:id", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    if (user.role !== "admin" && user.role !== "manager") {
+    // LEA-003: holiday calendars are organization settings (admin/HR).
+    if (!canConfigureOrg(user)) {
       const problem = createProblemDetails({
         status: 403,
         title: "Forbidden",
-        detail: "Only administrators and managers can delete holidays",
+        detail: "Only administrators and HR can delete holidays",
         code: "FORBIDDEN",
       });
       return c.json(problem, 403, {
@@ -149,11 +158,12 @@ export function createCalendarRoutes(sql: Sql) {
   // 1d. POST /calendar/seed-statutory - Populate official 3-tier Spanish holidays (LEA-003)
   router.post("/calendar/seed-statutory", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    if (user.role !== "admin" && user.role !== "manager") {
+    // LEA-003: holiday calendars are organization settings (admin/HR).
+    if (!canConfigureOrg(user)) {
       const problem = createProblemDetails({
         status: 403,
         title: "Forbidden",
-        detail: "Only administrators and managers can seed statutory holidays",
+        detail: "Only administrators and HR can seed statutory holidays",
         code: "FORBIDDEN",
       });
       return c.json(problem, 403, {
