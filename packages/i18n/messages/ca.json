@@ -711,7 +711,9 @@
     "swapDates": "Torn de la persona sol·licitant: <b>{requesterDate}</b> · Torn del company/a: <b>{targetDate}</b>",
     "kioskIdentifierPlaceholder": "Correu electrònic o ID de targeta",
     "kioskClear": "Esborrar",
-    "kioskBackspace": "Esborrar l'últim dígit"
+    "kioskBackspace": "Esborrar l'últim dígit",
+    "exportErrorTooLarge": "Aquesta exportació és massa gran. Tria un període més curt o exporta els empleats d'un en un.",
+    "exportErrorRateLimited": "Massa exportacions en poc temps. Espera un minut i torna-ho a provar."
   },
   "documents": {
     "signInRequired": "Inicia la sessió per veure els documents.",
