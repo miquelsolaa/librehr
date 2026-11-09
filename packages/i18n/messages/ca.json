@@ -970,5 +970,14 @@
   "app": {
     "description": "Programari de RRHH de codi obert i autoallotjable per a pimes europees",
     "ogImageAlt": "LibreHR — programari de RRHH de codi obert per a pimes europees"
+  },
+  "ui": {
+    "typeToConfirm": "Escriu {word} per confirmar:",
+    "dismiss": "Descartar",
+    "breadcrumb": "Ruta de navegació",
+    "copyToClipboard": "Copiar al porta-retalls",
+    "copiedToClipboard": "Copiat al porta-retalls",
+    "revealSecret": "Mostrar el valor secret",
+    "hideSecret": "Amagar el valor secret"
   }
 }

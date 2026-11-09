@@ -970,5 +970,14 @@
   "app": {
     "description": "Software de RRHH de código abierto y autoalojable para pymes europeas",
     "ogImageAlt": "LibreHR — software de RRHH de código abierto para pymes europeas"
+  },
+  "ui": {
+    "typeToConfirm": "Escribe {word} para confirmar:",
+    "dismiss": "Descartar",
+    "breadcrumb": "Ruta de navegación",
+    "copyToClipboard": "Copiar al portapapeles",
+    "copiedToClipboard": "Copiado al portapapeles",
+    "revealSecret": "Mostrar el valor secreto",
+    "hideSecret": "Ocultar el valor secreto"
   }
 }

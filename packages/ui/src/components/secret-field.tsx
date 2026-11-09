@@ -2,6 +2,7 @@ import * as React from "react";
 import { Eye, EyeOff, Copy, Check } from "lucide-react";
 import { cn } from "../lib/cn.js";
 import { Button } from "./button.js";
+import { useUiStrings } from "./ui-strings.js";
 
 export interface SecretFieldProps {
   value: string;
@@ -16,6 +17,7 @@ export const SecretField: React.FC<SecretFieldProps> = ({
   onReveal,
   className,
 }) => {
+  const strings = useUiStrings();
   const [revealed, setRevealed] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
 
@@ -52,7 +54,7 @@ export const SecretField: React.FC<SecretFieldProps> = ({
           variant="ghost"
           size="sm"
           onClick={handleToggleReveal}
-          aria-label={revealed ? "Hide secret value" : "Reveal secret value"}
+          aria-label={revealed ? strings.hideSecret : strings.revealSecret}
           className="h-7 w-7 p-0"
         >
           {revealed ? (
@@ -66,7 +68,7 @@ export const SecretField: React.FC<SecretFieldProps> = ({
           variant="ghost"
           size="sm"
           onClick={handleCopy}
-          aria-label="Copy to clipboard"
+          aria-label={strings.copyToClipboard}
           className="h-7 w-7 p-0"
         >
           {copied ? (
@@ -76,7 +78,7 @@ export const SecretField: React.FC<SecretFieldProps> = ({
           )}
         </Button>
         <span className="sr-only" aria-live="polite">
-          {copied ? "Secret copied to clipboard" : ""}
+          {copied ? strings.copiedToClipboard : ""}
         </span>
       </div>
     </div>

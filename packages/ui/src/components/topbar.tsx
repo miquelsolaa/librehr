@@ -1,5 +1,6 @@
 import * as React from "react";
 import { cn } from "../lib/cn.js";
+import { useUiStrings } from "./ui-strings.js";
 
 export interface TopbarProps {
   breadcrumbs?: React.ReactNode;
@@ -16,6 +17,7 @@ export const Topbar: React.FC<TopbarProps> = ({
   orgSwitcher,
   className,
 }) => {
+  const strings = useUiStrings();
   return (
     <header
       className={cn(
@@ -26,7 +28,7 @@ export const Topbar: React.FC<TopbarProps> = ({
       <div className="flex items-center gap-4">
         {orgSwitcher}
         {breadcrumbs && (
-          <nav aria-label="Breadcrumb" className="text-sm">
+          <nav aria-label={strings.breadcrumb} className="text-sm">
             {breadcrumbs}
           </nav>
         )}
