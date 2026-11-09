@@ -95,6 +95,14 @@ LibreHR is designed to be easily self-hostable on any standard Linux server, VPS
    superuser or has `BYPASSRLS`; the bootstrap superuser is only used by the
    init script. Upgrading an older install: see [upgrading.md](upgrading.md).
 
+   `TRUST_PROXY` (optional, default `0`) is the number of reverse proxies in
+   front of the API that append to `X-Forwarded-For`. The bundled compose file
+   sets it to `1` for Caddy. The API rate-limits sign-in and two-factor
+   attempts by client IP, taking the right-most address it did not get from a
+   trusted proxy; with `0` it ignores the header and uses the socket address.
+   Never set it higher than your real number of proxies, or clients can spoof
+   their IP and escape the limit.
+
    The role passwords are applied by `infra/postgres/init/00-roles.sh` only
    when the Postgres data volume is created for the first time. To change them
    later, use `ALTER ROLE ... PASSWORD` in `psql` and update `.env`.
@@ -115,7 +123,9 @@ LibreHR is designed to be easily self-hostable on any standard Linux server, VPS
 
 ## 2. Production Security Checklist
 
-- [ ] Enforce HTTPS using Caddy or your reverse proxy (`infra/compose/Caddyfile.example`).
+- [ ] Enforce HTTPS using Caddy or your reverse proxy (`infra/compose/Caddyfile.example`). Session cookies are `Secure` when `NODE_ENV=production`, so the web app and API must be served over HTTPS from the same site (the bundled Caddyfile serves both from one origin).
+- [ ] Run a single API instance. Rate limits for sign-in and two-factor are kept in memory per process; several replicas would each keep their own counters and multiply the limit.
+- [ ] Set `TRUST_PROXY` to the exact number of reverse proxies in front of the API (`1` with the bundled Caddy).
 - [ ] Ensure database port 5432 is not exposed to the public internet (bind to internal Docker network only).
 - [ ] Run `pnpm doctor` or verify RLS is forced on all tenant tables.
 - [ ] Setup daily automated backups using `infra/scripts/backup.sh`.

@@ -91,6 +91,14 @@ const RawEnvSchema = z
     SMTP_PASS: optionalString,
     SMTP_FROM: z.string().default("LibreHR <noreply@librehr.local>"),
     LOG_LEVEL: z.string().default("info"),
+    // Number of reverse proxies in front of the API that append to
+    // X-Forwarded-For (1 behind the bundled Caddy). 0 ignores the header and
+    // rate-limits by socket address; never set it higher than the real hop
+    // count, or clients can spoof their IP.
+    TRUST_PROXY: z.preprocess(
+      (v) => (v === "" ? undefined : v),
+      z.coerce.number().int().min(0).max(10).default(0),
+    ),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== "production") return;
@@ -131,6 +139,7 @@ export interface ApiEnv {
   SMTP_PASS?: string | undefined;
   SMTP_FROM: string;
   LOG_LEVEL: string;
+  TRUST_PROXY: number;
 }
 
 /**
@@ -187,5 +196,6 @@ export function loadEnv(envInput?: Record<string, string | undefined>): ApiEnv {
     ...(parsed.SMTP_PASS ? { SMTP_PASS: parsed.SMTP_PASS } : {}),
     SMTP_FROM: parsed.SMTP_FROM,
     LOG_LEVEL: parsed.LOG_LEVEL,
+    TRUST_PROXY: parsed.TRUST_PROXY,
   };
 }

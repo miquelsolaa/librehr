@@ -31,6 +31,22 @@ describe("loadEnv (DOC-004, AUTH-001)", () => {
     expect(env.DATABASE_URL).toContain("librehr");
   });
 
+  it("defaults TRUST_PROXY to 0 and validates it as a small hop count", () => {
+    expect(loadEnv({ NODE_ENV: "development" }).TRUST_PROXY).toBe(0);
+    expect(
+      loadEnv({ NODE_ENV: "development", TRUST_PROXY: "" }).TRUST_PROXY,
+    ).toBe(0);
+    expect(
+      loadEnv({ NODE_ENV: "development", TRUST_PROXY: "1" }).TRUST_PROXY,
+    ).toBe(1);
+    expect(errorMessage(() => loadEnv({ TRUST_PROXY: "-1" }))).toContain(
+      "TRUST_PROXY",
+    );
+    expect(errorMessage(() => loadEnv({ TRUST_PROXY: "many" }))).toContain(
+      "TRUST_PROXY",
+    );
+  });
+
   it("accepts strong, explicit values in production", () => {
     const env = loadEnv(strongProdEnv);
     expect(env.NODE_ENV).toBe("production");
