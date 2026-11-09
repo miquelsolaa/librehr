@@ -153,3 +153,12 @@ END $$;
 -- 6. The lookup above filters employees by (organization_id, user_id).
 CREATE INDEX IF NOT EXISTS "employees_org_user_idx"
   ON "employees" ("organization_id", "user_id");
+
+-- Bind the new lookup policy to the role that owns the SECURITY DEFINER
+-- functions (same reasoning as 0020_identity_lookup_policy_owner.sql).
+DO $$
+BEGIN
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'librehr_owner') THEN
+    ALTER POLICY "employees_identity_lookup" ON "employees" TO librehr_owner;
+  END IF;
+END $$;
