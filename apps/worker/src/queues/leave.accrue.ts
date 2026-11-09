@@ -1,38 +1,57 @@
-import { defaultIdempotency } from "../lib/idempotency.js";
+import { z } from "zod";
+import type { Logger } from "pino";
 import { calculatePeriodicAccrual } from "@librehr/core";
+import { MissingPolicyError, NotImplementedError } from "../lib/job-errors.js";
+import { isoDate, parsePayload } from "../lib/payload.js";
 
-export interface LeaveAccruePayload {
-  organizationId: string;
-  runDate: string; // YYYY-MM-DD
-  accrualMethod?: "upfront" | "monthly" | "daily";
-  annualAllowanceDays?: number;
-  fteRatio?: number;
-}
+export const LeaveAccruePayloadSchema = z.object({
+  organizationId: z.string().min(1),
+  runDate: z.string().regex(isoDate),
+  // Policy values come from the organization's leave policy; they are never defaulted here.
+  accrualMethod: z.enum(["upfront", "monthly", "daily"]).optional(),
+  annualAllowanceDays: z.number().nonnegative().optional(),
+  fteRatio: z.number().positive().max(1).optional(),
+});
+
+export type LeaveAccruePayload = z.input<typeof LeaveAccruePayloadSchema>;
+
+export const leaveAccrueSingletonKey = (
+  p: z.output<typeof LeaveAccruePayloadSchema>,
+) => `${p.organizationId}:${p.runDate}`;
 
 /**
- * Handles periodic leave accrual per employee policy (LEA-002).
- * Strictly idempotent via pg-boss job key.
+ * Periodic leave accrual (LEA-002).
+ *
+ * Fails loudly by design: the append-only `leave_ledger` write is deferred to a separate PR, so
+ * reporting success here would silently drop accruals. The pure computation in @librehr/core is
+ * still exercised so the inputs are validated end to end, and the job is dead-lettered with an
+ * explicit "not implemented" error that operators can see and re-drive once the ledger lands.
  */
-export async function handleLeaveAccrue(job: { data: LeaveAccruePayload }) {
-  const method = job.data.accrualMethod ?? "monthly";
-  const idempotencyKey = `leave-accrue:${job.data.organizationId}:${job.data.runDate}:${method}`;
-  const proceed = await defaultIdempotency.checkAndMark(idempotencyKey);
-  if (!proceed) return { skipped: true, stub: "LEA-002" };
+export async function handleLeaveAccrue(
+  job: { id: string; data: unknown },
+  logger: Pick<Logger, "warn">,
+): Promise<never> {
+  const data = parsePayload("leave.accrue", LeaveAccruePayloadSchema, job.data);
+  if (!data.accrualMethod) throw new MissingPolicyError("accrualMethod");
+  if (data.annualAllowanceDays === undefined) {
+    throw new MissingPolicyError("annualAllowanceDays");
+  }
 
-  const month = parseInt(job.data.runDate.slice(5, 7), 10) || 1;
   const accruedAmount = calculatePeriodicAccrual({
-    annualAllowance: job.data.annualAllowanceDays ?? 22.0,
-    accrualMethod: method,
-    month,
-    fteRatio: job.data.fteRatio ?? 1.0,
+    annualAllowance: data.annualAllowanceDays,
+    accrualMethod: data.accrualMethod,
+    month: Number(data.runDate.slice(5, 7)),
+    ...(data.fteRatio !== undefined ? { fteRatio: data.fteRatio } : {}),
   });
 
-  return {
-    organizationId: job.data.organizationId,
-    runDate: job.data.runDate,
-    accrualMethod: method,
+  logger.warn({
+    msg: "leave accrual computed but not persisted: ledger write deferred",
+    requirement: "LEA-002",
+    jobId: job.id,
+    organizationId: data.organizationId,
+    runDate: data.runDate,
+    accrualMethod: data.accrualMethod,
     accruedAmount,
-    status: "completed",
-    stub: "LEA-002",
-  };
+  });
+  throw new NotImplementedError("ledger write deferred (LEA-002)");
 }
