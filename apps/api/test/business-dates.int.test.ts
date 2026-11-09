@@ -140,7 +140,9 @@ describe("business dates in the organization and location time zone", () => {
         ["2026-03-30T07:00:00Z", "2026-03-30T15:00:00Z"],
       ];
       for (const [i, [start, end]] of shifts.entries()) {
-        await tx`INSERT INTO time_events (employee_id, event_type, occurred_at, recorded_at, source, actor_id, hash) VALUES (${a.report.employeeId}, 'clock_in', ${start!}, ${start!}, 'web', ${a.report.id}, ${`dst-in-${i}`}), (${a.report.employeeId}, 'clock_out', ${end!}, ${end!}, 'web', ${a.report.id}, ${`dst-out-${i}`})`;
+        // time_events accepts only chained v2 rows (0025); the timesheet
+        // does not verify hashes, so placeholder hashes with a seq suffice.
+        await tx`INSERT INTO time_events (employee_id, event_type, occurred_at, recorded_at, source, actor_id, hash, seq) VALUES (${a.report.employeeId}, 'clock_in', ${start!}, ${start!}, 'web', ${a.report.id}, ${`dst-in-${i}`}, ${2 * i + 1}), (${a.report.employeeId}, 'clock_out', ${end!}, ${end!}, 'web', ${a.report.id}, ${`dst-out-${i}`}, ${2 * i + 2})`;
       }
     });
 
