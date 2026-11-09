@@ -11,7 +11,7 @@ import type { Page, Request, Route } from "@playwright/test";
 
 const ALLOWED_METHODS = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
 const EXPOSED_HEADERS =
-  "Content-Length, X-Request-ID, X-Export-Id, X-Content-SHA256";
+  "Content-Length, X-Request-ID, X-Export-Id, X-Content-SHA256, Content-Disposition";
 
 type FulfillOptions = NonNullable<Parameters<Route["fulfill"]>[0]>;
 

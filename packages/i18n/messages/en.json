@@ -711,7 +711,9 @@
     "swapDates": "Requester shift: <b>{requesterDate}</b> · Colleague shift: <b>{targetDate}</b>",
     "kioskIdentifierPlaceholder": "Email or badge ID",
     "kioskClear": "Clear",
-    "kioskBackspace": "Delete last digit"
+    "kioskBackspace": "Delete last digit",
+    "exportErrorTooLarge": "This export is too large. Choose a shorter period or export one employee at a time.",
+    "exportErrorRateLimited": "Too many exports in a short time. Wait a minute and try again."
   },
   "documents": {
     "signInRequired": "Sign in to view documents.",

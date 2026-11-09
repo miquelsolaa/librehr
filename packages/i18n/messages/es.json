@@ -711,7 +711,9 @@
     "swapDates": "Turno de la persona solicitante: <b>{requesterDate}</b> · Turno del compañero/a: <b>{targetDate}</b>",
     "kioskIdentifierPlaceholder": "Correo electrónico o ID de tarjeta",
     "kioskClear": "Borrar",
-    "kioskBackspace": "Borrar el último dígito"
+    "kioskBackspace": "Borrar el último dígito",
+    "exportErrorTooLarge": "Esta exportación es demasiado grande. Elige un periodo más corto o exporta a los empleados de uno en uno.",
+    "exportErrorRateLimited": "Demasiadas exportaciones en poco tiempo. Espera un minuto y vuelve a intentarlo."
   },
   "documents": {
     "signInRequired": "Inicia sesión para ver los documentos.",

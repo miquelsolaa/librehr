@@ -13,6 +13,8 @@ export type ExportErrorKey =
   | "exportErrorForbidden"
   | "exportErrorNotFound"
   | "exportErrorNoOwnRecord"
+  | "exportErrorTooLarge"
+  | "exportErrorRateLimited"
   | "scheduleNotConfigured"
   | "exportUnavailable";
 
@@ -78,6 +80,7 @@ export function exportErrorKey(
   const problem = err as { status?: unknown; code?: unknown };
   if (problem.code === "SCHEDULE_NOT_CONFIGURED")
     return "scheduleNotConfigured";
+  if (problem.code === "EXPORT_TOO_LARGE") return "exportErrorTooLarge";
   switch (problem.status) {
     case 400:
       return "exportErrorInvalidPeriod";
@@ -89,6 +92,10 @@ export function exportErrorKey(
         : "exportErrorNoOwnRecord";
     case 409:
       return "scheduleNotConfigured";
+    case 422:
+      return "exportErrorTooLarge";
+    case 429:
+      return "exportErrorRateLimited";
     default:
       return "exportUnavailable";
   }
