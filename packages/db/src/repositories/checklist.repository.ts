@@ -73,6 +73,17 @@ export class ChecklistRepository {
     `;
   }
 
+  /** Whether a template exists in the current organization. */
+  async templateExists(tx: TenantTx, templateId: string): Promise<boolean> {
+    const rows = await tx`
+      SELECT 1 FROM checklist_templates
+      WHERE id = ${templateId}
+        AND organization_id = ${tx.__tenantContext.organizationId}
+      LIMIT 1
+    `;
+    return rows.length > 0;
+  }
+
   async getTemplateTasks(
     tx: TenantTx,
     templateId: string,
