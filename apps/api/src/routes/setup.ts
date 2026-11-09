@@ -1,19 +1,50 @@
+import crypto from "node:crypto";
 import { Hono } from "hono";
 import type { Sql } from "postgres";
 import {
   createProblemDetails,
   SetupWizardRequestSchema,
 } from "@librehr/contracts";
-import { withTenant, EmployeeRepository, AuditRepository } from "@librehr/db";
-import { UnauthorizedError } from "../errors/index.js";
+import {
+  withTenant,
+  EmployeeRepository,
+  AuditRepository,
+  type TenantTx,
+} from "@librehr/db";
+import { ConflictError, UnauthorizedError } from "../errors/index.js";
 import { hashPassword, verifyPassword } from "../lib/password.js";
+import { createRateLimiter } from "../middleware/rate-limit.js";
+
+/**
+ * ORG-001 is a first-run wizard: once any organization exists the endpoint is
+ * closed, so an unauthenticated caller cannot create organizations on a
+ * running instance. ORG-006 instance super-admin org management does not
+ * exist yet; when it does, it needs its own authenticated route.
+ */
+async function instanceIsSetUp(db: Sql | TenantTx): Promise<boolean> {
+  const rows = await db.unsafe<{ exists: boolean }[]>(
+    `SELECT EXISTS (SELECT 1 FROM organizations) AS "exists"`,
+  );
+  return rows[0]?.exists === true;
+}
+
+function setupCompleted(): ConflictError {
+  return new ConflictError({
+    code: "SETUP_ALREADY_COMPLETED",
+    detail: "This instance has already been set up",
+  });
+}
 
 export function createSetupRoutes(sql: Sql) {
   const router = new Hono();
   const employeeRepo = new EmployeeRepository();
   const auditRepo = new AuditRepository();
+  const setupRateLimiter = createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+  });
 
-  router.post("/org/setup-wizard", async (c) => {
+  router.post("/org/setup-wizard", setupRateLimiter, async (c) => {
     const body = await c.req.json();
     const parse = SetupWizardRequestSchema.safeParse(body);
     if (!parse.success) {
@@ -29,6 +60,9 @@ export function createSetupRoutes(sql: Sql) {
     }
 
     const data = parse.data;
+
+    // Fast path; the authoritative check runs again under a lock below.
+    if (await instanceIsSetUp(sql)) throw setupCompleted();
 
     const existingUsers = await sql<{ password_hash: string | null }[]>`
       SELECT password_hash FROM users WHERE email = ${data.adminEmail} LIMIT 1
@@ -53,32 +87,24 @@ export function createSetupRoutes(sql: Sql) {
     }
     const passwordHash = await hashPassword(data.adminPassword);
 
-    // Check if slug already exists
-    const existingOrg = await sql<{ id: string }[]>`
-      SELECT id FROM organizations WHERE slug = ${data.orgSlug} LIMIT 1
-    `;
-    if (existingOrg.length > 0) {
-      const problem = createProblemDetails({
-        status: 409,
-        title: "Conflict",
-        detail: "An organization with this slug already exists",
-        code: "SLUG_ALREADY_EXISTS",
-      });
-      return c.json(problem, 409, {
-        "Content-Type": "application/problem+json",
-      });
-    }
+    // The organization id is chosen up front so that the organization row and
+    // everything seeded for it are written in one tenant transaction: if any
+    // step fails, nothing is left behind.
+    const orgId = crypto.randomUUID();
 
-    // 1. Create Organization (unrestricted)
-    const orgRows = await sql<{ id: string }[]>`
-      INSERT INTO organizations (name, slug, default_locale, timezone)
-      VALUES (${data.orgName}, ${data.orgSlug}, ${data.defaultLocale}, ${data.timezone})
-      RETURNING id
-    `;
-    const orgId = orgRows[0]!.id;
-
-    // 2. Perform tenant-scoped initialization
     await withTenant(sql, { organizationId: orgId }, async (tx) => {
+      // Serialises concurrent first-run attempts; the check below then sees
+      // any organization committed by the winner.
+      await tx`SELECT pg_advisory_xact_lock(hashtext('librehr.setup_wizard'))`;
+      if (await instanceIsSetUp(tx)) throw setupCompleted();
+
+      // 1. Organization (a global table without RLS)
+      await tx`
+        INSERT INTO organizations (id, name, slug, default_locale, timezone)
+        VALUES (${orgId}, ${data.orgName}, ${data.orgSlug}, ${data.defaultLocale}, ${data.timezone})
+      `;
+
+      // 2. Tenant-scoped initialization
       // 2a. Legal Entity
       const entityRows = await tx<{ id: string }[]>`
         INSERT INTO legal_entities (organization_id, name, tax_id, country)
