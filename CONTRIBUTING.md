@@ -16,7 +16,7 @@ pnpm install
 cp infra/env/.env.example .env
 pnpm infra:up      # Postgres, Mailpit, MinIO
 pnpm db:migrate && pnpm db:seed
-pnpm dev           # web http://localhost:3000, api http://localhost:4000, mail http://localhost:8025
+pnpm dev           # web http://localhost:3000, api http://localhost:3001, mail http://localhost:8025
 ```
 
 Seed users (dev only): `admin@example.test`, `manager@example.test`, `employee@example.test` (password in `infra/env/.env.example`).
