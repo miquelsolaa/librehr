@@ -98,10 +98,6 @@ LibreHR is designed to be easily self-hostable on any standard Linux server, VPS
    docker compose --env-file .env -f infra/compose/docker-compose.yml up -d
    ```
 
-   Upgrading from a release that used `postgres:16-alpine`: the compose files
-   now use PostgreSQL 17. An existing 16 data volume does not start on 17;
-   dump and restore it (see `backup-restore.md`) before switching images.
-
 4. **Verify installation:**
    Visit `http://localhost:3000` or check system health:
    ```bash
