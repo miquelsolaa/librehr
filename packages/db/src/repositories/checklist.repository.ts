@@ -249,6 +249,34 @@ export class ChecklistRepository {
     `;
   }
 
+  /** A task with the employee its checklist is about, for owner checks. */
+  async findTaskOwnership(
+    tx: TenantTx,
+    taskId: string,
+  ): Promise<{
+    assignedRole: string;
+    assigneeEmployeeId: string | null;
+    subjectEmployeeId: string;
+  } | null> {
+    const rows = await tx<
+      {
+        assignedRole: string;
+        assigneeEmployeeId: string | null;
+        subjectEmployeeId: string;
+      }[]
+    >`
+      SELECT t.assigned_role as "assignedRole",
+             t.assignee_employee_id as "assigneeEmployeeId",
+             i.employee_id as "subjectEmployeeId"
+      FROM checklist_tasks t
+      JOIN checklist_instances i ON i.id = t.instance_id
+      WHERE t.id = ${taskId}
+        AND t.organization_id = ${tx.__tenantContext.organizationId}
+      LIMIT 1
+    `;
+    return rows[0] ?? null;
+  }
+
   async toggleTask(
     tx: TenantTx,
     taskId: string,

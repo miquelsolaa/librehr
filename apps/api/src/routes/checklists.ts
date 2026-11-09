@@ -14,9 +14,11 @@ import {
   EmployeeRepository,
   AuditRepository,
 } from "@librehr/db";
-import { NotFoundError } from "../errors/index.js";
+import { ForbiddenError, NotFoundError } from "../errors/index.js";
 import { IdParamSchema, parseJsonBody, parseParams } from "../lib/validate.js";
 import { requireAuth } from "../middleware/auth.js";
+import { canToggleChecklistTask } from "../policies/checklists.js";
+import { resolvePolicyContext } from "../policies/context.js";
 
 export function createChecklistRoutes(sql: Sql) {
   const router = new Hono();
@@ -246,6 +248,19 @@ export function createChecklistRoutes(sql: Sql) {
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
+        const ownership = await checklistRepo.findTaskOwnership(tx, taskId);
+        if (!ownership) return null;
+        const subject = await empRepo.findById(tx, ownership.subjectEmployeeId);
+        const allowed = canToggleChecklistTask(
+          await resolvePolicyContext(c, tx),
+          { ...ownership, subjectManagerId: subject?.managerId ?? null },
+        );
+        if (!allowed) {
+          throw new ForbiddenError({
+            detail: "Only the task owner or HR can update this task",
+          });
+        }
+
         const task = await checklistRepo.toggleTask(
           tx,
           taskId,
