@@ -1,3 +1,7 @@
+---
+description: Scan the branch diff for copied third-party material and print the clean-room attestation checklist
+---
+
 # /clean-room-check
 
 Scan git diff for signs of third-party copyright, commercial competitor references, or unlicensed assets.

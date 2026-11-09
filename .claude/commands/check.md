@@ -1,3 +1,7 @@
+---
+description: Run pnpm verify and summarize failures with suggested fixes
+---
+
 # /check
 
 Run all CI verification checks and summarize status and fixes.
