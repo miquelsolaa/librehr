@@ -1,3 +1,5 @@
+import { addDays, isBeforeDate } from "../calendar/business-date.js";
+
 export interface ChecklistTaskDefinition {
   title: string;
   description?: string | undefined;
@@ -16,28 +18,29 @@ export interface ComputedChecklistTask {
 /**
  * Calculates concrete task due dates for an onboarding/offboarding checklist
  * relative to the target employee's start or termination date (ONB-001, ONB-002).
+ * `currentDateStr` is "today" in the organization's time zone (see
+ * `todayInZone`); it is required so the core never falls back to the UTC date.
+ *
+ * @example
+ * computeChecklistTaskDueDates(
+ *   [{ title: "Sign", assignedRole: "employee", dueOffsetDays: -1 }],
+ *   "2027-01-01",
+ *   "2027-01-01",
+ * ); // => [{ title: "Sign", dueDate: "2026-12-31", isOverdue: true, ... }]
  */
 export function computeChecklistTaskDueDates(
   tasks: ChecklistTaskDefinition[],
   baseDateStr: string, // YYYY-MM-DD
-  currentDateStr: string = new Date().toISOString().slice(0, 10),
+  currentDateStr: string, // YYYY-MM-DD
 ): ComputedChecklistTask[] {
-  const baseDate = new Date(`${baseDateStr}T00:00:00Z`);
-  const currentDate = new Date(`${currentDateStr}T00:00:00Z`);
-
   return tasks.map((task) => {
-    const taskDate = new Date(baseDate.getTime());
-    taskDate.setUTCDate(taskDate.getUTCDate() + task.dueOffsetDays);
-    const dueDate = taskDate.toISOString().slice(0, 10);
-
-    const isOverdue = taskDate.getTime() < currentDate.getTime();
-
+    const dueDate = addDays(baseDateStr, task.dueOffsetDays);
     return {
       title: task.title,
       description: task.description,
       assignedRole: task.assignedRole,
       dueDate,
-      isOverdue,
+      isOverdue: isBeforeDate(dueDate, currentDateStr),
     };
   });
 }
