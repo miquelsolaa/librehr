@@ -1,4 +1,5 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+import { NotImplementedError } from "../src/lib/job-errors.js";
 import {
   handleEmailSend,
   type EmailJobPayload,
@@ -65,19 +66,39 @@ describe("Worker Queue Handlers", () => {
     );
   });
 
-  it("executes stub handlers with expected TODO requirement metadata", async () => {
-    const closeRes = await handleTimeCloseDay({
-      id: "j-close",
-      data: { organizationId: "org-1", closeDate: "2026-11-01" },
-    });
-    expect(closeRes.stub).toBe("TIM-003");
+  it("fails time.close-day loudly and logs TIM-003", async () => {
+    const warn = vi.fn();
+    const err = await handleTimeCloseDay(
+      {
+        id: "j-close",
+        data: { organizationId: "org-1", closeDate: "2026-11-01" },
+      },
+      { warn },
+    ).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(NotImplementedError);
+    expect(String(err)).toContain("TIM-003");
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ requirement: "TIM-003", jobId: "j-close" }),
+    );
+  });
 
-    const retentionRes = await handleRetentionEnforce({
-      id: "j-retention",
-      data: { organizationId: "org-1", runDate: "2026-11-01" },
-    });
-    expect(retentionRes.stub).toBe("ADM-005");
+  it("fails retention.enforce loudly and logs ADM-005", async () => {
+    const warn = vi.fn();
+    const err = await handleRetentionEnforce(
+      {
+        id: "j-retention",
+        data: { organizationId: "org-1", runDate: "2026-11-01" },
+      },
+      { warn },
+    ).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(NotImplementedError);
+    expect(String(err)).toContain("ADM-005");
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ requirement: "ADM-005", jobId: "j-retention" }),
+    );
+  });
 
+  it("executes the audit stub handler", async () => {
     const auditRes = await handleAuditVerifyChain({
       data: { organizationId: "org-1", runDate: "2026-11-01" },
     });

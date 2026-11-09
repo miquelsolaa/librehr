@@ -67,8 +67,10 @@ async function startWorker() {
 
   await register("email.send", (job) => handleEmailSend(job, mailer));
   await register("leave.accrue", (job) => handleLeaveAccrue(job, logger));
-  await register("time.close-day", handleTimeCloseDay);
-  await register("retention.enforce", handleRetentionEnforce);
+  await register("time.close-day", (job) => handleTimeCloseDay(job, logger));
+  await register("retention.enforce", (job) =>
+    handleRetentionEnforce(job, logger),
+  );
   await register("audit.verify-chain", async (job) =>
     handleAuditVerifyChain({
       data: parsePayload(
