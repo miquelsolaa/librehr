@@ -59,6 +59,49 @@ const optionalString = z.preprocess(
   (v) => (v === "" ? undefined : v),
   z.string().optional(),
 );
+// Explicit opt-in flags: only "true"/"1" enable them; unset means off.
+const booleanFlag = z.preprocess(
+  (v) => (typeof v === "string" ? v.trim().toLowerCase() : v),
+  z
+    .enum(["true", "false", "1", "0", ""])
+    .optional()
+    .transform((v) => v === "true" || v === "1"),
+);
+// An origin is scheme://host[:port]. A path never matches the browser's
+// Origin header, so it is rejected as a misconfiguration.
+function asOrigin(value: string): string | null {
+  try {
+    const u = new URL(value);
+    const ok =
+      (u.protocol === "https:" || u.protocol === "http:") &&
+      u.origin === value.replace(/\/$/, "");
+    return ok ? u.origin : null;
+  } catch {
+    return null;
+  }
+}
+const origin = z.string().transform((v, ctx) => {
+  const parsed = asOrigin(v);
+  if (!parsed) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "must be an http(s) origin without a path",
+    });
+    return z.NEVER;
+  }
+  return parsed;
+});
+const originList = z.preprocess(
+  (v) =>
+    typeof v === "string"
+      ? v
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : v,
+  z.array(origin).default([]),
+);
+
 const secret = (devDefault: string) =>
   z.preprocess(
     (v) => (v === "" ? undefined : v),
@@ -91,6 +134,14 @@ const RawEnvSchema = z
     SMTP_PASS: optionalString,
     SMTP_FROM: z.string().default("LibreHR <noreply@librehr.local>"),
     LOG_LEVEL: z.string().default("info"),
+    /** Public URL of the web app; always an allowed CORS origin. */
+    APP_URL: z.preprocess((v) => (v === "" ? undefined : v), origin.optional()),
+    /** Further allowed CORS origins, comma-separated. */
+    CORS_ORIGINS: originList,
+    /** AUTH-004 has no callback yet, so SSO is off unless enabled. */
+    SSO_ENABLED: booleanFlag,
+    /** Development only: lets webhooks target http:// and private hosts. */
+    WEBHOOKS_ALLOW_PRIVATE: booleanFlag,
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== "production") return;
@@ -102,6 +153,14 @@ const RawEnvSchema = z
           message: `is missing or uses the public development default; set ${key} (or ${key}_FILE) to a unique value in production (${PROD_HINT})`,
         });
       }
+    }
+    if (env.WEBHOOKS_ALLOW_PRIVATE) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["WEBHOOKS_ALLOW_PRIVATE"],
+        message:
+          "must not be enabled in production: webhooks may only target public https URLs",
+      });
     }
     for (const key of ["DATABASE_URL", "DATABASE_MIGRATION_URL"] as const) {
       if (env[key].includes("dev_password")) {
@@ -131,6 +190,10 @@ export interface ApiEnv {
   SMTP_PASS?: string | undefined;
   SMTP_FROM: string;
   LOG_LEVEL: string;
+  APP_URL?: string | undefined;
+  CORS_ORIGINS: string[];
+  SSO_ENABLED: boolean;
+  WEBHOOKS_ALLOW_PRIVATE: boolean;
 }
 
 /**
@@ -187,5 +250,9 @@ export function loadEnv(envInput?: Record<string, string | undefined>): ApiEnv {
     ...(parsed.SMTP_PASS ? { SMTP_PASS: parsed.SMTP_PASS } : {}),
     SMTP_FROM: parsed.SMTP_FROM,
     LOG_LEVEL: parsed.LOG_LEVEL,
+    ...(parsed.APP_URL ? { APP_URL: parsed.APP_URL } : {}),
+    CORS_ORIGINS: parsed.CORS_ORIGINS,
+    SSO_ENABLED: parsed.SSO_ENABLED,
+    WEBHOOKS_ALLOW_PRIVATE: parsed.WEBHOOKS_ALLOW_PRIVATE,
   };
 }

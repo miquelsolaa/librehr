@@ -72,7 +72,11 @@ class FakeAuthPort implements AuthPort {
 describe("Enterprise Auth & Security Hardening API (AUTH-003, AUTH-004, DOC-007)", () => {
   const fakeSql = (async () => []) as unknown as Sql;
   const authPort = new FakeAuthPort();
-  const app = createApp({ sql: fakeSql, authPort });
+  const app = createApp({
+    sql: fakeSql,
+    authPort,
+    config: { ssoEnabled: true },
+  });
 
   it("does not issue a two-factor challenge without a configured signing secret", async () => {
     {

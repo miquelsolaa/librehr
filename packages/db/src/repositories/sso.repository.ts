@@ -1,11 +1,17 @@
 import type { TenantTx } from "../with-tenant.js";
+import { decryptEnvelope, encryptEnvelope } from "../crypto/envelope.js";
+import { jsonStringArray } from "./json-array.js";
 
+/**
+ * An SSO configuration as read for display or discovery. The client secret
+ * is never part of it; use `getClientSecret` where the OIDC exchange needs
+ * it.
+ */
 export interface SsoConfigRow {
   id: string;
   organizationId: string;
   provider: string;
   clientId: string;
-  clientSecret: string;
   issuerUrl: string;
   enabled: boolean;
   enforceSso: boolean;
@@ -14,91 +20,117 @@ export interface SsoConfigRow {
   updatedAt: Date;
 }
 
-function parseDomains(domains: unknown): string[] {
-  if (Array.isArray(domains)) {
-    return domains as string[];
+export interface SaveSsoConfigInput {
+  provider: string;
+  clientId: string;
+  /** Omitted to keep the stored secret (the UI never reads it back). */
+  clientSecret?: string | undefined;
+  issuerUrl: string;
+  enabled: boolean;
+  enforceSso: boolean;
+  allowedDomains: string[];
+}
+
+/** Thrown when a first configuration is saved without a client secret. */
+export class SsoClientSecretRequiredError extends Error {
+  constructor() {
+    super("A client secret is required for a new SSO configuration");
+    this.name = "SsoClientSecretRequiredError";
   }
-  if (typeof domains === "string") {
-    try {
-      const parsed = JSON.parse(domains);
-      if (Array.isArray(parsed)) return parsed as string[];
-    } catch {
-      // ignore
-    }
+}
+
+// client_secret holds an envelope (encryptEnvelope's JSON). Rows written
+// before encryption hold the plaintext; they are re-encrypted on the next
+// save, and `getClientSecret` still reads them meanwhile.
+function isEnvelope(value: string): boolean {
+  if (!value.startsWith("{")) return false;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      "keyId" in parsed &&
+      "encryptedDek" in parsed &&
+      "ciphertext" in parsed
+    );
+  } catch {
+    return false;
   }
-  return [];
+}
+
+const COLUMNS = `
+  id,
+  organization_id as "organizationId",
+  provider,
+  client_id as "clientId",
+  issuer_url as "issuerUrl",
+  enabled,
+  enforce_sso as "enforceSso",
+  allowed_domains as "allowedDomains",
+  created_at as "createdAt",
+  updated_at as "updatedAt"
+`;
+
+function toRow(row: SsoConfigRow): SsoConfigRow {
+  return { ...row, allowedDomains: jsonStringArray(row.allowedDomains) };
 }
 
 export class SsoRepository {
   async getConfig(tx: TenantTx): Promise<SsoConfigRow | null> {
-    const rows = await tx<SsoConfigRow[]>`
-      SELECT
-        id,
-        organization_id as "organizationId",
-        provider,
-        client_id as "clientId",
-        client_secret as "clientSecret",
-        issuer_url as "issuerUrl",
-        enabled,
-        enforce_sso as "enforceSso",
-        allowed_domains as "allowedDomains",
-        created_at as "createdAt",
-        updated_at as "updatedAt"
-      FROM sso_configurations
-      LIMIT 1
-    `;
+    const rows = await tx.unsafe<SsoConfigRow[]>(
+      `SELECT ${COLUMNS} FROM sso_configurations LIMIT 1`,
+    );
     const row = rows[0];
-    if (!row) return null;
-    return {
-      ...row,
-      allowedDomains: parseDomains(row.allowedDomains),
-    };
+    return row ? toRow(row) : null;
+  }
+
+  /** The decrypted client secret, for the OIDC token exchange only. */
+  async getClientSecret(tx: TenantTx): Promise<string | null> {
+    const rows = await tx<{ clientSecret: string }[]>`
+      SELECT client_secret AS "clientSecret" FROM sso_configurations LIMIT 1
+    `;
+    const stored = rows[0]?.clientSecret;
+    if (stored === undefined) return null;
+    return isEnvelope(stored) ? decryptEnvelope(stored) : stored;
   }
 
   async saveConfig(
     tx: TenantTx,
-    data: {
-      provider: string;
-      clientId: string;
-      clientSecret: string;
-      issuerUrl: string;
-      enabled: boolean;
-      enforceSso: boolean;
-      allowedDomains: string[];
-    },
+    data: SaveSsoConfigInput,
   ): Promise<SsoConfigRow> {
-    const existing = await this.getConfig(tx);
-    if (existing) {
+    const existing = await tx<{ id: string; clientSecret: string }[]>`
+      SELECT id, client_secret AS "clientSecret"
+      FROM sso_configurations LIMIT 1
+    `;
+    const current = existing[0];
+
+    let encryptedSecret: string;
+    if (data.clientSecret !== undefined) {
+      encryptedSecret = encryptEnvelope(data.clientSecret);
+    } else if (current) {
+      encryptedSecret = isEnvelope(current.clientSecret)
+        ? current.clientSecret
+        : encryptEnvelope(current.clientSecret);
+    } else {
+      throw new SsoClientSecretRequiredError();
+    }
+
+    if (current) {
       const rows = await tx<SsoConfigRow[]>`
         UPDATE sso_configurations
         SET
           provider = ${data.provider},
           client_id = ${data.clientId},
-          client_secret = ${data.clientSecret},
+          client_secret = ${encryptedSecret},
           issuer_url = ${data.issuerUrl},
           enabled = ${data.enabled},
           enforce_sso = ${data.enforceSso},
           allowed_domains = ${tx.json(data.allowedDomains)},
           updated_at = now()
-        WHERE id = ${existing.id}
-        RETURNING
-          id,
-          organization_id as "organizationId",
-          provider,
-          client_id as "clientId",
-          client_secret as "clientSecret",
-          issuer_url as "issuerUrl",
-          enabled,
-          enforce_sso as "enforceSso",
-          allowed_domains as "allowedDomains",
-          created_at as "createdAt",
-          updated_at as "updatedAt"
+        WHERE id = ${current.id}
+        RETURNING ${tx.unsafe(COLUMNS)}
       `;
-      const row = rows[0]!;
-      return {
-        ...row,
-        allowedDomains: parseDomains(row.allowedDomains),
-      };
+      return toRow(rows[0]!);
     }
 
     const rows = await tx<SsoConfigRow[]>`
@@ -108,29 +140,14 @@ export class SsoRepository {
       ) VALUES (
         ${data.provider},
         ${data.clientId},
-        ${data.clientSecret},
+        ${encryptedSecret},
         ${data.issuerUrl},
         ${data.enabled},
         ${data.enforceSso},
         ${tx.json(data.allowedDomains)}
       )
-      RETURNING
-        id,
-        organization_id as "organizationId",
-        provider,
-        client_id as "clientId",
-        client_secret as "clientSecret",
-        issuer_url as "issuerUrl",
-        enabled,
-        enforce_sso as "enforceSso",
-        allowed_domains as "allowedDomains",
-        created_at as "createdAt",
-        updated_at as "updatedAt"
+      RETURNING ${tx.unsafe(COLUMNS)}
     `;
-    const row = rows[0]!;
-    return {
-      ...row,
-      allowedDomains: parseDomains(row.allowedDomains),
-    };
+    return toRow(rows[0]!);
   }
 }

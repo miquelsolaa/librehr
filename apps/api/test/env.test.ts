@@ -79,6 +79,49 @@ describe("loadEnv (DOC-004, AUTH-001)", () => {
     expect(msg).not.toContain("my_dev_password");
   });
 
+  it("keeps SSO and private webhook targets off by default", () => {
+    const env = loadEnv(strongProdEnv);
+    expect(env.SSO_ENABLED).toBe(false);
+    expect(env.WEBHOOKS_ALLOW_PRIVATE).toBe(false);
+    expect(env.CORS_ORIGINS).toEqual([]);
+    expect(loadEnv({ ...strongProdEnv, SSO_ENABLED: "true" }).SSO_ENABLED).toBe(
+      true,
+    );
+  });
+
+  it("parses APP_URL and comma-separated CORS_ORIGINS as origins", () => {
+    const env = loadEnv({
+      ...strongProdEnv,
+      APP_URL: "https://hr.example.com/",
+      CORS_ORIGINS: " https://a.example.com, https://b.example.com:8443 ,",
+    });
+    expect(env.APP_URL).toBe("https://hr.example.com");
+    expect(env.CORS_ORIGINS).toEqual([
+      "https://a.example.com",
+      "https://b.example.com:8443",
+    ]);
+  });
+
+  it("rejects CORS_ORIGINS entries that are not origins", () => {
+    for (const bad of ["*", "hr.example.com", "https://hr.example.com/app"]) {
+      const msg = errorMessage(() =>
+        loadEnv({ ...strongProdEnv, CORS_ORIGINS: bad }),
+      );
+      expect(msg).toContain("CORS_ORIGINS");
+    }
+  });
+
+  it("refuses WEBHOOKS_ALLOW_PRIVATE in production only", () => {
+    const msg = errorMessage(() =>
+      loadEnv({ ...strongProdEnv, WEBHOOKS_ALLOW_PRIVATE: "true" }),
+    );
+    expect(msg).toContain("WEBHOOKS_ALLOW_PRIVATE");
+    expect(
+      loadEnv({ NODE_ENV: "development", WEBHOOKS_ALLOW_PRIVATE: "true" })
+        .WEBHOOKS_ALLOW_PRIVATE,
+    ).toBe(true);
+  });
+
   it("rejects short secrets in production", () => {
     const msg = errorMessage(() =>
       loadEnv({ ...strongProdEnv, SESSION_SECRET: "short" }),

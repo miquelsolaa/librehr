@@ -6,12 +6,42 @@ import {
   UpdateWebhookRequestSchema,
   createProblemDetails,
 } from "@librehr/contracts";
-import { withTenant, WebhookRepository, AuditRepository } from "@librehr/db";
+import {
+  withTenant,
+  WebhookRepository,
+  AuditRepository,
+  type WebhookListRow,
+} from "@librehr/db";
 import { generateWebhookSecret, signWebhookPayload } from "@librehr/core";
+import { parseWebhookEvents } from "@librehr/contracts";
 import { requireAuth } from "../middleware/auth.js";
 import { can } from "../policies/can.js";
+import {
+  assertPublicHttpsUrl,
+  type OutboundUrlPolicy,
+} from "../lib/outbound-url.js";
 
-export function createWebhookRoutes(sql: Sql) {
+/**
+ * Response shape: the signing secret is included only when it was just
+ * generated (create or rotation), never on reads.
+ */
+function toWebhookResponse(row: WebhookListRow, secret?: string) {
+  return {
+    id: row.id,
+    organizationId: row.organizationId,
+    name: row.name,
+    url: row.url,
+    ...(secret ? { secret } : {}),
+    events: parseWebhookEvents(row.events),
+    enabled: row.enabled,
+    lastDeliveryStatus: row.lastDeliveryStatus,
+    lastDeliveredAt: row.lastDeliveredAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+export function createWebhookRoutes(sql: Sql, urlPolicy: OutboundUrlPolicy) {
   const router = new Hono();
   const webhookRepo = new WebhookRepository();
   const auditRepo = new AuditRepository();
@@ -50,7 +80,7 @@ export function createWebhookRoutes(sql: Sql) {
       },
     );
 
-    return c.json(items);
+    return c.json(items.map((item) => toWebhookResponse(item)));
   });
 
   // 2. POST /webhooks - Create webhook (org.write)
@@ -97,6 +127,7 @@ export function createWebhookRoutes(sql: Sql) {
       );
     }
 
+    await assertPublicHttpsUrl(parsed.data.url, urlPolicy);
     const secret = generateWebhookSecret();
 
     const created = await withTenant(
@@ -125,7 +156,7 @@ export function createWebhookRoutes(sql: Sql) {
       },
     );
 
-    return c.json(created, 201);
+    return c.json(toWebhookResponse(created, created.secret), 201);
   });
 
   // 3. PATCH /webhooks/:id - Update webhook
@@ -171,6 +202,10 @@ export function createWebhookRoutes(sql: Sql) {
         400,
         { "Content-Type": "application/problem+json" },
       );
+    }
+
+    if (parsed.data.url !== undefined) {
+      await assertPublicHttpsUrl(parsed.data.url, urlPolicy);
     }
 
     const updated = await withTenant(
@@ -234,7 +269,12 @@ export function createWebhookRoutes(sql: Sql) {
       );
     }
 
-    return c.json(updated);
+    return c.json(
+      toWebhookResponse(
+        updated,
+        parsed.data.rotateSecret ? updated.secret : undefined,
+      ),
+    );
   });
 
   // 4. DELETE /webhooks/:id - Delete webhook
@@ -349,6 +389,10 @@ export function createWebhookRoutes(sql: Sql) {
       );
     }
 
+    // Checked again at send time: the stored URL may predate this guard, and
+    // its DNS answer may have changed since it was saved.
+    const target = await assertPublicHttpsUrl(webhook.url, urlPolicy);
+
     const timestamp = Math.floor(Date.now() / 1000);
     const testPayload = JSON.stringify({
       event: "test.ping",
@@ -375,7 +419,7 @@ export function createWebhookRoutes(sql: Sql) {
     let success = false;
 
     try {
-      const response = await fetch(webhook.url, {
+      const response = await fetch(target, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -385,21 +429,28 @@ export function createWebhookRoutes(sql: Sql) {
           "X-LibreHR-Event": "test.ping",
         },
         body: testPayload,
+        // A redirect could bounce the request to an internal address that
+        // was never checked, so redirects are reported, not followed.
+        redirect: "manual",
         signal: AbortSignal.timeout(5000),
       });
 
       durationMs = Math.round(performance.now() - startTime);
       statusCode = response.status;
       success = response.ok;
-      if (!response.ok) {
-        errorMessage = `HTTP error ${response.status}: ${response.statusText}`;
+      if (response.status >= 300 && response.status < 400) {
+        errorMessage =
+          "The endpoint answered with a redirect, which is not followed";
+      } else if (!response.ok) {
+        errorMessage = `The endpoint answered with HTTP ${response.status}`;
       }
-    } catch (err) {
+      // Never echo the response body or low-level error text to the client.
+      await response.body?.cancel().catch(() => undefined);
+    } catch {
       durationMs = Math.round(performance.now() - startTime);
       statusCode = 0;
       success = false;
-      errorMessage =
-        err instanceof Error ? err.message : "Network request failed";
+      errorMessage = "The endpoint could not be reached";
     }
 
     // Record delivery status in database

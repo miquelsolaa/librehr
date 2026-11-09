@@ -77,6 +77,18 @@ describe("Outbound Webhooks API (ADM-006)", () => {
   const authPort = new MockAuthPort();
   let createdId = "";
 
+  // No real DNS in tests: a fixed table stands in for the resolver.
+  const dnsTable: Record<string, string[]> = {
+    "hooks.slack.com": ["93.184.216.34"],
+    "hooks.example.com": ["93.184.216.35"],
+    "intranet.example.com": ["192.168.10.20"],
+  };
+  const resolveHost = async (hostname: string) => {
+    const addresses = dnsTable[hostname];
+    if (!addresses) throw new Error("ENOTFOUND");
+    return addresses;
+  };
+
   const call = (
     method: string,
     path: string,
@@ -111,7 +123,11 @@ describe("Outbound Webhooks API (ADM-006)", () => {
       await authPort.createSession(user);
     }
 
-    app = createApp({ sql: db.appSql, authPort });
+    app = createApp({
+      sql: db.appSql,
+      authPort,
+      config: { nodeEnv: "production", resolveHost },
+    });
   }, 60000);
 
   afterEach(() => {
@@ -199,6 +215,121 @@ describe("Outbound Webhooks API (ADM-006)", () => {
       { last_delivery_status: number | null }[]
     >`SELECT last_delivery_status FROM webhooks WHERE id = ${createdId}`;
     expect(row?.last_delivery_status).toBe(200);
+  });
+
+  it("never returns the signing secret when listing", async () => {
+    const res = await call("GET", "/v1/webhooks", admin);
+    const raw = await res.text();
+    expect(raw).not.toContain("whsec_");
+    const list = JSON.parse(raw) as Record<string, unknown>[];
+    expect(list.length).toBeGreaterThan(0);
+    for (const item of list) expect(item).not.toHaveProperty("secret");
+  });
+
+  it("returns the secret on update only when it is rotated", async () => {
+    const plain = await call("PATCH", `/v1/webhooks/${createdId}`, admin, {
+      name: "Renamed",
+    });
+    expect(plain.status).toBe(200);
+    expect((await plain.json()) as WebhookItem).not.toHaveProperty("secret");
+
+    const rotated = await call("PATCH", `/v1/webhooks/${createdId}`, admin, {
+      rotateSecret: true,
+    });
+    expect(rotated.status).toBe(200);
+    expect(((await rotated.json()) as WebhookItem).secret).toMatch(/^whsec_/);
+  });
+
+  it.each([
+    "http://169.254.169.254/latest/meta-data",
+    "https://169.254.169.254/latest/meta-data",
+    "https://localhost/hook",
+    "https://10.0.0.1/hook",
+    "https://[::ffff:10.0.0.1]/hook",
+    "https://intranet.example.com/hook",
+  ])("rejects creating a webhook targeting %s", async (url) => {
+    const res = await call("POST", "/v1/webhooks", admin, {
+      name: "SSRF",
+      url,
+      events: ["employee.created"],
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as ProblemDetails;
+    expect(body.code).toBe("OUTBOUND_URL_NOT_ALLOWED");
+    expect(body.detail).toBe("The URL must be a public https:// address");
+
+    const [count] = await db.adminSql<
+      { n: number }[]
+    >`SELECT count(*)::int AS n FROM webhooks WHERE name = 'SSRF'`;
+    expect(count?.n).toBe(0);
+  });
+
+  it("rejects updating a webhook to a private URL", async () => {
+    const res = await call("PATCH", `/v1/webhooks/${createdId}`, admin, {
+      url: "https://intranet.example.com/hook",
+    });
+    expect(res.status).toBe(400);
+    const [row] = await db.adminSql<
+      { url: string }[]
+    >`SELECT url FROM webhooks WHERE id = ${createdId}`;
+    expect(row?.url).toBe("https://hooks.slack.com/services/test");
+  });
+
+  it("re-checks the URL before sending and never fetches a private target", async () => {
+    // A row stored before the guard existed (or whose DNS changed since).
+    const [legacy] = await db.adminSql<{ id: string }[]>`
+      INSERT INTO webhooks (organization_id, name, url, secret, events)
+      VALUES (${orgId}, 'Legacy', 'http://169.254.169.254/latest', 'whsec_legacy',
+              '["employee.created"]'::jsonb)
+      RETURNING id`;
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const res = await call("POST", `/v1/webhooks/${legacy!.id}/test`, admin);
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as ProblemDetails).code).toBe(
+      "OUTBOUND_URL_NOT_ALLOWED",
+    );
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    await db.adminSql`DELETE FROM webhooks WHERE id = ${legacy!.id}`;
+  });
+
+  it("does not follow redirects and keeps errors generic", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(
+      new Response(null, {
+        status: 302,
+        headers: { Location: "http://169.254.169.254/" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const res = await call("POST", `/v1/webhooks/${createdId}/test`, admin);
+    expect(res.status).toBe(200);
+    const result = (await res.json()) as { success: boolean; error: string };
+    expect(result.success).toBe(false);
+    expect(result.error).not.toContain("169.254");
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(fetchSpy.mock.calls[0]?.[1]).toMatchObject({ redirect: "manual" });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new Error("connect ECONNREFUSED 10.1.2.3:443")),
+    );
+    const failed = await call("POST", `/v1/webhooks/${createdId}/test`, admin);
+    const failure = (await failed.json()) as { error: string };
+    expect(failure.error).toBe("The endpoint could not be reached");
+  });
+
+  it("drops unknown stored events instead of returning them", async () => {
+    await db.adminSql`UPDATE webhooks
+      SET events = '["employee.created", 42, {"x": 1}, "not.an.event"]'::jsonb
+      WHERE id = ${createdId}`;
+    const res = await call("GET", "/v1/webhooks", admin);
+    const list = (await res.json()) as WebhookItem[];
+    expect(list.find((w) => w.id === createdId)?.events).toEqual([
+      "employee.created",
+    ]);
   });
 
   it("DELETE /v1/webhooks/:id removes webhook subscription", async () => {
