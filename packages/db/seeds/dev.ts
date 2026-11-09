@@ -1,10 +1,14 @@
 import crypto from "node:crypto";
 import postgres from "postgres";
 
-async function hashPassword(password: string): Promise<string> {
+/**
+ * scrypt with a fresh random salt, in the `scrypt$<salt>$<key>` format used for
+ * both account passwords and kiosk PINs.
+ */
+async function scryptHash(secret: string): Promise<string> {
   const salt = crypto.randomBytes(16).toString("hex");
   const key = await new Promise<Buffer>((resolve, reject) => {
-    crypto.scrypt(password, salt, 64, (err, derivedKey) => {
+    crypto.scrypt(secret, salt, 64, (err, derivedKey) => {
       if (err) reject(err);
       else resolve(derivedKey as Buffer);
     });
@@ -12,7 +16,26 @@ async function hashPassword(password: string): Promise<string> {
   return `scrypt$${salt}$${key.toString("hex")}`;
 }
 
-export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
+/**
+ * Thrown when the dev seed is pointed at a production environment. The seed
+ * writes well-known credentials, so it must never run there.
+ */
+export class SeedRefusedError extends Error {
+  constructor() {
+    super("Refusing to seed development data: NODE_ENV is production");
+    this.name = "SeedRefusedError";
+  }
+}
+
+export async function seedDevDatabase(
+  connectionUrl?: string,
+  env: Record<string, string | undefined> = process.env,
+): Promise<void> {
+  if (env["NODE_ENV"] === "production") throw new SeedRefusedError();
+  // Kiosk PIN for every dev user (scrypt, per-user salt). Override with
+  // SEED_DEV_KIOSK_PIN; never used outside development.
+  const devKioskPin = env["SEED_DEV_KIOSK_PIN"] || "1234";
+
   const url =
     connectionUrl ||
     process.env["DATABASE_MIGRATION_URL"] ||
@@ -277,15 +300,19 @@ export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
       // Insert users and create employee records map
       const empIdByEmail = new Map<string, string>();
       const userIdByEmail = new Map<string, string>();
-      const devPasswordHash = await hashPassword("Password123!");
+      const devPasswordHash = await scryptHash("Password123!");
 
       // First pass: create users & base employees (without managerId to allow arbitrary order)
       for (const [idx, u] of usersList.entries()) {
-        const userRows = await tx`
+        // Never overwrite an existing account: credentials (and everything
+        // else) of a user that already exists are left untouched.
+        await tx`
           INSERT INTO "users" ("email", "name", "password_hash", "email_verified")
           VALUES (${u.email}, ${u.name}, ${devPasswordHash}, true)
-          ON CONFLICT ("email") DO UPDATE SET "name" = EXCLUDED."name", "password_hash" = EXCLUDED."password_hash"
-          RETURNING "id"
+          ON CONFLICT ("email") DO NOTHING
+        `;
+        const userRows = await tx`
+          SELECT "id" FROM "users" WHERE "email" = ${u.email}
         `;
         const userId = userRows[0]?.["id"] as string;
         userIdByEmail.set(u.email, userId);
@@ -299,7 +326,9 @@ export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
         const nameParts = u.name.split(" ");
         const firstName = nameParts[0] ?? "User";
         const lastName = nameParts.slice(1).join(" ") || "";
-        const badgeId = String(1001 + idx);
+        // Random, non-sequential badge numbers, so badges are not guessable.
+        const badgeId = `DEV-${crypto.randomBytes(4).toString("hex")}-${idx}`;
+        const pinHash = await scryptHash(devKioskPin);
 
         const empRows = await tx`
           INSERT INTO "employees" (
@@ -310,7 +339,7 @@ export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
           VALUES (
             ${orgId}, ${userId}, ${u.deptId}, ${u.locId},
             ${firstName}, ${lastName}, ${u.email}, ${u.phone}, ${u.status},
-            '8ea092a8015b7f4e96d99819caed8bb5ddcd0f636cf2d11aff9a5a3c51cc2ff8', '00112233445566778899aabbccddeeff',
+            ${pinHash}, NULL,
             ${badgeId}
           )
           RETURNING "id"
