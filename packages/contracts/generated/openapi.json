@@ -2583,160 +2583,149 @@
       "OfficialExportResponse": {
         "type": "object",
         "properties": {
-          "metadata": {
+          "exportId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contentHash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "employee",
+              "organization"
+            ]
+          },
+          "locale": {
+            "type": "string",
+            "enum": [
+              "ca",
+              "es",
+              "en"
+            ]
+          },
+          "periodStart": {
+            "type": "string",
+            "format": "date"
+          },
+          "periodEnd": {
+            "type": "string",
+            "format": "date"
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "organizationName": {
+            "type": "string"
+          },
+          "generatedBy": {
             "type": "object",
             "properties": {
-              "organizationId": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "organizationName": {
+              "name": {
                 "type": "string"
               },
-              "employeeId": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "employeeName": {
-                "type": "string"
-              },
-              "periodStart": {
-                "type": "string"
-              },
-              "periodEnd": {
-                "type": "string"
-              },
-              "generatedAt": {
-                "type": "string"
-              },
-              "generatorActorId": {
+              "role": {
                 "type": "string"
               }
             },
             "required": [
-              "organizationId",
-              "organizationName",
-              "employeeId",
-              "employeeName",
-              "periodStart",
-              "periodEnd",
-              "generatedAt",
-              "generatorActorId"
+              "name",
+              "role"
             ]
           },
-          "days": {
+          "metadataLines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "employees": {
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
-                "date": {
+                "employeeId": {
                   "type": "string",
-                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  "format": "uuid"
                 },
-                "dayOfWeek": {
-                  "type": "integer",
-                  "minimum": 1,
-                  "maximum": 7
+                "name": {
+                  "type": "string"
                 },
-                "sessions": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "clockIn": {
-                        "type": "string"
-                      },
-                      "clockOut": {
-                        "type": "string"
-                      },
-                      "isOpen": {
-                        "type": "boolean"
-                      },
-                      "breaks": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "breakStart": {
-                              "type": "string"
-                            },
-                            "breakEnd": {
-                              "type": "string"
-                            },
-                            "durationMinutes": {
-                              "type": "number"
-                            }
-                          },
-                          "required": [
-                            "breakStart",
-                            "durationMinutes"
-                          ]
-                        }
-                      },
-                      "grossDurationMinutes": {
-                        "type": "number"
-                      },
-                      "totalBreakMinutes": {
-                        "type": "number"
-                      },
-                      "netWorkedDurationMinutes": {
-                        "type": "number"
-                      }
-                    },
-                    "required": [
-                      "clockIn",
-                      "isOpen",
-                      "breaks",
-                      "grossDurationMinutes",
-                      "totalBreakMinutes",
-                      "netWorkedDurationMinutes"
-                    ]
-                  }
+                "scheduleConfigured": {
+                  "type": "boolean"
+                },
+                "chainStatus": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "verified",
+                    "tampered",
+                    "legacy_only",
+                    "empty"
+                  ]
                 },
                 "totalWorkedMinutes": {
-                  "type": "number"
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
-                "totalBreakMinutes": {
-                  "type": "number"
-                },
-                "expectedHours": {
-                  "type": "number"
-                },
-                "overtimeMinutes": {
-                  "type": "number"
-                },
-                "hasAnomaly": {
-                  "type": "boolean"
+                "totalOvertimeMinutes": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 }
               },
               "required": [
-                "date",
-                "dayOfWeek",
-                "sessions",
+                "employeeId",
+                "name",
+                "scheduleConfigured",
+                "chainStatus",
                 "totalWorkedMinutes",
-                "totalBreakMinutes",
-                "expectedHours",
-                "overtimeMinutes",
-                "hasAnomaly"
+                "totalOvertimeMinutes"
               ]
             }
-          },
-          "totalWorkedMinutes": {
-            "type": "number"
-          },
-          "totalOvertimeMinutes": {
-            "type": "number"
-          },
-          "documentContentHash": {
-            "type": "string"
           }
         },
         "required": [
-          "metadata",
-          "days",
-          "totalWorkedMinutes",
-          "totalOvertimeMinutes",
-          "documentContentHash"
+          "exportId",
+          "contentHash",
+          "scope",
+          "locale",
+          "periodStart",
+          "periodEnd",
+          "timeZone",
+          "generatedAt",
+          "organizationName",
+          "generatedBy",
+          "metadataLines",
+          "columns",
+          "rows",
+          "employees"
         ]
       },
       "KioskClockRequest": {
@@ -10054,8 +10043,36 @@
     },
     "/v1/time/export": {
       "get": {
-        "summary": "Export a configured employee timesheet",
+        "summary": "Labour Inspectorate working-time record (TIM-006) for one employee or the organization, as JSON, CSV or PDF",
+        "description": "Every format carries the same export id and content hash (SHA-256 of the CSV body, every line before the final `# sha256=` line, without the BOM), also sent as the X-Export-Id and X-Content-SHA256 headers. Each successful export is written to the audit log (ADM-002).",
         "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "csv",
+                "pdf"
+              ],
+              "default": "json"
+            },
+            "required": false,
+            "name": "format",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "employee",
+                "organization"
+              ],
+              "default": "employee"
+            },
+            "required": false,
+            "name": "scope",
+            "in": "query"
+          },
           {
             "schema": {
               "type": "string",
@@ -10068,7 +10085,7 @@
           {
             "schema": {
               "type": "string",
-              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              "format": "date"
             },
             "required": true,
             "name": "startDate",
@@ -10077,182 +10094,420 @@
           {
             "schema": {
               "type": "string",
-              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              "format": "date"
             },
             "required": true,
             "name": "endDate",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ca",
+                "es",
+                "en"
+              ],
+              "default": "es"
+            },
+            "required": false,
+            "name": "locale",
             "in": "query"
           }
         ],
         "responses": {
           "200": {
-            "description": "Inspection export",
+            "description": "Inspection export. Headers: X-Export-Id, X-Content-SHA256, Cache-Control: no-store; csv and pdf are sent as attachments.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "metadata": {
+                    "exportId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "contentHash": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "scope": {
+                      "type": "string",
+                      "enum": [
+                        "employee",
+                        "organization"
+                      ]
+                    },
+                    "locale": {
+                      "type": "string",
+                      "enum": [
+                        "ca",
+                        "es",
+                        "en"
+                      ]
+                    },
+                    "periodStart": {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    "periodEnd": {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    "timeZone": {
+                      "type": "string"
+                    },
+                    "generatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "organizationName": {
+                      "type": "string"
+                    },
+                    "generatedBy": {
                       "type": "object",
                       "properties": {
-                        "organizationId": {
-                          "type": "string",
-                          "format": "uuid"
-                        },
-                        "organizationName": {
+                        "name": {
                           "type": "string"
                         },
-                        "employeeId": {
-                          "type": "string",
-                          "format": "uuid"
-                        },
-                        "employeeName": {
-                          "type": "string"
-                        },
-                        "periodStart": {
-                          "type": "string"
-                        },
-                        "periodEnd": {
-                          "type": "string"
-                        },
-                        "generatedAt": {
-                          "type": "string"
-                        },
-                        "generatorActorId": {
+                        "role": {
                           "type": "string"
                         }
                       },
                       "required": [
-                        "organizationId",
-                        "organizationName",
-                        "employeeId",
-                        "employeeName",
-                        "periodStart",
-                        "periodEnd",
-                        "generatedAt",
-                        "generatorActorId"
+                        "name",
+                        "role"
                       ]
                     },
-                    "days": {
+                    "metadataLines": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "columns": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "employees": {
                       "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
-                          "date": {
+                          "employeeId": {
                             "type": "string",
-                            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                            "format": "uuid"
                           },
-                          "dayOfWeek": {
-                            "type": "integer",
-                            "minimum": 1,
-                            "maximum": 7
+                          "name": {
+                            "type": "string"
                           },
-                          "sessions": {
-                            "type": "array",
-                            "items": {
-                              "type": "object",
-                              "properties": {
-                                "clockIn": {
-                                  "type": "string"
-                                },
-                                "clockOut": {
-                                  "type": "string"
-                                },
-                                "isOpen": {
-                                  "type": "boolean"
-                                },
-                                "breaks": {
-                                  "type": "array",
-                                  "items": {
-                                    "type": "object",
-                                    "properties": {
-                                      "breakStart": {
-                                        "type": "string"
-                                      },
-                                      "breakEnd": {
-                                        "type": "string"
-                                      },
-                                      "durationMinutes": {
-                                        "type": "number"
-                                      }
-                                    },
-                                    "required": [
-                                      "breakStart",
-                                      "durationMinutes"
-                                    ]
-                                  }
-                                },
-                                "grossDurationMinutes": {
-                                  "type": "number"
-                                },
-                                "totalBreakMinutes": {
-                                  "type": "number"
-                                },
-                                "netWorkedDurationMinutes": {
-                                  "type": "number"
-                                }
-                              },
-                              "required": [
-                                "clockIn",
-                                "isOpen",
-                                "breaks",
-                                "grossDurationMinutes",
-                                "totalBreakMinutes",
-                                "netWorkedDurationMinutes"
-                              ]
-                            }
+                          "scheduleConfigured": {
+                            "type": "boolean"
+                          },
+                          "chainStatus": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "enum": [
+                              "verified",
+                              "tampered",
+                              "legacy_only",
+                              "empty"
+                            ]
                           },
                           "totalWorkedMinutes": {
-                            "type": "number"
+                            "type": [
+                              "number",
+                              "null"
+                            ]
                           },
-                          "totalBreakMinutes": {
-                            "type": "number"
-                          },
-                          "expectedHours": {
-                            "type": "number"
-                          },
-                          "overtimeMinutes": {
-                            "type": "number"
-                          },
-                          "hasAnomaly": {
-                            "type": "boolean"
+                          "totalOvertimeMinutes": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
-                          "date",
-                          "dayOfWeek",
-                          "sessions",
+                          "employeeId",
+                          "name",
+                          "scheduleConfigured",
+                          "chainStatus",
                           "totalWorkedMinutes",
-                          "totalBreakMinutes",
-                          "expectedHours",
-                          "overtimeMinutes",
-                          "hasAnomaly"
+                          "totalOvertimeMinutes"
                         ]
                       }
-                    },
-                    "totalWorkedMinutes": {
-                      "type": "number"
-                    },
-                    "totalOvertimeMinutes": {
-                      "type": "number"
-                    },
-                    "documentContentHash": {
-                      "type": "string"
                     }
                   },
                   "required": [
-                    "metadata",
-                    "days",
-                    "totalWorkedMinutes",
-                    "totalOvertimeMinutes",
-                    "documentContentHash"
+                    "exportId",
+                    "contentHash",
+                    "scope",
+                    "locale",
+                    "periodStart",
+                    "periodEnd",
+                    "timeZone",
+                    "generatedAt",
+                    "organizationName",
+                    "generatedBy",
+                    "metadataLines",
+                    "columns",
+                    "rows",
+                    "employees"
+                  ]
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query (dates, period over 366 days, format or locale)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Employee or organization outside the caller's scope",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Employee not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
                   ]
                 }
               }
             }
           },
           "409": {
-            "description": "Schedule rule not configured",
+            "description": "Schedule rule not configured (employee scope)",
             "content": {
               "application/problem+json": {
                 "schema": {

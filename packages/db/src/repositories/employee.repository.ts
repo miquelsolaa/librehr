@@ -96,6 +96,18 @@ export interface UpdateEmployeeData {
   iban?: string | null | undefined;
 }
 
+/** Scope fields and display name of an employee listed for an export. */
+export interface EmployedDuringRow {
+  id: string;
+  organizationId: string;
+  userId: string | null;
+  departmentId: string | null;
+  managerId: string | null;
+  locationId: string | null;
+  firstName: string;
+  lastName: string;
+}
+
 export interface EmployeePolicyIdentity {
   employeeId: string;
   departmentId: string | null;
@@ -255,6 +267,44 @@ export class EmployeeRepository {
 
     const total = parseInt(countResult[0]?.count ?? "0", 10);
     return { items: rows, total };
+  }
+
+  /**
+   * Employees of the current tenant employed at any point in a period of
+   * local dates (TIM-006), ordered by last name, first name. An employee is
+   * included unless they left before the period (termination date) or every
+   * employment record lies outside it; one with no employment record (hire
+   * date unknown) is included rather than silently dropped from an official
+   * record.
+   */
+  async listEmployedDuring(
+    tx: TenantTx,
+    startDate: string,
+    endDate: string,
+  ): Promise<EmployedDuringRow[]> {
+    const orgId = tx.__tenantContext.organizationId;
+    return tx<EmployedDuringRow[]>`
+      SELECT e.id, e.organization_id as "organizationId", e.user_id as "userId",
+             e.department_id as "departmentId", e.manager_id as "managerId",
+             e.location_id as "locationId",
+             e.first_name as "firstName", e.last_name as "lastName"
+      FROM employees e
+      WHERE e.organization_id = ${orgId}
+        AND (e.termination_date IS NULL OR e.termination_date >= ${startDate}::date)
+        AND (
+          NOT EXISTS (
+            SELECT 1 FROM employments emp
+            WHERE emp.employee_id = e.id AND emp.organization_id = ${orgId}
+          )
+          OR EXISTS (
+            SELECT 1 FROM employments emp
+            WHERE emp.employee_id = e.id AND emp.organization_id = ${orgId}
+              AND emp.start_date <= ${endDate}::date
+              AND (emp.end_date IS NULL OR emp.end_date >= ${startDate}::date)
+          )
+        )
+      ORDER BY e.last_name, e.first_name, e.id
+    `;
   }
 
   async create(

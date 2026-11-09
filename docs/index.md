@@ -30,3 +30,4 @@ Welcome to the LibreHR documentation repository.
 - [Local Development Guide](guides/development.md)
 - [Translation Guide](guides/translations.md)
 - [Adding Holiday Calendars](guides/adding-a-holiday-calendar.md)
+- [Working-Time Exports (TIM-006)](guides/time-exports.md)

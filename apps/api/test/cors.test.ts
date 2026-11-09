@@ -48,6 +48,16 @@ describe("CORS middleware", () => {
       );
     });
 
+    it("exposes the TIM-006 export id and content hash headers", async () => {
+      const res = await app.request("/healthz", {
+        method: "GET",
+        headers: { Origin: "http://localhost:3000" },
+      });
+      const exposed = res.headers.get("access-control-expose-headers") ?? "";
+      expect(exposed).toContain("X-Export-Id");
+      expect(exposed).toContain("X-Content-SHA256");
+    });
+
     it("allows local dev servers on any port", async () => {
       for (const origin of ["http://localhost:5173", "http://127.0.0.1:3000"]) {
         const res = await preflight(app, origin);

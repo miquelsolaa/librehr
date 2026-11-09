@@ -31,6 +31,10 @@ import { createLeaveRoutes } from "./routes/leave.js";
 import { createCalendarRoutes } from "./routes/calendar.js";
 import { createNotificationRoutes } from "./routes/notifications.js";
 import { createTimeRoutes } from "./routes/time.js";
+import {
+  createTimeExportRoutes,
+  TIME_EXPORT_EXPOSED_HEADERS,
+} from "./routes/time-export.js";
 import { createTimeCorrectionRoutes } from "./routes/time-corrections.js";
 import { createTimeKioskRoutes } from "./routes/time-kiosk.js";
 import {
@@ -127,9 +131,8 @@ export function resolveAppConfig(
 
 export function createApp(deps: AppDependencies) {
   const app = new Hono();
-  const signTimeEvent = createTimeChainSigner(
-    resolveTimeChainKey(deps.timeChainKey),
-  );
+  const timeChainKey = resolveTimeChainKey(deps.timeChainKey);
+  const signTimeEvent = createTimeChainSigner(timeChainKey);
   const timeTracking = resolveTimeTrackingConfig(deps.timeTracking);
   const config = resolveAppConfig(deps.config, deps.nodeEnv);
 
@@ -151,7 +154,11 @@ export function createApp(deps: AppDependencies) {
         "X-Request-ID",
         "X-Tenant-ID",
       ],
-      exposeHeaders: ["Content-Length", "X-Request-ID"],
+      exposeHeaders: [
+        "Content-Length",
+        "X-Request-ID",
+        ...TIME_EXPORT_EXPOSED_HEADERS,
+      ],
       maxAge: 600,
       credentials: true,
     }),
@@ -235,6 +242,7 @@ export function createApp(deps: AppDependencies) {
     "/v1",
     createTimeRoutes(deps.sql, { sign: signTimeEvent, config: timeTracking }),
   );
+  app.route("/v1", createTimeExportRoutes(deps.sql, { timeChainKey }));
   app.route(
     "/v1",
     createTimeKioskRoutes(deps.sql, {
