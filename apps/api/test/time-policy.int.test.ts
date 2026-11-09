@@ -248,7 +248,7 @@ describe("time schedule requirements", () => {
   it("counts overnight work on local days in timesheets and exports", async () => {
     await db.sql`UPDATE organizations SET timezone = 'Europe/Madrid' WHERE id = ${org}`;
     await withTenant(db.sql, { organizationId: org }, async (tx) => {
-      await tx`INSERT INTO time_events (employee_id, event_type, occurred_at, recorded_at, source, actor_id, hash) VALUES (${employeeId}, 'clock_in', '2026-11-02T22:00:00Z', '2026-11-02T22:00:00Z', 'web', ${user.id}, 'local-day-in'), (${employeeId}, 'clock_out', '2026-11-03T02:00:00Z', '2026-11-03T02:00:00Z', 'web', ${user.id}, 'local-day-out')`;
+      await tx`INSERT INTO time_events (employee_id, event_type, occurred_at, recorded_at, source, actor_id, hash, seq) VALUES (${employeeId}, 'clock_in', '2026-11-02T22:00:00Z', '2026-11-02T22:00:00Z', 'web', ${user.id}, 'local-day-in', 1001), (${employeeId}, 'clock_out', '2026-11-03T02:00:00Z', '2026-11-03T02:00:00Z', 'web', ${user.id}, 'local-day-out', 1002)`;
     });
     for (const path of ["/v1/time/timesheet", "/v1/time/export"]) {
       const response = await app.request(
@@ -266,7 +266,7 @@ describe("time schedule requirements", () => {
       >`SELECT id FROM time_events WHERE hash = 'local-day-out' AND employee_id = ${employeeId}`;
       const original = originals[0];
       if (!original) throw new Error("Missing original event");
-      await tx`INSERT INTO time_events (employee_id, event_type, occurred_at, recorded_at, source, actor_id, ref_event_id, reason, hash) VALUES (${employeeId}, 'clock_out', '2026-11-03T03:00:00Z', '2026-11-04T09:00:00Z', 'manual', ${user.id}, ${original.id}, 'Corrected clock out', 'local-day-correction')`;
+      await tx`INSERT INTO time_events (employee_id, event_type, occurred_at, recorded_at, source, actor_id, ref_event_id, reason, hash, seq) VALUES (${employeeId}, 'clock_out', '2026-11-03T03:00:00Z', '2026-11-04T09:00:00Z', 'manual', ${user.id}, ${original.id}, 'Corrected clock out', 'local-day-correction', 1003)`;
     });
     for (const path of ["/v1/time/timesheet", "/v1/time/export"]) {
       const response = await app.request(

@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Sql } from "postgres";
 import { getTestDatabase, type TestDatabase } from "@librehr/testing";
 import { runMigrations } from "../src/migrate.js";
-import { withTenant } from "../src/with-tenant.js";
+import { withTenant, type TenantTx } from "../src/with-tenant.js";
 import {
   TimeRepository,
   type TimeChainSigner,
@@ -128,19 +128,44 @@ describe("time_events v2 chain (TIM-002)", () => {
         VALUES (${orgId}, ${empId}, 'clock_out', now(), ${empId}, 'forged', 2)
       `,
       ),
-    ).rejects.toThrow(/time_events_v2_seq_check/);
+    ).rejects.toThrow(/only chained v2 rows/);
   });
 
-  it("keeps legacy inserts as v1 and the new columns append-only", async () => {
-    const [legacy] = await withTenant(
-      db.sql,
-      { organizationId: orgId },
-      (tx) => tx<{ id: string; hashVersion: number; seq: string | null }[]>`
-        INSERT INTO time_events (organization_id, employee_id, event_type, occurred_at, actor_id, hash)
-        VALUES (${orgId}, ${empId}, 'clock_in', now(), ${empId}, 'legacy')
+  it("rejects new legacy (v1) rows, by default and explicitly", async () => {
+    for (const sqlRole of [app, db.sql]) {
+      await expect(
+        withTenant(
+          sqlRole,
+          { organizationId: orgId },
+          (tx) => tx`
+          INSERT INTO time_events (organization_id, employee_id, event_type, occurred_at, actor_id, hash)
+          VALUES (${orgId}, ${empId}, 'clock_in', now(), ${empId}, 'unsigned')
+        `,
+        ),
+      ).rejects.toThrow(/only chained v2 rows/);
+      await expect(
+        withTenant(
+          sqlRole,
+          { organizationId: orgId },
+          (tx) => tx`
+          INSERT INTO time_events (organization_id, employee_id, event_type, occurred_at, actor_id, hash, hash_version)
+          VALUES (${orgId}, ${empId}, 'clock_in', now(), ${empId}, 'unsigned', 1)
+        `,
+        ),
+      ).rejects.toThrow(/only chained v2 rows/);
+    }
+  });
+
+  it("keeps existing legacy rows append-only", async () => {
+    // A row written before 0025 (the insert trigger is skipped to create it).
+    const [legacy] = await db.sql.begin(async (tx) => {
+      await tx`SET LOCAL session_replication_role = replica`;
+      return tx<{ id: string; hashVersion: number; seq: string | null }[]>`
+        INSERT INTO time_events (organization_id, employee_id, event_type, occurred_at, actor_id, hash, hash_version)
+        VALUES (${orgId}, ${empId}, 'clock_in', now(), ${empId}, 'legacy', 1)
         RETURNING id, hash_version as "hashVersion", seq
-      `,
-    );
+      `;
+    });
     expect(legacy).toMatchObject({ hashVersion: 1, seq: null });
 
     await expect(
@@ -150,6 +175,36 @@ describe("time_events v2 chain (TIM-002)", () => {
         (tx) => tx`
         UPDATE time_events SET seq = 999, hash_version = 2 WHERE id = ${legacy!.id}
       `,
+      ),
+    ).rejects.toThrow(/permission denied|append-only/i);
+  });
+
+  it("anchors the newest link and lets the runtime role only move it forward", async () => {
+    const latest = await append(empId);
+    const head = await withTenant(app, { organizationId: orgId }, (tx) =>
+      repo.getChainHead(tx, empId),
+    );
+    expect(head).toEqual({ seq: latest.seq, hash: latest.hash });
+
+    const tamper = (statement: (tx: TenantTx) => Promise<unknown>) =>
+      withTenant(app, { organizationId: orgId }, statement);
+    // Back to an older link, to a made-up link, or deleted: all refused.
+    await expect(
+      tamper(
+        (tx) =>
+          tx`UPDATE time_event_chain_heads SET last_seq = 1 WHERE employee_id = ${empId}`,
+      ),
+    ).rejects.toThrow(/only move forward/);
+    await expect(
+      tamper(
+        (tx) =>
+          tx`UPDATE time_event_chain_heads SET last_seq = last_seq + 1, last_hash = 'forged' WHERE employee_id = ${empId}`,
+      ),
+    ).rejects.toThrow(/newest stored link/);
+    await expect(
+      tamper(
+        (tx) =>
+          tx`DELETE FROM time_event_chain_heads WHERE employee_id = ${empId}`,
       ),
     ).rejects.toThrow(/permission denied|append-only/i);
   });

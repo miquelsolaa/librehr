@@ -126,6 +126,39 @@ describe("time-record integrity and kiosk (TIM-002, TIM-003, TIM-010)", () => {
     expect(after.some((r) => r.source === "kiosk")).toBe(false);
   });
 
+  // A lone surrogate is signed as an escape but stored as U+FFFD (and NUL is
+  // refused by Postgres), so such text would make a genuine row fail
+  // verification. It is rejected at the boundary instead.
+  it.each([
+    ["a lone high surrogate", "late \ud800 train"],
+    ["a lone low surrogate", "\udc00"],
+    ["NUL", "bus\u0000"],
+  ])("rejects notes with %s (400) and writes nothing", async (_, notes) => {
+    const before = await chainOf(org.report.employeeId);
+    const res = await clock({ eventType: "clock_in", notes });
+    expect(res.status).toBe(400);
+    expect(await chainOf(org.report.employeeId)).toHaveLength(before.length);
+
+    const correction = await app.request("/v1/time/corrections", {
+      method: "POST",
+      headers: as(org.report, true),
+      body: JSON.stringify({
+        proposedEventType: "clock_in",
+        proposedOccurredAt: new Date(Date.now() - 3_600_000).toISOString(),
+        reason: `forgot ${notes}`,
+      }),
+    });
+    expect(correction.status).toBe(400);
+  });
+
+  it("still accepts paired surrogates (emoji) in notes", async () => {
+    const res = await clock({
+      eventType: "clock_in",
+      notes: "on site \u{1F44D}",
+    });
+    expect(res.status).toBe(201);
+  });
+
   const kioskClock = (
     target: ReturnType<typeof createApp>,
     person: ScopedOrgFixture["admin"],

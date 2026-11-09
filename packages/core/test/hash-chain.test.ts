@@ -3,6 +3,7 @@ import * as fc from "fast-check";
 import {
   canonicalTimeEventPayloadV2,
   chainStatus,
+  checkChainHead,
   computeEventHashV2,
   verifyChainSegment,
   verifyEventChainV2,
@@ -309,5 +310,61 @@ describe("time hash chain v2 (TIM-002)", () => {
       "tampered",
     );
     expect(chainStatus({ verified: 0, tampered: 0, legacy: 0 })).toBe("empty");
+  });
+});
+
+describe("checkChainHead (TIM-002 truncation)", () => {
+  const head = (seq: number, hash: string) => ({ seq, hash });
+  const base = {
+    newest: head(3, "c"),
+    anchor: head(3, "c"),
+    hashAtAnchorSeq: "c",
+    previous: null,
+    hashAtPreviousSeq: null,
+  };
+
+  it("accepts a chain whose anchored link is still stored", () => {
+    expect(checkChainHead(base)).toEqual([]);
+    // Rows appended after the anchor was read are fine.
+    expect(checkChainHead({ ...base, newest: head(4, "d") })).toEqual([]);
+    expect(
+      checkChainHead({
+        ...base,
+        anchor: null,
+        newest: null,
+        hashAtAnchorSeq: null,
+      }),
+    ).toEqual([]);
+  });
+
+  it("flags a truncated tail, a rewritten anchor link and a missing anchor", () => {
+    expect(
+      checkChainHead({ ...base, newest: head(2, "b"), hashAtAnchorSeq: null }),
+    ).toEqual(["head_mismatch"]);
+    expect(checkChainHead({ ...base, hashAtAnchorSeq: "x" })).toEqual([
+      "head_mismatch",
+    ]);
+    expect(
+      checkChainHead({ ...base, anchor: null, hashAtAnchorSeq: null }),
+    ).toEqual(["head_missing"]);
+  });
+
+  it("flags rows and anchor rewound together against the previous run", () => {
+    expect(
+      checkChainHead({
+        newest: head(2, "b"),
+        anchor: head(2, "b"),
+        hashAtAnchorSeq: "b",
+        previous: head(3, "c"),
+        hashAtPreviousSeq: null,
+      }),
+    ).toEqual(["head_regressed"]);
+    expect(
+      checkChainHead({
+        ...base,
+        previous: head(2, "b"),
+        hashAtPreviousSeq: "b",
+      }),
+    ).toEqual([]);
   });
 });

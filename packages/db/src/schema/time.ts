@@ -41,7 +41,8 @@ export const timeEvents = pgTable(
     reason: text("reason"), // Required for corrections
     prevHash: text("prev_hash"), // hash of the previous event in the employee's chain
     hash: text("hash").notNull(), // v1: SHA-256 (legacy); v2: HMAC-SHA256 over the canonical payload
-    hashVersion: smallint("hash_version").notNull().default(1), // 1 = legacy, 2 = keyed chain
+    // 1 = legacy (existing rows only; 0025 rejects new v1 rows), 2 = keyed chain
+    hashVersion: smallint("hash_version").notNull().default(2),
     seq: bigint("seq", { mode: "number" }), // per-employee chain position (v2 only)
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .defaultNow()
@@ -54,6 +55,34 @@ export const timeEvents = pgTable(
     uniqueIndex("time_events_chain_seq_uidx")
       .on(table.organizationId, table.employeeId, table.seq)
       .where(sql`${table.seq} IS NOT NULL`),
+  ],
+);
+
+/**
+ * TIM-002: the newest link of each employee's v2 chain, written by
+ * `TimeRepository.appendEvent` in the same transaction as the event. The
+ * verifier compares it with the stored chain to detect a truncated tail.
+ */
+export const timeEventChainHeads = pgTable(
+  "time_event_chain_heads",
+  {
+    organizationId: organizationIdCol().references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    lastSeq: bigint("last_seq", { mode: "number" }).notNull(),
+    lastHash: text("last_hash").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("time_event_chain_heads_org_employee_uidx").on(
+      table.organizationId,
+      table.employeeId,
+    ),
   ],
 );
 

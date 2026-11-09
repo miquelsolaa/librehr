@@ -90,15 +90,16 @@ describe("audit.verify-chain (TIM-002)", () => {
 
   it("reports v1 rows as legacy, never verified or tampered", async () => {
     const { orgId, employeeId } = await newOrgWithEmployee();
-    await withTenant(
-      db.sql,
-      { organizationId: orgId },
-      (tx) => tx`
-      INSERT INTO time_events (organization_id, employee_id, event_type, occurred_at, actor_id, prev_hash, hash)
-      VALUES (${orgId}, ${employeeId}, 'clock_in', now(), ${employeeId}, NULL, 'v1-hash'),
-             (${orgId}, ${employeeId}, 'clock_out', now(), ${employeeId}, 'v1-hash', 'v1-hash-2')
-    `,
-    );
+    // New v1 rows are refused since 0025; these stand for rows written before
+    // it, so the insert trigger is skipped for this transaction only.
+    await withTenant(db.sql, { organizationId: orgId }, async (tx) => {
+      await tx`SET LOCAL session_replication_role = replica`;
+      await tx`
+      INSERT INTO time_events (organization_id, employee_id, event_type, occurred_at, actor_id, prev_hash, hash, hash_version)
+      VALUES (${orgId}, ${employeeId}, 'clock_in', now(), ${employeeId}, NULL, 'v1-hash', 1),
+             (${orgId}, ${employeeId}, 'clock_out', now(), ${employeeId}, 'v1-hash', 'v1-hash-2', 1)
+    `;
+    });
 
     const onlyLegacy = await run(orgId).result;
     expect(onlyLegacy).toMatchObject({
@@ -168,5 +169,78 @@ describe("audit.verify-chain (TIM-002)", () => {
       "hash_mismatch",
       "unknown_version",
     ]);
+  });
+
+  /** Removes the newest chained rows as an owner/superuser could. */
+  const truncate = (orgId: string, ids: string[], moveAnchorTo?: number) =>
+    db.sql.begin(async (tx) => {
+      await tx`SET LOCAL session_replication_role = replica`;
+      await tx`DELETE FROM time_events WHERE id IN ${tx(ids)}`;
+      if (moveAnchorTo !== undefined) {
+        await tx`
+          UPDATE time_event_chain_heads h
+          SET last_seq = te.seq, last_hash = te.hash
+          FROM time_events te
+          WHERE h.organization_id = ${orgId}
+            AND te.employee_id = h.employee_id AND te.seq = ${moveAnchorTo}
+        `;
+      }
+    });
+
+  it("reports a truncated chain tail as tampered", async () => {
+    const { orgId, employeeId } = await newOrgWithEmployee();
+    const ids = await clock(orgId, employeeId, 4);
+    expect((await run(orgId).result).status).toBe("verified");
+
+    await truncate(orgId, [ids[3]!]);
+
+    const report = await run(orgId).result;
+    expect(report.status).toBe("tampered");
+    // Every remaining row still verifies on its own.
+    expect(report.events).toEqual({ verified: 3, tampered: 0, legacy: 0 });
+    expect(report.headIssues).toBeGreaterThan(0);
+    expect(report.issues).toContainEqual({
+      employeeId,
+      eventId: ids[2],
+      seq: 3,
+      kind: "head_mismatch",
+    });
+  });
+
+  it("detects rows and anchor rewound together against the previous run", async () => {
+    const { orgId, employeeId } = await newOrgWithEmployee();
+    const ids = await clock(orgId, employeeId, 3);
+    expect((await run(orgId).result).status).toBe("verified");
+
+    await truncate(orgId, [ids[2]!], 2);
+
+    const report = await run(orgId).result;
+    expect(report.status).toBe("tampered");
+    expect(report.issues.map((i) => i.kind)).toEqual(["head_regressed"]);
+
+    // The run records heads by id, seq and hash only.
+    const [entry] = await withTenant(
+      db.sql,
+      { organizationId: orgId },
+      (tx) => tx<{ metadata: { heads: unknown[] } }[]>`
+        SELECT metadata FROM audit_log
+        WHERE action = 'time.chain_verified' ORDER BY created_at DESC LIMIT 1`,
+    );
+    expect(entry?.metadata.heads).toEqual([
+      { employeeId, seq: 2, hash: expect.stringMatching(/^[0-9a-f]{64}$/) },
+    ]);
+  });
+
+  it("reports chained rows without an anchor as tampered", async () => {
+    const { orgId, employeeId } = await newOrgWithEmployee();
+    await clock(orgId, employeeId, 2);
+    await db.sql.begin(async (tx) => {
+      await tx`SET LOCAL session_replication_role = replica`;
+      await tx`DELETE FROM time_event_chain_heads WHERE organization_id = ${orgId}`;
+    });
+
+    const report = await run(orgId).result;
+    expect(report.status).toBe("tampered");
+    expect(report.issues.map((i) => i.kind)).toEqual(["head_missing"]);
   });
 });
