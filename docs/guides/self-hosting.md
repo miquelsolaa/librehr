@@ -64,24 +64,38 @@ LibreHR is designed to be easily self-hostable on any standard Linux server, VPS
    start in `NODE_ENV=production` if a secret is shorter than 32 characters or
    is one of the public development values from `.env.example`.
 
-   Generate each secret separately (never reuse one value for two variables):
+   Generate each secret separately (never reuse one value for two variables).
+   Database role passwords (`POSTGRES_PASSWORD`, `LIBREHR_OWNER_PASSWORD`,
+   `LIBREHR_APP_PASSWORD`) are placed inside `postgres://user:password@host`
+   URLs, so generate them as hex, which is URL-safe:
 
    ```bash
-   openssl rand -base64 32
+   openssl rand -hex 32      # database role passwords
+   openssl rand -base64 32   # all other secrets
    ```
 
-   | Variable                 | Required | Purpose                                                                           |
-   | ------------------------ | -------- | --------------------------------------------------------------------------------- |
-   | `POSTGRES_PASSWORD`      | yes      | Bootstrap superuser of the Postgres container                                     |
-   | `LIBREHR_OWNER_PASSWORD` | yes      | `librehr_owner` role: owns the schema, runs migrations and the worker             |
-   | `LIBREHR_APP_PASSWORD`   | yes      | `librehr_app` role: runtime role, always bound by Row-Level Security              |
-   | `BETTER_AUTH_SECRET`     | yes      | Signs sessions                                                                    |
-   | `SESSION_SECRET`         | yes      | Signs two-factor sign-in challenges                                               |
-   | `ENVELOPE_MASTER_KEY`    | yes      | Encrypts sensitive fields at rest. **Back it up: losing it loses that data**      |
-   | `TIME_CHAIN_KEY`         | yes      | Keys the tamper-evidence chain of time-tracking events                            |
-   | `BETTER_AUTH_URL`        | yes      | Public URL of the API                                                             |
-   | `APP_URL`                | yes      | Public URL of the web app                                                         |
-   | `SMTP_HOST`              | yes      | Your SMTP relay (`SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` are optional) |
+   Base64 output can contain `/` and `+`, which break URL parsing. If you choose
+   a database password yourself, URL-encode it wherever it appears in a URL
+   (`/` as `%2F`, `+` as `%2B`, `@` as `%40`, ...). The API and worker refuse to
+   start with an unparseable database URL (the error names the variable, never
+   its value).
+
+   | Variable                 | Required | Purpose                                                                                                                       |
+   | ------------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------- |
+   | `POSTGRES_PASSWORD`      | yes      | Bootstrap superuser of the Postgres container (hex)                                                                           |
+   | `LIBREHR_OWNER_PASSWORD` | yes      | `librehr_owner` role: owns the schema, runs migrations and the worker (hex)                                                   |
+   | `LIBREHR_APP_PASSWORD`   | yes      | `librehr_app` role: runtime role, always bound by Row-Level Security (hex)                                                    |
+   | `BETTER_AUTH_SECRET`     | yes      | Validated at startup (unique, 32+ characters) but not used by the current release                                             |
+   | `SESSION_SECRET`         | yes      | Signs two-factor sign-in challenges                                                                                           |
+   | `ENVELOPE_MASTER_KEY`    | yes      | Encrypts sensitive fields at rest. **Back it up: losing it loses that data**                                                  |
+   | `TIME_CHAIN_KEY`         | yes      | Will key the tamper-evidence chain of time-tracking events; not read by the current release, required for an upcoming release |
+   | `BETTER_AUTH_URL`        | yes      | Public URL of the API (production refuses a `localhost` value)                                                                |
+   | `APP_URL`                | yes      | Public URL of the web app (production refuses a `localhost` value)                                                            |
+   | `SMTP_HOST`              | yes      | Your SMTP relay (`SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` are optional)                                             |
+
+   In production the API also refuses a `DATABASE_URL` that connects as
+   `librehr_owner`, as the migration role, or as the bootstrap superuser
+   (`postgres` or `POSTGRES_USER`): requests must run as `librehr_app`.
 
    The API also accepts `<NAME>_FILE` (for example `ENVELOPE_MASTER_KEY_FILE`)
    for the four application secrets, to use Docker secrets instead of plain
@@ -120,3 +134,21 @@ LibreHR is designed to be easily self-hostable on any standard Linux server, VPS
 - [ ] Run `pnpm doctor` or verify RLS is forced on all tenant tables.
 - [ ] Setup daily automated backups using `infra/scripts/backup.sh`.
 - [ ] Configure outbound SMTP settings to deliver transactional invites and password resets.
+
+## 3. Background job data retention
+
+The worker queues jobs in the `pgboss` schema. Job payloads are stored in those
+tables until pg-boss deletes them, and email jobs carry personal data: the
+recipient address and invitation or password-reset URLs. The worker sets every
+queue to:
+
+- **`retentionSeconds` = 7 days**: a job still waiting to run (created or
+  retrying) is deleted after 7 days.
+- **`deleteAfterSeconds` = 3 days**: a finished job (completed, cancelled or
+  failed) is deleted 3 days after it finished. Inspect and re-drive failed
+  jobs within that window.
+
+The worker applies these values at startup, including to queues created by
+earlier versions (`QUEUE_RETENTION` in `apps/worker/src/lib/queue-setup.ts`).
+Database backups contain whatever job rows existed when they were taken, so
+expire backups under your retention policy as well.

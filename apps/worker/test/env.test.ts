@@ -53,6 +53,22 @@ describe("worker env", () => {
     }
   });
 
+  it("rejects an unparseable database url without echoing it", () => {
+    // A base64 password containing `/` breaks URL parsing unless URL-encoded.
+    let message = "";
+    try {
+      loadWorkerEnv({
+        NODE_ENV: "development",
+        DATABASE_MIGRATION_URL: "postgres://librehr_owner:ab/cd+ef=@db/librehr",
+      });
+    } catch (err) {
+      message = String(err);
+    }
+    expect(message).toContain("DATABASE_MIGRATION_URL");
+    expect(message).toContain("URL-encode");
+    expect(message).not.toContain("ab/cd");
+  });
+
   it("leaves SMTP unconfigured in production when SMTP_HOST is absent", () => {
     const env = loadWorkerEnv({
       NODE_ENV: "production",
