@@ -35,6 +35,8 @@ export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
         RETURNING "id"
       `;
       const orgId = orgRows[0]?.["id"] as string;
+      // The owner role has no BYPASSRLS: tenant rows need the tenant context.
+      await tx`SELECT set_config('app.current_org', ${orgId}, true)`;
 
       // 2. Create Legal Entity
       const entityRows = await tx`
