@@ -70,8 +70,10 @@ services:
       # pg-boss's schema. The owner has no BYPASSRLS: any tenant data a job
       # touches still goes through withTenant and RLS.
       DATABASE_MIGRATION_URL: postgres://librehr_owner:${LIBREHR_OWNER_PASSWORD:?set LIBREHR_OWNER_PASSWORD}@postgres:5432/${POSTGRES_DB:-librehr}
-      # No app secrets: the worker does not decrypt fields or sign time
-      # events today. Add ENVELOPE_MASTER_KEY / TIME_CHAIN_KEY when it does.
+      # Same key as the api: audit.verify-chain recomputes the time-event
+      # HMACs (TIM-002). The worker does not decrypt fields, so it gets no
+      # ENVELOPE_MASTER_KEY.
+      TIME_CHAIN_KEY: ${TIME_CHAIN_KEY:?set TIME_CHAIN_KEY (openssl rand -base64 32)}
       # Optional: the email queue only needs these once a real mailer is wired.
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}

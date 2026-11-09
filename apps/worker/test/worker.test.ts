@@ -98,10 +98,18 @@ describe("Worker Queue Handlers", () => {
     );
   });
 
-  it("executes the audit stub handler", async () => {
-    const auditRes = await handleAuditVerifyChain({
-      data: { organizationId: "org-1", runDate: "2026-11-01" },
-    });
-    expect(auditRes.stub).toBe("TIM-002");
+  it("rejects an invalid audit.verify-chain payload before touching the database", async () => {
+    const logger = { info: vi.fn(), error: vi.fn() };
+    await expect(
+      handleAuditVerifyChain(
+        { id: "j-audit", data: { organizationId: "org-1", runDate: "x" } },
+        {
+          sql: {} as never,
+          timeChainKey: "test_time_chain_key_with_at_least_32_chars",
+          logger,
+        },
+      ),
+    ).rejects.toThrow(/invalid audit.verify-chain payload/);
+    expect(logger.info).not.toHaveBeenCalled();
   });
 });

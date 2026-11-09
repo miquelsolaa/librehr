@@ -70,18 +70,18 @@ LibreHR is designed to be easily self-hostable on any standard Linux server, VPS
    openssl rand -base64 32
    ```
 
-   | Variable                 | Required | Purpose                                                                           |
-   | ------------------------ | -------- | --------------------------------------------------------------------------------- |
-   | `POSTGRES_PASSWORD`      | yes      | Bootstrap superuser of the Postgres container                                     |
-   | `LIBREHR_OWNER_PASSWORD` | yes      | `librehr_owner` role: owns the schema, runs migrations and the worker             |
-   | `LIBREHR_APP_PASSWORD`   | yes      | `librehr_app` role: runtime role, always bound by Row-Level Security              |
-   | `BETTER_AUTH_SECRET`     | yes      | Signs sessions                                                                    |
-   | `SESSION_SECRET`         | yes      | Signs two-factor sign-in challenges                                               |
-   | `ENVELOPE_MASTER_KEY`    | yes      | Encrypts sensitive fields at rest. **Back it up: losing it loses that data**      |
-   | `TIME_CHAIN_KEY`         | yes      | Keys the tamper-evidence chain of time-tracking events                            |
-   | `BETTER_AUTH_URL`        | yes      | Public URL of the API                                                             |
-   | `APP_URL`                | yes      | Public URL of the web app                                                         |
-   | `SMTP_HOST`              | yes      | Your SMTP relay (`SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` are optional) |
+   | Variable                 | Required | Purpose                                                                                                                       |
+   | ------------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------- |
+   | `POSTGRES_PASSWORD`      | yes      | Bootstrap superuser of the Postgres container                                                                                 |
+   | `LIBREHR_OWNER_PASSWORD` | yes      | `librehr_owner` role: owns the schema, runs migrations and the worker                                                         |
+   | `LIBREHR_APP_PASSWORD`   | yes      | `librehr_app` role: runtime role, always bound by Row-Level Security                                                          |
+   | `BETTER_AUTH_SECRET`     | yes      | Signs sessions                                                                                                                |
+   | `SESSION_SECRET`         | yes      | Signs two-factor sign-in challenges                                                                                           |
+   | `ENVELOPE_MASTER_KEY`    | yes      | Encrypts sensitive fields at rest. **Back it up: losing it loses that data**                                                  |
+   | `TIME_CHAIN_KEY`         | yes      | Keys the tamper-evidence chain of time records (api and worker). **Keep it: changing it makes existing records unverifiable** |
+   | `BETTER_AUTH_URL`        | yes      | Public URL of the API                                                                                                         |
+   | `APP_URL`                | yes      | Public URL of the web app                                                                                                     |
+   | `SMTP_HOST`              | yes      | Your SMTP relay (`SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` are optional)                                             |
 
    The API also accepts `<NAME>_FILE` (for example `ENVELOPE_MASTER_KEY_FILE`)
    for the four application secrets, to use Docker secrets instead of plain

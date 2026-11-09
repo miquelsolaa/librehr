@@ -7,6 +7,8 @@ const DEV_DEFAULTS = {
   DATABASE_URL:
     "postgres://librehr_owner:librehr_dev_password@localhost:5432/librehr",
   SMTP_HOST: "localhost",
+  // Public: matches the API's development default so local chains verify.
+  TIME_CHAIN_KEY: "dev_time_chain_key_must_be_changed_in_production_32",
 } as const;
 
 const optionalString = z
@@ -27,6 +29,9 @@ const RawEnvSchema = z.object({
   SMTP_USER: optionalString,
   SMTP_PASS: optionalString,
   SMTP_FROM: z.string().default("LibreHR <noreply@librehr.local>"),
+  // Same key as the API: the audit.verify-chain job recomputes the HMACs.
+  TIME_CHAIN_KEY: optionalString,
+  TIME_CHAIN_KEY_FILE: optionalString,
 });
 
 export interface SmtpConfig {
@@ -41,6 +46,8 @@ export interface WorkerEnv {
   NODE_ENV: "development" | "test" | "production";
   DATABASE_URL: string;
   LOG_LEVEL: string;
+  /** HMAC key of the time-event chain (TIM-002); required in production. */
+  TIME_CHAIN_KEY: string;
   /** null when SMTP is not configured: email jobs then fail instead of being dropped. */
   SMTP: SmtpConfig | null;
 }
@@ -75,6 +82,16 @@ export function loadWorkerEnv(
   const parsed = RawEnvSchema.parse(envInput ?? process.env);
   const isProd = parsed.NODE_ENV === "production";
 
+  let timeChainKey = parsed.TIME_CHAIN_KEY;
+  if (parsed.TIME_CHAIN_KEY_FILE) {
+    if (!fs.existsSync(parsed.TIME_CHAIN_KEY_FILE)) {
+      throw new Error(
+        "Invalid worker environment: TIME_CHAIN_KEY_FILE points to a file that does not exist",
+      );
+    }
+    timeChainKey = fs.readFileSync(parsed.TIME_CHAIN_KEY_FILE, "utf-8").trim();
+  }
+
   if (isProd) {
     const problems: string[] = [];
     if (!parsed.DATABASE_MIGRATION_URL && !parsed.DATABASE_URL) {
@@ -89,6 +106,13 @@ export function loadWorkerEnv(
       if (parsed[key]?.includes("dev_password")) {
         problems.push(`${key} contains a development password (dev_password)`);
       }
+    }
+    if (!timeChainKey || timeChainKey === DEV_DEFAULTS.TIME_CHAIN_KEY) {
+      problems.push(
+        "TIME_CHAIN_KEY (or TIME_CHAIN_KEY_FILE) is required and must not be the development default",
+      );
+    } else if (timeChainKey.length < 32) {
+      problems.push("TIME_CHAIN_KEY must be at least 32 characters");
     }
     if (problems.length > 0) {
       throw new Error(`Invalid worker environment: ${problems.join("; ")}`);
@@ -106,6 +130,7 @@ export function loadWorkerEnv(
     NODE_ENV: parsed.NODE_ENV,
     DATABASE_URL: databaseUrl,
     LOG_LEVEL: parsed.LOG_LEVEL,
+    TIME_CHAIN_KEY: timeChainKey ?? DEV_DEFAULTS.TIME_CHAIN_KEY,
     SMTP: smtpHost
       ? {
           host: smtpHost,

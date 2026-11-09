@@ -8,13 +8,8 @@ import { handleRetentionEnforce } from "./queues/retention.enforce.js";
 import { handleAuditVerifyChain } from "./queues/audit.verify-chain.js";
 import { createSmtpMailer } from "./lib/smtp-mailer.js";
 import { processBatch, type BatchJob } from "./lib/process-batch.js";
-import { parsePayload } from "./lib/payload.js";
-import {
-  AuditVerifyChainPayloadSchema,
-  QUEUES,
-  QUEUE_POLICY,
-  type QueueName,
-} from "./lib/enqueue.js";
+import { createDatabaseClient } from "@librehr/db";
+import { QUEUES, QUEUE_POLICY, type QueueName } from "./lib/enqueue.js";
 
 const env = loadWorkerEnv();
 
@@ -71,19 +66,20 @@ async function startWorker() {
   await register("retention.enforce", (job) =>
     handleRetentionEnforce(job, logger),
   );
-  await register("audit.verify-chain", async (job) =>
-    handleAuditVerifyChain({
-      data: parsePayload(
-        "audit.verify-chain",
-        AuditVerifyChainPayloadSchema,
-        job.data,
-      ),
+  // Tenant reads go through withTenant, so RLS still applies to this pool.
+  const sql = createDatabaseClient(env.DATABASE_URL);
+  await register("audit.verify-chain", (job) =>
+    handleAuditVerifyChain(job, {
+      sql,
+      timeChainKey: env.TIME_CHAIN_KEY,
+      logger,
     }),
   );
 
   const shutdown = async (signal: string) => {
     logger.info({ msg: `Received ${signal}, gracefully stopping worker...` });
     await boss.stop({ graceful: true, timeout: 5000 });
+    await sql.end({ timeout: 5 });
     logger.info({ msg: "Worker stopped cleanly" });
     process.exit(0);
   };
