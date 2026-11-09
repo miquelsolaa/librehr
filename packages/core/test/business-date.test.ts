@@ -8,6 +8,7 @@ import {
   isBeforeDate,
   isoDayOfWeek,
   localDayLengthMinutes,
+  localTimeOfDay,
   todayInZone,
 } from "../src/calendar/business-date.js";
 import type { Clock } from "../src/ports/clock.js";
@@ -194,5 +195,34 @@ describe("business-date call sites in core", () => {
         "[N/A]",
       ),
     ).toBe("Date: 2027-01-01");
+  });
+});
+
+describe("localTimeOfDay", () => {
+  it("shows wall-clock HH:MM across DST changes and the year boundary", () => {
+    expect(localTimeOfDay("2026-03-29T00:30:00Z", "Europe/Madrid")).toBe(
+      "01:30",
+    );
+    expect(localTimeOfDay("2026-03-29T01:30:00Z", "Europe/Madrid")).toBe(
+      "03:30",
+    );
+    expect(localTimeOfDay("2026-10-25T00:30:00Z", "Europe/Madrid")).toBe(
+      "02:30",
+    );
+    expect(localTimeOfDay("2026-10-25T01:30:00Z", "Europe/Madrid")).toBe(
+      "02:30",
+    );
+    expect(localTimeOfDay("2026-12-31T23:30:00Z", "Europe/Madrid")).toBe(
+      "00:30",
+    );
+    expect(localTimeOfDay("2026-12-31T23:30:00Z", "Atlantic/Canary")).toBe(
+      "23:30",
+    );
+  });
+
+  it("drops seconds instead of rounding", () => {
+    expect(localTimeOfDay("2026-11-02T07:59:59Z", "Europe/Madrid")).toBe(
+      "08:59",
+    );
   });
 });

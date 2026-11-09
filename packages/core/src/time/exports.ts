@@ -24,6 +24,9 @@ export interface InspectionExportDocument {
 /**
  * Generates official Spanish Labour Inspection compliant export structure
  * with cryptographic content verification (ET art. 34.9).
+ *
+ * @deprecated Use `createInspectionExport` (CSV/PDF, content hash, export id;
+ * TIM-006). Kept only until the `GET /v1/time/export` route moves to it.
  */
 export function buildInspectionExport(
   metadata: InspectionExportMetadata,
