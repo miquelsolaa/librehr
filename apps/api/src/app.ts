@@ -193,7 +193,10 @@ export function createApp(deps: AppDependencies) {
       trustProxy: deps.trustProxy,
     }),
   );
-  app.route("/v1", createSetupRoutes(deps.sql));
+  app.route(
+    "/v1",
+    createSetupRoutes(deps.sql, { trustProxy: deps.trustProxy }),
+  );
   app.route("/v1", createAuditRoutes(deps.sql));
   app.route("/v1", createLeaveRoutes(deps.sql, deps.mailPort));
   app.route("/v1", createCalendarRoutes(deps.sql));

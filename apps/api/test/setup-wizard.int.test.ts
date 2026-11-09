@@ -64,7 +64,12 @@ describe("Setup wizard (ORG-001)", () => {
     base = database;
     db = await createRoleSeparatedDatabase(base);
     await runMigrations(db.ownerConnectionString);
-    app = createApp({ sql: db.appSql, authPort: new NoSessionsAuthPort() });
+    // One trusted proxy hop, so X-Forwarded-For identifies the client.
+    app = createApp({
+      sql: db.appSql,
+      authPort: new NoSessionsAuthPort(),
+      trustProxy: 1,
+    });
   }, 60000);
 
   afterAll(async () => {

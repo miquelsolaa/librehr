@@ -35,13 +35,17 @@ function setupCompleted(): ConflictError {
   });
 }
 
-export function createSetupRoutes(sql: Sql) {
+export function createSetupRoutes(
+  sql: Sql,
+  options: { trustProxy?: number | undefined } = {},
+) {
   const router = new Hono();
   const employeeRepo = new EmployeeRepository();
   const auditRepo = new AuditRepository();
   const setupRateLimiter = createRateLimiter({
     windowMs: 15 * 60 * 1000,
     max: 10,
+    trustProxy: options.trustProxy,
   });
 
   router.post("/org/setup-wizard", setupRateLimiter, async (c) => {
