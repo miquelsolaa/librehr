@@ -357,15 +357,16 @@ export default function OnboardingPage() {
               rows={8}
               value={csvContent}
               onChange={(e) => setCsvContent(e.target.value)}
+              aria-label={t("csvLabel")}
               placeholder="first_name,last_name,email,tax_id,hire_date,job_title,department_name&#10;Maria,Garcia,maria@example.com,12345678Z,2026-03-01,Product Designer,Engineering"
               className="w-full rounded-md border border-input bg-background p-3 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <p className="text-xs text-muted-foreground">
-              Required headers:{" "}
+              {t("csvRequiredHeaders")}{" "}
               <code className="bg-muted px-1 py-0.5 rounded">
                 first_name, last_name, email
               </code>
-              . Optional:{" "}
+              . {t("csvOptionalHeaders")}{" "}
               <code className="bg-muted px-1 py-0.5 rounded">
                 tax_id, iban, hire_date, job_title, department_name
               </code>
@@ -393,29 +394,29 @@ export default function OnboardingPage() {
             <div className="space-y-4 pt-4 border-t border-border">
               <div className="flex items-center gap-4 text-sm">
                 <div>
-                  Total Rows:{" "}
+                  {t("importTotalRows")}:{" "}
                   <span className="font-semibold">
                     {importReport.totalRows}
                   </span>
                 </div>
                 <div className="text-emerald-600 font-medium">
-                  Valid: {importReport.validRowsCount}
+                  {t("importValidRows")}: {importReport.validRowsCount}
                 </div>
                 <div className="text-rose-600 font-medium">
-                  Errors: {importReport.errors.length}
+                  {t("importErrorRows")}: {importReport.errors.length}
                 </div>
               </div>
 
               {importReport.errors.length > 0 && (
                 <div className="rounded-md border border-rose-200 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/30 p-4 space-y-2">
                   <h4 className="text-xs font-semibold text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
-                    <AlertTriangle className="h-4 w-4" />
-                    Validation Errors (Import Prevented)
+                    <AlertTriangle className="h-4 w-4" aria-hidden="true" />
+                    {t("importErrorsTitle")}
                   </h4>
                   <ul className="list-disc pl-5 text-xs text-rose-700 dark:text-rose-300 space-y-1">
                     {importReport.errors.map((err, idx) => (
                       <li key={idx}>
-                        Row {err.row}:{" "}
+                        {t("importRow", { row: err.row })}{" "}
                         <span className="font-semibold">{err.field}</span> —{" "}
                         {err.message}
                       </li>

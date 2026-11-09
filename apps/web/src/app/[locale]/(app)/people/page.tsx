@@ -275,7 +275,7 @@ export default function PeoplePage() {
                       id="invite-email"
                       type="email"
                       required
-                      placeholder="colleague@company.com"
+                      placeholder={tInvites("emailPlaceholder")}
                       value={inviteEmail}
                       onChange={(e) => setInviteEmail(e.target.value)}
                     />

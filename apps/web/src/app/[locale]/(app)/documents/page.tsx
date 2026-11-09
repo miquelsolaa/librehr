@@ -29,6 +29,23 @@ import type {
 export default function DocumentsPage() {
   const t = useTranslations("documents");
 
+  const categoryLabel = (value: string): string => {
+    switch (value) {
+      case "contracts":
+        return t("categoryContracts");
+      case "payslips":
+        return t("categoryPayslips");
+      case "certificates":
+        return t("categoryCertificates");
+      case "company_policies":
+        return t("categoryPolicies");
+      case "other":
+        return t("categoryOther");
+      default:
+        return value;
+    }
+  };
+
   const [documents, setDocuments] = React.useState<DocumentItem[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState<
@@ -530,8 +547,8 @@ export default function DocumentsPage() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 capitalize text-muted-foreground">
-                          {doc.category.replace("_", " ")}
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {categoryLabel(doc.category)}
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">
                           {doc.employeeName ? (
@@ -558,7 +575,7 @@ export default function DocumentsPage() {
                               (acknowledgedDocs.has(doc.id) ? (
                                 <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 bg-emerald-500/10 px-2 py-1 rounded font-medium">
                                   <CheckCircle2 className="h-3.5 w-3.5" />
-                                  <span>Acknowledged</span>
+                                  <span>{t("acknowledged")}</span>
                                 </span>
                               ) : (
                                 <Button
@@ -568,7 +585,7 @@ export default function DocumentsPage() {
                                   onClick={() => handleAcknowledge(doc.id)}
                                 >
                                   <CheckCircle2 className="h-3.5 w-3.5" />
-                                  <span>Acknowledge</span>
+                                  <span>{t("acknowledge")}</span>
                                 </Button>
                               ))}
                             <Button
@@ -609,7 +626,7 @@ export default function DocumentsPage() {
                 required
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Employment Contract 2026"
+                placeholder={t("documentTitlePlaceholder")}
                 className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
@@ -639,7 +656,7 @@ export default function DocumentsPage() {
 
             <div>
               <label className="block text-sm font-medium text-foreground mb-1">
-                Audience Scope
+                {t("audienceScope")}
               </label>
               <select
                 value={audienceType}
@@ -664,7 +681,7 @@ export default function DocumentsPage() {
                 className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Max 15MB. Supported: PDF, PNG, JPEG, TIFF, DOCX, XLSX.
+                {t("fileHint")}
               </p>
             </div>
 
@@ -699,8 +716,7 @@ export default function DocumentsPage() {
               className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              {bulkFiles.length} files selected. Filenames can include DNI/NIE
-              (e.g. 12345678Z-2026-03.pdf) or employee names.
+              {t("bulkFilesSelected", { count: bulkFiles.length })}
             </p>
           </div>
 
@@ -710,7 +726,7 @@ export default function DocumentsPage() {
               onClick={handleBulkDryRun}
               disabled={bulkProcessing || bulkFiles.length === 0}
             >
-              Test Match (Dry Run)
+              {t("bulkDryRun")}
             </Button>
             <Button
               onClick={handleBulkCommit}
@@ -724,14 +740,14 @@ export default function DocumentsPage() {
             <div className="space-y-4 pt-4 border-t border-border">
               <div className="flex items-center gap-4 text-sm">
                 <div>
-                  Total Files:{" "}
+                  {t("bulkTotalFiles")}:{" "}
                   <span className="font-semibold">{bulkReport.totalFiles}</span>
                 </div>
                 <div className="text-emerald-600 font-medium">
-                  Matched: {bulkReport.matchedCount}
+                  {t("matched")}: {bulkReport.matchedCount}
                 </div>
                 <div className="text-rose-600 font-medium">
-                  Unmatched: {bulkReport.unmatchedCount}
+                  {t("unmatched")}: {bulkReport.unmatchedCount}
                 </div>
               </div>
 
@@ -739,10 +755,10 @@ export default function DocumentsPage() {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-muted/50 font-medium text-muted-foreground uppercase border-b border-border">
                     <tr>
-                      <th className="px-3 py-2">Filename</th>
-                      <th className="px-3 py-2">Matched Employee</th>
-                      <th className="px-3 py-2">Period</th>
-                      <th className="px-3 py-2">Status</th>
+                      <th className="px-3 py-2">{t("colFilename")}</th>
+                      <th className="px-3 py-2">{t("colMatchedEmployee")}</th>
+                      <th className="px-3 py-2">{t("colPeriod")}</th>
+                      <th className="px-3 py-2">{t("matchStatus")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -761,7 +777,9 @@ export default function DocumentsPage() {
                                 : "bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300"
                             }`}
                           >
-                            {m.status}
+                            {m.status === "matched"
+                              ? t("matched")
+                              : t("unmatched")}
                           </span>
                         </td>
                       </tr>
@@ -820,10 +838,19 @@ export default function DocumentsPage() {
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                  setNewTemplateName("Certificat d'Empresa / Work Certificate");
+                  setNewTemplateName(t("sampleTemplateName"));
                   setNewTemplateCategory("certificates");
+                  // Merge tags are passed as arguments so the ICU parser leaves them intact.
                   setNewTemplateContent(
-                    `# Certificat d'Empresa\n\nPer la present es certifica que **{{employee.name}}** amb DNI/NIE **{{employee.dni}}** treballa a **{{organization.name}}** com a **{{employee.job_title}}** al departament de **{{employee.department}}** des del **{{employee.hire_date}}**.\n\nData d'emissió: {{current_date}}`,
+                    t("sampleTemplateContent", {
+                      name: "{{employee.name}}",
+                      dni: "{{employee.dni}}",
+                      org: "{{organization.name}}",
+                      jobTitle: "{{employee.job_title}}",
+                      department: "{{employee.department}}",
+                      hireDate: "{{employee.hire_date}}",
+                      currentDate: "{{current_date}}",
+                    }),
                   );
                   setIsNewTemplateOpen(true);
                 }}
@@ -844,7 +871,7 @@ export default function DocumentsPage() {
                         {tpl.name}
                       </h3>
                       <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary shrink-0 uppercase tracking-wider">
-                        {tpl.category}
+                        {categoryLabel(tpl.category)}
                       </span>
                     </div>
                     {tpl.description && (
@@ -909,7 +936,7 @@ export default function DocumentsPage() {
                         required
                         value={newTemplateName}
                         onChange={(e) => setNewTemplateName(e.target.value)}
-                        placeholder="Ex: Contract Extension Letter"
+                        placeholder={t("templateNamePlaceholder")}
                         className="w-full rounded-input border border-border bg-surface px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary"
                       />
                     </div>
@@ -922,12 +949,16 @@ export default function DocumentsPage() {
                         onChange={(e) => setNewTemplateCategory(e.target.value)}
                         className="w-full rounded-input border border-border bg-surface px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary"
                       >
-                        <option value="contracts">Contracts</option>
-                        <option value="certificates">Certificates</option>
-                        <option value="company_policies">
-                          Company Policies
+                        <option value="contracts">
+                          {t("categoryContracts")}
                         </option>
-                        <option value="other">Other</option>
+                        <option value="certificates">
+                          {t("categoryCertificates")}
+                        </option>
+                        <option value="company_policies">
+                          {t("categoryPolicies")}
+                        </option>
+                        <option value="other">{t("categoryOther")}</option>
                       </select>
                     </div>
                   </div>
@@ -938,7 +969,7 @@ export default function DocumentsPage() {
                         {t("templateContentMarkdown")} *
                       </label>
                       <span className="text-[10px] text-muted-foreground">
-                        Supports Markdown & merge tags
+                        {t("markdownHint")}
                       </span>
                     </div>
                     <textarea
@@ -946,7 +977,10 @@ export default function DocumentsPage() {
                       rows={8}
                       value={newTemplateContent}
                       onChange={(e) => setNewTemplateContent(e.target.value)}
-                      placeholder="# Letter Title&#10;&#10;Dear {{employee.name}},&#10;&#10;We hereby confirm your employment at {{organization.name}}..."
+                      placeholder={t("templateContentPlaceholder", {
+                        name: "{{employee.name}}",
+                        org: "{{organization.name}}",
+                      })}
                       className="w-full rounded-input border border-border bg-surface p-3 font-mono text-xs text-foreground focus:ring-1 focus:ring-primary"
                     />
                   </div>

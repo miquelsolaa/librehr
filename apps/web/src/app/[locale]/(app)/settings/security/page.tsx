@@ -48,6 +48,7 @@ export default function SecuritySettingsPage() {
 
   const loadData = React.useCallback(async () => {
     setIsLoading(true);
+    setErrorMessage(null);
     try {
       const client = getApiClient();
       const me = await client.getMe();
@@ -56,12 +57,12 @@ export default function SecuritySettingsPage() {
       if (me.organization.requireTwoFactor !== undefined) {
         setRequireTwoFactor(me.organization.requireTwoFactor);
       }
-    } catch (err) {
-      console.error("Failed to load security settings", err);
+    } catch {
+      setErrorMessage(t("loadError"));
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   React.useEffect(() => {
     setSession(getStoredSession());
@@ -154,8 +155,9 @@ export default function SecuritySettingsPage() {
         <Link
           href={`/${locale}/settings`}
           className="rounded-btn p-2 text-muted-foreground hover:bg-surface hover:text-foreground transition-colors"
+          aria-label={t("backToSettings")}
         >
-          <ArrowLeft className="h-5 w-5" />
+          <ArrowLeft className="h-5 w-5" aria-hidden="true" />
         </Link>
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">

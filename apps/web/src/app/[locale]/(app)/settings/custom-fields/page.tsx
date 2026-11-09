@@ -29,6 +29,39 @@ export default function CustomFieldsSettingsPage() {
   const locale = (params?.["locale"] as string) ?? "es";
   const tCommon = useTranslations("common");
   const t = useTranslations("settings");
+  const tNav = useTranslations("nav");
+
+  const typeLabel = (type: string): string => {
+    switch (type) {
+      case "text":
+        return t("customFieldTypeText");
+      case "number":
+        return t("customFieldTypeNumber");
+      case "date":
+        return t("customFieldTypeDate");
+      case "select":
+        return t("customFieldTypeSelect");
+      default:
+        return type;
+    }
+  };
+
+  const visibilityLabel = (value: string): string => {
+    switch (value) {
+      case "employee":
+        return t("customFieldVisibilityEmployee");
+      case "manager":
+        return t("customFieldVisibilityManager");
+      case "hr":
+        return t("customFieldVisibilityHr");
+      case "admin":
+        return t("customFieldVisibilityAdmin");
+      case "public":
+        return t("customFieldVisibilityPublic");
+      default:
+        return value;
+    }
+  };
 
   const [definitions, setDefinitions] = React.useState<CustomFieldDefinition[]>(
     [],
@@ -130,14 +163,13 @@ export default function CustomFieldsSettingsPage() {
             className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
-            <span>Settings</span>
+            <span>{tNav("settings")}</span>
           </Link>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Custom Profile Fields
+            {t("customFieldsTitle")}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Define organization-specific attributes (uniforms, badges, licenses)
-            for employee profiles.
+            {t("customFieldsDescription")}
           </p>
         </div>
 
@@ -145,14 +177,14 @@ export default function CustomFieldsSettingsPage() {
           <DialogTrigger asChild>
             <Button className="gap-2">
               <Plus className="h-4 w-4" />
-              <span>Add Custom Field</span>
+              <span>{t("customFieldAdd")}</span>
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add Custom Profile Field</DialogTitle>
+              <DialogTitle>{t("customFieldAddTitle")}</DialogTitle>
               <DialogDescription>
-                Create a dynamic attribute configured across employee records.
+                {t("customFieldAddDescription")}
               </DialogDescription>
             </DialogHeader>
 
@@ -167,12 +199,12 @@ export default function CustomFieldsSettingsPage() {
                   htmlFor="cf-name"
                   className="text-xs font-medium text-foreground"
                 >
-                  Field Name
+                  {t("customFieldName")}
                 </label>
                 <Input
                   id="cf-name"
                   required
-                  placeholder="e.g. Uniform Size or Parking Slot"
+                  placeholder={t("customFieldNamePlaceholder")}
                   value={name}
                   onChange={(e) => handleNameChange(e.target.value)}
                 />
@@ -183,12 +215,12 @@ export default function CustomFieldsSettingsPage() {
                   htmlFor="cf-code"
                   className="text-xs font-medium text-foreground"
                 >
-                  Field Code (identifier)
+                  {t("customFieldCode")}
                 </label>
                 <Input
                   id="cf-code"
                   required
-                  placeholder="e.g. uniform_size"
+                  placeholder={t("customFieldCodePlaceholder")}
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                 />
@@ -200,7 +232,7 @@ export default function CustomFieldsSettingsPage() {
                     htmlFor="cf-type"
                     className="text-xs font-medium text-foreground"
                   >
-                    Field Type
+                    {t("customFieldType")}
                   </label>
                   <select
                     id="cf-type"
@@ -210,10 +242,10 @@ export default function CustomFieldsSettingsPage() {
                       setFieldType(e.target.value as CustomFieldType)
                     }
                   >
-                    <option value="text">Text</option>
-                    <option value="number">Number</option>
-                    <option value="date">Date</option>
-                    <option value="select">Dropdown Select</option>
+                    <option value="text">{typeLabel("text")}</option>
+                    <option value="number">{typeLabel("number")}</option>
+                    <option value="date">{typeLabel("date")}</option>
+                    <option value="select">{typeLabel("select")}</option>
                   </select>
                 </div>
 
@@ -222,7 +254,7 @@ export default function CustomFieldsSettingsPage() {
                     htmlFor="cf-visibility"
                     className="text-xs font-medium text-foreground"
                   >
-                    Visibility Scope
+                    {t("customFieldVisibility")}
                   </label>
                   <select
                     id="cf-visibility"
@@ -232,11 +264,15 @@ export default function CustomFieldsSettingsPage() {
                       setVisibility(e.target.value as CustomFieldVisibility)
                     }
                   >
-                    <option value="employee">Employee & Above</option>
-                    <option value="manager">Manager & Above</option>
-                    <option value="hr">HR & Admin Only</option>
-                    <option value="admin">Admin Only</option>
-                    <option value="public">Public / Company-Wide</option>
+                    <option value="employee">
+                      {visibilityLabel("employee")}
+                    </option>
+                    <option value="manager">
+                      {visibilityLabel("manager")}
+                    </option>
+                    <option value="hr">{visibilityLabel("hr")}</option>
+                    <option value="admin">{visibilityLabel("admin")}</option>
+                    <option value="public">{visibilityLabel("public")}</option>
                   </select>
                 </div>
               </div>
@@ -247,12 +283,12 @@ export default function CustomFieldsSettingsPage() {
                     htmlFor="cf-options"
                     className="text-xs font-medium text-foreground"
                   >
-                    Select Options (comma-separated)
+                    {t("customFieldOptions")}
                   </label>
                   <Input
                     id="cf-options"
                     required
-                    placeholder="e.g. S, M, L, XL, XXL"
+                    placeholder={t("customFieldOptionsPlaceholder")}
                     value={optionsStr}
                     onChange={(e) => setOptionsStr(e.target.value)}
                   />
@@ -271,7 +307,7 @@ export default function CustomFieldsSettingsPage() {
                   htmlFor="cf-required"
                   className="text-xs text-foreground cursor-pointer select-none"
                 >
-                  Mandatory field during employee profile completion
+                  {t("customFieldRequired")}
                 </label>
               </div>
 
@@ -284,7 +320,7 @@ export default function CustomFieldsSettingsPage() {
                   {tCommon("cancel")}
                 </Button>
                 <Button type="submit" disabled={submitting}>
-                  {submitting ? tCommon("loading") : "Create Field"}
+                  {submitting ? tCommon("loading") : t("customFieldCreate")}
                 </Button>
               </DialogFooter>
             </form>
@@ -312,7 +348,7 @@ export default function CustomFieldsSettingsPage() {
           </div>
         ) : definitions.length === 0 ? (
           <div className="p-8 text-center text-sm text-muted-foreground">
-            No custom fields defined yet.
+            {t("customFieldsEmpty")}
           </div>
         ) : (
           definitions.map((def) => (
@@ -334,24 +370,32 @@ export default function CustomFieldsSettingsPage() {
                         variant="outline"
                         className="text-[10px] text-amber-500 border-amber-500/30"
                       >
-                        Required
+                        {t("customFieldRequiredBadge")}
                       </Badge>
                     )}
                   </div>
                   <div className="flex items-center gap-2 pt-1 text-xs text-muted-foreground">
-                    <span className="capitalize flex items-center gap-1">
-                      <Tag className="h-3 w-3" />
-                      Type: {def.fieldType}
+                    <span className="flex items-center gap-1">
+                      <Tag className="h-3 w-3" aria-hidden="true" />
+                      {t("customFieldTypeValue", {
+                        type: typeLabel(def.fieldType),
+                      })}
                     </span>
                     <span>&middot;</span>
-                    <span className="capitalize flex items-center gap-1">
-                      <Eye className="h-3 w-3" />
-                      Visibility: {def.visibility}
+                    <span className="flex items-center gap-1">
+                      <Eye className="h-3 w-3" aria-hidden="true" />
+                      {t("customFieldVisibilityValue", {
+                        visibility: visibilityLabel(def.visibility),
+                      })}
                     </span>
                     {def.options && def.options.length > 0 && (
                       <>
                         <span>&middot;</span>
-                        <span>Options: {def.options.join(", ")}</span>
+                        <span>
+                          {t("customFieldOptionsValue", {
+                            options: def.options.join(", "),
+                          })}
+                        </span>
                       </>
                     )}
                   </div>
@@ -363,9 +407,10 @@ export default function CustomFieldsSettingsPage() {
                 variant="outline"
                 className="text-destructive hover:bg-destructive/10 hover:text-destructive gap-1.5"
                 onClick={() => handleDelete(def.id)}
+                aria-label={t("customFieldDelete", { name: def.name })}
               >
-                <Trash2 className="h-3.5 w-3.5" />
-                <span>Delete</span>
+                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>{tCommon("delete")}</span>
               </Button>
             </div>
           ))

@@ -59,9 +59,12 @@ export default function WebhooksSettingsPage() {
   const locale = (params?.["locale"] as string) ?? "es";
   const t = useTranslations("webhooks");
   const tCommon = useTranslations("common");
+  const tSettings = useTranslations("settings");
 
   const [webhooks, setWebhooks] = React.useState<WebhookItem[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState(false);
+  const [actionError, setActionError] = React.useState(false);
 
   // Modal create state
   const [createOpen, setCreateOpen] = React.useState(false);
@@ -86,10 +89,12 @@ export default function WebhooksSettingsPage() {
   const loadWebhooks = React.useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError(false);
       const res = await apiClient.listWebhooks();
       setWebhooks(res);
     } catch {
-      // offline / mock fallback
+      setWebhooks([]);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -110,6 +115,7 @@ export default function WebhooksSettingsPage() {
     if (!name || !url || selectedEvents.length === 0) return;
 
     setSubmitting(true);
+    setActionError(false);
     try {
       const res = await apiClient.createWebhook({
         name,
@@ -122,8 +128,8 @@ export default function WebhooksSettingsPage() {
       setUrl("");
       setSelectedEvents(["employee.created", "leave.approved"]);
       setCreateOpen(false);
-    } catch (err) {
-      console.error("Failed to create webhook", err);
+    } catch {
+      setActionError(true);
     } finally {
       setSubmitting(false);
     }
@@ -132,11 +138,12 @@ export default function WebhooksSettingsPage() {
   const handleDelete = async (id: string) => {
     if (!window.confirm(t("deleteConfirm"))) return;
 
+    setActionError(false);
     try {
       await apiClient.deleteWebhook(id);
       setWebhooks((prev) => prev.filter((w) => w.id !== id));
-    } catch (err) {
-      console.error("Failed to delete webhook", err);
+    } catch {
+      setActionError(true);
     }
   };
 
@@ -173,7 +180,7 @@ export default function WebhooksSettingsPage() {
             : w,
         ),
       );
-    } catch (err) {
+    } catch {
       setTestResults((prev) => ({
         ...prev,
         [id]: {
@@ -182,7 +189,7 @@ export default function WebhooksSettingsPage() {
             success: false,
             statusCode: 0,
             durationMs: 0,
-            error: err instanceof Error ? err.message : "Network error",
+            error: null,
           },
         },
       }));
@@ -202,12 +209,13 @@ export default function WebhooksSettingsPage() {
         <Link
           href={`/${locale}/settings`}
           className="inline-flex h-9 w-9 items-center justify-center rounded-btn border border-border bg-surface hover:bg-surface-raised transition-colors"
+          aria-label={tSettings("backToSettings")}
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         </Link>
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <Webhook className="h-6 w-6 text-primary" />
+            <Webhook className="h-6 w-6 text-primary" aria-hidden="true" />
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
               {t("title")}
             </h1>
@@ -225,43 +233,60 @@ export default function WebhooksSettingsPage() {
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>{t("newWebhook")}</DialogTitle>
-              <DialogDescription>
-                Configure an outbound endpoint with HMAC-SHA256 signature
-                verification.
-              </DialogDescription>
+              <DialogDescription>{t("createDescription")}</DialogDescription>
             </DialogHeader>
 
             <form onSubmit={handleCreate} className="space-y-4">
+              {actionError && (
+                <p role="alert" className="text-sm text-danger">
+                  {tSettings("actionError")}
+                </p>
+              )}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">
+                <label
+                  htmlFor="webhook-name"
+                  className="text-sm font-medium text-foreground"
+                >
                   {t("name")}
                 </label>
                 <Input
+                  id="webhook-name"
                   required
-                  placeholder="e.g. Slack HR Notifications"
+                  placeholder={t("namePlaceholder")}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">
+                <label
+                  htmlFor="webhook-url"
+                  className="text-sm font-medium text-foreground"
+                >
                   {t("url")}
                 </label>
                 <Input
+                  id="webhook-url"
                   required
                   type="url"
-                  placeholder="https://api.yourcompany.com/webhooks"
+                  placeholder="https://api.example.com/webhooks"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">
+                <span
+                  id="webhook-events-label"
+                  className="text-sm font-medium text-foreground"
+                >
                   {t("events")}
-                </label>
-                <div className="grid grid-cols-2 gap-2 border border-border rounded-btn p-3 max-h-48 overflow-y-auto">
+                </span>
+                <div
+                  role="group"
+                  aria-labelledby="webhook-events-label"
+                  className="grid grid-cols-2 gap-2 border border-border rounded-btn p-3 max-h-48 overflow-y-auto"
+                >
                   {AVAILABLE_EVENTS.map((ev) => {
                     const checked = selectedEvents.includes(ev);
                     return (
@@ -296,7 +321,7 @@ export default function WebhooksSettingsPage() {
                     submitting || !name || !url || selectedEvents.length === 0
                   }
                 >
-                  {submitting ? "Saving..." : t("newWebhook")}
+                  {submitting ? t("saving") : t("newWebhook")}
                 </Button>
               </DialogFooter>
             </form>
@@ -304,14 +329,34 @@ export default function WebhooksSettingsPage() {
         </Dialog>
       </div>
 
+      {actionError && !createOpen && (
+        <p role="alert" className="text-sm text-danger">
+          {tSettings("actionError")}
+        </p>
+      )}
+
       {/* Webhooks Listing */}
       {loading ? (
-        <div className="flex justify-center p-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <div role="status" className="flex justify-center p-12">
+          <Loader2
+            className="h-8 w-8 animate-spin text-muted-foreground"
+            aria-hidden="true"
+          />
+          <span className="sr-only">{tCommon("loading")}</span>
+        </div>
+      ) : loadError ? (
+        <div role="alert" className="space-y-3 p-8 text-center text-sm">
+          <p>{tSettings("loadError")}</p>
+          <Button variant="outline" onClick={() => void loadWebhooks()}>
+            {tSettings("retry")}
+          </Button>
         </div>
       ) : webhooks.length === 0 ? (
         <div className="rounded-card border border-border bg-surface p-12 text-center">
-          <Webhook className="mx-auto h-12 w-12 text-muted-foreground/50 mb-3" />
+          <Webhook
+            className="mx-auto h-12 w-12 text-muted-foreground/50 mb-3"
+            aria-hidden="true"
+          />
           <p className="text-sm text-muted-foreground">{t("noWebhooks")}</p>
         </div>
       ) : (
@@ -332,7 +377,7 @@ export default function WebhooksSettingsPage() {
                         {hook.name}
                       </h2>
                       <Badge variant={hook.enabled ? "default" : "secondary"}>
-                        {hook.enabled ? t("enabled") : "Disabled"}
+                        {hook.enabled ? t("enabled") : t("disabled")}
                       </Badge>
                       {hook.lastDeliveryStatus != null && (
                         <Badge
@@ -378,8 +423,9 @@ export default function WebhooksSettingsPage() {
                       variant="ghost"
                       className="text-destructive hover:bg-destructive/10"
                       onClick={() => handleDelete(hook.id)}
+                      aria-label={t("deleteWebhook", { name: hook.name })}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
                     </Button>
                   </div>
                 </div>
@@ -400,8 +446,17 @@ export default function WebhooksSettingsPage() {
                     )}
                     <span>
                       {testInfo.result.success
-                        ? `Ping delivered successfully (HTTP ${testInfo.result.statusCode} in ${testInfo.result.durationMs}ms)`
-                        : `Delivery failed: ${testInfo.result.error ?? `HTTP ${testInfo.result.statusCode}`}`}
+                        ? t("testSuccess", {
+                            statusCode: testInfo.result.statusCode,
+                            durationMs: testInfo.result.durationMs,
+                          })
+                        : t("testError", {
+                            error:
+                              testInfo.result.error ??
+                              (testInfo.result.statusCode > 0
+                                ? `HTTP ${testInfo.result.statusCode}`
+                                : t("networkError")),
+                          })}
                     </span>
                   </div>
                 )}
@@ -409,7 +464,9 @@ export default function WebhooksSettingsPage() {
                 {/* Subscribed Events & Secret */}
                 <div className="pt-2 border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-muted-foreground mr-1">Events:</span>
+                    <span className="text-muted-foreground mr-1">
+                      {t("eventsLabel")}:
+                    </span>
                     {(Array.isArray(hook.events)
                       ? hook.events
                       : typeof hook.events === "string"
@@ -443,12 +500,18 @@ export default function WebhooksSettingsPage() {
                       type="button"
                       onClick={() => handleCopySecret(hook.id, hook.secret)}
                       className="text-muted-foreground hover:text-foreground transition-colors"
-                      title="Copy Secret"
+                      title={t("copySecret")}
+                      aria-label={
+                        isCopied ? tCommon("copied") : t("copySecret")
+                      }
                     >
                       {isCopied ? (
-                        <Check className="h-3.5 w-3.5 text-success" />
+                        <Check
+                          className="h-3.5 w-3.5 text-success"
+                          aria-hidden="true"
+                        />
                       ) : (
-                        <Copy className="h-3.5 w-3.5" />
+                        <Copy className="h-3.5 w-3.5" aria-hidden="true" />
                       )}
                     </button>
                   </div>

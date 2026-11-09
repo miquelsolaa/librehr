@@ -51,6 +51,43 @@ export default function EmployeeDetailPage() {
   const tProfile = useTranslations("people.profile");
   const tCommon = useTranslations("common");
 
+  // Stored values stay in English for data compatibility; only the label is localized.
+  const relationshipLabel = (value: string): string => {
+    switch (value) {
+      case "Spouse":
+        return tProfile("relationshipSpouse");
+      case "Parent":
+        return tProfile("relationshipParent");
+      case "Child":
+        return tProfile("relationshipChild");
+      case "Sibling":
+        return tProfile("relationshipSibling");
+      case "Friend":
+        return tProfile("relationshipFriend");
+      default:
+        return value;
+    }
+  };
+
+  const terminationReasonLabel = (value: string | null | undefined): string => {
+    switch (value) {
+      case "voluntary_resignation":
+        return tProfile("voluntaryResignation");
+      case "dismissal_disciplinary":
+        return tProfile("dismissalDisciplinary");
+      case "dismissal_objective":
+        return tProfile("dismissalObjective");
+      case "contract_expiry":
+        return tProfile("contractExpiry");
+      case "retirement":
+        return tProfile("retirement");
+      case "other":
+        return tProfile("other");
+      default:
+        return value ?? "—";
+    }
+  };
+
   const [employee, setEmployee] = React.useState<EmployeeProfile | null>(null);
   const [loading, setLoading] = React.useState(true);
   const activeEmployeeId = React.useRef<string | null>(null);
@@ -366,7 +403,7 @@ export default function EmployeeDetailPage() {
             />
           </div>
           <p className="text-sm text-muted-foreground">
-            {employee.jobTitle ?? "No job title specified"}
+            {employee.jobTitle ?? tProfile("noJobTitle")}
           </p>
         </div>
 
@@ -478,14 +515,14 @@ export default function EmployeeDetailPage() {
               <DialogTrigger asChild>
                 <Button size="sm" variant="outline" className="gap-1.5 text-xs">
                   <Edit className="h-3.5 w-3.5" />
-                  <span>Edit Contact</span>
+                  <span>{tProfile("editContact")}</span>
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Edit Personal Contact Details</DialogTitle>
+                  <DialogTitle>{tProfile("editContactTitle")}</DialogTitle>
                   <DialogDescription>
-                    Update your self-service contact attributes (EMP-005).
+                    {tProfile("editContactDescription")}
                   </DialogDescription>
                 </DialogHeader>
 
@@ -495,11 +532,11 @@ export default function EmployeeDetailPage() {
                       htmlFor="self-preferred-name"
                       className="text-xs font-medium text-foreground"
                     >
-                      Preferred Name
+                      {tProfile("preferredName")}
                     </label>
                     <Input
                       id="self-preferred-name"
-                      placeholder="e.g. Alex"
+                      placeholder={tProfile("preferredNamePlaceholder")}
                       value={selfPreferredName}
                       onChange={(e) => setSelfPreferredName(e.target.value)}
                     />
@@ -510,7 +547,7 @@ export default function EmployeeDetailPage() {
                       htmlFor="self-phone"
                       className="text-xs font-medium text-foreground"
                     >
-                      Phone Number
+                      {tProfile("phone")}
                     </label>
                     <Input
                       id="self-phone"
@@ -525,7 +562,7 @@ export default function EmployeeDetailPage() {
                       htmlFor="self-address"
                       className="text-xs font-medium text-foreground"
                     >
-                      Home Address
+                      {tProfile("homeAddress")}
                     </label>
                     <Input
                       id="self-address"
@@ -647,7 +684,7 @@ export default function EmployeeDetailPage() {
                 {tProfile("contractType")}
               </span>
               <span className="text-foreground uppercase text-xs font-mono font-medium">
-                {employee.employmentType ?? "Indefinido (100)"}
+                {employee.employmentType ?? "—"}
               </span>
             </div>
 
@@ -666,7 +703,9 @@ export default function EmployeeDetailPage() {
                   {tProfile("terminateTitle")}: {employee.terminationDate}
                 </span>
                 <span className="text-muted-foreground">
-                  Reason: {employee.terminationReason}
+                  {tProfile("terminationReasonValue", {
+                    reason: terminationReasonLabel(employee.terminationReason),
+                  })}
                 </span>
               </div>
             )}
@@ -682,7 +721,7 @@ export default function EmployeeDetailPage() {
           <div className="flex items-center gap-2">
             <ShieldAlert className="h-5 w-5 text-amber-500" />
             <h2 className="text-base font-semibold text-foreground">
-              Sensitive Statutory Fields
+              {tProfile("sensitiveTitle")}
             </h2>
           </div>
           <span className="text-xs text-muted-foreground">
@@ -696,7 +735,7 @@ export default function EmployeeDetailPage() {
               label={tProfile("nationalId")}
               value={
                 revealedDni ??
-                (employee.hasNationalId ? "••••••••X" : "Not recorded")
+                (employee.hasNationalId ? "••••••••X" : tProfile("notRecorded"))
               }
               onReveal={handleRevealDni}
             />
@@ -709,7 +748,7 @@ export default function EmployeeDetailPage() {
                 revealedIban ??
                 (employee.hasIban
                   ? "ES•• •••• •••• •••• •••• ••••"
-                  : "Not recorded")
+                  : tProfile("notRecorded"))
               }
               onReveal={handleRevealIban}
             />
@@ -725,7 +764,7 @@ export default function EmployeeDetailPage() {
             <div className="flex items-center gap-2">
               <PhoneCall className="h-5 w-5 text-primary" />
               <h2 className="text-base font-semibold text-foreground">
-                Emergency Contacts
+                {tProfile("emergencyContactsTitle")}
               </h2>
             </div>
 
@@ -733,15 +772,14 @@ export default function EmployeeDetailPage() {
               <DialogTrigger asChild>
                 <Button size="sm" variant="outline" className="gap-1.5 text-xs">
                   <Plus className="h-3.5 w-3.5" />
-                  <span>Add Contact</span>
+                  <span>{tProfile("addContact")}</span>
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Add Emergency Contact</DialogTitle>
+                  <DialogTitle>{tProfile("addContactTitle")}</DialogTitle>
                   <DialogDescription>
-                    Provide contact details in case of sudden medical or
-                    workplace emergency.
+                    {tProfile("addContactDescription")}
                   </DialogDescription>
                 </DialogHeader>
 
@@ -754,12 +792,12 @@ export default function EmployeeDetailPage() {
                       htmlFor="ec-name"
                       className="text-xs font-medium text-foreground"
                     >
-                      Contact Full Name
+                      {tProfile("contactFullName")}
                     </label>
                     <Input
                       id="ec-name"
                       required
-                      placeholder="e.g. Maria Garcia"
+                      placeholder={tProfile("contactNamePlaceholder")}
                       value={contactFullName}
                       onChange={(e) => setContactFullName(e.target.value)}
                     />
@@ -771,7 +809,7 @@ export default function EmployeeDetailPage() {
                         htmlFor="ec-rel"
                         className="text-xs font-medium text-foreground"
                       >
-                        Relationship
+                        {tProfile("relationship")}
                       </label>
                       <select
                         id="ec-rel"
@@ -779,11 +817,21 @@ export default function EmployeeDetailPage() {
                         value={contactRelationship}
                         onChange={(e) => setContactRelationship(e.target.value)}
                       >
-                        <option value="Spouse">Spouse / Partner</option>
-                        <option value="Parent">Parent</option>
-                        <option value="Child">Child</option>
-                        <option value="Sibling">Sibling</option>
-                        <option value="Friend">Friend / Other</option>
+                        <option value="Spouse">
+                          {tProfile("relationshipSpouse")}
+                        </option>
+                        <option value="Parent">
+                          {tProfile("relationshipParent")}
+                        </option>
+                        <option value="Child">
+                          {tProfile("relationshipChild")}
+                        </option>
+                        <option value="Sibling">
+                          {tProfile("relationshipSibling")}
+                        </option>
+                        <option value="Friend">
+                          {tProfile("relationshipFriend")}
+                        </option>
                       </select>
                     </div>
 
@@ -792,7 +840,7 @@ export default function EmployeeDetailPage() {
                         htmlFor="ec-phone-prim"
                         className="text-xs font-medium text-foreground"
                       >
-                        Primary Phone
+                        {tProfile("primaryPhone")}
                       </label>
                       <Input
                         id="ec-phone-prim"
@@ -809,7 +857,7 @@ export default function EmployeeDetailPage() {
                       htmlFor="ec-phone-sec"
                       className="text-xs font-medium text-foreground"
                     >
-                      Secondary Phone (optional)
+                      {tProfile("secondaryPhone")}
                     </label>
                     <Input
                       id="ec-phone-sec"
@@ -831,7 +879,7 @@ export default function EmployeeDetailPage() {
                       htmlFor="ec-primary"
                       className="text-xs text-foreground cursor-pointer select-none"
                     >
-                      Primary emergency contact
+                      {tProfile("primaryContactCheckbox")}
                     </label>
                   </div>
 
@@ -844,7 +892,9 @@ export default function EmployeeDetailPage() {
                       {tCommon("cancel")}
                     </Button>
                     <Button type="submit" disabled={contactSubmitting}>
-                      {contactSubmitting ? tCommon("loading") : "Save Contact"}
+                      {contactSubmitting
+                        ? tCommon("loading")
+                        : tProfile("saveContact")}
                     </Button>
                   </DialogFooter>
                 </form>
@@ -860,7 +910,7 @@ export default function EmployeeDetailPage() {
             )}
             {!contactsError && contacts.length === 0 ? (
               <p className="text-xs text-muted-foreground py-2">
-                No emergency contacts registered yet.
+                {tProfile("noContacts")}
               </p>
             ) : (
               contacts.map((c) => (
@@ -874,11 +924,11 @@ export default function EmployeeDetailPage() {
                         {c.fullName}
                       </span>
                       <Badge variant="outline" className="text-[10px]">
-                        {c.relationship}
+                        {relationshipLabel(c.relationship)}
                       </Badge>
                       {c.isPrimary && (
                         <Badge className="text-[10px] bg-primary/20 text-primary border-primary/30">
-                          Primary
+                          {tProfile("primaryBadge")}
                         </Badge>
                       )}
                     </div>
@@ -898,7 +948,7 @@ export default function EmployeeDetailPage() {
                     variant="outline"
                     className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
                     onClick={() => handleDeleteEmergencyContact(c.id)}
-                    aria-label="Delete contact"
+                    aria-label={tProfile("deleteContact", { name: c.fullName })}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
@@ -914,7 +964,7 @@ export default function EmployeeDetailPage() {
             <div className="flex items-center gap-2">
               <Sliders className="h-5 w-5 text-primary" />
               <h2 className="text-base font-semibold text-foreground">
-                Custom Profile Fields
+                {tProfile("customFieldsTitle")}
               </h2>
             </div>
 
@@ -927,15 +977,14 @@ export default function EmployeeDetailPage() {
                     className="gap-1.5 text-xs"
                   >
                     <Edit className="h-3.5 w-3.5" />
-                    <span>Set Field</span>
+                    <span>{tProfile("setField")}</span>
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Set Custom Field Value</DialogTitle>
+                    <DialogTitle>{tProfile("setFieldTitle")}</DialogTitle>
                     <DialogDescription>
-                      Assign or update an organizational field value for this
-                      employee.
+                      {tProfile("setFieldDescription")}
                     </DialogDescription>
                   </DialogHeader>
 
@@ -945,7 +994,7 @@ export default function EmployeeDetailPage() {
                         htmlFor="cf-select-def"
                         className="text-xs font-medium text-foreground"
                       >
-                        Field Definition
+                        {tProfile("fieldDefinition")}
                       </label>
                       <select
                         id="cf-select-def"
@@ -960,7 +1009,7 @@ export default function EmployeeDetailPage() {
                           setFieldValue(existing?.value ?? "");
                         }}
                       >
-                        <option value="">Select a field...</option>
+                        <option value="">{tProfile("selectField")}</option>
                         {allDefinitions.map((def) => (
                           <option key={def.id} value={def.id}>
                             {def.name} ({def.code})
@@ -974,11 +1023,11 @@ export default function EmployeeDetailPage() {
                         htmlFor="cf-val-input"
                         className="text-xs font-medium text-foreground"
                       >
-                        Field Value
+                        {tProfile("fieldValue")}
                       </label>
                       <Input
                         id="cf-val-input"
-                        placeholder="Enter value..."
+                        placeholder={tProfile("fieldValuePlaceholder")}
                         value={fieldValue}
                         onChange={(e) => setFieldValue(e.target.value)}
                       />
@@ -996,7 +1045,9 @@ export default function EmployeeDetailPage() {
                         type="submit"
                         disabled={cfSubmitting || !selectedFieldDefId}
                       >
-                        {cfSubmitting ? tCommon("loading") : "Save Value"}
+                        {cfSubmitting
+                          ? tCommon("loading")
+                          : tProfile("saveValue")}
                       </Button>
                     </DialogFooter>
                   </form>
@@ -1008,7 +1059,7 @@ export default function EmployeeDetailPage() {
           <div className="space-y-3">
             {customFields.length === 0 ? (
               <p className="text-xs text-muted-foreground py-2">
-                No custom profile fields assigned yet.
+                {tProfile("noCustomFields")}
               </p>
             ) : (
               customFields.map((cf) => (
@@ -1037,7 +1088,7 @@ export default function EmployeeDetailPage() {
             <div className="flex items-center gap-2">
               <KeyRound className="h-4 w-4 text-primary" />
               <h2 className="text-sm font-semibold text-foreground">
-                Kiosk PIN & Tablet Access (TIM-010)
+                {tProfile("kioskTitle")}
               </h2>
             </div>
 
@@ -1045,15 +1096,14 @@ export default function EmployeeDetailPage() {
               <DialogTrigger asChild>
                 <Button size="sm" variant="outline" className="gap-1.5 text-xs">
                   <KeyRound className="h-3.5 w-3.5" />
-                  Set PIN / Badge
+                  {tProfile("setPin")}
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Configure Kiosk Quick PIN</DialogTitle>
+                  <DialogTitle>{tProfile("pinDialogTitle")}</DialogTitle>
                   <DialogDescription>
-                    Set a 4 to 8 digit numeric PIN and optional badge ID for
-                    fast clocking on shared workplace tablets.
+                    {tProfile("pinDialogDescription")}
                   </DialogDescription>
                 </DialogHeader>
 
@@ -1066,7 +1116,7 @@ export default function EmployeeDetailPage() {
                       htmlFor="kiosk-pin-input"
                       className="text-xs font-medium text-foreground"
                     >
-                      Numeric PIN (4-8 digits)
+                      {tProfile("pinLabel")}
                     </label>
                     <Input
                       id="kiosk-pin-input"
@@ -1086,12 +1136,12 @@ export default function EmployeeDetailPage() {
                       htmlFor="kiosk-badge-input"
                       className="text-xs font-medium text-foreground"
                     >
-                      RFID / NFC / Badge ID (optional)
+                      {tProfile("badgeLabel")}
                     </label>
                     <Input
                       id="kiosk-badge-input"
                       type="text"
-                      placeholder="e.g. BADGE-4091"
+                      placeholder={tProfile("badgePlaceholder")}
                       value={kioskBadgeId}
                       onChange={(e) => setKioskBadgeId(e.target.value)}
                     />
@@ -1109,7 +1159,7 @@ export default function EmployeeDetailPage() {
                       type="submit"
                       disabled={pinSubmitting || kioskPin.length < 4}
                     >
-                      {pinSubmitting ? tCommon("loading") : "Save PIN"}
+                      {pinSubmitting ? tCommon("loading") : tProfile("savePin")}
                     </Button>
                   </DialogFooter>
                 </form>
@@ -1118,9 +1168,7 @@ export default function EmployeeDetailPage() {
           </div>
 
           <p className="text-xs text-muted-foreground">
-            {pinSuccess
-              ? "Kiosk PIN is configured and active for tablet clocking."
-              : "Allow this employee to clock in and out on on-site shared tablets using a secure numeric PIN."}
+            {pinSuccess ? tProfile("pinActive") : tProfile("pinHint")}
           </p>
         </div>
       </div>
