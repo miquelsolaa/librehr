@@ -1,4 +1,7 @@
-import { defaultIdempotency } from "../lib/idempotency.js";
+import type { Logger } from "pino";
+import { AuditVerifyChainPayloadSchema } from "../lib/enqueue.js";
+import { NotImplementedError } from "../lib/job-errors.js";
+import { parsePayload } from "../lib/payload.js";
 
 export interface AuditVerifyChainPayload {
   organizationId: string;
@@ -7,22 +10,27 @@ export interface AuditVerifyChainPayload {
 
 /**
  * Background tamper-evident hash chain verification job (TIM-002).
- * Verifies that all time tracking events satisfy the cryptographic link:
- * event.hash = sha256(event.prevHash + canonical(event))
+ *
+ * Fails loudly by design: the chain check is not implemented yet, and reporting "verified"
+ * would claim tamper evidence that nobody checked. The job is dead-lettered with an explicit
+ * "not implemented" error until TIM-002 lands, so operators can see and re-drive it.
  */
-export async function handleAuditVerifyChain(job: {
-  data: AuditVerifyChainPayload;
-}) {
-  const idempotencyKey = `audit-verify:${job.data.organizationId}:${job.data.runDate}`;
-  const proceed = await defaultIdempotency.checkAndMark(idempotencyKey);
-  if (!proceed) return { skipped: true, stub: "TIM-002" };
+export async function handleAuditVerifyChain(
+  job: { id: string; data: unknown },
+  logger: Pick<Logger, "warn">,
+): Promise<never> {
+  const data = parsePayload(
+    "audit.verify-chain",
+    AuditVerifyChainPayloadSchema,
+    job.data,
+  );
 
-  return {
-    organizationId: job.data.organizationId,
-    runDate: job.data.runDate,
-    verifiedChains: 1,
-    tamperedEvents: 0,
-    status: "verified",
-    stub: "TIM-002",
-  };
+  logger.warn({
+    msg: "audit chain not verified: implementation deferred",
+    requirement: "TIM-002",
+    jobId: job.id,
+    organizationId: data.organizationId,
+    runDate: data.runDate,
+  });
+  throw new NotImplementedError("hash chain verification deferred (TIM-002)");
 }

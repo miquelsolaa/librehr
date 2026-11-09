@@ -37,6 +37,39 @@ All LibreHR database migrations are designed to be forward-only and safe to run 
    curl -f http://localhost:3001/readyz
    ```
 
+## pg-boss queue policy
+
+The worker creates its queues with the `exclusive` policy so that a job sent
+with a `singletonKey` (for example one accrual run per organization and date)
+is not queued twice. pg-boss never changes the policy of a queue that already
+exists, so a database whose queues were created by an earlier version keeps
+the `standard` policy, where `singletonKey` does not deduplicate. At startup
+the worker logs a warning for each such queue (`msg: "pg-boss queue has an
+unexpected policy..."` with `queue`, `actualPolicy` and `expectedPolicy`).
+
+To fix a queue named in that warning:
+
+1. Stop whatever enqueues to the queue (for the scheduled queues, nothing
+   else is needed) and wait until it is empty:
+
+   ```sql
+   SELECT state, count(*) FROM pgboss.job WHERE name = '<queue>' GROUP BY state;
+   ```
+
+   Only `completed`, `cancelled` or `failed` rows should remain. Note any
+   `failed` jobs you still want to re-drive.
+
+2. Stop the worker, then delete the queue (this also deletes its job rows):
+
+   ```bash
+   docker compose --env-file .env -f infra/compose/docker-compose.yml stop worker
+   docker compose --env-file .env -f infra/compose/docker-compose.yml run --rm -w /app/apps/worker worker \
+     node --input-type=module -e "import { PgBoss } from 'pg-boss'; const b = new PgBoss({ connectionString: process.env.DATABASE_MIGRATION_URL, schema: 'pgboss' }); await b.start(); await b.deleteQueue(process.argv[1]); await b.stop();" '<queue>'
+   ```
+
+3. Start the worker. It recreates the queue with the `exclusive` policy and
+   the warning no longer appears.
+
 ## Upgrading existing installs to the restricted database roles
 
 From this release the API serves every request as the `librehr_app` role
@@ -56,10 +89,14 @@ step 4. Older installs, where `DATABASE_URL` pointed at the bootstrap superuser
 1. **Back up** the database (see the standard workflow above) and stop `api`
    and `worker`.
 
-2. **Choose passwords** for both roles (`openssl rand -base64 32` each) and put
+2. **Choose passwords** for both roles (`openssl rand -hex 32` each) and put
    them in `.env` as `LIBREHR_OWNER_PASSWORD` and `LIBREHR_APP_PASSWORD`. The
    init script never runs again on an existing volume, so the next step applies
-   them.
+   them. Use hex, not base64: these passwords end up inside
+   `postgres://user:password@host` URLs, where base64's `/` and `+` break
+   parsing. A password you choose yourself must be URL-encoded in the URL
+   (`/` as `%2F`, `+` as `%2B`, `@` as `%40`, ...); the API and worker refuse
+   to start with an unparseable database URL.
 
 3. **Fix roles, ownership and grants** as the bootstrap superuser. Save the
    script below as `upgrade-roles.sql` and run it with the passwords passed as
@@ -147,6 +184,28 @@ step 4. Older installs, where `DATABASE_URL` pointed at the bootstrap superuser
      END LOOP;
    END $$;
    SELECT format('ALTER DATABASE %I OWNER TO librehr_owner', current_database()) \gexec
+
+   -- 2b. The identity-lookup policies of migration 0019 were created for the
+   --     role that ran it. The lookup functions now run as librehr_owner, so
+   --     the policies must apply to it too (migration 0020 repeats this).
+   --     Skipped automatically when 0019 has not run yet.
+   DO $$
+   DECLARE
+     pol record;
+   BEGIN
+     FOR pol IN
+       SELECT policyname, tablename
+       FROM pg_policies
+       WHERE schemaname = 'public'
+         AND policyname IN ('memberships_identity_lookup',
+                            'personal_access_tokens_identity_lookup',
+                            'invitations_identity_lookup',
+                            'sso_configurations_identity_lookup')
+     LOOP
+       EXECUTE format('ALTER POLICY %I ON public.%I TO librehr_owner',
+                      pol.policyname, pol.tablename);
+     END LOOP;
+   END $$;
 
    -- 3. Runtime role privileges, including on tables the owner creates later.
    SELECT format('GRANT CONNECT ON DATABASE %I TO librehr_app', current_database()) \gexec

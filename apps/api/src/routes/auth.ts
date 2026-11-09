@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import type { Sql } from "postgres";
 import {
   SignInRequestSchema,
@@ -16,14 +16,29 @@ import {
   verifyTotpCode,
   verifyRecoveryCode,
 } from "@librehr/core";
-import { IdentityRepository, UserRepository } from "@librehr/db";
-import type { AuthPort } from "../ports/auth.js";
+import {
+  AuditRepository,
+  UserRepository,
+  withTenant,
+  type UserRow,
+} from "@librehr/db";
+import type { AuthPort, AuthSession } from "../ports/auth.js";
 import { createRateLimiter } from "../middleware/rate-limit.js";
 import { requireAuth } from "../middleware/auth.js";
+import {
+  clearSessionCookie,
+  readSessionCookie,
+  setSessionCookie,
+  type SessionCookieOptions,
+} from "../lib/session-cookie.js";
+import { ConflictError, UnauthorizedError } from "../errors/index.js";
 
 export interface AuthRouteOptions {
   /** Signing key for 2FA challenge tokens; comes from the validated env. */
   sessionSecret?: string | undefined;
+  nodeEnv?: SessionCookieOptions["nodeEnv"];
+  /** Trusted reverse-proxy hops (TRUST_PROXY) for rate-limit client IPs. */
+  trustProxy?: number | undefined;
 }
 
 function challengeSecret(value: string | undefined): string | null {
@@ -78,6 +93,30 @@ function verifyChallengeToken(
   }
 }
 
+/** A JSON body field for rate-limit keys; never throws. */
+async function bodyField(c: Context, field: string): Promise<string | null> {
+  try {
+    const body: unknown = await c.req.json();
+    if (body && typeof body === "object" && field in body) {
+      const value = (body as Record<string, unknown>)[field];
+      return typeof value === "string" ? value : null;
+    }
+  } catch {
+    // Malformed bodies are rejected by the route itself.
+  }
+  return null;
+}
+
+function currentUser(c: Context): AuthUser {
+  return (c.get as (key: string) => unknown)("user") as AuthUser;
+}
+
+const invalidCode = () =>
+  new UnauthorizedError({
+    code: "INVALID_2FA_CODE",
+    detail: "Invalid two-factor authentication code",
+  });
+
 export function createAuthRoutes(
   authPort: AuthPort,
   sql: Sql,
@@ -86,16 +125,90 @@ export function createAuthRoutes(
   const router = new Hono();
   const signingSecret = challengeSecret(options.sessionSecret);
   const userRepo = new UserRepository();
-  const identityRepo = new IdentityRepository();
+  const auditRepo = new AuditRepository();
+  const cookieOptions: SessionCookieOptions = {
+    nodeEnv: options.nodeEnv,
+    trustProxy: options.trustProxy,
+  };
+  const trustProxy = options.trustProxy ?? 0;
+  const minute = 60 * 1000;
 
-  // Rate limit: 10 attempts per minute on sign-in
-  const authRateLimiter = createRateLimiter({
-    windowMs: 60 * 1000,
+  // Brute-force limits (AUTH-001). Each endpoint has a per-IP bucket and a
+  // tighter per IP+account bucket, so one account cannot be hammered from an
+  // IP and one IP cannot spray many accounts beyond the IP budget.
+  const perIp = () =>
+    createRateLimiter({ windowMs: minute, max: 30, trustProxy });
+  const signInLimit = createRateLimiter({
+    windowMs: minute,
     max: 10,
+    trustProxy,
+    account: (c) => bodyField(c, "email"),
+  });
+  const verifyLimit = createRateLimiter({
+    windowMs: minute,
+    max: 10,
+    trustProxy,
+    account: async (c) => {
+      const token = await bodyField(c, "challengeToken");
+      return token ? verifyChallengeToken(token, signingSecret) : null;
+    },
+  });
+  const sessionUserLimit = createRateLimiter({
+    windowMs: minute,
+    max: 10,
+    trustProxy,
+    account: (c) => currentUser(c).id,
   });
 
-  router.post("/sign-in", authRateLimiter, async (c) => {
-    const body = await c.req.json();
+  const issueSession = (c: Context, session: AuthSession) => {
+    setSessionCookie(c, session.token, session.expiresAt, cookieOptions);
+    // The token travels only in the httpOnly cookie, never in the body.
+    return c.json({
+      user: session.user,
+      expiresAt: session.expiresAt.toISOString(),
+    });
+  };
+
+  const noActiveMembership = () =>
+    new UnauthorizedError({
+      code: "INVALID_CREDENTIALS",
+      detail: "Invalid email or password",
+    });
+
+  /**
+   * Checks a TOTP or single-use recovery code. A matching recovery code is
+   * burned. A legacy plaintext TOTP secret is re-encrypted once a code has
+   * been verified against it.
+   */
+  const verifySecondFactor = async (
+    userRow: UserRow,
+    rawCode: string,
+  ): Promise<boolean> => {
+    const code = rawCode.trim();
+    const secret = userRow.twoFactorSecret;
+    let valid = secret ? verifyTotpCode(secret, code) : false;
+
+    if (!valid && userRow.twoFactorRecoveryCodes) {
+      const matchedIdx = verifyRecoveryCode(
+        code,
+        userRow.twoFactorRecoveryCodes,
+      );
+      if (matchedIdx !== -1) {
+        valid = true;
+        const remaining = [...userRow.twoFactorRecoveryCodes];
+        remaining.splice(matchedIdx, 1);
+        await userRepo.updateRecoveryCodes(sql, userRow.id, remaining);
+      }
+    }
+
+    if (valid && secret && userRow.twoFactorSecretIsPlaintext) {
+      await userRepo.reencryptTwoFactorSecret(sql, userRow.id, secret);
+    }
+    return valid;
+  };
+
+  router.post("/sign-in", perIp(), signInLimit, async (c) => {
+    const body = await c.req.json().catch(() => null);
     const parsed = SignInRequestSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -134,39 +247,9 @@ export function createAuthRoutes(
     // Check if user has 2FA enabled
     const userRow = await userRepo.findById(sql, user.id);
     if (userRow?.twoFactorEnabled) {
-      // If code was supplied, verify it directly
       if (parsed.data.twoFactorCode) {
-        const code = parsed.data.twoFactorCode.trim();
-        const totpValid = userRow.twoFactorSecret
-          ? verifyTotpCode(userRow.twoFactorSecret, code)
-          : false;
-
-        let recoveryValid = false;
-        if (!totpValid && userRow.twoFactorRecoveryCodes) {
-          const matchedIdx = verifyRecoveryCode(
-            code,
-            userRow.twoFactorRecoveryCodes,
-          );
-          if (matchedIdx !== -1) {
-            recoveryValid = true;
-            // Burn single-use recovery code
-            const remaining = [...userRow.twoFactorRecoveryCodes];
-            remaining.splice(matchedIdx, 1);
-            await userRepo.updateRecoveryCodes(sql, user.id, remaining);
-          }
-        }
-
-        if (!totpValid && !recoveryValid) {
-          return c.json(
-            createProblemDetails({
-              status: 401,
-              title: "Unauthorized",
-              detail: "Invalid two-factor authentication code",
-              code: "INVALID_2FA_CODE",
-            }),
-            401,
-            { "Content-Type": "application/problem+json" },
-          );
+        if (!(await verifySecondFactor(userRow, parsed.data.twoFactorCode))) {
+          throw invalidCode();
         }
       } else {
         // Return 2FA challenge response
@@ -192,23 +275,13 @@ export function createAuthRoutes(
     }
 
     const session = await authPort.createSession(user);
-
-    // Set secure HttpOnly session cookie
-    c.header(
-      "Set-Cookie",
-      `librehr_session=${session.token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800`,
-    );
-
-    return c.json({
-      user: session.user,
-      expiresAt: session.expiresAt.toISOString(),
-      token: session.token,
-    });
+    if (!session) throw noActiveMembership();
+    return issueSession(c, session);
   });
 
   // Verify 2FA challenge token and issue session
-  router.post("/2fa/verify", authRateLimiter, async (c) => {
-    const body = await c.req.json();
+  router.post("/2fa/verify", perIp(), verifyLimit, async (c) => {
+    const body = await c.req.json().catch(() => null);
     const parsed = TwoFactorVerifyRequestSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -255,41 +328,19 @@ export function createAuthRoutes(
       );
     }
 
-    const code = parsed.data.code.trim();
-    const totpValid = userRow.twoFactorSecret
-      ? verifyTotpCode(userRow.twoFactorSecret, code)
-      : false;
-
-    let recoveryValid = false;
-    if (!totpValid && userRow.twoFactorRecoveryCodes) {
-      const matchedIdx = verifyRecoveryCode(
-        code,
-        userRow.twoFactorRecoveryCodes,
-      );
-      if (matchedIdx !== -1) {
-        recoveryValid = true;
-        const remaining = [...userRow.twoFactorRecoveryCodes];
-        remaining.splice(matchedIdx, 1);
-        await userRepo.updateRecoveryCodes(sql, userId, remaining);
-      }
+    if (!(await verifySecondFactor(userRow, parsed.data.code))) {
+      throw invalidCode();
     }
 
-    if (!totpValid && !recoveryValid) {
-      return c.json(
-        createProblemDetails({
-          status: 401,
-          title: "Unauthorized",
-          detail: "Invalid two-factor authentication code",
-          code: "INVALID_2FA_CODE",
-        }),
-        401,
-        { "Content-Type": "application/problem+json" },
-      );
-    }
-
-    // Same deterministic default membership as password sign-in.
-    const membership = await identityRepo.membership(sql, userId);
-    if (!membership) {
+    // Same deterministic default membership as password sign-in, bound
+    // through the new session's token.
+    const session = await authPort.createSession({
+      id: userRow.id,
+      email: userRow.email,
+      name: userRow.name,
+      twoFactorEnabled: true,
+    });
+    if (!session) {
       return c.json(
         createProblemDetails({
           status: 401,
@@ -301,33 +352,12 @@ export function createAuthRoutes(
         { "Content-Type": "application/problem+json" },
       );
     }
-
-    const authUser: AuthUser = {
-      id: userRow.id,
-      email: userRow.email,
-      name: userRow.name,
-      role: membership.role,
-      organizationId: membership.organizationId,
-      twoFactorEnabled: true,
-    };
-
-    const session = await authPort.createSession(authUser);
-
-    c.header(
-      "Set-Cookie",
-      `librehr_session=${session.token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800`,
-    );
-
-    return c.json({
-      user: session.user,
-      expiresAt: session.expiresAt.toISOString(),
-      token: session.token,
-    });
+    return issueSession(c, session);
   });
 
   // Setup 2FA - generates new secret and backup recovery codes
   router.post("/2fa/setup", requireAuth, async (c) => {
-    const user = (c.get as (key: string) => unknown)("user") as AuthUser;
+    const user = currentUser(c);
     const secret = generateTotpSecret();
     const qrUri = generateTotpUri({
       secret,
@@ -344,9 +374,9 @@ export function createAuthRoutes(
   });
 
   // Enable 2FA - validates code with secret and persists
-  router.post("/2fa/enable", requireAuth, async (c) => {
-    const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const body = await c.req.json();
+  router.post("/2fa/enable", requireAuth, sessionUserLimit, async (c) => {
+    const user = currentUser(c);
+    const body = await c.req.json().catch(() => null);
     const parsed = TwoFactorEnableRequestSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -384,39 +414,87 @@ export function createAuthRoutes(
         .digest("hex"),
     );
 
-    await userRepo.enableTwoFactor(
+    // Never overwrite an active secret: the user must disable 2FA first.
+    const enabled = await userRepo.enableTwoFactor(
       sql,
       user.id,
       parsed.data.secret,
       hashedCodes,
     );
+    if (!enabled) {
+      throw new ConflictError({
+        code: "TWO_FACTOR_ALREADY_ENABLED",
+        detail: "Two-factor authentication is already enabled",
+      });
+    }
+
+    await withTenant(
+      sql,
+      { organizationId: user.organizationId, userId: user.id },
+      (tx) =>
+        auditRepo.log(tx, {
+          actorId: user.id,
+          action: "auth.2fa.enable",
+          resourceType: "user",
+          resourceId: user.id,
+        }),
+    );
 
     return c.json({ success: true });
   });
 
-  // Disable 2FA
-  router.post("/2fa/disable", requireAuth, async (c) => {
-    const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const body = await c.req.json().catch(() => ({}));
-    TwoFactorDisableRequestSchema.safeParse(body);
+  // Disable 2FA: requires a current TOTP code or an unused recovery code, so a
+  // stolen session alone cannot remove the second factor.
+  router.post("/2fa/disable", requireAuth, sessionUserLimit, async (c) => {
+    const user = currentUser(c);
+    const body = await c.req.json().catch(() => null);
+    const parsed = TwoFactorDisableRequestSchema.safeParse(body);
+    if (!parsed.success) throw invalidCode();
+
+    const userRow = await userRepo.findById(sql, user.id);
+    if (!userRow?.twoFactorEnabled) {
+      throw new ConflictError({
+        code: "TWO_FACTOR_NOT_ENABLED",
+        detail: "Two-factor authentication is not enabled",
+      });
+    }
+
+    if (!(await verifySecondFactor(userRow, parsed.data.code))) {
+      throw invalidCode();
+    }
 
     await userRepo.disableTwoFactor(sql, user.id);
+    await withTenant(
+      sql,
+      { organizationId: user.organizationId, userId: user.id },
+      (tx) =>
+        auditRepo.log(tx, {
+          actorId: user.id,
+          action: "auth.2fa.disable",
+          resourceType: "user",
+          resourceId: user.id,
+        }),
+    );
 
     return c.json({ success: true });
   });
 
+  // Revokes the current session (cookie, or a Bearer session token from a
+  // non-browser client) and clears the cookie. Personal access tokens are
+  // revoked through /v1/tokens, not here.
   router.post("/sign-out", async (c) => {
     const authHeader = c.req.header("authorization");
-    if (authHeader?.startsWith("Bearer ")) {
-      const token = authHeader.substring(7);
+    const bearer = authHeader?.startsWith("Bearer ")
+      ? authHeader.substring(7)
+      : undefined;
+    const tokens = [readSessionCookie(c), bearer].filter(
+      (t): t is string => typeof t === "string" && !t.startsWith("lhr_"),
+    );
+    for (const token of new Set(tokens)) {
       await authPort.revokeSession(token);
     }
 
-    c.header(
-      "Set-Cookie",
-      "librehr_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0",
-    );
-
+    clearSessionCookie(c, cookieOptions);
     return c.json({ success: true });
   });
 

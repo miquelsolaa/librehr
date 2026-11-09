@@ -177,7 +177,7 @@ export default function OrgChartPage() {
     setLoading(true);
     setLoadError(null);
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setRoots([]);
       setTotalEmployees(0);
       setLoadError("signInRequired");
@@ -185,7 +185,7 @@ export default function OrgChartPage() {
       return;
     }
     try {
-      const res = await getApiClient(session.token).getOrgChart();
+      const res = await getApiClient().getOrgChart();
       setRoots(res.roots);
       setTotalEmployees(res.totalEmployees);
     } catch {

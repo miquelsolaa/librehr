@@ -11,7 +11,6 @@ import {
   AlertCircle,
   Tablet,
 } from "lucide-react";
-import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
 import type { KioskClockResponse } from "@librehr/contracts";
 
@@ -112,8 +111,7 @@ export default function KioskModePage() {
     setLoading(true);
     setError(null);
 
-    const session = getStoredSession();
-    const client = getApiClient(session?.token);
+    const client = getApiClient();
 
     try {
       const res = await client.kioskClock({
@@ -134,10 +132,10 @@ export default function KioskModePage() {
     <div className="mx-auto flex max-w-4xl flex-col items-center justify-center p-4 sm:p-6 lg:p-8">
       {/* Header with Live Clock */}
       <div className="mb-6 flex w-full flex-col items-center text-center">
-        <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
-          <Tablet className="h-3.5 w-3.5" />
+        <h1 className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
+          <Tablet className="h-3.5 w-3.5" aria-hidden="true" />
           {t("kioskTitle")}
-        </div>
+        </h1>
         <div className="mt-2 text-4xl font-extrabold tracking-tight sm:text-5xl">
           {currentTime || "--:--:--"}
         </div>
@@ -172,8 +170,11 @@ export default function KioskModePage() {
           /* Clock-in Terminal Input & Keypad */
           <div className="space-y-6">
             {error && (
-              <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">
-                <AlertCircle className="h-4 w-4 shrink-0" />
+              <div
+                role="alert"
+                className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300"
+              >
+                <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>{error}</span>
               </div>
             )}
@@ -191,7 +192,7 @@ export default function KioskModePage() {
                 type="text"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="email@company.com or Badge ID"
+                placeholder={t("kioskIdentifierPlaceholder")}
                 disabled={loading}
                 className="w-full rounded-xl border bg-background px-4 py-3 text-center text-lg font-medium shadow-inner outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                 autoComplete="off"
@@ -236,7 +237,7 @@ export default function KioskModePage() {
                 disabled={loading || pin.length === 0}
                 className="flex h-14 items-center justify-center rounded-xl border bg-muted/60 text-sm font-semibold transition active:scale-95 disabled:opacity-40"
               >
-                Clear
+                {t("kioskClear")}
               </button>
               <button
                 type="button"
@@ -249,10 +250,11 @@ export default function KioskModePage() {
               <button
                 type="button"
                 onClick={handleBackspace}
+                aria-label={t("kioskBackspace")}
                 disabled={loading || pin.length === 0}
                 className="flex h-14 items-center justify-center rounded-xl border bg-muted/60 text-muted-foreground transition active:scale-95 disabled:opacity-40 hover:text-foreground"
               >
-                <Delete className="h-6 w-6" />
+                <Delete className="h-6 w-6" aria-hidden="true" />
               </button>
             </div>
 
@@ -262,27 +264,27 @@ export default function KioskModePage() {
                 type="button"
                 onClick={() => handleKioskClock("clock_in")}
                 disabled={loading || !identifier || pin.length < 4}
-                className="flex h-14 flex-col items-center justify-center rounded-xl bg-emerald-600 text-white font-semibold shadow-md transition hover:bg-emerald-700 active:scale-95 disabled:opacity-40"
+                className="flex h-14 flex-col items-center justify-center rounded-xl bg-emerald-700 text-white font-semibold shadow-md transition hover:bg-emerald-800 active:scale-95 disabled:opacity-40"
               >
-                <LogIn className="h-5 w-5 mb-0.5" />
+                <LogIn className="h-5 w-5 mb-0.5" aria-hidden="true" />
                 <span className="text-xs">{t("kioskActionIn")}</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleKioskClock("break_start")}
                 disabled={loading || !identifier || pin.length < 4}
-                className="flex h-14 flex-col items-center justify-center rounded-xl bg-amber-500 text-white font-semibold shadow-md transition hover:bg-amber-600 active:scale-95 disabled:opacity-40"
+                className="flex h-14 flex-col items-center justify-center rounded-xl bg-amber-700 text-white font-semibold shadow-md transition hover:bg-amber-800 active:scale-95 disabled:opacity-40"
               >
-                <Coffee className="h-5 w-5 mb-0.5" />
+                <Coffee className="h-5 w-5 mb-0.5" aria-hidden="true" />
                 <span className="text-xs">{t("kioskActionBreak")}</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleKioskClock("clock_out")}
                 disabled={loading || !identifier || pin.length < 4}
-                className="flex h-14 flex-col items-center justify-center rounded-xl bg-rose-600 text-white font-semibold shadow-md transition hover:bg-rose-700 active:scale-95 disabled:opacity-40"
+                className="flex h-14 flex-col items-center justify-center rounded-xl bg-rose-700 text-white font-semibold shadow-md transition hover:bg-rose-800 active:scale-95 disabled:opacity-40"
               >
-                <LogOut className="h-5 w-5 mb-0.5" />
+                <LogOut className="h-5 w-5 mb-0.5" aria-hidden="true" />
                 <span className="text-xs">{t("kioskActionOut")}</span>
               </button>
             </div>

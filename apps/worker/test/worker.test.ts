@@ -98,10 +98,19 @@ describe("Worker Queue Handlers", () => {
     );
   });
 
-  it("executes the audit stub handler", async () => {
-    const auditRes = await handleAuditVerifyChain({
-      data: { organizationId: "org-1", runDate: "2026-11-01" },
-    });
-    expect(auditRes.stub).toBe("TIM-002");
+  it("fails audit.verify-chain loudly instead of reporting a verified chain (TIM-002)", async () => {
+    const warn = vi.fn();
+    const result: unknown = await handleAuditVerifyChain(
+      {
+        id: "j-audit",
+        data: { organizationId: "org-1", runDate: "2026-11-01" },
+      },
+      { warn },
+    ).catch((e: unknown) => e);
+    expect(result).toBeInstanceOf(NotImplementedError);
+    expect(String(result)).toContain("TIM-002");
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ requirement: "TIM-002", jobId: "j-audit" }),
+    );
   });
 });

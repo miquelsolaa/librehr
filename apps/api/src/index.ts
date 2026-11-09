@@ -1,6 +1,7 @@
 import { serve } from "@hono/node-server";
 import postgres from "postgres";
 import { runMigrations } from "@librehr/db/migrate";
+import { configureEnvelopeKey } from "@librehr/db";
 import { loadEnv } from "./env.js";
 import { createApp } from "./app.js";
 import { BetterAuthAdapter } from "./adapters/better-auth.js";
@@ -9,6 +10,9 @@ import { logger } from "./middleware/logger.js";
 
 async function bootstrap() {
   const env = loadEnv();
+  // loadEnv resolves ENVELOPE_MASTER_KEY_FILE into env only; hand the key to
+  // the crypto layer instead of letting it read process.env.
+  configureEnvelopeKey(env.ENVELOPE_MASTER_KEY);
 
   logger.info({
     msg: "Bootstrapping LibreHR API...",
@@ -49,6 +53,8 @@ async function bootstrap() {
     authPort,
     mailPort,
     sessionSecret: env.SESSION_SECRET,
+    nodeEnv: env.NODE_ENV,
+    trustProxy: env.TRUST_PROXY,
     config: {
       nodeEnv: env.NODE_ENV,
       appUrl: env.APP_URL,

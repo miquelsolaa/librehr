@@ -129,7 +129,7 @@ export class DocumentRepository {
         ORDER BY version_number DESC
         LIMIT 1
       ) v ON true
-      WHERE d.id = ${id}
+      WHERE d.id = ${id} AND d.organization_id = ${tx.__tenantContext.organizationId}
       LIMIT 1
     `;
     return rows[0] ?? null;
@@ -164,7 +164,8 @@ export class DocumentRepository {
         ORDER BY version_number DESC
         LIMIT 1
       ) v ON true
-      WHERE (${filters.employeeId ?? null}::uuid IS NULL OR d.employee_id = ${filters.employeeId ?? null})
+      WHERE d.organization_id = ${tx.__tenantContext.organizationId}
+        AND (${filters.employeeId ?? null}::uuid IS NULL OR d.employee_id = ${filters.employeeId ?? null})
         AND (${filters.category ?? null}::text IS NULL OR d.category = ${filters.category ?? null})
         AND (
           ${filters.isCompanyWide ?? null}::boolean IS NULL

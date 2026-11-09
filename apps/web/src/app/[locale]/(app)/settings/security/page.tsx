@@ -23,6 +23,7 @@ export default function SecuritySettingsPage() {
 
   const t = useTranslations("settings");
   const tCommon = useTranslations("common");
+  const tAuth = useTranslations("auth");
 
   const [session, setSession] = React.useState(getStoredSession());
   const [twoFactorEnabled, setTwoFactorEnabled] = React.useState(false);
@@ -48,6 +49,7 @@ export default function SecuritySettingsPage() {
 
   const loadData = React.useCallback(async () => {
     setIsLoading(true);
+    setErrorMessage(null);
     try {
       const client = getApiClient();
       const me = await client.getMe();
@@ -56,12 +58,12 @@ export default function SecuritySettingsPage() {
       if (me.organization.requireTwoFactor !== undefined) {
         setRequireTwoFactor(me.organization.requireTwoFactor);
       }
-    } catch (err) {
-      console.error("Failed to load security settings", err);
+    } catch {
+      setErrorMessage(t("loadError"));
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   React.useEffect(() => {
     setSession(getStoredSession());
@@ -110,12 +112,15 @@ export default function SecuritySettingsPage() {
 
   const handleDisable = async () => {
     if (!window.confirm(t("disable2FaConfirm"))) return;
+    // AUTH-003: the API requires a current TOTP or recovery code to disable.
+    const code = window.prompt(tAuth("twoFactorCodeLabel"))?.trim();
+    if (!code) return;
 
     setActionLoading(true);
     setErrorMessage(null);
     try {
       const client = getApiClient();
-      await client.disableTwoFactor();
+      await client.disableTwoFactor({ code });
       setTwoFactorEnabled(false);
       setSuccessMessage(t("twoFactorDisabledSuccess"));
     } catch {
@@ -154,8 +159,9 @@ export default function SecuritySettingsPage() {
         <Link
           href={`/${locale}/settings`}
           className="rounded-btn p-2 text-muted-foreground hover:bg-surface hover:text-foreground transition-colors"
+          aria-label={t("backToSettings")}
         >
-          <ArrowLeft className="h-5 w-5" />
+          <ArrowLeft className="h-5 w-5" aria-hidden="true" />
         </Link>
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
@@ -263,15 +269,23 @@ export default function SecuritySettingsPage() {
 
             <div className="flex items-center justify-between rounded-input border border-border bg-background p-4">
               <div>
-                <div className="text-sm font-medium text-foreground">
+                <div
+                  id="require-2fa-label"
+                  className="text-sm font-medium text-foreground"
+                >
                   {t("requireTwoFactorAll")}
                 </div>
-                <div className="text-xs text-muted-foreground">
+                <div
+                  id="require-2fa-hint"
+                  className="text-xs text-muted-foreground"
+                >
                   {t("requireTwoFactorHint")}
                 </div>
               </div>
               <input
                 type="checkbox"
+                aria-labelledby="require-2fa-label"
+                aria-describedby="require-2fa-hint"
                 checked={requireTwoFactor}
                 onChange={handleToggleOrgRequirement}
                 disabled={actionLoading || isLoading}

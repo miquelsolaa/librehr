@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { usePathname, useParams } from "next/navigation";
+import { usePathname, useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
   Sidebar,
@@ -22,7 +22,7 @@ import { ThemeToggle } from "../../../components/theme-toggle";
 import { LanguageSwitcher } from "../../../components/language-switcher";
 import { NotificationBell } from "../../../components/notification-bell";
 import { ClockWidget } from "../../../components/clock-widget";
-import { getStoredSession } from "@/lib/auth";
+import { getStoredSession, signOut } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -30,7 +30,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const params = useParams();
   const locale = (params?.["locale"] as string | undefined) ?? "ca";
 
+  const router = useRouter();
   const tNav = useTranslations("nav");
+  const tAuth = useTranslations("auth");
+  const [isSigningOut, setIsSigningOut] = React.useState(false);
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+    try {
+      await signOut();
+    } catch {
+      // The local profile is cleared regardless; the cookie expires anyway.
+    } finally {
+      router.push(`/${locale}/sign-in`);
+    }
+  };
 
   const [userName, setUserName] = React.useState<string | null>(null);
   const [userRole, setUserRole] = React.useState<string | null>(null);
@@ -42,7 +56,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     setUserName(session.name || session.email);
     setUserRole(session.role);
     let active = true;
-    void getApiClient(session.token)
+    void getApiClient()
       .getOrganization()
       .then((organization) => {
         if (active) setOrgName(organization.name);
@@ -187,6 +201,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <span className="text-muted-foreground">{userRole}</span>
                 )}
               </div>
+              <button
+                type="button"
+                onClick={() => void handleSignOut()}
+                disabled={isSigningOut}
+                className="ml-auto rounded-input px-2 py-1 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:opacity-50"
+              >
+                {tAuth("signOut")}
+              </button>
             </div>
           ) : undefined
         }

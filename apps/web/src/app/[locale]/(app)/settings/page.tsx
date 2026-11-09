@@ -48,8 +48,8 @@ export default function SettingsPage() {
       icon: <KeyRound className="h-5 w-5 text-primary" />,
     },
     {
-      title: "Custom Profile Fields",
-      description: "Manage dynamic employee profile fields and attributes.",
+      title: t("customFieldsTitle"),
+      description: t("customFieldsCardDescription"),
       href: `/${locale}/settings/custom-fields`,
       icon: <Sliders className="h-5 w-5 text-primary" />,
     },
@@ -80,8 +80,7 @@ export default function SettingsPage() {
           {tNav("settings")}
         </h1>
         <p className="text-sm text-muted-foreground">
-          Manage statutory configuration, work centers, and organizational
-          units.
+          {t("settingsDescription")}
         </p>
       </div>
 

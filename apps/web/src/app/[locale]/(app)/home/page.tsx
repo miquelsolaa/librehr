@@ -22,9 +22,9 @@ export default function HomePage() {
     const current = getStoredSession();
     setSession(current);
     setBalanceError(false);
-    if (current?.token) {
+    if (current) {
       try {
-        const result = await getApiClient(current.token).getLeaveBalance();
+        const result = await getApiClient().getLeaveBalance();
         setBalance(result.currentBalance);
       } catch {
         setBalance(null);
@@ -52,7 +52,7 @@ export default function HomePage() {
       </header>
       {!ready ? (
         <p role="status">{t("loadingHome")}</p>
-      ) : !session?.token ? (
+      ) : !session ? (
         <section className="rounded-card border border-border bg-surface p-6 space-y-3">
           <p>{t("signInPrompt")}</p>
           <Link

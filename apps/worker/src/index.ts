@@ -8,13 +8,8 @@ import { handleRetentionEnforce } from "./queues/retention.enforce.js";
 import { handleAuditVerifyChain } from "./queues/audit.verify-chain.js";
 import { createSmtpMailer } from "./lib/smtp-mailer.js";
 import { processBatch, type BatchJob } from "./lib/process-batch.js";
-import { parsePayload } from "./lib/payload.js";
-import {
-  AuditVerifyChainPayloadSchema,
-  QUEUES,
-  QUEUE_POLICY,
-  type QueueName,
-} from "./lib/enqueue.js";
+import type { QueueName } from "./lib/enqueue.js";
+import { ensureQueues } from "./lib/queue-setup.js";
 
 const env = loadWorkerEnv();
 
@@ -48,12 +43,8 @@ async function startWorker() {
   await boss.start();
   logger.info({ msg: "pg-boss started successfully" });
 
-  // createQueue does not change the policy of a queue that already exists. Databases whose
-  // queues were created before this change keep the `standard` policy, where singletonKey does
-  // not dedupe; recreate those queues (pre-release dev data only).
-  for (const q of Object.keys(QUEUES) as QueueName[]) {
-    await boss.createQueue(q, { policy: QUEUE_POLICY });
-  }
+  // Creates missing queues and warns about existing ones whose policy pg-boss cannot change.
+  await ensureQueues(boss, logger);
 
   // perJobResults: every job in a batch is settled on its own, so one bad job cannot fail or
   // block the rest of the batch.
@@ -71,14 +62,8 @@ async function startWorker() {
   await register("retention.enforce", (job) =>
     handleRetentionEnforce(job, logger),
   );
-  await register("audit.verify-chain", async (job) =>
-    handleAuditVerifyChain({
-      data: parsePayload(
-        "audit.verify-chain",
-        AuditVerifyChainPayloadSchema,
-        job.data,
-      ),
-    }),
+  await register("audit.verify-chain", (job) =>
+    handleAuditVerifyChain(job, logger),
   );
 
   const shutdown = async (signal: string) => {

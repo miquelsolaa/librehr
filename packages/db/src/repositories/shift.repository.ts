@@ -306,6 +306,23 @@ export class ShiftRepository {
     return rows[0]!;
   }
 
+  async findShiftSwapById(
+    tx: TenantTx,
+    swapId: string,
+  ): Promise<ShiftSwapRow | null> {
+    const rows = await tx<ShiftSwapRow[]>`
+      SELECT id, organization_id as "organizationId",
+             requester_id as "requesterId", target_employee_id as "targetEmployeeId",
+             requester_date::text as "requesterDate", target_date::text as "targetDate",
+             status, reason, approver_id as "approverId", decided_at as "decidedAt",
+             created_at as "createdAt", updated_at as "updatedAt"
+      FROM shift_swaps
+      WHERE id = ${swapId} AND organization_id = ${tx.__tenantContext.organizationId}
+      LIMIT 1
+    `;
+    return rows[0] ?? null;
+  }
+
   async decideShiftSwap(
     tx: TenantTx,
     swapId: string,

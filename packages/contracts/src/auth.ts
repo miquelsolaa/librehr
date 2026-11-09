@@ -20,7 +20,6 @@ export type AuthUser = z.infer<typeof AuthUserSchema>;
 export const SessionResponseSchema = z.object({
   user: AuthUserSchema,
   expiresAt: z.string().datetime(),
-  token: z.string().optional(),
 });
 export type SessionResponse = z.infer<typeof SessionResponseSchema>;
 
@@ -74,8 +73,9 @@ export type TwoFactorVerifyRequest = z.infer<
   typeof TwoFactorVerifyRequestSchema
 >;
 
+// AUTH-003: disabling requires a current TOTP code or an unused recovery code.
 export const TwoFactorDisableRequestSchema = z.object({
-  code: z.string().optional(),
+  code: z.string().trim().min(6).max(64),
 });
 export type TwoFactorDisableRequest = z.infer<
   typeof TwoFactorDisableRequestSchema

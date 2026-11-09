@@ -19,6 +19,19 @@ import { withTenant, ShiftRepository, EmployeeRepository } from "@librehr/db";
 import { NotFoundError, ValidationError } from "../errors/index.js";
 import { IdParamSchema, parseJsonBody, parseParams } from "../lib/validate.js";
 import { requireAuth } from "../middleware/auth.js";
+import {
+  inEmployeeFilter,
+  requireEmployeesInScope,
+  resolvePolicyContext,
+  scopedEmployeeFilter,
+} from "../policies/context.js";
+
+/**
+ * Rostering changes someone's working time, so it follows the time-record
+ * correction scope: managers for their direct reports, admin/HR for the
+ * organization.
+ */
+const ROSTER_PERMISSION = "time.record.correct" as const;
 
 export function createShiftRoutes(sql: Sql) {
   const router = new Hono();
@@ -131,15 +144,18 @@ export function createShiftRoutes(sql: Sql) {
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        const currentEmp = await employeeRepo.findByUserId(tx, user.id);
-        const empFilter =
-          employeeId ??
-          (user.role === "employee" && currentEmp ? currentEmp.id : undefined);
-        return shiftRepo.getShiftAssignments(tx, {
+        // Employees see their own roster, managers theirs and their reports'.
+        const filter = scopedEmployeeFilter(
+          await resolvePolicyContext(c, tx),
+          "time.record.read",
+          employeeId,
+        );
+        const rows = await shiftRepo.getShiftAssignments(tx, {
           startDate,
           endDate,
-          employeeId: empFilter,
+          employeeId: filter.employeeId,
         });
+        return rows.filter((r) => inEmployeeFilter(filter, r.employeeId));
       },
     );
     return c.json(assignments);
@@ -165,8 +181,14 @@ export function createShiftRoutes(sql: Sql) {
     await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
-      async (tx) =>
-        shiftRepo.assignShifts(
+      async (tx) => {
+        await requireEmployeesInScope(
+          await resolvePolicyContext(c, tx),
+          ROSTER_PERMISSION,
+          data.assignments.map((a) => a.employeeId),
+          (id) => employeeRepo.findById(tx, id),
+        );
+        return shiftRepo.assignShifts(
           tx,
           data.assignments.map((a) => ({
             employeeId: a.employeeId,
@@ -175,7 +197,8 @@ export function createShiftRoutes(sql: Sql) {
             status: a.status ?? "scheduled",
             notes: a.notes ?? undefined,
           })),
-        ),
+        );
+      },
     );
     return c.json({ success: true, count: data.assignments.length });
   });
@@ -203,6 +226,13 @@ export function createShiftRoutes(sql: Sql) {
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
+        await requireEmployeesInScope(
+          await resolvePolicyContext(c, tx),
+          ROSTER_PERMISSION,
+          employeeIds,
+          (id) => employeeRepo.findById(tx, id),
+        );
+
         // Fetch pattern and its steps
         const patterns = await shiftRepo.getShiftPatterns(tx);
         const patternRow = patterns.find((p) => p.id === patternId);
@@ -287,19 +317,24 @@ export function createShiftRoutes(sql: Sql) {
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        const currentEmp = await employeeRepo.findByUserId(tx, user.id);
-        const filterStatus = status ? status : undefined;
-        const filterEmpId =
-          user.role === "employee" && currentEmp ? currentEmp.id : undefined;
-
+        // A swap is visible when either side is within the caller's scope.
+        const filter = scopedEmployeeFilter(
+          await resolvePolicyContext(c, tx),
+          "time.record.read",
+        );
         const filterObj: {
           status?: string | undefined;
           employeeId?: string | undefined;
         } = {};
-        if (filterStatus) filterObj.status = filterStatus;
-        if (filterEmpId) filterObj.employeeId = filterEmpId;
+        if (status) filterObj.status = status;
+        if (filter.employeeId) filterObj.employeeId = filter.employeeId;
 
-        return shiftRepo.getShiftSwaps(tx, filterObj);
+        const rows = await shiftRepo.getShiftSwaps(tx, filterObj);
+        return rows.filter(
+          (s) =>
+            inEmployeeFilter(filter, s.requesterId) ||
+            inEmployeeFilter(filter, s.targetEmployeeId),
+        );
       },
     );
     return c.json(swaps);
@@ -320,6 +355,9 @@ export function createShiftRoutes(sql: Sql) {
             detail: "User is not linked to an employee profile",
             code: "NO_EMPLOYEE_PROFILE",
           });
+        }
+        if (!(await employeeRepo.findById(tx, data.targetEmployeeId))) {
+          throw new NotFoundError({ detail: "Employee not found" });
         }
 
         return shiftRepo.createShiftSwap(tx, {
@@ -360,10 +398,20 @@ export function createShiftRoutes(sql: Sql) {
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        const currentEmp = await employeeRepo.findByUserId(tx, user.id);
+        const swap = await shiftRepo.findShiftSwapById(tx, id);
+        if (!swap) return null;
+        // Both rosters change, so both employees must be the decider's
+        // reports (and a manager cannot decide their own swap).
+        const ctx = await resolvePolicyContext(c, tx);
+        await requireEmployeesInScope(
+          ctx,
+          ROSTER_PERMISSION,
+          [swap.requesterId, swap.targetEmployeeId],
+          (empId) => employeeRepo.findById(tx, empId),
+        );
         return shiftRepo.decideShiftSwap(tx, id, {
           status: data.status,
-          approverId: currentEmp ? currentEmp.id : user.id,
+          approverId: ctx.employeeId ?? user.id,
         });
       },
     );

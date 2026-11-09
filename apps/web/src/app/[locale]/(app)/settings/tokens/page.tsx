@@ -28,13 +28,30 @@ import {
   Badge,
 } from "@librehr/ui";
 import { apiClient } from "../../../../../lib/api-client.js";
-import type { PatScope, PersonalAccessTokenItem } from "@librehr/contracts";
+import type {
+  PersonalAccessTokenItem,
+  PersonalAccessTokenScope,
+} from "@librehr/contracts";
 
 export default function TokensSettingsPage() {
   const params = useParams();
   const locale = (params?.["locale"] as string) ?? "es";
   const t = useTranslations("tokens");
   const tCommon = useTranslations("common");
+  const tNav = useTranslations("nav");
+
+  const scopeLabel = (scope: string): string => {
+    switch (scope) {
+      case "read":
+        return t("scopeRead");
+      case "write":
+        return t("scopeWrite");
+      case "admin":
+        return t("scopeAdmin");
+      default:
+        return scope;
+    }
+  };
 
   const [tokens, setTokens] = React.useState<PersonalAccessTokenItem[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -42,7 +59,9 @@ export default function TokensSettingsPage() {
   // Create token dialog state
   const [createOpen, setCreateOpen] = React.useState(false);
   const [name, setName] = React.useState("");
-  const [scopes, setScopes] = React.useState<PatScope[]>(["read"]);
+  const [scopes, setScopes] = React.useState<PersonalAccessTokenScope[]>([
+    "read",
+  ]);
   const [expiresInDays, setExpiresInDays] = React.useState<number>(30);
   const [submitting, setSubmitting] = React.useState(false);
 
@@ -67,7 +86,7 @@ export default function TokensSettingsPage() {
     loadTokens();
   }, [loadTokens]);
 
-  const toggleScope = (scope: PatScope) => {
+  const toggleScope = (scope: PersonalAccessTokenScope) => {
     setScopes((prev) =>
       prev.includes(scope) ? prev.filter((s) => s !== scope) : [...prev, scope],
     );
@@ -129,8 +148,8 @@ export default function TokensSettingsPage() {
             href={`/${locale}/settings`}
             className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
           >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            <span>Settings</span>
+            <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>{tNav("settings")}</span>
           </Link>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             {t("title")}
@@ -148,10 +167,7 @@ export default function TokensSettingsPage() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{t("createToken")}</DialogTitle>
-              <DialogDescription>
-                Create a scoped personal access token with a unique prefix for
-                integrations.
-              </DialogDescription>
+              <DialogDescription>{t("createDescription")}</DialogDescription>
             </DialogHeader>
 
             <form onSubmit={handleCreate} className="space-y-4">
@@ -165,7 +181,7 @@ export default function TokensSettingsPage() {
                 <Input
                   id="token-name"
                   required
-                  placeholder="e.g. CI/CD or Payroll Sync"
+                  placeholder={t("namePlaceholder")}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
@@ -181,14 +197,17 @@ export default function TokensSettingsPage() {
                       key={sc}
                       type="button"
                       onClick={() => toggleScope(sc)}
+                      aria-pressed={scopes.includes(sc)}
                       className={`flex items-center justify-between rounded-md border p-2 text-xs font-medium transition-colors ${
                         scopes.includes(sc)
                           ? "border-primary bg-primary/10 text-primary"
                           : "border-border bg-background text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      <span className="capitalize">{sc}</span>
-                      {scopes.includes(sc) && <Check className="h-3.5 w-3.5" />}
+                      <span>{scopeLabel(sc)}</span>
+                      {scopes.includes(sc) && (
+                        <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                      )}
                     </button>
                   ))}
                 </div>
@@ -207,11 +226,13 @@ export default function TokensSettingsPage() {
                   value={expiresInDays}
                   onChange={(e) => setExpiresInDays(Number(e.target.value))}
                 >
-                  <option value={30}>30 days</option>
-                  <option value={60}>60 days</option>
-                  <option value={90}>90 days</option>
-                  <option value={365}>1 year</option>
-                  <option value={0}>Never expire</option>
+                  {[30, 60, 90].map((days) => (
+                    <option key={days} value={days}>
+                      {t("expiresDays", { days })}
+                    </option>
+                  ))}
+                  <option value={365}>{t("expiresYear")}</option>
+                  <option value={0}>{t("expiresNever")}</option>
                 </select>
               </div>
 
@@ -240,8 +261,8 @@ export default function TokensSettingsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-foreground">
-              <Shield className="h-5 w-5 text-emerald-500" />
-              <span>Token Created Successfully</span>
+              <Shield className="h-5 w-5 text-emerald-500" aria-hidden="true" />
+              <span>{t("createdTitle")}</span>
             </DialogTitle>
             <DialogDescription className="text-amber-500 font-medium">
               {t("revealedNotice")}
@@ -275,13 +296,13 @@ export default function TokensSettingsPage() {
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <AlertCircle className="h-3.5 w-3.5 text-muted-foreground" />
               <span>
-                Use in headers: <code>Authorization: Bearer lhr_...</code>
+                {t("headerHint")} <code>Authorization: Bearer lhr_...</code>
               </span>
             </div>
           </div>
 
           <DialogFooter>
-            <Button onClick={() => setRevealOpen(false)}>Done</Button>
+            <Button onClick={() => setRevealOpen(false)}>{t("done")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -335,7 +356,7 @@ export default function TokensSettingsPage() {
                           variant="outline"
                           className="text-[10px] px-1.5 py-0"
                         >
-                          {s}
+                          {scopeLabel(s)}
                         </Badge>
                       ))}
                     </div>
@@ -345,7 +366,11 @@ export default function TokensSettingsPage() {
                     <span className="text-xs text-muted-foreground flex items-center gap-1">
                       <Clock className="h-3 w-3" />
                       {token.lastUsedAt
-                        ? `Last used: ${new Date(token.lastUsedAt).toLocaleDateString()}`
+                        ? t("lastUsedOn", {
+                            date: new Date(token.lastUsedAt).toLocaleDateString(
+                              locale,
+                            ),
+                          })
                         : t("neverUsed")}
                     </span>
                     {token.expiresAt && (
@@ -354,8 +379,11 @@ export default function TokensSettingsPage() {
                           &middot;
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          Expires:{" "}
-                          {new Date(token.expiresAt).toLocaleDateString()}
+                          {t("expiresOn", {
+                            date: new Date(token.expiresAt).toLocaleDateString(
+                              locale,
+                            ),
+                          })}
                         </span>
                       </>
                     )}

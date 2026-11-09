@@ -28,7 +28,12 @@ import {
   type TimeEventRow,
 } from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
-import { can } from "../policies/can.js";
+import { permissionScope } from "../policies/can.js";
+import {
+  canOnEmployee,
+  requireEmployeeInScope,
+  resolvePolicyContext,
+} from "../policies/context.js";
 
 function foldRecordedEvents(events: TimeEventRow[]) {
   return foldSessions(
@@ -353,21 +358,10 @@ export function createTimeRoutes(sql: Sql) {
           const emp = await employeeRepo.findById(tx, employeeId);
           if (!emp) return "NOT_FOUND";
           if (emp.userId !== user.id && user.role !== "auditor") {
-            const manager = emp.managerId
-              ? await employeeRepo.findById(tx, emp.managerId)
-              : null;
-            const allowed = can(
-              {
-                userId: user.id,
-                organizationId: user.organizationId,
-                role: user.role,
-              },
+            const allowed = canOnEmployee(
+              await resolvePolicyContext(c, tx),
               "time.record.read",
-              {
-                organizationId: user.organizationId,
-                employeeId: emp.id,
-                managerId: manager?.userId ?? undefined,
-              },
+              emp,
             );
             if (!allowed) return "FORBIDDEN";
           }
@@ -510,21 +504,10 @@ export function createTimeRoutes(sql: Sql) {
         if (!emp) return null;
 
         if (emp.userId !== user.id && user.role !== "auditor") {
-          const manager = emp.managerId
-            ? await employeeRepo.findById(tx, emp.managerId)
-            : null;
-          const allowed = can(
-            {
-              userId: user.id,
-              organizationId: user.organizationId,
-              role: user.role,
-            },
+          const allowed = canOnEmployee(
+            await resolvePolicyContext(c, tx),
             "time.record.read",
-            {
-              organizationId: user.organizationId,
-              employeeId: emp.id,
-              managerId: manager?.userId ?? undefined,
-            },
+            emp,
           );
           if (!allowed) return "FORBIDDEN";
         }
@@ -664,18 +647,10 @@ export function createTimeRoutes(sql: Sql) {
 
         // Check permission: employee can see self, manager can see reports, admin can see all
         if (emp.userId !== user.id && user.role !== "auditor") {
-          const allowed = can(
-            {
-              userId: user.id,
-              organizationId: user.organizationId,
-              role: user.role,
-            },
+          const allowed = canOnEmployee(
+            await resolvePolicyContext(c, tx),
             "time.record.read",
-            {
-              organizationId: user.organizationId,
-              employeeId: emp.id,
-              managerId: emp.managerId ?? undefined,
-            },
+            emp,
           );
           if (!allowed) return "FORBIDDEN";
         }
@@ -748,15 +723,17 @@ export function createTimeRoutes(sql: Sql) {
       });
     }
 
-    const allowed = can(
-      {
-        userId: user.id,
-        organizationId: user.organizationId,
-        role: user.role,
-      },
-      "time.record.correct",
-    );
-    if (!allowed && user.role !== "admin" && user.role !== "manager") {
+    // Role check up front; the per-employee scope check happens below.
+    if (
+      !permissionScope(
+        {
+          userId: user.id,
+          organizationId: user.organizationId,
+          role: user.role,
+        },
+        "time.record.correct",
+      )
+    ) {
       const problem = createProblemDetails({
         status: 403,
         title: "Forbidden",
@@ -772,8 +749,13 @@ export function createTimeRoutes(sql: Sql) {
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        const emp = await employeeRepo.findById(tx, parse.data.employeeId);
-        if (!emp) return null;
+        // Managers may only credit their direct reports (never themselves).
+        await requireEmployeeInScope(
+          await resolvePolicyContext(c, tx),
+          "time.record.correct",
+          () => employeeRepo.findById(tx, parse.data.employeeId),
+          "EMPLOYEE_NOT_FOUND",
+        );
 
         const record = await timeRepo.createTimeBankRecord(tx, {
           employeeId: parse.data.employeeId,
@@ -802,18 +784,6 @@ export function createTimeRoutes(sql: Sql) {
         };
       },
     );
-
-    if (!created) {
-      const problem = createProblemDetails({
-        status: 404,
-        title: "Not Found",
-        detail: "Employee not found",
-        code: "EMPLOYEE_NOT_FOUND",
-      });
-      return c.json(problem, 404, {
-        "Content-Type": "application/problem+json",
-      });
-    }
 
     return c.json(created, 201);
   });

@@ -27,7 +27,7 @@ export default function ReportsPage() {
   const [exporting, setExporting] = React.useState(false);
   const [exportError, setExportError] = React.useState(false);
   React.useEffect(() => {
-    setState(getStoredSession()?.token ? "ready" : "signIn");
+    setState(getStoredSession() ? "ready" : "signIn");
   }, []);
 
   async function loadHeadcount(event: React.FormEvent<HTMLFormElement>) {

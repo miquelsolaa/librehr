@@ -2,7 +2,7 @@ import type { Sql } from "postgres";
 
 /**
  * Identity lookups that run before a tenant context exists. They go through
- * the SECURITY DEFINER functions of migration 0019, the only way the runtime
+ * the SECURITY DEFINER functions of migrations 0019/0020, the only way the runtime
  * role (NOBYPASSRLS) can read these tenant tables without `withTenant`.
  */
 
@@ -67,17 +67,19 @@ function stringArray(value: unknown): string[] {
 
 export class IdentityRepository {
   /**
-   * The user's membership in `organizationId`, or the default one (oldest by
-   * created_at, then id) when no organization is given.
+   * Binds a freshly created session to the organization it opens in: the one
+   * already stored on it or, when none is, the user's default membership
+   * (oldest by created_at, then id). Keyed by the session token, never by a
+   * bare user id (migration 0020). Returns null when the session is unknown or
+   * expired, or the user has no active membership there.
    */
-  async membership(
+  async bindSessionOrganization(
     sql: Sql,
-    userId: string,
-    organizationId: string | null = null,
+    token: string,
   ): Promise<MembershipLookup | null> {
     const rows = await sql<MembershipLookup[]>`
       SELECT organization_id AS "organizationId", role
-      FROM librehr_auth_membership(${userId}::uuid, ${organizationId}::uuid)
+      FROM librehr_auth_session_bind_org(${token})
     `;
     return rows[0] ?? null;
   }

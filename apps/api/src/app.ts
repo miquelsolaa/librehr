@@ -12,7 +12,9 @@ import { requestIdMiddleware } from "./middleware/request-id.js";
 import { loggerMiddleware } from "./middleware/logger.js";
 import { securityHeadersMiddleware } from "./middleware/security-headers.js";
 import { createAuthMiddleware } from "./middleware/auth.js";
+import { createCsrfMiddleware } from "./middleware/csrf.js";
 import { tenantContextMiddleware } from "./middleware/tenant-context.js";
+import { patScopeMiddleware } from "./middleware/pat-scopes.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { createHealthRoutes } from "./routes/health.js";
 import { createAuthRoutes } from "./routes/auth.js";
@@ -54,6 +56,10 @@ export interface AppDependencies {
   storagePort?: StoragePort | undefined;
   /** From the validated env; 2FA challenges are refused without it. */
   sessionSecret?: string | undefined;
+  /** NODE_ENV from the validated env: production always sets Secure cookies. */
+  nodeEnv?: "development" | "test" | "production" | undefined;
+  /** TRUST_PROXY from the validated env (trusted reverse-proxy hops). */
+  trustProxy?: number | undefined;
   /** Edge settings from the validated env; see `resolveAppConfig`. */
   config?: Partial<AppConfig> | undefined;
 }
@@ -77,11 +83,16 @@ export interface AppConfig {
 /**
  * Fills unset settings with closed defaults: an unknown NODE_ENV is treated
  * as production, SSO is off and webhooks must target public https URLs.
+ * `fallbackNodeEnv` is the top-level `nodeEnv` dependency, when given.
  */
-export function resolveAppConfig(config: Partial<AppConfig> = {}): AppConfig {
+export function resolveAppConfig(
+  config: Partial<AppConfig> = {},
+  fallbackNodeEnv?: AppConfig["nodeEnv"],
+): AppConfig {
   const envNode = process.env["NODE_ENV"];
   const nodeEnv =
     config.nodeEnv ??
+    fallbackNodeEnv ??
     (envNode === "development" || envNode === "test" ? envNode : "production");
   return {
     nodeEnv,
@@ -97,7 +108,7 @@ export function resolveAppConfig(config: Partial<AppConfig> = {}): AppConfig {
 
 export function createApp(deps: AppDependencies) {
   const app = new Hono();
-  const config = resolveAppConfig(deps.config);
+  const config = resolveAppConfig(deps.config, deps.nodeEnv);
 
   // 1. Global Middleware Pipeline (per ARCHITECTURE.md 3.2)
   app.use(
@@ -126,7 +137,15 @@ export function createApp(deps: AppDependencies) {
   app.use("*", loggerMiddleware);
   app.use("*", securityHeadersMiddleware);
   app.use("*", createAuthMiddleware(deps.authPort, deps.sql));
+  app.use(
+    "*",
+    createCsrfMiddleware({
+      appUrl: config.appUrl,
+      nodeEnv: deps.nodeEnv,
+    }),
+  );
   app.use("*", tenantContextMiddleware);
+  app.use("*", patScopeMiddleware);
 
   // 2. Health & Readiness
   const healthRoutes = createHealthRoutes(deps.sql);
@@ -157,6 +176,8 @@ export function createApp(deps: AppDependencies) {
     "/v1/auth",
     createAuthRoutes(deps.authPort, deps.sql, {
       sessionSecret: deps.sessionSecret,
+      nodeEnv: deps.nodeEnv,
+      trustProxy: deps.trustProxy,
     }),
   );
   app.route("/v1", createMeRoutes(deps.sql));
@@ -167,7 +188,10 @@ export function createApp(deps: AppDependencies) {
   app.route("/v1", createLocationRoutes(deps.sql));
   app.route(
     "/v1",
-    createInvitationRoutes(deps.sql, deps.authPort, deps.mailPort),
+    createInvitationRoutes(deps.sql, deps.authPort, deps.mailPort, {
+      nodeEnv: deps.nodeEnv,
+      trustProxy: deps.trustProxy,
+    }),
   );
   app.route("/v1", createSetupRoutes(deps.sql));
   app.route("/v1", createAuditRoutes(deps.sql));

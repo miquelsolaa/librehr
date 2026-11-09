@@ -48,14 +48,14 @@ export default function TimeOffPage() {
     setLoading(true);
     setError(null);
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setData(null);
       setError("session");
       setLoading(false);
       return;
     }
     try {
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       const [balance, requests, blackouts, delegations] = await Promise.all([
         client.getLeaveBalance(),
         client.listLeaveRequests(),
@@ -77,7 +77,7 @@ export default function TimeOffPage() {
 
   const handleCancel = async (id: string) => {
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setCancelError(true);
       return;
     }
@@ -85,7 +85,7 @@ export default function TimeOffPage() {
     setCancelError(false);
     setCancellingId(id);
     try {
-      await getApiClient(session.token).cancelLeaveRequest(id);
+      await getApiClient().cancelLeaveRequest(id);
       await fetchData();
     } catch {
       setCancelError(true);

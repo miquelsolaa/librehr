@@ -64,24 +64,38 @@ LibreHR is designed to be easily self-hostable on any standard Linux server, VPS
    start in `NODE_ENV=production` if a secret is shorter than 32 characters or
    is one of the public development values from `.env.example`.
 
-   Generate each secret separately (never reuse one value for two variables):
+   Generate each secret separately (never reuse one value for two variables).
+   Database role passwords (`POSTGRES_PASSWORD`, `LIBREHR_OWNER_PASSWORD`,
+   `LIBREHR_APP_PASSWORD`) are placed inside `postgres://user:password@host`
+   URLs, so generate them as hex, which is URL-safe:
 
    ```bash
-   openssl rand -base64 32
+   openssl rand -hex 32      # database role passwords
+   openssl rand -base64 32   # all other secrets
    ```
 
-   | Variable                 | Required | Purpose                                                                           |
-   | ------------------------ | -------- | --------------------------------------------------------------------------------- |
-   | `POSTGRES_PASSWORD`      | yes      | Bootstrap superuser of the Postgres container                                     |
-   | `LIBREHR_OWNER_PASSWORD` | yes      | `librehr_owner` role: owns the schema, runs migrations and the worker             |
-   | `LIBREHR_APP_PASSWORD`   | yes      | `librehr_app` role: runtime role, always bound by Row-Level Security              |
-   | `BETTER_AUTH_SECRET`     | yes      | Signs sessions                                                                    |
-   | `SESSION_SECRET`         | yes      | Signs two-factor sign-in challenges                                               |
-   | `ENVELOPE_MASTER_KEY`    | yes      | Encrypts sensitive fields at rest. **Back it up: losing it loses that data**      |
-   | `TIME_CHAIN_KEY`         | yes      | Keys the tamper-evidence chain of time-tracking events                            |
-   | `BETTER_AUTH_URL`        | yes      | Public URL of the API                                                             |
-   | `APP_URL`                | yes      | Public URL of the web app                                                         |
-   | `SMTP_HOST`              | yes      | Your SMTP relay (`SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` are optional) |
+   Base64 output can contain `/` and `+`, which break URL parsing. If you choose
+   a database password yourself, URL-encode it wherever it appears in a URL
+   (`/` as `%2F`, `+` as `%2B`, `@` as `%40`, ...). The API and worker refuse to
+   start with an unparseable database URL (the error names the variable, never
+   its value).
+
+   | Variable                 | Required | Purpose                                                                                                                       |
+   | ------------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------- |
+   | `POSTGRES_PASSWORD`      | yes      | Bootstrap superuser of the Postgres container (hex)                                                                           |
+   | `LIBREHR_OWNER_PASSWORD` | yes      | `librehr_owner` role: owns the schema, runs migrations and the worker (hex)                                                   |
+   | `LIBREHR_APP_PASSWORD`   | yes      | `librehr_app` role: runtime role, always bound by Row-Level Security (hex)                                                    |
+   | `BETTER_AUTH_SECRET`     | yes      | Validated at startup (unique, 32+ characters) but not used by the current release                                             |
+   | `SESSION_SECRET`         | yes      | Signs two-factor sign-in challenges                                                                                           |
+   | `ENVELOPE_MASTER_KEY`    | yes      | Encrypts sensitive fields at rest. **Back it up: losing it loses that data**                                                  |
+   | `TIME_CHAIN_KEY`         | yes      | Will key the tamper-evidence chain of time-tracking events; not read by the current release, required for an upcoming release |
+   | `BETTER_AUTH_URL`        | yes      | Public URL of the API (production refuses a `localhost` value)                                                                |
+   | `APP_URL`                | yes      | Public URL of the web app (production refuses a `localhost` value)                                                            |
+   | `SMTP_HOST`              | yes      | Your SMTP relay (`SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` are optional)                                             |
+
+   In production the API also refuses a `DATABASE_URL` that connects as
+   `librehr_owner`, as the migration role, or as the bootstrap superuser
+   (`postgres` or `POSTGRES_USER`): requests must run as `librehr_app`.
 
    The API also accepts `<NAME>_FILE` (for example `ENVELOPE_MASTER_KEY_FILE`)
    for the four application secrets, to use Docker secrets instead of plain
@@ -94,6 +108,14 @@ LibreHR is designed to be easily self-hostable on any standard Linux server, VPS
    `librehr_owner` because it owns the `pgboss` schema. Neither role is a
    superuser or has `BYPASSRLS`; the bootstrap superuser is only used by the
    init script. Upgrading an older install: see [upgrading.md](upgrading.md).
+
+   `TRUST_PROXY` (optional, default `0`) is the number of reverse proxies in
+   front of the API that append to `X-Forwarded-For`. The bundled compose file
+   sets it to `1` for Caddy. The API rate-limits sign-in and two-factor
+   attempts by client IP, taking the right-most address it did not get from a
+   trusted proxy; with `0` it ignores the header and uses the socket address.
+   Never set it higher than your real number of proxies, or clients can spoof
+   their IP and escape the limit.
 
    The role passwords are applied by `infra/postgres/init/00-roles.sh` only
    when the Postgres data volume is created for the first time. To change them
@@ -115,8 +137,28 @@ LibreHR is designed to be easily self-hostable on any standard Linux server, VPS
 
 ## 2. Production Security Checklist
 
-- [ ] Enforce HTTPS using Caddy or your reverse proxy (`infra/compose/Caddyfile.example`).
+- [ ] Enforce HTTPS using Caddy or your reverse proxy (`infra/compose/Caddyfile.example`). Session cookies are `Secure` when `NODE_ENV=production`, so the web app and API must be served over HTTPS from the same site (the bundled Caddyfile serves both from one origin).
+- [ ] Run a single API instance. Rate limits for sign-in and two-factor are kept in memory per process; several replicas would each keep their own counters and multiply the limit.
+- [ ] Set `TRUST_PROXY` to the exact number of reverse proxies in front of the API (`1` with the bundled Caddy).
 - [ ] Ensure database port 5432 is not exposed to the public internet (bind to internal Docker network only).
 - [ ] Run `pnpm doctor` or verify RLS is forced on all tenant tables.
 - [ ] Setup daily automated backups using `infra/scripts/backup.sh`.
 - [ ] Configure outbound SMTP settings to deliver transactional invites and password resets.
+
+## 3. Background job data retention
+
+The worker queues jobs in the `pgboss` schema. Job payloads are stored in those
+tables until pg-boss deletes them, and email jobs carry personal data: the
+recipient address and invitation or password-reset URLs. The worker sets every
+queue to:
+
+- **`retentionSeconds` = 7 days**: a job still waiting to run (created or
+  retrying) is deleted after 7 days.
+- **`deleteAfterSeconds` = 3 days**: a finished job (completed, cancelled or
+  failed) is deleted 3 days after it finished. Inspect and re-drive failed
+  jobs within that window.
+
+The worker applies these values at startup, including to queues created by
+earlier versions (`QUEUE_RETENTION` in `apps/worker/src/lib/queue-setup.ts`).
+Database backups contain whatever job rows existed when they were taken, so
+expire backups under your retention policy as well.

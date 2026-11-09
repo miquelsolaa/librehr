@@ -38,7 +38,7 @@ export default function TimeExportPage() {
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!session?.token) {
+    if (!session) {
       setError("exportUnavailable");
       return;
     }
@@ -47,7 +47,7 @@ export default function TimeExportPage() {
     setDoc(null);
     setLoading(true);
     try {
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       const queryParams: {
         startDate: string;
         endDate: string;
@@ -86,8 +86,8 @@ export default function TimeExportPage() {
           href={`/${locale}/time`}
           className="flex items-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
-          <ArrowLeft className="mr-1 h-4 w-4" />
-          Back to Time Tracking
+          <ArrowLeft className="mr-1 h-4 w-4" aria-hidden="true" />
+          {t("backToTime")}
         </Link>
       </div>
 
@@ -112,8 +112,7 @@ export default function TimeExportPage() {
                 {t("exportTitle")}
               </h1>
               <p className="text-xs text-muted-foreground">
-                Document conforming to Spanish Labour Inspection (ET art. 34.9,
-                RDL 8/2019).
+                {t("exportLegalNotice")}
               </p>
             </div>
           </div>
@@ -130,7 +129,8 @@ export default function TimeExportPage() {
             {isAuditor && (
               <Input
                 type="text"
-                placeholder="Employee UUID (optional)"
+                placeholder={t("exportEmployeeId")}
+                aria-label={t("exportEmployeeId")}
                 value={employeeId}
                 onChange={(e) => setEmployeeId(e.target.value)}
                 className="w-48 text-xs font-mono"
@@ -138,19 +138,23 @@ export default function TimeExportPage() {
             )}
             <Input
               type="date"
+              aria-label={t("startDate")}
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
               required
             />
-            <span className="text-muted-foreground">to</span>
+            <span className="text-muted-foreground" aria-hidden="true">
+              {t("dateRangeSeparator")}
+            </span>
             <Input
               type="date"
+              aria-label={t("endDate")}
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
               required
             />
             <Button type="submit" variant="default" disabled={loading}>
-              {loading ? "Generating..." : t("generateExport")}
+              {loading ? t("generating") : t("generateExport")}
             </Button>
           </form>
         </div>
@@ -163,14 +167,16 @@ export default function TimeExportPage() {
                 <ShieldCheck className="h-5 w-5 text-emerald-600 mt-0.5" />
                 <div className="space-y-1 text-xs">
                   <p className="font-semibold text-emerald-900 dark:text-emerald-300">
-                    Cryptographic Content Verification
+                    {t("exportVerificationTitle")}
                   </p>
                   <p className="text-emerald-700 dark:text-emerald-400 font-mono break-all">
                     {t("contentHash")}: {doc.documentContentHash}
                   </p>
                   <p className="text-muted-foreground">
-                    Generated at: {doc.metadata.generatedAt} | Organization:{" "}
-                    {doc.metadata.organizationName}
+                    {t("exportGeneratedAt", {
+                      generatedAt: doc.metadata.generatedAt,
+                      organization: doc.metadata.organizationName,
+                    })}
                   </p>
                 </div>
               </div>
@@ -184,7 +190,7 @@ export default function TimeExportPage() {
                     {doc.metadata.organizationName}
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    Employee: {doc.metadata.employeeName}
+                    {t("exportEmployee", { name: doc.metadata.employeeName })}
                   </p>
                 </div>
                 <Button
@@ -193,8 +199,8 @@ export default function TimeExportPage() {
                   onClick={handlePrint}
                   className="gap-2 print:hidden"
                 >
-                  <Download className="h-4 w-4" />
-                  Print / Save PDF
+                  <Download className="h-4 w-4" aria-hidden="true" />
+                  {t("printExport")}
                 </Button>
               </div>
 
@@ -202,9 +208,9 @@ export default function TimeExportPage() {
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr className="border-b border-border font-semibold uppercase text-muted-foreground">
-                      <th className="py-2">Date</th>
-                      <th className="py-2">Worked Minutes</th>
-                      <th className="py-2">Overtime Minutes</th>
+                      <th className="py-2">{t("date")}</th>
+                      <th className="py-2">{t("colWorkedMinutes")}</th>
+                      <th className="py-2">{t("colOvertimeMinutes")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -221,7 +227,7 @@ export default function TimeExportPage() {
                   </tbody>
                   <tfoot>
                     <tr className="border-t-2 border-border font-bold">
-                      <td className="py-3">TOTAL</td>
+                      <td className="py-3 uppercase">{t("total")}</td>
                       <td className="py-3">
                         {doc.totalWorkedMinutes}m (
                         {Math.round(doc.totalWorkedMinutes / 6) / 10}h)

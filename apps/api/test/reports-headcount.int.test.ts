@@ -4,6 +4,7 @@ import { withTenant } from "@librehr/db";
 import { runMigrations } from "@librehr/db/migrate";
 import { createApp } from "../src/app.js";
 import type { AuthPort } from "../src/ports/auth.js";
+import type { AuthUser } from "@librehr/contracts";
 
 const org = "80000000-0000-0000-0000-000000000001";
 const otherOrg = "80000000-0000-0000-0000-000000000002";
@@ -11,7 +12,7 @@ const auth: AuthPort = {
   async verifyCredentials() {
     return null;
   },
-  async createSession(user) {
+  async createSession(user: AuthUser) {
     return { user, token: user.role, expiresAt: new Date(Date.now() + 60000) };
   },
   async getSession(token) {
