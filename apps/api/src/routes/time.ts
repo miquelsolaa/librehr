@@ -203,7 +203,7 @@ export function createTimeRoutes(
           const emp = await employeeRepo.findById(tx, employeeId);
           if (!emp) return "NOT_FOUND";
           locationId = emp.locationId;
-          if (emp.userId !== user.id && user.role !== "auditor") {
+          if (emp.userId !== user.id) {
             const allowed = canOnEmployee(
               await resolvePolicyContext(c, tx),
               "time.record.read",
@@ -218,8 +218,8 @@ export function createTimeRoutes(
               action: "inspector.timesheet_access",
               resourceType: "timesheet",
               resourceId: employeeId,
+              // actorId identifies the auditor; no email in audit metadata.
               metadata: {
-                inspectorEmail: user.email,
                 periodStart: startDate,
                 periodEnd: endDate,
               },
@@ -299,7 +299,7 @@ export function createTimeRoutes(
         if (!emp) return "NOT_FOUND";
 
         // Check permission: employee can see self, manager can see reports, admin can see all
-        if (emp.userId !== user.id && user.role !== "auditor") {
+        if (emp.userId !== user.id) {
           const allowed = canOnEmployee(
             await resolvePolicyContext(c, tx),
             "time.record.read",
