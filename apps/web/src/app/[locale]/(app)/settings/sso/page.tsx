@@ -49,8 +49,8 @@ export default function SsoSettingsPage() {
 
   const callbackUrl =
     typeof window !== "undefined"
-      ? `${window.location.origin}/api/v1/sso/callback`
-      : "https://your-domain.com/api/v1/sso/callback";
+      ? `${window.location.origin}/v1/sso/callback`
+      : "https://your-domain.com/v1/sso/callback";
 
   const loadConfig = React.useCallback(async () => {
     setIsLoading(true);
