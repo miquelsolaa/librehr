@@ -185,6 +185,28 @@ step 4. Older installs, where `DATABASE_URL` pointed at the bootstrap superuser
    END $$;
    SELECT format('ALTER DATABASE %I OWNER TO librehr_owner', current_database()) \gexec
 
+   -- 2b. The identity-lookup policies of migration 0019 were created for the
+   --     role that ran it. The lookup functions now run as librehr_owner, so
+   --     the policies must apply to it too (migration 0020 repeats this).
+   --     Skipped automatically when 0019 has not run yet.
+   DO $$
+   DECLARE
+     pol record;
+   BEGIN
+     FOR pol IN
+       SELECT policyname, tablename
+       FROM pg_policies
+       WHERE schemaname = 'public'
+         AND policyname IN ('memberships_identity_lookup',
+                            'personal_access_tokens_identity_lookup',
+                            'invitations_identity_lookup',
+                            'sso_configurations_identity_lookup')
+     LOOP
+       EXECUTE format('ALTER POLICY %I ON public.%I TO librehr_owner',
+                      pol.policyname, pol.tablename);
+     END LOOP;
+   END $$;
+
    -- 3. Runtime role privileges, including on tables the owner creates later.
    SELECT format('GRANT CONNECT ON DATABASE %I TO librehr_app', current_database()) \gexec
    GRANT USAGE ON SCHEMA public TO librehr_app;
