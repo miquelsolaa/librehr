@@ -20,3 +20,4 @@ export * from "./topbar.js";
 export * from "./bottom-nav.js";
 export * from "./confirm-dialog.js";
 export * from "./secret-field.js";
+export * from "./ui-strings.js";

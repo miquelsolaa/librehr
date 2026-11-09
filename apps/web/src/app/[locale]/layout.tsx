@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations } from "next-intl/server";
+import { UiStringsProvider } from "@librehr/ui/components/ui-strings";
 import { ThemeProvider } from "../../components/theme-provider";
 
 import "../globals.css";
@@ -63,6 +64,21 @@ export default async function LocaleLayout({
 }) {
   const { locale } = await params;
   const messages = await getMessages();
+  const t = await getTranslations({ locale });
+  // Labels rendered inside @librehr/ui components (close buttons, landmarks).
+  const uiStrings = {
+    close: t("common.close"),
+    confirm: t("common.confirm"),
+    cancel: t("common.cancel"),
+    // Raw: the component splits on the {word} placeholder itself.
+    typeToConfirm: t.raw("ui.typeToConfirm") as string,
+    dismiss: t("ui.dismiss"),
+    breadcrumb: t("ui.breadcrumb"),
+    copyToClipboard: t("ui.copyToClipboard"),
+    copiedToClipboard: t("ui.copiedToClipboard"),
+    revealSecret: t("ui.revealSecret"),
+    hideSecret: t("ui.hideSecret"),
+  };
 
   return (
     <html lang={locale} suppressHydrationWarning>
@@ -74,7 +90,9 @@ export default async function LocaleLayout({
           disableTransitionOnChange
         >
           <NextIntlClientProvider messages={messages} locale={locale}>
-            {children}
+            <UiStringsProvider strings={uiStrings}>
+              {children}
+            </UiStringsProvider>
           </NextIntlClientProvider>
         </ThemeProvider>
       </body>

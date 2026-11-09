@@ -970,5 +970,14 @@
   "app": {
     "description": "Open-source, self-hostable HRIS for European SMBs",
     "ogImageAlt": "LibreHR — open-source HRIS for European SMBs"
+  },
+  "ui": {
+    "typeToConfirm": "Type {word} to confirm:",
+    "dismiss": "Dismiss",
+    "breadcrumb": "Breadcrumb",
+    "copyToClipboard": "Copy to clipboard",
+    "copiedToClipboard": "Copied to clipboard",
+    "revealSecret": "Reveal secret value",
+    "hideSecret": "Hide secret value"
   }
 }
