@@ -8,10 +8,10 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-librehr}
       POSTGRES_USER: ${POSTGRES_USER:-librehr}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD (bootstrap superuser)}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD (bootstrap superuser; openssl rand -hex 32)}
       # Read by infra/postgres/init/00-roles.sh on first start of the volume.
-      LIBREHR_OWNER_PASSWORD: ${LIBREHR_OWNER_PASSWORD:?set LIBREHR_OWNER_PASSWORD (migration/owner role)}
-      LIBREHR_APP_PASSWORD: ${LIBREHR_APP_PASSWORD:?set LIBREHR_APP_PASSWORD (runtime app role)}
+      LIBREHR_OWNER_PASSWORD: ${LIBREHR_OWNER_PASSWORD:?set LIBREHR_OWNER_PASSWORD (migration/owner role; openssl rand -hex 32)}
+      LIBREHR_APP_PASSWORD: ${LIBREHR_APP_PASSWORD:?set LIBREHR_APP_PASSWORD (runtime app role; openssl rand -hex 32)}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ../postgres/init:/docker-entrypoint-initdb.d:ro
@@ -46,6 +46,9 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET (openssl rand -base64 32)}
       TIME_CHAIN_KEY: ${TIME_CHAIN_KEY:?set TIME_CHAIN_KEY (openssl rand -base64 32)}
       APP_URL: ${APP_URL:?set APP_URL (public web URL)}
+      # Caddy is the one reverse proxy in front of the API: trust exactly one
+      # X-Forwarded-For hop when rate-limiting by client IP.
+      TRUST_PROXY: ${TRUST_PROXY:-1}
       SMTP_HOST: ${SMTP_HOST:?set SMTP_HOST (your SMTP relay)}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-}

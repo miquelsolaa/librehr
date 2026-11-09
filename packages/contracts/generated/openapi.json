@@ -120,9 +120,6 @@
           "expiresAt": {
             "type": "string",
             "format": "date-time"
-          },
-          "token": {
-            "type": "string"
           }
         },
         "required": [
@@ -4453,9 +4450,6 @@
                     "expiresAt": {
                       "type": "string",
                       "format": "date-time"
-                    },
-                    "token": {
-                      "type": "string"
                     }
                   },
                   "required": [
@@ -7374,9 +7368,6 @@
                     "expiresAt": {
                       "type": "string",
                       "format": "date-time"
-                    },
-                    "token": {
-                      "type": "string"
                     }
                   },
                   "required": [

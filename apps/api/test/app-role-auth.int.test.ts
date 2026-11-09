@@ -38,13 +38,22 @@ describe("API on the restricted runtime role", () => {
     });
   const me = (token: string) =>
     app.request("/v1/me", { headers: { Authorization: `Bearer ${token}` } });
+  // The session token is only in the httpOnly cookie, never in the body.
+  const cookieToken = (res: Response): string => {
+    const match = /librehr_session=([^;]+)/.exec(
+      res.headers.get("set-cookie") ?? "",
+    );
+    if (!match?.[1]) throw new Error("no session cookie");
+    return match[1];
+  };
   const signIn = async () => {
     const res = await json("/v1/auth/sign-in", { email, password });
     expect(res.status).toBe(200);
-    return (await res.json()) as {
-      token: string;
+    const body = (await res.json()) as {
       user: { organizationId: string };
     };
+    expect(body).not.toHaveProperty("token");
+    return { ...body, token: cookieToken(res) };
   };
 
   beforeAll(async () => {
@@ -211,11 +220,11 @@ describe("API on the restricted runtime role", () => {
     });
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
-      token: string;
       user: { organizationId: string; role: string };
     };
+    expect(body).not.toHaveProperty("token");
     expect(body.user).toMatchObject({ organizationId: orgA, role: "manager" });
-    const profile = (await (await me(body.token)).json()) as {
+    const profile = (await (await me(cookieToken(res))).json()) as {
       organization: { id: string };
     };
     expect(profile.organization.id).toBe(orgA);
@@ -229,7 +238,7 @@ describe("API on the restricted runtime role", () => {
         new TokenRepository().createToken(tx, {
           userId,
           name: "ci",
-          scopes: ["employees:read"],
+          scopes: ["read"],
         }),
     );
     const res = await me(created.plainToken);

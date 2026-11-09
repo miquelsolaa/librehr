@@ -103,12 +103,12 @@ export default function DocumentsPage() {
 
   const handleAcknowledge = async (docId: string) => {
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setErrorMsg(t("signInRequired"));
       return;
     }
     try {
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       await client.acknowledgeDocument(docId);
       setAcknowledgedDocs((prev) => new Set([...prev, docId]));
     } catch {
@@ -118,7 +118,7 @@ export default function DocumentsPage() {
 
   const fetchDocuments = React.useCallback(async () => {
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setDocuments([]);
       setLoadError("signInRequired");
       setLoading(false);
@@ -128,7 +128,7 @@ export default function DocumentsPage() {
     try {
       setLoading(true);
       setLoadError(null);
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       const params =
         categoryFilter !== "all" ? { category: categoryFilter } : undefined;
       const res = await client.listDocuments(params);
@@ -143,14 +143,14 @@ export default function DocumentsPage() {
 
   const fetchTemplates = React.useCallback(async () => {
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setErrorMsg(t("signInRequired"));
       return;
     }
     try {
       setTemplatesLoading(true);
       setTemplateLoadError(false);
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       const [tList, empRes] = await Promise.all([
         client.listDocumentTemplates(),
         client.listEmployees({ pageSize: 100 }),
@@ -182,7 +182,7 @@ export default function DocumentsPage() {
   const handleCreateTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setErrorMsg(t("signInRequired"));
       return;
     }
@@ -190,7 +190,7 @@ export default function DocumentsPage() {
 
     try {
       setIsTemplateSubmitting(true);
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       await client.createDocumentTemplate({
         name: newTemplateName.trim(),
         category: newTemplateCategory,
@@ -212,14 +212,14 @@ export default function DocumentsPage() {
   const handleRenderPreview = async () => {
     if (!selectedTemplate || !selectedEmployeeId) return;
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setErrorMsg(t("signInRequired"));
       return;
     }
 
     try {
       setIsTemplateSubmitting(true);
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       const res = await client.renderDocumentTemplate(selectedTemplate.id, {
         employeeId: selectedEmployeeId,
         saveAsDocument: saveAsDoc,
@@ -240,13 +240,13 @@ export default function DocumentsPage() {
   const handleDeleteTemplate = async (templateId: string) => {
     if (!window.confirm(t("deleteTemplateConfirm"))) return;
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setErrorMsg(t("signInRequired"));
       return;
     }
 
     try {
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       await client.deleteDocumentTemplate(templateId);
       void fetchTemplates();
       setSuccessMsg(t("templateDeletedSuccess"));
@@ -260,7 +260,7 @@ export default function DocumentsPage() {
     if (!uploadFile || !title) return;
 
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setErrorMsg(t("signInRequired"));
       return;
     }
@@ -276,7 +276,7 @@ export default function DocumentsPage() {
           const base64 = (reader.result as string).split(",")[1];
           if (!base64) throw new Error("Could not read file data");
 
-          const client = getApiClient(session.token);
+          const client = getApiClient();
           await client.uploadDocument({
             title,
             category,
@@ -310,7 +310,7 @@ export default function DocumentsPage() {
 
   const handleDelete = async (id: string) => {
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setErrorMsg(t("signInRequired"));
       return;
     }
@@ -318,7 +318,7 @@ export default function DocumentsPage() {
     if (!confirm(t("deleteConfirm"))) return;
 
     try {
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       await client.deleteDocument(id);
       void fetchDocuments();
     } catch {
@@ -329,7 +329,7 @@ export default function DocumentsPage() {
   const handleBulkDryRun = async () => {
     if (bulkFiles.length === 0) return;
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setErrorMsg(t("signInRequired"));
       return;
     }
@@ -358,7 +358,7 @@ export default function DocumentsPage() {
       );
 
       const files = await Promise.all(fileDataPromises);
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       const report = await client.uploadBulkPayslips({ files, dryRun: true });
       setBulkReport(report);
     } catch {
@@ -371,7 +371,7 @@ export default function DocumentsPage() {
   const handleBulkCommit = async () => {
     if (bulkFiles.length === 0) return;
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setErrorMsg(t("signInRequired"));
       return;
     }
@@ -400,7 +400,7 @@ export default function DocumentsPage() {
       );
 
       const files = await Promise.all(fileDataPromises);
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       const report = await client.uploadBulkPayslips({ files, dryRun: false });
       setBulkReport(report);
       setSuccessMsg(t("bulkSuccess", { count: report.matchedCount }));

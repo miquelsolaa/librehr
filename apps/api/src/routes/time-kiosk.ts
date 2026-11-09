@@ -1,4 +1,4 @@
-import { Hono, type Context, type MiddlewareHandler } from "hono";
+import { Hono, type MiddlewareHandler } from "hono";
 import type { Sql } from "postgres";
 import {
   type AuthUser,
@@ -18,13 +18,9 @@ import { permissionScope } from "../policies/can.js";
 import { ForbiddenError } from "../errors/index.js";
 import { parseJsonBody } from "../lib/validate.js";
 import { KioskLockout } from "../lib/kiosk-lockout.js";
+import { clientIp } from "../lib/client-ip.js";
 import type { TimeChainSigner } from "@librehr/db";
 import type { TimeTrackingConfig } from "../lib/time-tracking-config.js";
-
-/** Same client address the request rate limiter keys on. */
-function clientIp(c: Context): string {
-  return c.req.header("x-forwarded-for") || "127.0.0.1";
-}
 
 function genericInvalid() {
   return createProblemDetails({
@@ -45,8 +41,14 @@ function genericInvalid() {
  */
 export function createTimeKioskRoutes(
   sql: Sql,
-  options: { sign: TimeChainSigner; config: TimeTrackingConfig },
+  options: {
+    sign: TimeChainSigner;
+    config: TimeTrackingConfig;
+    /** TRUST_PROXY: reverse-proxy hops whose X-Forwarded-For entries are trusted. */
+    trustProxy?: number | undefined;
+  },
 ) {
+  const trustProxy = options.trustProxy ?? 0;
   const router = new Hono();
   const timeRepo = new TimeRepository();
   const employeeRepo = new EmployeeRepository();
@@ -56,7 +58,7 @@ export function createTimeKioskRoutes(
     failureWindowMs: kiosk.failureWindowMs,
     lockoutMs: kiosk.lockoutMs,
   });
-  const ipRateLimit = createRateLimiter(kiosk.ipRateLimit);
+  const ipRateLimit = createRateLimiter({ ...kiosk.ipRateLimit, trustProxy });
 
   const requireKioskPermission: MiddlewareHandler = async (c, next) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
@@ -94,7 +96,7 @@ export function createTimeKioskRoutes(
       );
 
       const identifierKey = `id:${user.organizationId}:${identifier.trim().toLowerCase()}`;
-      const ipKey = `ip:${user.organizationId}:${clientIp(c)}`;
+      const ipKey = `ip:${user.organizationId}:${clientIp(c, trustProxy)}`;
 
       const lockedMs = lockout.lockedFor([identifierKey, ipKey]);
       if (lockedMs > 0) {

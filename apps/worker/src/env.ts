@@ -52,6 +52,15 @@ export interface WorkerEnv {
   SMTP: SmtpConfig | null;
 }
 
+function isPostgresUrl(url: string): boolean {
+  try {
+    const { protocol } = new URL(url);
+    return protocol === "postgres:" || protocol === "postgresql:";
+  } catch {
+    return false;
+  }
+}
+
 function tryLoadEnvFile(): void {
   if (typeof process.loadEnvFile !== "function") return;
   for (const c of [
@@ -90,6 +99,16 @@ export function loadWorkerEnv(
       );
     }
     timeChainKey = fs.readFileSync(parsed.TIME_CHAIN_KEY_FILE, "utf-8").trim();
+  }
+
+  for (const key of ["DATABASE_MIGRATION_URL", "DATABASE_URL"] as const) {
+    const value = parsed[key];
+    if (value !== undefined && !isPostgresUrl(value)) {
+      // Name the variable only: the URL carries a password.
+      throw new Error(
+        `Invalid worker environment: ${key} is not a valid postgres:// URL; URL-encode special characters in the user name and password (e.g. \`/\` as %2F, \`+\` as %2B, \`@\` as %40)`,
+      );
+    }
   }
 
   if (isProd) {

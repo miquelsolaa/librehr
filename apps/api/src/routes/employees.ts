@@ -23,6 +23,7 @@ import {
   EmployeeRepository,
   AuditRepository,
   EmergencyContactRepository,
+  AccessRevocationRepository,
   type TenantTx,
 } from "@librehr/db";
 import { z } from "zod";
@@ -43,6 +44,7 @@ export function createEmployeeRoutes(sql: Sql) {
   const employeeRepo = new EmployeeRepository();
   const auditRepo = new AuditRepository();
   const emergencyRepo = new EmergencyContactRepository();
+  const accessRevocationRepo = new AccessRevocationRepository();
 
   // EMP-001 directory: visible to anyone holding employee.read at any scope,
   // limited to directory fields whatever the caller's scope.
@@ -356,6 +358,10 @@ export function createEmployeeRoutes(sql: Sql) {
           throw new NotFoundError({ detail: "Employee not found" });
         }
         const result = await employeeRepo.terminate(tx, id, parse.data);
+        // EMP-007: when the date is today or past (org time zone) the user's
+        // sessions and tokens in this org go now; a future date is enforced
+        // by the identity lookups once it arrives.
+        const access = await accessRevocationRepo.revokeIfTerminated(tx, id);
         await auditRepo.log(tx, {
           actorId: user.id,
           action: "employee.terminate",
@@ -364,6 +370,9 @@ export function createEmployeeRoutes(sql: Sql) {
           metadata: {
             reason: parse.data.terminationReason,
             date: parse.data.terminationDate,
+            accessRevoked: access.revoked,
+            sessionsRevoked: access.sessions,
+            tokensRevoked: access.tokens,
           },
         });
         return result;

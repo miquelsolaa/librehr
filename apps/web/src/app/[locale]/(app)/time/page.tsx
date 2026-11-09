@@ -43,7 +43,7 @@ export default function TimeTrackingPage() {
     setLoadError(null);
     setTimeBankError(false);
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setLoadError("unavailable");
       setLoading(false);
       return;
@@ -58,7 +58,7 @@ export default function TimeTrackingPage() {
         .toISOString()
         .slice(0, 10);
 
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       const [tsRes, tbRes] = await Promise.all([
         client.getTimesheet({
           startDate: startOfMonth,

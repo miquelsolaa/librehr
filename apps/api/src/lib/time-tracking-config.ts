@@ -13,7 +13,15 @@ export interface TimeTrackingConfig {
   kiosk: {
     /** Failed PIN attempts per identifier before it is locked out. */
     maxFailuresPerIdentifier: number;
-    /** Failed PIN attempts per client IP before the IP is locked out. */
+    /**
+     * Failed PIN attempts per client IP before the IP is locked out. Kept well
+     * above the per-identifier limit on purpose: a shared kiosk is one IP for
+     * a whole site, so this only stops one device from guessing across many
+     * identifiers, at the cost that a burst of failures from that device
+     * blocks every employee there until `lockoutMs` passes. The client IP is
+     * resolved with TRUST_PROXY (lib/client-ip.ts), so X-Forwarded-For is only
+     * believed for trusted proxy hops.
+     */
     maxFailuresPerIp: number;
     /** Window in which failures are counted. */
     failureWindowMs: number;

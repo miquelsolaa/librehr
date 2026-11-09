@@ -3,6 +3,7 @@ import type { Sql } from "postgres";
 import { createProblemDetails, type AuthUser } from "@librehr/contracts";
 import { IdentityRepository, TokenRepository, withTenant } from "@librehr/db";
 import type { AuthPort } from "../ports/auth.js";
+import { readSessionCookie } from "../lib/session-cookie.js";
 
 export function createAuthMiddleware(
   authPort: AuthPort,
@@ -12,25 +13,24 @@ export function createAuthMiddleware(
   const identityRepo = new IdentityRepository();
 
   return async (c, next) => {
+    // Personal access tokens (lhr_...) and, for non-browser clients, session
+    // tokens arrive as `Authorization: Bearer`. Browsers use the httpOnly
+    // session cookie, which only ever carries a session token. When a Bearer
+    // header is present the cookie is ignored, even if the header is invalid.
     let token: string | undefined;
+    let fromCookie = false;
 
     const authHeader = c.req.header("authorization");
     if (authHeader?.startsWith("Bearer ")) {
       token = authHeader.substring(7);
-    } else {
-      // Cookie fallback
-      const cookieHeader = c.req.header("cookie");
-      if (cookieHeader) {
-        const match = cookieHeader.match(/librehr_session=([^;]+)/);
-        if (match) {
-          token = match[1];
-        }
-      }
+    } else if (!authHeader) {
+      token = readSessionCookie(c);
+      fromCookie = token !== undefined;
     }
 
     if (token) {
       // Check if this is a personal access token (starts with lhr_)
-      if (token.startsWith("lhr_") && sql) {
+      if (token.startsWith("lhr_") && !fromCookie && sql) {
         // Lookup errors propagate (500); an unknown or expired token simply
         // leaves the request unauthenticated (401 from requireAuth).
         const pat = await identityRepo.personalAccessToken(
@@ -57,7 +57,7 @@ export function createAuthMiddleware(
             (tx) => tokenRepo.recordUsage(tx, pat.id),
           ).catch(() => {});
         }
-      } else {
+      } else if (!token.startsWith("lhr_")) {
         const session = await authPort.getSession(token);
         if (session) {
           c.set("user", session.user);

@@ -20,8 +20,12 @@ export function fixtureAuthPort(people: FixturePerson[]): AuthPort {
     async verifyCredentials() {
       return null;
     },
-    async createSession(user) {
-      return { user, token: user.id, expiresAt: new Date(Date.now() + 60000) };
+    async createSession(subject) {
+      // Sessions bind to the fixture person's membership, like the real adapter.
+      const user = byToken.get(subject.id);
+      return user
+        ? { user, token: user.id, expiresAt: new Date(Date.now() + 60000) }
+        : null;
     },
     async getSession(token) {
       const user = byToken.get(token);

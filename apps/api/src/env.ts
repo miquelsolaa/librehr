@@ -53,6 +53,38 @@ const DEV_SECRET_VALUES: Record<(typeof FILE_SECRETS)[number], string> = {
 
 const PROD_HINT = "generate one with `openssl rand -base64 32`";
 
+const DEV_BETTER_AUTH_URL = "http://localhost:3001";
+const DEV_APP_URL = "http://localhost:3000";
+
+/**
+ * Roles that must never serve requests: the migration/owner role and the
+ * usual name of the bootstrap superuser. The API runs as librehr_app so RLS
+ * applies to every request.
+ */
+const NON_RUNTIME_DB_USERS = ["librehr_owner", "postgres"];
+
+/** The URL's user name, or null when it does not parse as a Postgres URL. */
+function databaseUser(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "postgres:" && parsed.protocol !== "postgresql:") {
+      return null;
+    }
+    return decodeURIComponent(parsed.username);
+  } catch {
+    return null;
+  }
+}
+
+function isLocalhostUrl(url: string): boolean {
+  try {
+    const host = new URL(url).hostname;
+    return host === "localhost" || host === "127.0.0.1" || host === "[::1]";
+  } catch {
+    return false;
+  }
+}
+
 // Compose often passes `VAR=` for unset values; treat empty as missing so
 // the dev default (or the production check) applies.
 const optionalString = z.preprocess(
@@ -80,7 +112,10 @@ const RawEnvSchema = z
       .min(1)
       .default(DEV_DATABASE_MIGRATION_URL),
     BETTER_AUTH_SECRET: secret(DEV_BETTER_AUTH_SECRET),
-    BETTER_AUTH_URL: z.string().default("http://localhost:3001"),
+    BETTER_AUTH_URL: z.string().default(DEV_BETTER_AUTH_URL),
+    APP_URL: z.string().default(DEV_APP_URL),
+    // Only used to recognise the bootstrap superuser in DATABASE_URL.
+    POSTGRES_USER: optionalString,
     ENVELOPE_MASTER_KEY: secret(DEV_ENVELOPE_MASTER_KEY),
     ENVELOPE_KEY_ID: z.string().default("v1"),
     SESSION_SECRET: secret(DEV_SESSION_SECRET),
@@ -91,8 +126,26 @@ const RawEnvSchema = z
     SMTP_PASS: optionalString,
     SMTP_FROM: z.string().default("LibreHR <noreply@librehr.local>"),
     LOG_LEVEL: z.string().default("info"),
+    // Number of reverse proxies in front of the API that append to
+    // X-Forwarded-For (1 behind the bundled Caddy). 0 ignores the header and
+    // rate-limits by socket address; never set it higher than the real hop
+    // count, or clients can spoof their IP.
+    TRUST_PROXY: z.preprocess(
+      (v) => (v === "" ? undefined : v),
+      z.coerce.number().int().min(0).max(10).default(0),
+    ),
   })
   .superRefine((env, ctx) => {
+    for (const key of ["DATABASE_URL", "DATABASE_MIGRATION_URL"] as const) {
+      if (databaseUser(env[key]) === null) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message:
+            "is not a valid postgres:// URL; URL-encode special characters in the user name and password (e.g. `/` as %2F, `+` as %2B, `@` as %40)",
+        });
+      }
+    }
     if (env.NODE_ENV !== "production") return;
     for (const key of FILE_SECRETS) {
       if (env[key] === DEV_SECRET_VALUES[key]) {
@@ -112,6 +165,29 @@ const RawEnvSchema = z
         });
       }
     }
+    const runtimeUser = databaseUser(env.DATABASE_URL);
+    const forbiddenUsers = new Set(NON_RUNTIME_DB_USERS);
+    if (env.POSTGRES_USER) forbiddenUsers.add(env.POSTGRES_USER);
+    const migrationUser = databaseUser(env.DATABASE_MIGRATION_URL);
+    if (migrationUser) forbiddenUsers.add(migrationUser);
+    if (runtimeUser !== null && forbiddenUsers.has(runtimeUser)) {
+      // Never echo the user name: name the variable and the expected role.
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["DATABASE_URL"],
+        message:
+          "connects as the owner/migration or bootstrap role; the API must connect as the runtime role (librehr_app) so row-level security applies",
+      });
+    }
+    for (const key of ["BETTER_AUTH_URL", "APP_URL"] as const) {
+      if (isLocalhostUrl(env[key])) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: `is missing or points to localhost; set ${key} to the public URL in production`,
+        });
+      }
+    }
   });
 
 export interface ApiEnv {
@@ -121,6 +197,7 @@ export interface ApiEnv {
   DATABASE_MIGRATION_URL: string;
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
+  APP_URL: string;
   ENVELOPE_MASTER_KEY: string;
   ENVELOPE_KEY_ID: string;
   SESSION_SECRET: string;
@@ -131,6 +208,7 @@ export interface ApiEnv {
   SMTP_PASS?: string | undefined;
   SMTP_FROM: string;
   LOG_LEVEL: string;
+  TRUST_PROXY: number;
 }
 
 /**
@@ -177,6 +255,7 @@ export function loadEnv(envInput?: Record<string, string | undefined>): ApiEnv {
     DATABASE_MIGRATION_URL: parsed.DATABASE_MIGRATION_URL,
     BETTER_AUTH_SECRET: parsed.BETTER_AUTH_SECRET,
     BETTER_AUTH_URL: parsed.BETTER_AUTH_URL,
+    APP_URL: parsed.APP_URL,
     ENVELOPE_MASTER_KEY: parsed.ENVELOPE_MASTER_KEY,
     ENVELOPE_KEY_ID: parsed.ENVELOPE_KEY_ID,
     SESSION_SECRET: parsed.SESSION_SECRET,
@@ -187,5 +266,6 @@ export function loadEnv(envInput?: Record<string, string | undefined>): ApiEnv {
     ...(parsed.SMTP_PASS ? { SMTP_PASS: parsed.SMTP_PASS } : {}),
     SMTP_FROM: parsed.SMTP_FROM,
     LOG_LEVEL: parsed.LOG_LEVEL,
+    TRUST_PROXY: parsed.TRUST_PROXY,
   };
 }

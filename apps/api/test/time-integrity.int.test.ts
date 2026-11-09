@@ -30,6 +30,8 @@ describe("time-record integrity and kiosk (TIM-002, TIM-003, TIM-010)", () => {
         org.auditor,
       ]),
       timeChainKey: KEY,
+      // app.request has no socket: trust one hop so X-Forwarded-For is the client.
+      trustProxy: 1,
       ...(kiosk ? { timeTracking: { kiosk } } : {}),
     });
 

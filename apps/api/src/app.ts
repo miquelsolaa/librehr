@@ -12,6 +12,7 @@ import { requestIdMiddleware } from "./middleware/request-id.js";
 import { loggerMiddleware } from "./middleware/logger.js";
 import { securityHeadersMiddleware } from "./middleware/security-headers.js";
 import { createAuthMiddleware } from "./middleware/auth.js";
+import { createCsrfMiddleware } from "./middleware/csrf.js";
 import { tenantContextMiddleware } from "./middleware/tenant-context.js";
 import { patScopeMiddleware } from "./middleware/pat-scopes.js";
 import { errorHandler } from "./middleware/error-handler.js";
@@ -69,6 +70,10 @@ export interface AppDependencies {
   timeChainKey?: string | undefined;
   /** Overrides of the time-tracking policy defaults (clock window, kiosk lockout). */
   timeTracking?: TimeTrackingConfigInput | undefined;
+  /** NODE_ENV from the validated env: production always sets Secure cookies. */
+  nodeEnv?: "development" | "test" | "production" | undefined;
+  /** TRUST_PROXY from the validated env (trusted reverse-proxy hops). */
+  trustProxy?: number | undefined;
 }
 
 export function createApp(deps: AppDependencies) {
@@ -112,6 +117,13 @@ export function createApp(deps: AppDependencies) {
   app.use("*", loggerMiddleware);
   app.use("*", securityHeadersMiddleware);
   app.use("*", createAuthMiddleware(deps.authPort, deps.sql));
+  app.use(
+    "*",
+    createCsrfMiddleware({
+      appUrl: process.env["APP_URL"] ?? "http://localhost:3000",
+      nodeEnv: deps.nodeEnv,
+    }),
+  );
   app.use("*", tenantContextMiddleware);
   app.use("*", patScopeMiddleware);
 
@@ -144,6 +156,8 @@ export function createApp(deps: AppDependencies) {
     "/v1/auth",
     createAuthRoutes(deps.authPort, deps.sql, {
       sessionSecret: deps.sessionSecret,
+      nodeEnv: deps.nodeEnv,
+      trustProxy: deps.trustProxy,
     }),
   );
   app.route("/v1", createMeRoutes(deps.sql));
@@ -154,7 +168,10 @@ export function createApp(deps: AppDependencies) {
   app.route("/v1", createLocationRoutes(deps.sql));
   app.route(
     "/v1",
-    createInvitationRoutes(deps.sql, deps.authPort, deps.mailPort),
+    createInvitationRoutes(deps.sql, deps.authPort, deps.mailPort, {
+      nodeEnv: deps.nodeEnv,
+      trustProxy: deps.trustProxy,
+    }),
   );
   app.route("/v1", createSetupRoutes(deps.sql));
   app.route("/v1", createAuditRoutes(deps.sql));
@@ -170,6 +187,7 @@ export function createApp(deps: AppDependencies) {
     createTimeKioskRoutes(deps.sql, {
       sign: signTimeEvent,
       config: timeTracking,
+      trustProxy: deps.trustProxy,
     }),
   );
   app.route(

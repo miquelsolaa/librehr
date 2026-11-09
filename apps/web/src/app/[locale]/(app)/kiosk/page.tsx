@@ -11,7 +11,6 @@ import {
   AlertCircle,
   Tablet,
 } from "lucide-react";
-import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
 import type { KioskClockResponse } from "@librehr/contracts";
 
@@ -112,8 +111,7 @@ export default function KioskModePage() {
     setLoading(true);
     setError(null);
 
-    const session = getStoredSession();
-    const client = getApiClient(session?.token);
+    const client = getApiClient();
 
     try {
       const res = await client.kioskClock({

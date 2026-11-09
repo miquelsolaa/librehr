@@ -64,13 +64,13 @@ export default function TimeCorrectionsPage() {
 
   const fetchCorrections = React.useCallback(async () => {
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setLoading(false);
       return;
     }
 
     try {
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       const res = await client.listTimeCorrections();
       setCorrections(res);
     } catch {
@@ -89,11 +89,11 @@ export default function TimeCorrectionsPage() {
     setError(null);
 
     const session = getStoredSession();
-    if (!session?.token) return;
+    if (!session) return;
 
     setSubmitting(true);
     try {
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       await client.createTimeCorrection({
         proposedEventType: proposedType,
         proposedOccurredAt: new Date(proposedTime).toISOString(),
