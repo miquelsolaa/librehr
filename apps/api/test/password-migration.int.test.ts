@@ -21,13 +21,16 @@ describe("legacy password cleanup migration", () => {
       "utf8",
     );
     await db.sql.begin(async (tx) => {
-      await tx`CREATE TEMP TABLE users (password_hash text) ON COMMIT DROP`;
+      // The id only gives the assertion a stable order: the migration UPDATEs
+      // rows, which moves them in the heap, so an unordered SELECT is not
+      // guaranteed to return insertion order.
+      await tx`CREATE TEMP TABLE users (id serial, password_hash text) ON COMMIT DROP`;
       const hash = `scrypt$${"a".repeat(32)}$${"b".repeat(128)}`;
-      await tx`INSERT INTO users VALUES ('legacy-password'), ('unsupported$hash'), (${hash}), (NULL)`;
+      await tx`INSERT INTO users (password_hash) VALUES ('legacy-password'), ('unsupported$hash'), (${hash}), (NULL)`;
       await tx.unsafe(migration);
       const result = await tx<
         { password_hash: string | null }[]
-      >`SELECT password_hash FROM users`;
+      >`SELECT password_hash FROM users ORDER BY id`;
       expect(result.map((row) => row.password_hash)).toEqual([
         null,
         null,
