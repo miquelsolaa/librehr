@@ -45,9 +45,14 @@ usable sessions or invitation links. Migration `0026_hash_bearer_tokens.sql`
 rewrites the existing rows: signed-in users stay signed in and pending
 invitation links keep working.
 
-- Run the migration and start the new API together. An older API still running
-  after the migration would write raw tokens that the new code never matches
-  (its users would just have to sign in again).
+- **Stop the API (and worker) before step 3 for this release**, then migrate
+  and start the new version. If the old API keeps serving after the migration,
+  until the restart: it rejects every existing session (users see sign-in
+  errors); sessions it creates are lost at the restart; a sign-out it handles
+  does not delete the (hashed) session row; and invitations created in that
+  window have links that never work, so re-send them.
+- Never re-run `0026_hash_bearer_tokens.sql` by hand: it would hash the
+  digests again and sign everyone out.
 - The migration briefly lifts `FORCE ROW LEVEL SECURITY` on `invitations`
   inside its own transaction, which requires the migration role to own the
   table. Installs that completed
