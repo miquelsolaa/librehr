@@ -10,6 +10,13 @@ COPY pnpm-lock.yaml package.json pnpm-workspace.yaml turbo.json ./
 COPY packages ./packages
 COPY apps/web ./apps/web
 RUN pnpm install --frozen-lockfile
+# NEXT_PUBLIC_* values are inlined into the browser bundle at build time;
+# setting them when the container starts has no effect. Empty (the default)
+# makes the browser call the API on its own origin (/v1/...), which is what
+# the bundled Caddyfile routes to the API. Set it only when the API is served
+# from a different origin, and rebuild the image whenever it changes.
+ARG NEXT_PUBLIC_API_URL=""
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 RUN pnpm --filter web build
 
 FROM base AS runner

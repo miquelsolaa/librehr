@@ -87,6 +87,11 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/web.Dockerfile
+      args:
+        # Browser-facing API base URL, baked in at build time. Empty = same
+        # origin as the web app (Caddy routes /v1/* to the API), which the
+        # httpOnly session cookie needs. Changing it requires a rebuild.
+        NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:-}
     restart: unless-stopped
     depends_on:
       api:
@@ -94,11 +99,14 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      NEXT_PUBLIC_API_URL: http://api:3001
+      APP_URL: ${APP_URL:?set APP_URL (public web URL)}
 
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    environment:
+      # Host name Caddyfile.example serves (and gets a certificate for).
+      DOMAIN: ${DOMAIN:?set DOMAIN (host name of APP_URL, e.g. hr.example.com)}
     ports:
       - "80:80"
       - "443:443"
