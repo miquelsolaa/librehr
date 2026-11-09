@@ -6,7 +6,7 @@ import {
   type RoleSeparatedDatabase,
   type TestDatabase,
 } from "@librehr/testing";
-import { TokenRepository, withTenant } from "@librehr/db";
+import { TokenRepository, hashBearerToken, withTenant } from "@librehr/db";
 import { runMigrations } from "@librehr/db/migrate";
 import { createApp } from "../src/app.js";
 import { BetterAuthAdapter } from "../src/adapters/better-auth.js";
@@ -161,8 +161,8 @@ describe("API on the restricted runtime role", () => {
     const pinned = crypto.randomBytes(32).toString("hex");
     const legacy = crypto.randomBytes(32).toString("hex");
     await db.adminSql`INSERT INTO sessions (user_id, token, expires_at, organization_id) VALUES
-      (${userId}, ${pinned}, now() + interval '1 hour', ${orgA}),
-      (${userId}, ${legacy}, now() + interval '1 hour', NULL)`;
+      (${userId}, ${hashBearerToken(pinned)}, now() + interval '1 hour', ${orgA}),
+      (${userId}, ${hashBearerToken(legacy)}, now() + interval '1 hour', NULL)`;
 
     const pinnedMe = (await (await me(pinned)).json()) as {
       organization: { id: string };
@@ -181,7 +181,7 @@ describe("API on the restricted runtime role", () => {
     const otherUser = "d7000000-0000-0000-0000-00000000000d";
     await db.adminSql`INSERT INTO users (id, email, name) VALUES (${otherUser}, 'gone@example.invalid', 'Gone')`;
     await db.adminSql`INSERT INTO sessions (user_id, token, expires_at, organization_id)
-      VALUES (${otherUser}, ${revoked}, now() + interval '1 hour', ${orgA})`;
+      VALUES (${otherUser}, ${hashBearerToken(revoked)}, now() + interval '1 hour', ${orgA})`;
     expect((await me(revoked)).status).toBe(401);
   });
 
@@ -262,7 +262,7 @@ describe("API on the restricted runtime role", () => {
       { organizationId: orgA },
       (tx) =>
         tx`INSERT INTO invitations (email, role, token, expires_at)
-        VALUES ('invitee@example.invalid', 'employee', ${token}, now() + interval '1 day')`,
+        VALUES ('invitee@example.invalid', 'employee', ${hashBearerToken(token)}, now() + interval '1 day')`,
     );
 
     const details = await app.request(`/v1/invitations/${token}`);
