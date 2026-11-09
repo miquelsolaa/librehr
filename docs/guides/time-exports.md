@@ -31,28 +31,57 @@ An employee outside your scope gives `403`; an unknown id gives `404`.
 
 A period covers at most 366 days.
 
-- **Employee scope.** Days follow the employee's location time zone (else the
-  organization's). If no schedule covers every day of the period, the export
-  fails with `409 SCHEDULE_NOT_CONFIGURED`.
-- **Organization scope.** Every employee employed at some point in the period
-  (not terminated before it, with an employment overlapping it or no
-  employment record at all), ordered by last name. The whole document uses the
-  organization's time zone, so every row and the header agree. An employee
-  without a configured schedule appears on one row marked "schedule not
-  configured" instead of failing the export.
+- **Time zones.** Each employee's days (local midnight to local midnight) and
+  clock times are in that employee's time zone: their location's, else the
+  organization's. This is the same in both scopes, so an employee's rows are
+  identical in their own export and in the organization export. Every row
+  names its zone in a "Time zone" column; the header shows the organization's
+  zone and the generation time in it. For example, with a Europe/Madrid
+  organization, an employee at an Atlantic/Canary location who clocks in at
+  08:00 UTC in November reads `08:00`, a Madrid colleague `09:00`.
+- **Employee scope.** If no schedule covers every day of the period, the
+  export fails with `409 SCHEDULE_NOT_CONFIGURED`. Without `employeeId`, a
+  user who has no employee record gets `404`.
+- **Organization scope.** Every employee with an employment record that
+  overlaps the period (a re-hired employee is included whatever their old
+  termination date says), with no employment record at all and not terminated
+  before the period, or with a time record in the period (recorded work is
+  always listed, even if HR data says otherwise). Ordered by last name. An
+  employee without a configured schedule appears on one row marked "schedule
+  not configured" instead of failing the export.
+- **Size limit.** An organization export covers at most 50,000 employee-days
+  (number of employees listed × days in the period; about 136 employees for a
+  full year or 1,600 for a 31-day month). A larger request fails with
+  `422 EXPORT_TOO_LARGE`: export shorter periods (for example month by month).
+- **Rate limit.** Each user can request 10 exports per minute (per client
+  address, behind `TRUST_PROXY` hops). Beyond that the API answers
+  `429 RATE_LIMIT_EXCEEDED` with a `Retry-After` header.
 
 ## What the document contains
 
-- A header with the organization, period, scope, time zone, generation time
-  (UTC and local), who generated it (name and role) and the export id.
+- A header with the organization, period, scope, the organization's time
+  zone, generation time (UTC and local), who generated it (name and role) and
+  the export id.
 - One row per employee and day: clock-in and clock-out times, break minutes,
   worked minutes, expected minutes, the difference, an anomaly flag (a session
   left open), a "corrected" flag (a correction changed or replaced a record of
-  that day) and the integrity status of the employee's time records
-  (verified, tampered, legacy or no data).
+  that day), the integrity status of the employee's time records
+  (verified, tampered, legacy or no data) and the time zone of the row.
+
+The integrity status checks every stored record of the employee: each
+record's keyed signature, the order and links of the chain, and the anchor
+that names its newest record (so deleted, inserted, edited or truncated
+records show as tampered). It cannot tell that records and anchor were both
+rewound to an earlier state; the scheduled chain verification
+(`audit.verify-chain`) detects that by comparing with its previous run.
+
+The day before and the day after the period are read too, so a night shift
+across the first or last midnight is counted on the right days. A shift longer
+than that across a period edge is cut at the edge of what was read.
 
 Every response carries `X-Export-Id` and `X-Content-SHA256` headers and is
-sent with `Cache-Control: no-store`. CSV and PDF are downloads named
+sent with `Cache-Control: no-store`. Browsers on another origin may read these
+and `Content-Disposition`. CSV and PDF are downloads named
 `registro-jornada-<start>-<end>[-<employee id prefix>].<csv|pdf>`.
 
 ## Verifying a CSV

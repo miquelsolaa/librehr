@@ -253,6 +253,40 @@ export class TimeRepository {
     `;
   }
 
+  /**
+   * An employee's events that occurred in `[from, to)` (ISO instants), plus
+   * every event linked to them through TIM-003 corrections, in either
+   * direction and transitively: the originals a correction refers to and the
+   * corrections of an original, even when those occurred outside the window.
+   * Folding these gives the same sessions inside the window as folding the
+   * whole history, without reading it. Ordered by `occurred_at`.
+   */
+  async getEventsForPeriod(
+    tx: TenantTx,
+    employeeId: string,
+    from: string,
+    to: string,
+  ): Promise<TimeEventRow[]> {
+    return tx<TimeEventRow[]>`
+      WITH RECURSIVE related(id, ref_event_id) AS (
+        SELECT id, ref_event_id FROM time_events
+        WHERE employee_id = ${employeeId}
+          AND occurred_at >= ${from}::timestamptz
+          AND occurred_at < ${to}::timestamptz
+        UNION
+        SELECT t.id, t.ref_event_id
+        FROM time_events t
+        JOIN related r ON t.id = r.ref_event_id OR t.ref_event_id = r.id
+        WHERE t.employee_id = ${employeeId}
+      )
+      SELECT ${eventColumns(tx)}
+      FROM time_events
+      WHERE employee_id = ${employeeId}
+        AND id IN (SELECT id FROM related)
+      ORDER BY occurred_at ASC, seq ASC NULLS FIRST, id ASC
+    `;
+  }
+
   // TIM-012: Time bank operations
   async createTimeBankRecord(
     tx: TenantTx,

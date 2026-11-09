@@ -180,6 +180,13 @@ export type TimeCorrectionItem = z.infer<typeof TimeCorrectionItemSchema>;
 /** Longest period one Labour Inspectorate export may cover (a leap year). */
 export const OFFICIAL_EXPORT_MAX_DAYS = 366;
 
+/**
+ * Largest organization export, in employees × days of the period. A bigger
+ * request is answered with 422 `EXPORT_TOO_LARGE` instead of being computed
+ * in one request (about 136 employees for a full year, or 1,600 for a month).
+ */
+export const OFFICIAL_EXPORT_MAX_EMPLOYEE_DAYS = 50_000;
+
 const DAY_MS = 86_400_000;
 
 /** Inclusive number of calendar days between two valid `YYYY-MM-DD` dates. */
@@ -247,6 +254,7 @@ export const OfficialExportResponseSchema = z.object({
   locale: z.enum(["ca", "es", "en"]),
   periodStart: z.string().date(),
   periodEnd: z.string().date(),
+  /** The organization's zone (header). Each employee has their own below. */
   timeZone: z.string(),
   generatedAt: z.string().datetime(),
   organizationName: z.string(),
@@ -258,6 +266,8 @@ export const OfficialExportResponseSchema = z.object({
     z.object({
       employeeId: z.string().uuid(),
       name: z.string(),
+      /** IANA zone of this employee's days and times (location, else organization). */
+      timeZone: z.string(),
       scheduleConfigured: z.boolean(),
       chainStatus: ChainStatusSchema.nullable(),
       /** Null when the schedule is not configured (no days computed). */

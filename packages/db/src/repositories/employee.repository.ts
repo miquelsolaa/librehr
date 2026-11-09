@@ -270,12 +270,16 @@ export class EmployeeRepository {
   }
 
   /**
-   * Employees of the current tenant employed at any point in a period of
-   * local dates (TIM-006), ordered by last name, first name. An employee is
-   * included unless they left before the period (termination date) or every
-   * employment record lies outside it; one with no employment record (hire
-   * date unknown) is included rather than silently dropped from an official
-   * record.
+   * Employees of the current tenant to list in a working-time record for a
+   * period of local dates (TIM-006), ordered by last name, first name. An
+   * employee is included when any of these holds:
+   * - an employment record overlaps the period (whatever the termination
+   *   date says, so a re-hired employee is not dropped);
+   * - they have no employment record (hire date unknown) and did not leave
+   *   before the period;
+   * - they have a time event in the period, in their business zone
+   *   (location, else organization): recorded work is never left out of an
+   *   official record because HR data disagrees.
    */
   async listEmployedDuring(
     tx: TenantTx,
@@ -289,18 +293,32 @@ export class EmployeeRepository {
              e.location_id as "locationId",
              e.first_name as "firstName", e.last_name as "lastName"
       FROM employees e
+      JOIN organizations o ON o.id = e.organization_id
+      LEFT JOIN locations l
+        ON l.id = e.location_id AND l.organization_id = e.organization_id
       WHERE e.organization_id = ${orgId}
-        AND (e.termination_date IS NULL OR e.termination_date >= ${startDate}::date)
         AND (
-          NOT EXISTS (
-            SELECT 1 FROM employments emp
-            WHERE emp.employee_id = e.id AND emp.organization_id = ${orgId}
-          )
-          OR EXISTS (
+          EXISTS (
             SELECT 1 FROM employments emp
             WHERE emp.employee_id = e.id AND emp.organization_id = ${orgId}
               AND emp.start_date <= ${endDate}::date
               AND (emp.end_date IS NULL OR emp.end_date >= ${startDate}::date)
+          )
+          OR (
+            NOT EXISTS (
+              SELECT 1 FROM employments emp
+              WHERE emp.employee_id = e.id AND emp.organization_id = ${orgId}
+            )
+            AND (e.termination_date IS NULL OR e.termination_date >= ${startDate}::date)
+          )
+          OR EXISTS (
+            -- Local midnights of the period in the employee's zone.
+            SELECT 1 FROM time_events te
+            WHERE te.employee_id = e.id AND te.organization_id = ${orgId}
+              AND te.occurred_at >= (${startDate}::date::timestamp
+                AT TIME ZONE COALESCE(l.timezone, o.timezone))
+              AND te.occurred_at < ((${endDate}::date + 1)::timestamp
+                AT TIME ZONE COALESCE(l.timezone, o.timezone))
           )
         )
       ORDER BY e.last_name, e.first_name, e.id

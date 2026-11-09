@@ -11,16 +11,18 @@ import {
 
 /** Column widths in points (A4 content width is 515), in column order. */
 const COLUMN_LAYOUT: readonly Pick<PdfTableColumn, "width" | "align">[] = [
-  { width: 90 },
+  { width: 80 },
   { width: 44 },
-  { width: 112 },
+  { width: 100 },
+  { width: 32, align: "right" },
+  { width: 34, align: "right" },
+  { width: 34, align: "right" },
   { width: 36, align: "right" },
-  { width: 38, align: "right" },
-  { width: 38, align: "right" },
-  { width: 40, align: "right" },
+  { width: 34 },
+  { width: 33 },
   { width: 38 },
-  { width: 37 },
-  { width: 42 },
+  // Time zone: fits "Atlantic/Canary"; longer names are cut with an ellipsis.
+  { width: 50 },
 ];
 
 /**

@@ -84,6 +84,8 @@ describe("GET /v1/time/export (TIM-006)", () => {
         a.auditor,
         b.admin,
       ]),
+      // The rate limit has its own test (time-export-integrity.int.test.ts).
+      timeExport: { rateLimit: { windowMs: 60_000, max: 1000 } },
     });
     // The peer stays unconfigured on purpose.
     for (const person of [a.admin, a.manager, a.report, a.auditor]) {
@@ -148,6 +150,7 @@ describe("GET /v1/time/export (TIM-006)", () => {
       {
         employeeId: a.report.employeeId,
         name: "Fixture report",
+        timeZone: "Europe/Madrid",
         scheduleConfigured: true,
         chainStatus: "verified",
         totalWorkedMinutes: 960,
@@ -161,6 +164,8 @@ describe("GET /v1/time/export (TIM-006)", () => {
     expect(byDate.get("2026-11-03")?.[2]).toBe("09:00-17:00");
     expect(byDate.get("2026-11-03")?.[8]).toBe("Yes");
     expect(byDate.get("2026-11-03")?.[9]).toBe("Verified");
+    expect(doc.columns[10]).toBe("Time zone");
+    expect(byDate.get("2026-11-03")?.[10]).toBe("Europe/Madrid");
     expect(doc.metadataLines).toContain(`Export id: ${doc.exportId}`);
   });
 
