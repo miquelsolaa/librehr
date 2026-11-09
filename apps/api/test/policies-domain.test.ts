@@ -48,10 +48,15 @@ describe("document policy (DOC-003)", () => {
     expect(canReadDocument(ctx("auditor"), personal)).toBe(false);
   });
 
-  it("limits payslip content to the owner and payroll", () => {
+  it("limits payslip content to the owner, HR/admin and payroll", () => {
     expect(canReadDocument(ctx("employee"), payslip)).toBe(true);
     expect(canReadDocument(ctx("payroll"), payslip)).toBe(true);
-    expect(canReadDocument(ctx("admin"), payslip)).toBe(false);
+    expect(canReadDocument(ctx("admin"), payslip)).toBe(true);
+    expect(canReadDocument(ctx("manager"), payslip)).toBe(false);
+    expect(canReadDocument(ctx("auditor"), payslip)).toBe(false);
+    expect(
+      canReadDocument(ctx("admin"), { ...payslip, organizationId: "org-2" }),
+    ).toBe(false);
     expect(canListDocument(ctx("admin"), payslip)).toBe(true);
     expect(canListDocument(ctx("manager"), payslip)).toBe(false);
   });

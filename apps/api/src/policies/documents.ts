@@ -1,7 +1,13 @@
 import { can, permissionScope, type PolicyUserContext } from "./can.js";
 
-/** Roles that may open other people's payslips (DOC-003). */
-const PAYROLL_ROLES: ReadonlySet<string> = new Set(["payroll"]);
+/**
+ * Roles that may open other people's payslips. DOC-003 names the payroll role
+ * only, but no Payroll role exists yet (ADM-001 lists it for later), so the
+ * product decision is that Owner/HR Admin, both the built-in `admin` role
+ * today, may open them too. Managers and auditors may not. Every open is
+ * audited by the download route (ADM-002).
+ */
+const PAYSLIP_READER_ROLES: ReadonlySet<string> = new Set(["admin", "payroll"]);
 
 /** The access-relevant fields of a document row. */
 export interface DocumentAccessFields {
@@ -53,7 +59,7 @@ export function canListDocument(
 
 /**
  * DOC-003 read access to a document's content:
- * - payslips: the employee they belong to and the payroll role only;
+ * - payslips: the employee they belong to, HR/admin and the payroll role;
  * - personal documents: per `document.read` scope (employees and managers
  *   their own, HR/admin the organization). No document type currently lets
  *   managers open their reports' documents, so they are denied;
@@ -68,7 +74,7 @@ export function canReadDocument(
   if (doc.organizationId !== ctx.organizationId) return false;
   const isOwner = doc.employeeId !== null && doc.employeeId === ctx.employeeId;
   if (doc.category === "payslips") {
-    return isOwner || PAYROLL_ROLES.has(ctx.role);
+    return isOwner || PAYSLIP_READER_ROLES.has(ctx.role);
   }
   if (doc.employeeId === null) {
     return (

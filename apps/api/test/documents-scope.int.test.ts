@@ -61,7 +61,7 @@ describe("documents API scope", () => {
     a = await seedScopedOrg(db.sql, "docs-a");
     b = await seedScopedOrg(db.sql, "docs-b");
     app = createApp({
-      sql: db.sql,
+      sql: await db.appSql(),
       storagePort: new MemoryStorage(),
       authPort: fixtureAuthPort([
         a.admin,
@@ -145,10 +145,28 @@ describe("documents API scope", () => {
       expect((await download(docs["contract"], a.admin)).status).toBe(200);
     });
 
-    it("restricts payslips to their employee (and payroll)", async () => {
+    it("lets the employee and HR/admin open a payslip, not managers or auditors", async () => {
       expect((await download(docs["payslip"], a.report)).status).toBe(200);
-      expect((await download(docs["payslip"], a.admin)).status).toBe(403);
+      expect((await download(docs["payslip"], a.admin)).status).toBe(200);
       expect((await download(docs["payslip"], a.manager)).status).toBe(403);
+      expect((await download(docs["payslip"], a.auditor)).status).toBe(403);
+      expect((await download(docs["payslip"], a.peer)).status).toBe(403);
+    });
+
+    it("audits every payslip open with ids only", async () => {
+      const rows = await db.sql<{ actor_id: string; metadata: unknown }[]>`
+        SELECT actor_id, metadata FROM audit_log
+        WHERE action = 'document.download' AND resource_id = ${docs["payslip"] ?? ""}
+      `;
+      expect(rows.map((r) => r.actor_id).sort()).toEqual(
+        [a.admin.id, a.report.id].sort(),
+      );
+      for (const row of rows) {
+        const meta = JSON.stringify(row.metadata);
+        expect(meta).not.toContain("Payslip");
+        expect(meta).not.toContain("file.pdf");
+        expect(meta).not.toContain("@fixture.invalid");
+      }
     });
 
     it("serves company documents to their audience only", async () => {
