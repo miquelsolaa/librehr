@@ -24,6 +24,15 @@ export const users = pgTable(
     twoFactorRecoveryCodes: jsonb("two_factor_recovery_codes").$type<
       string[]
     >(),
+    // AUTH-003: setup state until the first code is verified (0025b).
+    twoFactorPendingSecret: text("two_factor_pending_secret"),
+    twoFactorPendingRecoveryCodes: jsonb(
+      "two_factor_pending_recovery_codes",
+    ).$type<string[]>(),
+    twoFactorPendingExpiresAt: timestamp("two_factor_pending_expires_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
     ...timestamps,
   },
   (table) => [index("users_email_idx").on(table.email)],

@@ -28,6 +28,7 @@ describe("auth and session hardening", () => {
   const futureLeaver = "c9000000-0000-0000-0000-000000000003";
   const twoFactor = "c9000000-0000-0000-0000-000000000004";
   const legacy = "c9000000-0000-0000-0000-000000000005";
+  const setupUser = "c9000000-0000-0000-0000-000000000006";
   const leaverEmployee = "e9000000-0000-0000-0000-000000000002";
   const futureEmployee = "e9000000-0000-0000-0000-000000000003";
   const password = "hardening-password";
@@ -89,7 +90,14 @@ describe("auth and session hardening", () => {
     await sql`INSERT INTO organizations (id, name, slug, timezone)
       VALUES (${org}, 'Hardening', 'hardening', 'Europe/Madrid')`;
     const hash = await hashPassword(password);
-    for (const id of [admin, leaver, futureLeaver, twoFactor, legacy]) {
+    for (const id of [
+      admin,
+      leaver,
+      futureLeaver,
+      twoFactor,
+      legacy,
+      setupUser,
+    ]) {
       await sql`INSERT INTO users (id, email, name, password_hash)
         VALUES (${id}, ${emailOf(id)}, 'Test User', ${hash})`;
     }
@@ -102,6 +110,7 @@ describe("auth and session hardening", () => {
         [futureLeaver, "employee"],
         [twoFactor, "employee"],
         [legacy, "employee"],
+        [setupUser, "employee"],
       ] as const) {
         await tx`INSERT INTO memberships (organization_id, user_id, role)
           VALUES (${org}, ${id}, ${role})`;
@@ -212,20 +221,77 @@ describe("auth and session hardening", () => {
     let token: string;
     let secret: string;
 
-    it("enables 2FA and stores the secret encrypted", async () => {
-      token = cookieOf(await signIn(twoFactor));
-      const setup = (await (
-        await post("/v1/auth/2fa/setup", {}, withCookie(token))
-      ).json()) as { secret: string; recoveryCodes: string[] };
-      secret = setup.secret;
+    const setupFor = async (sessionToken: string) => {
+      const res = await post(
+        "/v1/auth/2fa/setup",
+        {},
+        withCookie(sessionToken),
+      );
+      expect(res.status).toBe(200);
+      return (await res.json()) as { secret: string; recoveryCodes: string[] };
+    };
 
+    it("rejects a client-supplied secret or recovery codes on enable", async () => {
+      const setupToken = cookieOf(await signIn(setupUser));
+      await setupFor(setupToken);
+      const chosen = generateTotpSecret();
       const res = await post(
         "/v1/auth/2fa/enable",
         {
-          secret,
-          code: generateTotpCode(secret),
-          recoveryCodes: setup.recoveryCodes,
+          secret: chosen,
+          code: generateTotpCode(chosen),
+          recoveryCodes: ["aaaa-aaaa"],
         },
+        withCookie(setupToken),
+      );
+      expect(res.status).toBe(400);
+      // A code for any secret but the pending one does not enable 2FA either.
+      const wrong = await post(
+        "/v1/auth/2fa/enable",
+        { code: generateTotpCode(chosen) },
+        withCookie(setupToken),
+      );
+      expect(wrong.status).toBe(400);
+      expect(((await wrong.json()) as ProblemDetails).code).toBe(
+        "INVALID_TOTP_CODE",
+      );
+      expect(await storedSecret(setupUser)).toBeNull();
+    });
+
+    it("refuses an expired pending setup", async () => {
+      const setupToken = cookieOf(await signIn(setupUser));
+      const pending = await setupFor(setupToken);
+      await db.adminSql`UPDATE users
+        SET two_factor_pending_expires_at = now() - interval '1 second'
+        WHERE id = ${setupUser}`;
+      const res = await post(
+        "/v1/auth/2fa/enable",
+        { code: generateTotpCode(pending.secret) },
+        withCookie(setupToken),
+      );
+      expect(res.status).toBe(409);
+      expect(((await res.json()) as ProblemDetails).code).toBe(
+        "TWO_FACTOR_SETUP_EXPIRED",
+      );
+      expect(await storedSecret(setupUser)).toBeNull();
+    });
+
+    it("enables 2FA from the pending server-side secret, stores it encrypted and ends other sessions", async () => {
+      token = cookieOf(await signIn(twoFactor));
+      const otherSession = cookieOf(await signIn(twoFactor));
+      const setup = await setupFor(token);
+      secret = setup.secret;
+      expect(setup.recoveryCodes).toHaveLength(8);
+      for (const code of setup.recoveryCodes) {
+        expect(code).toMatch(/^[0-9a-f]{4}-[0-9a-f]{4}$/);
+      }
+      const [pendingRow] = await db.adminSql<{ pending: string | null }[]>`
+        SELECT two_factor_pending_secret AS pending FROM users WHERE id = ${twoFactor}`;
+      expect(pendingRow?.pending).not.toContain(secret);
+
+      const res = await post(
+        "/v1/auth/2fa/enable",
+        { code: generateTotpCode(secret) },
         withCookie(token),
       );
       expect(res.status).toBe(200);
@@ -234,14 +300,26 @@ describe("auth and session hardening", () => {
       expect(stored).not.toBeNull();
       expect(stored).not.toContain(secret);
       expect(JSON.parse(stored!)).toHaveProperty("ciphertext");
+      const [row] = await db.adminSql<
+        { codes: string[]; pending: string | null }[]
+      >`SELECT two_factor_recovery_codes AS codes,
+          two_factor_pending_secret AS pending
+        FROM users WHERE id = ${twoFactor}`;
+      expect(row?.pending).toBeNull();
+      expect(row?.codes).toHaveLength(8);
+      expect(JSON.stringify(row?.codes)).not.toContain(setup.recoveryCodes[0]);
+
+      expect((await me(token)).status).toBe(200);
+      expect((await me(otherSession)).status).toBe(401);
     });
 
-    it("refuses to enable 2FA again (409) without overwriting the secret", async () => {
+    it("refuses to set up or enable 2FA again (409) without overwriting the secret", async () => {
       const before = await storedSecret(twoFactor);
-      const other = generateTotpSecret();
+      const again = await post("/v1/auth/2fa/setup", {}, withCookie(token));
+      expect(again.status).toBe(409);
       const res = await post(
         "/v1/auth/2fa/enable",
-        { secret: other, code: generateTotpCode(other), recoveryCodes: [] },
+        { code: generateTotpCode(secret) },
         withCookie(token),
       );
       expect(res.status).toBe(409);

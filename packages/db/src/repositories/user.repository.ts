@@ -84,26 +84,94 @@ export class UserRepository {
   }
 
   /**
-   * Enables 2FA with an envelope-encrypted secret. Only succeeds while 2FA is
-   * off, so an existing secret is never overwritten; returns false otherwise.
+   * Stores a server-generated TOTP secret (envelope-encrypted) and hashed
+   * recovery codes as a pending 2FA setup that expires after `ttlMs`,
+   * replacing any earlier pending setup. Only while 2FA is off; returns false
+   * otherwise.
    */
-  async enableTwoFactor(
+  async startTwoFactorSetup(
     tx: TenantTx | Sql,
     userId: string,
     secret: string,
     hashedRecoveryCodes: string[],
+    ttlMs: number,
   ): Promise<boolean> {
     const rows = await tx<{ id: string }[]>`
       UPDATE users
       SET
-        two_factor_enabled = true,
-        two_factor_secret = ${encryptEnvelope(secret)},
-        two_factor_recovery_codes = ${JSON.stringify(hashedRecoveryCodes)}::jsonb,
+        two_factor_pending_secret = ${encryptEnvelope(secret)},
+        two_factor_pending_recovery_codes = ${tx.json(hashedRecoveryCodes)},
+        two_factor_pending_expires_at = now() + make_interval(secs => ${ttlMs / 1000}),
         updated_at = now()
       WHERE id = ${userId} AND two_factor_enabled = false
       RETURNING id
     `;
     return rows.length > 0;
+  }
+
+  /**
+   * The unexpired pending setup of a user without 2FA: the decrypted secret,
+   * and the stored ciphertext that identifies this setup for
+   * {@link promotePendingTwoFactor}.
+   */
+  async findPendingTwoFactor(
+    tx: TenantTx | Sql,
+    userId: string,
+  ): Promise<{ secret: string; setupId: string } | null> {
+    const rows = await tx<{ stored: string }[]>`
+      SELECT two_factor_pending_secret AS stored
+      FROM users
+      WHERE id = ${userId}
+        AND two_factor_enabled = false
+        AND two_factor_pending_secret IS NOT NULL
+        AND two_factor_pending_expires_at > now()
+      LIMIT 1
+    `;
+    const stored = rows[0]?.stored;
+    return stored ? { secret: decryptEnvelope(stored), setupId: stored } : null;
+  }
+
+  /**
+   * Enables 2FA by promoting the pending setup identified by `setupId` to the
+   * active secret and recovery codes. A single UPDATE, so it only succeeds while 2FA is off and that exact setup
+   * is still pending and unexpired; returns false otherwise.
+   */
+  async promotePendingTwoFactor(
+    tx: TenantTx | Sql,
+    userId: string,
+    setupId: string,
+  ): Promise<boolean> {
+    const rows = await tx<{ id: string }[]>`
+      UPDATE users
+      SET
+        two_factor_enabled = true,
+        two_factor_secret = two_factor_pending_secret,
+        two_factor_recovery_codes = two_factor_pending_recovery_codes,
+        two_factor_pending_secret = NULL,
+        two_factor_pending_recovery_codes = NULL,
+        two_factor_pending_expires_at = NULL,
+        updated_at = now()
+      WHERE id = ${userId}
+        AND two_factor_enabled = false
+        AND two_factor_pending_secret = ${setupId}
+        AND two_factor_pending_expires_at > now()
+      RETURNING id
+    `;
+    return rows.length > 0;
+  }
+
+  /** Deletes every session of the user except `keepToken` (if given). */
+  async revokeOtherSessions(
+    tx: TenantTx | Sql,
+    userId: string,
+    keepToken: string | undefined,
+  ): Promise<number> {
+    const result = await tx`
+      DELETE FROM sessions
+      WHERE user_id = ${userId}
+        AND (${keepToken ?? null}::text IS NULL OR token <> ${keepToken ?? null})
+    `;
+    return result.count;
   }
 
   /**
@@ -130,6 +198,9 @@ export class UserRepository {
         two_factor_enabled = false,
         two_factor_secret = NULL,
         two_factor_recovery_codes = NULL,
+        two_factor_pending_secret = NULL,
+        two_factor_pending_recovery_codes = NULL,
+        two_factor_pending_expires_at = NULL,
         updated_at = now()
       WHERE id = ${userId}
     `;

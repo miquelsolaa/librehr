@@ -56,11 +56,19 @@ export type TwoFactorSetupResponse = z.infer<
   typeof TwoFactorSetupResponseSchema
 >;
 
-export const TwoFactorEnableRequestSchema = z.object({
-  code: z.string().min(6).max(6),
-  secret: z.string().min(16),
-  recoveryCodes: z.array(z.string()),
-});
+/**
+ * Confirms the pending setup from /2fa/setup with a current TOTP code. The
+ * secret and recovery codes stay on the server; strict, so a client still
+ * sending them is refused instead of silently ignored.
+ */
+export const TwoFactorEnableRequestSchema = z
+  .object({
+    code: z
+      .string()
+      .trim()
+      .regex(/^\d{6}$/, "Enter the 6-digit code from your authenticator"),
+  })
+  .strict();
 export type TwoFactorEnableRequest = z.infer<
   typeof TwoFactorEnableRequestSchema
 >;

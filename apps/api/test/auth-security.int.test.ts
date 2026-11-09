@@ -146,7 +146,15 @@ describe("Enterprise Auth & Security Hardening API (AUTH-003, AUTH-004, DOC-007)
   });
 
   it("POST /v1/auth/2fa/setup returns TOTP secret and recovery codes when authenticated", async () => {
-    const res = await app.request("/v1/auth/2fa/setup", {
+    // The pending setup is stored (UPDATE ... RETURNING id) before it is shown.
+    const setupApp = createApp({
+      sql: Object.assign(
+        async () => [{ id: "00000000-0000-0000-0000-000000000001" }],
+        { json: (value: unknown) => value },
+      ) as unknown as Sql,
+      authPort,
+    });
+    const res = await setupApp.request("/v1/auth/2fa/setup", {
       method: "POST",
       headers: {
         Authorization: "Bearer fake_admin_token",
@@ -165,7 +173,7 @@ describe("Enterprise Auth & Security Hardening API (AUTH-003, AUTH-004, DOC-007)
     expect(body.recoveryCodes).toHaveLength(8);
   });
 
-  it("POST /v1/auth/2fa/enable rejects invalid TOTP code with 400", async () => {
+  it("POST /v1/auth/2fa/enable rejects a client-supplied secret with 400", async () => {
     const secret = generateTotpSecret();
     const res = await app.request("/v1/auth/2fa/enable", {
       method: "POST",
@@ -182,7 +190,7 @@ describe("Enterprise Auth & Security Hardening API (AUTH-003, AUTH-004, DOC-007)
 
     expect(res.status).toBe(400);
     const problem = (await res.json()) as ProblemDetails;
-    expect(problem.code).toBe("INVALID_TOTP_CODE");
+    expect(problem.code).toBe("VALIDATION_ERROR");
   });
 
   it("POST /v1/sso/authorize validates request and detects missing domain", async () => {

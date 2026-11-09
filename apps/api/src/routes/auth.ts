@@ -32,8 +32,15 @@ import {
   type SessionCookieOptions,
 } from "../lib/session-cookie.js";
 import { ConflictError, UnauthorizedError } from "../errors/index.js";
+import { parseJsonBody } from "../lib/validate.js";
+import {
+  resolveTwoFactorConfig,
+  type TwoFactorConfigInput,
+} from "../lib/two-factor-config.js";
 
 export interface AuthRouteOptions {
+  /** Overrides of the 2FA defaults (pending setup TTL, recovery codes). */
+  twoFactor?: TwoFactorConfigInput | undefined;
   /** Signing key for 2FA challenge tokens; comes from the validated env. */
   sessionSecret?: string | undefined;
   nodeEnv?: SessionCookieOptions["nodeEnv"];
@@ -131,6 +138,7 @@ export function createAuthRoutes(
     trustProxy: options.trustProxy,
   };
   const trustProxy = options.trustProxy ?? 0;
+  const twoFactor = resolveTwoFactorConfig(options.twoFactor);
   const minute = 60 * 1000;
 
   // Brute-force limits (AUTH-001). Each endpoint has a per-IP bucket and a
@@ -355,44 +363,61 @@ export function createAuthRoutes(
     return issueSession(c, session);
   });
 
-  // Setup 2FA - generates new secret and backup recovery codes
-  router.post("/2fa/setup", requireAuth, async (c) => {
+  const alreadyEnabled = () =>
+    new ConflictError({
+      code: "TWO_FACTOR_ALREADY_ENABLED",
+      detail: "Two-factor authentication is already enabled",
+    });
+
+  // Setup 2FA: the server generates the secret and recovery codes and keeps
+  // them as a pending setup (secret envelope-encrypted, codes hashed) for a
+  // short time. They are shown once here and confirmed by /2fa/enable.
+  router.post("/2fa/setup", requireAuth, sessionUserLimit, async (c) => {
     const user = currentUser(c);
     const secret = generateTotpSecret();
-    const qrUri = generateTotpUri({
+    const { plainCodes, hashedCodes } = generateRecoveryCodes(
+      twoFactor.recoveryCodeCount,
+    );
+    const started = await userRepo.startTwoFactorSetup(
+      sql,
+      user.id,
       secret,
-      accountName: user.email,
-      issuer: "LibreHR",
-    });
-    const { plainCodes } = generateRecoveryCodes(8);
+      hashedCodes,
+      twoFactor.pendingSetupTtlMs,
+    );
+    // Never replace an active secret: the user must disable 2FA first.
+    if (!started) throw alreadyEnabled();
 
     return c.json({
       secret,
-      qrUri,
+      qrUri: generateTotpUri({
+        secret,
+        accountName: user.email,
+        issuer: "LibreHR",
+      }),
       recoveryCodes: plainCodes,
     });
   });
 
-  // Enable 2FA - validates code with secret and persists
+  // Enable 2FA: only a code that verifies against the pending server-side
+  // secret promotes it. The client never supplies the secret or the codes.
   router.post("/2fa/enable", requireAuth, sessionUserLimit, async (c) => {
     const user = currentUser(c);
-    const body = await c.req.json().catch(() => null);
-    const parsed = TwoFactorEnableRequestSchema.safeParse(body);
+    const { code } = await parseJsonBody(c, TwoFactorEnableRequestSchema);
 
-    if (!parsed.success) {
-      return c.json(
-        createProblemDetails({
-          status: 400,
-          title: "Validation Error",
-          detail: "Invalid enable 2FA request",
-          code: "VALIDATION_ERROR",
-        }),
-        400,
-        { "Content-Type": "application/problem+json" },
-      );
+    const pending = await userRepo.findPendingTwoFactor(sql, user.id);
+    if (!pending) {
+      if ((await userRepo.findById(sql, user.id))?.twoFactorEnabled) {
+        throw alreadyEnabled();
+      }
+      throw new ConflictError({
+        code: "TWO_FACTOR_SETUP_EXPIRED",
+        detail:
+          "No two-factor setup is pending or it has expired; start the setup again",
+      });
     }
 
-    const isValid = verifyTotpCode(parsed.data.secret, parsed.data.code);
+    const isValid = verifyTotpCode(pending.secret, code);
     if (!isValid) {
       return c.json(
         createProblemDetails({
@@ -407,37 +432,40 @@ export function createAuthRoutes(
       );
     }
 
-    const hashedCodes = parsed.data.recoveryCodes.map((code) =>
-      crypto
-        .createHash("sha256")
-        .update(code.trim().toLowerCase())
-        .digest("hex"),
-    );
-
-    // Never overwrite an active secret: the user must disable 2FA first.
-    const enabled = await userRepo.enableTwoFactor(
-      sql,
-      user.id,
-      parsed.data.secret,
-      hashedCodes,
-    );
-    if (!enabled) {
-      throw new ConflictError({
-        code: "TWO_FACTOR_ALREADY_ENABLED",
-        detail: "Two-factor authentication is already enabled",
-      });
-    }
-
+    // Enabling a second factor ends every other session of the account (a
+    // session opened by someone else with the password alone must not
+    // survive it); the current one is kept.
+    const currentToken = (
+      (c.get as (key: string) => unknown)("session") as AuthSession | undefined
+    )?.token;
     await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
-      (tx) =>
-        auditRepo.log(tx, {
+      async (tx) => {
+        // Promotes exactly the setup that was verified, only if it is still
+        // pending: a concurrent setup or enable makes this a conflict.
+        if (
+          !(await userRepo.promotePendingTwoFactor(
+            tx,
+            user.id,
+            pending.setupId,
+          ))
+        ) {
+          throw alreadyEnabled();
+        }
+        const revokedSessions = await userRepo.revokeOtherSessions(
+          tx,
+          user.id,
+          currentToken,
+        );
+        await auditRepo.log(tx, {
           actorId: user.id,
           action: "auth.2fa.enable",
           resourceType: "user",
           resourceId: user.id,
-        }),
+          metadata: { revokedSessions },
+        });
+      },
     );
 
     return c.json({ success: true });
