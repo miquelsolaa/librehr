@@ -27,6 +27,7 @@ import {
 } from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
 import { can } from "../policies/can.js";
+import { assertNotSelfApproval } from "../policies/approvals.js";
 import { canOnEmployee, resolvePolicyContext } from "../policies/context.js";
 import type { MailPort } from "../ports/mail.js";
 
@@ -626,13 +627,17 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
         const targetEmp = await employeeRepo.findById(tx, req.employeeId);
         if (!targetEmp) return { error: "NOT_FOUND" as const };
 
+        const ctx = await resolvePolicyContext(c, tx);
+        // LEA-004: nobody decides their own request, admins and delegates
+        // included. Checked first so the caller gets the specific reason.
+        assertNotSelfApproval(ctx, {
+          employeeId: targetEmp.id,
+          userId: targetEmp.userId,
+        });
+
         // Permission check: managerId is an employee id, compared to the
         // approver's linked employee by the policy context.
-        const allowed = canOnEmployee(
-          await resolvePolicyContext(c, tx),
-          "leave.request.approve",
-          targetEmp,
-        );
+        const allowed = canOnEmployee(ctx, "leave.request.approve", targetEmp);
 
         const approverEmp = await employeeRepo.findByUserId(tx, user.id);
         let isAuthorized = allowed;

@@ -38,6 +38,24 @@ export class ForbiddenError extends AppError {
   }
 }
 
+/**
+ * LEA-004 / TIM-003: the caller tried to decide their own request. Distinct
+ * from a plain 403 so clients can explain that someone else must decide.
+ */
+export class SelfApprovalForbiddenError extends AppError {
+  constructor(options: AppErrorOptions = {}) {
+    super({
+      status: 403,
+      type: "urn:librehr:problem:self-approval-forbidden",
+      title: "Forbidden",
+      code: options.code ?? "SELF_APPROVAL_FORBIDDEN",
+      detail:
+        options.detail ??
+        "You cannot approve or reject your own request; another approver must decide it",
+    });
+  }
+}
+
 export class ConflictError extends AppError {
   constructor(options: AppErrorOptions = {}) {
     super({
