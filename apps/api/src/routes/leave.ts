@@ -29,6 +29,7 @@ import { requireAuth } from "../middleware/auth.js";
 import { can } from "../policies/can.js";
 import { assertNotSelfApproval } from "../policies/approvals.js";
 import { canOnEmployee, resolvePolicyContext } from "../policies/context.js";
+import { businessToday } from "../lib/business-date.js";
 import type { MailPort } from "../ports/mail.js";
 
 export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
@@ -644,7 +645,8 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
 
         // LEA-008: Check manager absence approval delegation
         if (!isAuthorized && approverEmp && targetEmp.managerId) {
-          const today = new Date().toISOString().slice(0, 10);
+          // Delegations are organization-wide date ranges (LEA-008).
+          const today = await businessToday(c, tx);
           const delegations = await leaveRepo.getActiveDelegationsForDelegate(
             tx,
             approverEmp.id,
@@ -773,11 +775,18 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
           return { error: "FORBIDDEN" as const };
         }
 
+        // A reversal takes effect today in the employee's location zone.
+        const owner = isSelf
+          ? currentEmp
+          : await employeeRepo.findById(tx, req.employeeId);
+        const today = await businessToday(c, tx, owner?.locationId);
+
         try {
           const cancelled = await leaveRepo.cancelLeaveRequest(
             tx,
             requestId,
             user.id,
+            today,
           );
 
           await auditRepo.log(tx, {
@@ -917,7 +926,9 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
           amount: parsed.data.amount,
           unit: "days",
           note: parsed.data.note,
-          effectiveDate: parsed.data.effectiveDate,
+          effectiveDate:
+            parsed.data.effectiveDate ??
+            (await businessToday(c, tx, emp.locationId)),
         });
 
         await auditRepo.log(tx, {

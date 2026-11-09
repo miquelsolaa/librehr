@@ -214,11 +214,11 @@ export class LeaveRepository {
       unit?: string | undefined;
       sourceRef?: string | null | undefined;
       note?: string | null | undefined;
-      effectiveDate?: string | undefined;
+      /** Business date in the employee's location (or organization) zone. */
+      effectiveDate: string;
     },
   ): Promise<LeaveLedgerRow> {
-    const effectiveDate =
-      data.effectiveDate ?? new Date().toISOString().slice(0, 10);
+    const effectiveDate = data.effectiveDate;
     const rows = await tx<LeaveLedgerRow[]>`
       INSERT INTO leave_ledger (
         employee_id, entry_type, amount, unit,
@@ -433,10 +433,16 @@ export class LeaveRepository {
     return updated!;
   }
 
+  /**
+   * `today` is the business date of the cancellation in the employee's
+   * location (or organization) time zone; a compensating reversal takes
+   * effect on it.
+   */
   async cancelLeaveRequest(
     tx: TenantTx,
     id: string,
     cancelledById: string,
+    today: string,
   ): Promise<LeaveRequestRow> {
     const req = await this.getLeaveRequestById(tx, id);
     if (!req) throw new Error("Leave request not found");
@@ -454,7 +460,7 @@ export class LeaveRepository {
         amount: Math.abs(req.workingDays),
         sourceRef: id,
         note: `Compensating reversal for cancelled request ${req.startDate} to ${req.endDate}`,
-        effectiveDate: new Date().toISOString().slice(0, 10),
+        effectiveDate: today,
       });
       reversalEntryId = reversal.id;
     }

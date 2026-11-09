@@ -25,6 +25,15 @@ export interface ScheduleRuleRow {
   updatedAt: Date;
 }
 
+/** A schedule applying to an employee over a span of days (see core `ScheduleSpan`). */
+export interface ScheduleSpanRow {
+  scheduleId: string;
+  isDefault: boolean;
+  effectiveFrom: string | null;
+  effectiveTo: string | null;
+  rules: { dayOfWeek: number; expectedHours: number }[];
+}
+
 export class ScheduleRepository {
   async createAssignment(
     tx: TenantTx,
@@ -106,13 +115,86 @@ export class ScheduleRepository {
     return { schedule: sRows[0], rules: rRows };
   }
 
+  /**
+   * Every schedule that can apply to an employee between two dates, in one
+   * query: the assignments overlapping the period plus the organization
+   * default, each with its day rules. Core resolves the schedule per day
+   * (`resolveScheduleForDate`), so a timesheet never queries per day.
+   */
+  async getScheduleSpansForEmployee(
+    tx: TenantTx,
+    employeeId: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<ScheduleSpanRow[]> {
+    const orgId = tx.__tenantContext.organizationId;
+    const rows = await tx<
+      {
+        scheduleId: string;
+        isDefault: boolean;
+        effectiveFrom: string | null;
+        effectiveTo: string | null;
+        dayOfWeek: number | null;
+        expectedHours: number | null;
+      }[]
+    >`
+      WITH spans AS (
+        SELECT es.schedule_id, false AS is_default,
+               es.effective_from, es.effective_to
+        FROM employee_schedules es
+        WHERE es.employee_id = ${employeeId}
+          AND es.organization_id = ${orgId}
+          AND es.effective_from <= ${endDate}::date
+          AND (es.effective_to IS NULL OR es.effective_to >= ${startDate}::date)
+        UNION ALL
+        SELECT d.id, true, NULL::date, NULL::date
+        FROM (
+          SELECT id FROM schedules
+          WHERE is_default = true AND organization_id = ${orgId}
+          LIMIT 1
+        ) d
+      )
+      SELECT s.schedule_id AS "scheduleId", s.is_default AS "isDefault",
+             s.effective_from::text AS "effectiveFrom",
+             s.effective_to::text AS "effectiveTo",
+             r.day_of_week AS "dayOfWeek",
+             r.expected_hours::float AS "expectedHours"
+      FROM spans s
+      LEFT JOIN schedule_rules r
+        ON r.schedule_id = s.schedule_id AND r.organization_id = ${orgId}
+      ORDER BY s.is_default, s.effective_from, r.day_of_week
+    `;
+
+    const spans = new Map<string, ScheduleSpanRow>();
+    for (const row of rows) {
+      const key = `${row.scheduleId}|${row.isDefault}|${row.effectiveFrom ?? ""}`;
+      let span = spans.get(key);
+      if (!span) {
+        span = {
+          scheduleId: row.scheduleId,
+          isDefault: row.isDefault,
+          effectiveFrom: row.effectiveFrom,
+          effectiveTo: row.effectiveTo,
+          rules: [],
+        };
+        spans.set(key, span);
+      }
+      if (row.dayOfWeek !== null && row.expectedHours !== null) {
+        span.rules.push({
+          dayOfWeek: row.dayOfWeek,
+          expectedHours: row.expectedHours,
+        });
+      }
+    }
+    return [...spans.values()];
+  }
+
+  /** The schedule in force for an employee on a business date. */
   async getForEmployee(
     tx: TenantTx,
     employeeId: string,
-    onDate?: string | undefined,
+    checkDate: string,
   ): Promise<{ schedule: ScheduleRow; rules: ScheduleRuleRow[] } | null> {
-    const checkDate = onDate ?? new Date().toISOString().slice(0, 10);
-
     const assigned = await tx<{ scheduleId: string }[]>`
       SELECT schedule_id as "scheduleId"
       FROM employee_schedules

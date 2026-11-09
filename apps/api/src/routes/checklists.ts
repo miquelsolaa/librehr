@@ -15,6 +15,7 @@ import {
   AuditRepository,
 } from "@librehr/db";
 import { ForbiddenError, NotFoundError } from "../errors/index.js";
+import { businessToday } from "../lib/business-date.js";
 import { IdParamSchema, parseJsonBody, parseParams } from "../lib/validate.js";
 import { requireAuth } from "../middleware/auth.js";
 import {
@@ -207,6 +208,7 @@ export function createChecklistRoutes(sql: Sql) {
             dueOffsetDays: t.dueOffsetDays,
           })),
           baseDate,
+          await businessToday(c, tx, employee.locationId),
         );
 
         const inst = await checklistRepo.instantiateChecklist(tx, {
