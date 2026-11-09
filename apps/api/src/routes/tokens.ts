@@ -4,6 +4,7 @@ import {
   type AuthUser,
   createProblemDetails,
   CreatePersonalAccessTokenSchema,
+  parsePatScopes,
 } from "@librehr/contracts";
 import { withTenant, TokenRepository, AuditRepository } from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
@@ -26,8 +27,9 @@ export function createTokenRoutes(sql: Sql) {
     );
 
     return c.json(
-      tokens.map((t) => ({
+      tokens.map(({ tokenHash: _tokenHash, ...t }) => ({
         ...t,
+        scopes: parsePatScopes(t.scopes),
         expiresAt: t.expiresAt ? t.expiresAt.toISOString() : null,
         lastUsedAt: t.lastUsedAt ? t.lastUsedAt.toISOString() : null,
         createdAt: t.createdAt.toISOString(),
@@ -82,10 +84,12 @@ export function createTokenRoutes(sql: Sql) {
       },
     );
 
+    const { tokenHash: _tokenHash, ...token } = result.token;
     return c.json(
       {
         token: {
-          ...result.token,
+          ...token,
+          scopes: parsePatScopes(token.scopes),
           expiresAt: result.token.expiresAt
             ? result.token.expiresAt.toISOString()
             : null,

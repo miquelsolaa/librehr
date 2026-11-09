@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import type { TenantTx } from "../with-tenant.js";
+import { jsonStringArray } from "./json-array.js";
 
 export interface PersonalAccessTokenRow {
   id: string;
@@ -20,20 +21,7 @@ export interface CreatedTokenResult {
   plainToken: string; // only returned once upon generation
 }
 
-function parseScopes(scopes: unknown): string[] {
-  if (Array.isArray(scopes)) {
-    return scopes as string[];
-  }
-  if (typeof scopes === "string") {
-    try {
-      const parsed = JSON.parse(scopes);
-      if (Array.isArray(parsed)) return parsed as string[];
-    } catch {
-      // ignore
-    }
-  }
-  return [];
-}
+const parseScopes = jsonStringArray;
 
 export class TokenRepository {
   /**

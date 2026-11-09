@@ -29,18 +29,13 @@ import {
   Badge,
 } from "@librehr/ui";
 import { apiClient } from "../../../../../lib/api-client.js";
-import type { WebhookItem } from "@librehr/contracts";
+import {
+  WEBHOOK_SUBSCRIBABLE_EVENTS,
+  type WebhookItem,
+  type WebhookSubscribableEvent,
+} from "@librehr/contracts";
 
-const AVAILABLE_EVENTS = [
-  "employee.created",
-  "employee.updated",
-  "employee.terminated",
-  "leave.requested",
-  "leave.approved",
-  "leave.rejected",
-  "time.clocked",
-  "document.uploaded",
-];
+const AVAILABLE_EVENTS = WEBHOOK_SUBSCRIBABLE_EVENTS;
 
 interface WebhookTestState {
   testing: boolean;
@@ -67,10 +62,9 @@ export default function WebhooksSettingsPage() {
   const [createOpen, setCreateOpen] = React.useState(false);
   const [name, setName] = React.useState("");
   const [url, setUrl] = React.useState("");
-  const [selectedEvents, setSelectedEvents] = React.useState<string[]>([
-    "employee.created",
-    "leave.approved",
-  ]);
+  const [selectedEvents, setSelectedEvents] = React.useState<
+    WebhookSubscribableEvent[]
+  >(["employee.created", "leave.approved"]);
   const [submitting, setSubmitting] = React.useState(false);
 
   // Test ping state
@@ -99,7 +93,7 @@ export default function WebhooksSettingsPage() {
     loadWebhooks();
   }, [loadWebhooks]);
 
-  const toggleEvent = (ev: string) => {
+  const toggleEvent = (ev: WebhookSubscribableEvent) => {
     setSelectedEvents((prev) =>
       prev.includes(ev) ? prev.filter((e) => e !== ev) : [...prev, ev],
     );
@@ -432,26 +426,32 @@ export default function WebhooksSettingsPage() {
                     ))}
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground">
-                      {t("secret")}:
-                    </span>
-                    <code className="bg-surface-raised px-2 py-0.5 rounded border border-border font-mono text-[11px] text-muted-foreground">
-                      {hook.secret.slice(0, 10)}...
-                    </code>
-                    <button
-                      type="button"
-                      onClick={() => handleCopySecret(hook.id, hook.secret)}
-                      className="text-muted-foreground hover:text-foreground transition-colors"
-                      title="Copy Secret"
-                    >
-                      {isCopied ? (
-                        <Check className="h-3.5 w-3.5 text-success" />
-                      ) : (
-                        <Copy className="h-3.5 w-3.5" />
-                      )}
-                    </button>
-                  </div>
+                  {/* The API returns the secret only right after creation
+                      or rotation, so it can be copied once. */}
+                  {hook.secret && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">
+                        {t("secret")}:
+                      </span>
+                      <code className="bg-surface-raised px-2 py-0.5 rounded border border-border font-mono text-[11px] text-muted-foreground">
+                        {hook.secret.slice(0, 10)}...
+                      </code>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleCopySecret(hook.id, hook.secret ?? "")
+                        }
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                        title="Copy Secret"
+                      >
+                        {isCopied ? (
+                          <Check className="h-3.5 w-3.5 text-success" />
+                        ) : (
+                          <Copy className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             );
