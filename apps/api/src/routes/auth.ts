@@ -16,7 +16,7 @@ import {
   verifyTotpCode,
   verifyRecoveryCode,
 } from "@librehr/core";
-import { UserRepository } from "@librehr/db";
+import { IdentityRepository, UserRepository } from "@librehr/db";
 import type { AuthPort } from "../ports/auth.js";
 import { createRateLimiter } from "../middleware/rate-limit.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -86,6 +86,7 @@ export function createAuthRoutes(
   const router = new Hono();
   const signingSecret = challengeSecret(options.sessionSecret);
   const userRepo = new UserRepository();
+  const identityRepo = new IdentityRepository();
 
   // Rate limit: 10 attempts per minute on sign-in
   const authRateLimiter = createRateLimiter({
@@ -286,21 +287,27 @@ export function createAuthRoutes(
       );
     }
 
-    // Load active membership to construct AuthUser
-    const memberships = await sql<{ role: string; organization_id: string }[]>`
-      SELECT role, organization_id
-      FROM memberships
-      WHERE user_id = ${userId}
-      LIMIT 1
-    `;
-    const membership = memberships[0];
+    // Same deterministic default membership as password sign-in.
+    const membership = await identityRepo.membership(sql, userId);
+    if (!membership) {
+      return c.json(
+        createProblemDetails({
+          status: 401,
+          title: "Unauthorized",
+          detail: "User not found or 2FA not enabled",
+          code: "INVALID_USER",
+        }),
+        401,
+        { "Content-Type": "application/problem+json" },
+      );
+    }
 
     const authUser: AuthUser = {
       id: userRow.id,
       email: userRow.email,
       name: userRow.name,
-      role: membership?.role ?? "employee",
-      organizationId: membership?.organization_id ?? "",
+      role: membership.role,
+      organizationId: membership.organizationId,
       twoFactorEnabled: true,
     };
 

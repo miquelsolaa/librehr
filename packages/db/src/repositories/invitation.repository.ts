@@ -1,5 +1,4 @@
 import crypto from "node:crypto";
-import type { Sql } from "postgres";
 import type { TenantTx } from "../with-tenant.js";
 
 export interface InvitationRow {
@@ -13,10 +12,6 @@ export interface InvitationRow {
   acceptedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
-}
-
-export interface InvitationWithOrg extends InvitationRow {
-  organizationName: string;
 }
 
 export interface CreateInvitationData {
@@ -53,22 +48,8 @@ export class InvitationRepository {
     return rows[0]!;
   }
 
-  async findByToken(
-    sqlOrTx: Sql | TenantTx,
-    token: string,
-  ): Promise<InvitationWithOrg | null> {
-    const rows = await sqlOrTx<InvitationWithOrg[]>`
-      SELECT i.id, i.organization_id as "organizationId", i.email, i.role,
-             i.token, i.expires_at as "expiresAt", i.invited_by_id as "invitedById",
-             i.accepted_at as "acceptedAt", i.created_at as "createdAt", i.updated_at as "updatedAt",
-             o.name as "organizationName"
-      FROM invitations i
-      JOIN organizations o ON o.id = i.organization_id
-      WHERE i.token = ${token}
-      LIMIT 1
-    `;
-    return rows[0] ?? null;
-  }
+  // Token lookups happen before a tenant context exists: see
+  // IdentityRepository.invitation.
 
   async markAccepted(tx: TenantTx, idOrToken: string): Promise<boolean> {
     const result = await tx`

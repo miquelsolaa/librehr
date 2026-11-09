@@ -30,10 +30,11 @@ async function bootstrap() {
     }
   }
 
-  // 2. Connect to database using application role & dedicated auth role
+  // 2. Every request, including identity lookups, runs on the restricted
+  // runtime role (librehr_app, NOBYPASSRLS). The owner role in
+  // DATABASE_MIGRATION_URL is only used for migrations above.
   const sql = postgres(env.DATABASE_URL, { max: 20 });
-  const authSql = postgres(env.DATABASE_MIGRATION_URL, { max: 5 });
-  const authPort = new BetterAuthAdapter(authSql);
+  const authPort = new BetterAuthAdapter(sql);
   const mailPort = new SmtpMailAdapter({
     host: env.SMTP_HOST,
     port: env.SMTP_PORT,

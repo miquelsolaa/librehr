@@ -8,13 +8,19 @@ import {
   createProblemDetails,
 } from "@librehr/contracts";
 import { buildOidcAuthorizationUrl, isAllowedEmailDomain } from "@librehr/core";
-import { withTenant, SsoRepository, AuditRepository } from "@librehr/db";
+import {
+  withTenant,
+  SsoRepository,
+  AuditRepository,
+  IdentityRepository,
+} from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
 
 export function createSsoRoutes(sql: Sql) {
   const router = new Hono();
   const ssoRepo = new SsoRepository();
   const auditRepo = new AuditRepository();
+  const identityRepo = new IdentityRepository();
 
   // 1. GET /v1/sso/config - View organization SSO configuration (admin/hr)
   router.get("/sso/config", requireAuth, async (c) => {
@@ -167,25 +173,13 @@ export function createSsoRoutes(sql: Sql) {
       );
     }
 
-    // Lookup active SSO configuration matching domain across organizations
-    const rows = await sql<
-      {
-        id: string;
-        organization_id: string;
-        provider: string;
-        client_id: string;
-        issuer_url: string;
-        allowed_domains: string[];
-      }[]
-    >`
-      SELECT id, organization_id, provider, client_id, issuer_url, allowed_domains
-      FROM sso_configurations
-      WHERE enabled = true
-    `;
-
-    const match = rows.find((row) =>
-      isAllowedEmailDomain(`user@${domain}`, row.allowed_domains),
-    );
+    // Discovery runs before any tenant context: the identity lookup returns
+    // only the matching enabled configuration, never the client secret.
+    const config = await identityRepo.ssoConfigForDomain(sql, domain);
+    const match =
+      config && isAllowedEmailDomain(`user@${domain}`, config.allowedDomains)
+        ? config
+        : null;
 
     if (!match) {
       return c.json(
@@ -204,8 +198,8 @@ export function createSsoRoutes(sql: Sql) {
     const redirectUri = `${c.req.url.split("/v1/")[0]}/v1/sso/callback`;
 
     const authorizationUrl = buildOidcAuthorizationUrl({
-      issuerUrl: match.issuer_url,
-      clientId: match.client_id,
+      issuerUrl: match.issuerUrl,
+      clientId: match.clientId,
       redirectUri,
       state,
     });
