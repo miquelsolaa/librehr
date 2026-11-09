@@ -399,7 +399,14 @@
     "locationsEmpty": "No work centers configured yet.",
     "holidayYear": "Year",
     "backToSettings": "Back to settings",
-    "ssoGenericOidc": "Generic OIDC"
+    "ssoGenericOidc": "Generic OIDC",
+    "disableTwoFactorDialogDescription": "To turn off two-factor authentication, enter a current code from your authenticator app or one of your recovery codes.",
+    "disableTwoFactorCodeLabel": "Authentication or recovery code",
+    "disableTwoFactorConfirm": "Disable two-factor",
+    "twoFactorDisableInvalidCode": "That code is not valid. Check your authenticator app and try again.",
+    "twoFactorDisableSessionExpired": "Your session has expired. Sign in again to change your security settings.",
+    "twoFactorDisableForbidden": "You are not allowed to change two-factor authentication for this account.",
+    "twoFactorDisableRateLimited": "Too many attempts. Wait a few minutes and try again."
   },
   "setup": {
     "title": "Welcome to LibreHR",
@@ -426,7 +433,11 @@
     "legalEntityNamePlaceholder": "e.g. Acme Iberia S.L.",
     "locationNamePlaceholder": "e.g. Barcelona Diagonal",
     "next": "Next",
-    "summaryTitle": "Summary"
+    "summaryTitle": "Summary",
+    "adminPasswordHint": "At least 8 characters. Do not reuse a password.",
+    "alreadyCompletedTitle": "Setup already completed",
+    "alreadyCompletedDescription": "This LibreHR instance already has an organization. Sign in with your account, or ask an administrator to invite you.",
+    "goToSignIn": "Go to sign in"
   },
   "invitations": {
     "title": "Accept Invitation",

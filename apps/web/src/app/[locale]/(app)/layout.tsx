@@ -17,7 +17,7 @@ import {
   IconReports,
   IconSettings,
 } from "@librehr/ui";
-import { Home, Tablet, FileText } from "lucide-react";
+import { Home, Tablet, FileText, LogOut } from "lucide-react";
 import { ThemeToggle } from "../../../components/theme-toggle";
 import { LanguageSwitcher } from "../../../components/language-switcher";
 import { NotificationBell } from "../../../components/notification-bell";
@@ -251,6 +251,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           currentPath={pathname}
           ariaLabel={tNav("mobileNavigation")}
           moreLabel={tNav("more")}
+          overflowFooter={
+            userName ? (
+              <button
+                type="button"
+                onClick={() => void handleSignOut()}
+                disabled={isSigningOut}
+                className="flex min-h-[44px] w-full items-center gap-3 rounded-input px-3 text-sm font-medium text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:opacity-50"
+              >
+                <LogOut className="h-4 w-4" aria-hidden="true" />
+                <span>{tAuth("signOut")}</span>
+              </button>
+            ) : undefined
+          }
         />
       </div>
     </div>

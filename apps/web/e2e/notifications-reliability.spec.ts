@@ -1,4 +1,5 @@
 ﻿import { expect, test } from "@playwright/test";
+import { mockRoute } from "./support/mock-api";
 test("a failed mark-all action retains the unread notification and reports the error", async ({
   page,
 }) => {
@@ -14,18 +15,10 @@ test("a failed mark-all action retains the unread notification and reports the e
       }),
     ),
   );
-  await page.route("**/v1/notifications**", async (route) => {
-    const headers = {
-      "access-control-allow-origin": "*",
-      "access-control-allow-headers": "*",
-      "access-control-allow-methods": "GET, POST, OPTIONS",
-    };
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers });
+  await mockRoute(page, "**/v1/notifications**", async (route) => {
     if (route.request().method() === "POST")
-      return route.fulfill({ status: 503, headers });
+      return route.fulfill({ status: 503 });
     return route.fulfill({
-      headers,
       json: {
         unreadCount: 1,
         items: [

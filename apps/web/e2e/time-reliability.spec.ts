@@ -1,10 +1,5 @@
-﻿import { test, expect } from "@playwright/test";
-
-const cors = {
-  "access-control-allow-origin": "*",
-  "access-control-allow-headers": "*",
-  "access-control-allow-methods": "GET, POST, OPTIONS",
-};
+import { test, expect } from "@playwright/test";
+import { mockRoute } from "./support/mock-api";
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -19,15 +14,13 @@ test.beforeEach(async ({ page }) => {
       }),
     );
   });
-  await page.route("**/v1/time/**", async (route) => {
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers: cors });
+  await mockRoute(page, "**/v1/time/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path.endsWith("current-status"))
-      return route.fulfill({ status: 503, headers: cors, json: {} });
+      return route.fulfill({ status: 503, json: {} });
     if (path.endsWith("timesheet"))
-      return route.fulfill({ status: 503, headers: cors, json: {} });
-    return route.fulfill({ headers: cors, json: {} });
+      return route.fulfill({ status: 503, json: {} });
+    return route.fulfill({ json: {} });
   });
 });
 
@@ -55,15 +48,11 @@ test("failed timesheet does not pretend the period has zero hours", async ({
 test("failed clock action removes controls until status is checked again", async ({
   page,
 }) => {
-  await page.route("**/v1/time/current-status", async (route) => {
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers: cors });
-    return route.fulfill({ headers: cors, json: { status: "clocked_out" } });
+  await mockRoute(page, "**/v1/time/current-status", async (route) => {
+    return route.fulfill({ json: { status: "clocked_out" } });
   });
-  await page.route("**/v1/time/clock", async (route) => {
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers: cors });
-    return route.fulfill({ status: 503, headers: cors, json: {} });
+  await mockRoute(page, "**/v1/time/clock", async (route) => {
+    return route.fulfill({ status: 503, json: {} });
   });
   await page.goto("/en/time");
   await page.getByRole("button", { name: "Clock In" }).click();
@@ -84,12 +73,9 @@ test("failed clock action removes controls until status is checked again", async
 test("missing schedule is explained instead of inventing working hours", async ({
   page,
 }) => {
-  await page.route("**/v1/time/timesheet**", async (route) => {
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers: cors });
+  await mockRoute(page, "**/v1/time/timesheet**", async (route) => {
     return route.fulfill({
       status: 409,
-      headers: cors,
       json: {
         code: "SCHEDULE_NOT_CONFIGURED",
         title: "Schedule not configured",
@@ -109,12 +95,9 @@ test("missing schedule is explained instead of inventing working hours", async (
 test("official export explains missing schedule without an alert dialog", async ({
   page,
 }) => {
-  await page.route("**/v1/time/export**", async (route) => {
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers: cors });
+  await mockRoute(page, "**/v1/time/export**", async (route) => {
     return route.fulfill({
       status: 409,
-      headers: cors,
       json: {
         code: "SCHEDULE_NOT_CONFIGURED",
         title: "Schedule not configured",

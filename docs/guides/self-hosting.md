@@ -80,18 +80,20 @@ LibreHR is designed to be easily self-hostable on any standard Linux server, VPS
    start with an unparseable database URL (the error names the variable, never
    its value).
 
-   | Variable                 | Required | Purpose                                                                                                                       |
-   | ------------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------- |
-   | `POSTGRES_PASSWORD`      | yes      | Bootstrap superuser of the Postgres container (hex)                                                                           |
-   | `LIBREHR_OWNER_PASSWORD` | yes      | `librehr_owner` role: owns the schema, runs migrations and the worker (hex)                                                   |
-   | `LIBREHR_APP_PASSWORD`   | yes      | `librehr_app` role: runtime role, always bound by Row-Level Security (hex)                                                    |
-   | `BETTER_AUTH_SECRET`     | yes      | Validated at startup (unique, 32+ characters) but not used by the current release                                             |
-   | `SESSION_SECRET`         | yes      | Signs two-factor sign-in challenges                                                                                           |
-   | `ENVELOPE_MASTER_KEY`    | yes      | Encrypts sensitive fields at rest. **Back it up: losing it loses that data**                                                  |
-   | `TIME_CHAIN_KEY`         | yes      | Keys the tamper-evidence chain of time records (api and worker). **Keep it: changing it makes existing records unverifiable** |
-   | `BETTER_AUTH_URL`        | yes      | Public URL of the API (production refuses a `localhost` value)                                                                |
-   | `APP_URL`                | yes      | Public URL of the web app (production refuses a `localhost` value)                                                            |
-   | `SMTP_HOST`              | yes      | Your SMTP relay (`SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` are optional)                                             |
+   | Variable                 | Required | Purpose                                                                                                                           |
+   | ------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------- |
+   | `POSTGRES_PASSWORD`      | yes      | Bootstrap superuser of the Postgres container (hex)                                                                               |
+   | `LIBREHR_OWNER_PASSWORD` | yes      | `librehr_owner` role: owns the schema, runs migrations and the worker (hex)                                                       |
+   | `LIBREHR_APP_PASSWORD`   | yes      | `librehr_app` role: runtime role, always bound by Row-Level Security (hex)                                                        |
+   | `BETTER_AUTH_SECRET`     | yes      | Validated at startup (unique, 32+ characters) but not used by the current release                                                 |
+   | `SESSION_SECRET`         | yes      | Signs two-factor sign-in challenges                                                                                               |
+   | `ENVELOPE_MASTER_KEY`    | yes      | Encrypts sensitive fields at rest. **Back it up: losing it loses that data**                                                      |
+   | `TIME_CHAIN_KEY`         | yes      | Keys the tamper-evidence chain of time records (api and worker). **Keep it: changing it makes existing records unverifiable**     |
+   | `BETTER_AUTH_URL`        | yes      | Public origin of the API. With the bundled Caddyfile, the same value as `APP_URL` (production refuses a `localhost` value)        |
+   | `APP_URL`                | yes      | Public URL of the web app, e.g. `https://hr.example.com` (production refuses a `localhost` value)                                 |
+   | `DOMAIN`                 | yes      | Host name Caddy serves and requests a certificate for: the host of `APP_URL`, e.g. `hr.example.com`                               |
+   | `PUBLIC_API_URL`         | no       | Browser-facing API URL baked into the web image. Leave empty (same origin); see [Public URLs](#public-urls-and-the-reverse-proxy) |
+   | `SMTP_HOST`              | yes      | Your SMTP relay (`SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` are optional)                                                 |
 
    In production the API also refuses a `DATABASE_URL` that connects as
    `librehr_owner`, as the migration role, or as the bootstrap superuser
@@ -128,10 +130,42 @@ LibreHR is designed to be easily self-hostable on any standard Linux server, VPS
    ```
 
 4. **Verify installation:**
-   Visit `http://localhost:3000` or check system health:
+   Only Caddy publishes ports; the web app and API are reached through it.
+   Visit `APP_URL` or check system health:
    ```bash
-   curl http://localhost:3001/healthz
+   curl https://hr.example.com/healthz
    ```
+
+### Public URLs and the reverse proxy
+
+The bundled `Caddyfile.example` serves everything from **one origin**
+(`https://$DOMAIN`): `/v1/*`, `/healthz` and `/readyz` go to the API, and
+everything else to the web app. The browser therefore calls the API on the
+web app's own origin, which the session cookie requires (it is `httpOnly`,
+`Secure` and `SameSite`, so it is only sent reliably to the same site).
+
+- Set `APP_URL` and `BETTER_AUTH_URL` to the same value, for example
+  `https://hr.example.com`, and `DOMAIN` to `hr.example.com`.
+- Leave `PUBLIC_API_URL` empty. The web image is then built so the browser
+  sends API requests to relative `/v1/...` paths. The internal address
+  `http://api:3001` only works between containers; a browser cannot reach it.
+- `NEXT_PUBLIC_API_URL` (fed from `PUBLIC_API_URL`) is **inlined into the
+  browser bundle when the web image is built**. Setting it on the running
+  container has no effect. If you change it, rebuild the image:
+  `docker compose --env-file .env -f infra/compose/docker-compose.yml build web`.
+  Only set it if you serve the API from a different origin; that also needs
+  the API's CORS configuration and cookie settings to allow it, which the
+  bundled setup does not cover.
+- The web app makes no server-side API calls, so it needs no internal API URL.
+
+**SSO callback.** Register this redirect URI with your identity provider:
+
+```
+https://hr.example.com/v1/sso/callback
+```
+
+That is `APP_URL` (equal to `BETTER_AUTH_URL`) followed by `/v1/sso/callback`.
+There is no `/api` prefix: the proxy forwards `/v1/*` to the API unchanged.
 
 ---
 

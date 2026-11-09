@@ -1,10 +1,5 @@
 ﻿import { expect, test } from "@playwright/test";
-
-const cors = {
-  "access-control-allow-origin": "*",
-  "access-control-allow-headers": "*",
-  "access-control-allow-methods": "GET, POST, PATCH, OPTIONS",
-};
+import { mockRoute } from "./support/mock-api";
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() =>
@@ -25,14 +20,12 @@ test("document loading failures are recoverable and never shown as an empty fold
   page,
 }) => {
   let fail = true;
-  await page.route("**/v1/documents*", async (route) => {
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers: cors });
+  await mockRoute(page, "**/v1/documents*", async (route) => {
     if (fail) {
       fail = false;
-      return route.fulfill({ status: 503, headers: cors });
+      return route.fulfill({ status: 503 });
     }
-    return route.fulfill({ headers: cors, json: [] });
+    return route.fulfill({ json: [] });
   });
   await page.goto("/en/documents");
   await expect(page.locator("main").getByRole("alert")).toContainText(
@@ -47,14 +40,12 @@ test("checklist loading failures are recoverable and never shown as empty", asyn
   page,
 }) => {
   let fail = true;
-  await page.route("**/v1/checklists/**", async (route) => {
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers: cors });
+  await mockRoute(page, "**/v1/checklists/**", async (route) => {
     if (fail && route.request().url().includes("instances")) {
       fail = false;
-      return route.fulfill({ status: 503, headers: cors });
+      return route.fulfill({ status: 503 });
     }
-    return route.fulfill({ headers: cors, json: [] });
+    return route.fulfill({ json: [] });
   });
   await page.goto("/en/onboarding");
   await expect(page.locator("main").getByRole("alert")).toContainText(
@@ -67,15 +58,11 @@ test("checklist loading failures are recoverable and never shown as empty", asyn
 test("a failed employee import is reported and the entered CSV remains available", async ({
   page,
 }) => {
-  await page.route("**/v1/checklists/**", async (route) => {
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers: cors });
-    return route.fulfill({ headers: cors, json: [] });
+  await mockRoute(page, "**/v1/checklists/**", async (route) => {
+    return route.fulfill({ json: [] });
   });
-  await page.route("**/v1/employees/import", async (route) => {
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers: cors });
-    return route.fulfill({ status: 503, headers: cors });
+  await mockRoute(page, "**/v1/employees/import", async (route) => {
+    return route.fulfill({ status: 503 });
   });
   await page.goto("/en/onboarding");
   await page.getByRole("button", { name: "Bulk Import Employees" }).click();
