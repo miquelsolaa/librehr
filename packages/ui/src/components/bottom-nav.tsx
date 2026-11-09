@@ -1,4 +1,4 @@
-﻿import * as React from "react";
+import * as React from "react";
 import { cn } from "../lib/cn.js";
 import type { NavItem } from "./sidebar.js";
 
@@ -8,6 +8,11 @@ export interface BottomNavProps {
   currentPath?: string;
   ariaLabel?: string;
   moreLabel?: string;
+  /**
+   * Content shown at the end of the "More" panel, below the overflow links
+   * (for example a sign-out button). Its presence alone makes "More" appear.
+   */
+  overflowFooter?: React.ReactNode;
   className?: string;
 }
 
@@ -17,12 +22,14 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   currentPath,
   ariaLabel = "Mobile Navigation",
   moreLabel = "More",
+  overflowFooter,
   className,
 }) => {
   const [open, setOpen] = React.useState(false);
   const moreRef = React.useRef<HTMLButtonElement>(null);
   const panelId = React.useId();
   const allItems = [...items, ...overflowItems];
+  const hasOverflow = overflowItems.length > 0 || Boolean(overflowFooter);
   const activeHref = currentPath
     ? allItems
         .filter(
@@ -68,7 +75,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           </a>
         );
       })}
-      {overflowItems.length > 0 && (
+      {hasOverflow && (
         <>
           {open && (
             <div
@@ -92,6 +99,16 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                   <span>{item.label}</span>
                 </a>
               ))}
+              {overflowFooter && (
+                <div
+                  className={cn(
+                    overflowItems.length > 0 &&
+                      "mt-1 border-t border-border pt-1",
+                  )}
+                >
+                  {overflowFooter}
+                </div>
+              )}
             </div>
           )}
           <button
