@@ -1,3 +1,5 @@
+import { csvCell } from "./csv.js";
+
 export interface GestoriaEmployeeSummary {
   taxId: string; // NIF / NIE
   socialSecurityNumber?: string | null | undefined;
@@ -39,43 +41,19 @@ export function generateGestoriaCsv(
   const rows: string[] = [headers.join(",")];
 
   for (const emp of employees) {
-    const sanitize = (
-      val: string | number | null | undefined,
-      numeric = false,
-    ) => {
-      const raw = String(val ?? "");
-      let s = raw.trim();
-      if (
-        typeof val === "string" &&
-        !numeric &&
-        (/^[=+@-]/.test(s) || /^[\t\r]/.test(raw))
-      ) {
-        s = `'${s}`;
-      }
-      if (
-        s.includes(",") ||
-        s.includes('"') ||
-        s.includes("\n") ||
-        s.includes("\r")
-      ) {
-        return `"${s.replace(/"/g, '""')}"`;
-      }
-      return s;
-    };
-
     const row = [
-      sanitize(periodYearMonth),
-      sanitize(emp.taxId),
-      sanitize(emp.socialSecurityNumber ?? ""),
-      sanitize(emp.lastName),
-      sanitize(emp.firstName),
-      sanitize(emp.contractType),
-      sanitize(emp.workedDays),
-      sanitize(emp.vacationDays),
-      sanitize(emp.sickLeaveDays),
-      sanitize(emp.maternityPaternityDays),
-      sanitize(emp.unpaidLeaveDays),
-      sanitize(emp.overtimeHours.toFixed(2), true),
+      csvCell(periodYearMonth),
+      csvCell(emp.taxId),
+      csvCell(emp.socialSecurityNumber ?? ""),
+      csvCell(emp.lastName),
+      csvCell(emp.firstName),
+      csvCell(emp.contractType),
+      csvCell(emp.workedDays),
+      csvCell(emp.vacationDays),
+      csvCell(emp.sickLeaveDays),
+      csvCell(emp.maternityPaternityDays),
+      csvCell(emp.unpaidLeaveDays),
+      csvCell(emp.overtimeHours.toFixed(2), { numeric: true }),
     ];
 
     rows.push(row.join(","));

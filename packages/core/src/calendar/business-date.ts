@@ -33,6 +33,19 @@ export function dateInZone(instant: Date, timeZone: string): string {
 }
 
 /**
+ * Wall-clock time (`HH:MM`, 24 h) of an ISO instant in a time zone. Seconds
+ * are dropped, not rounded, so a clock-in at 08:59:59 reads as 08:59.
+ *
+ * @example
+ * localTimeOfDay("2026-03-29T01:30:00Z", "Europe/Madrid"); // => "03:30" (CEST)
+ * localTimeOfDay("2026-12-31T23:30:00Z", "Europe/Madrid"); // => "00:30"
+ */
+export function localTimeOfDay(instant: string, timeZone: string): string {
+  const local = Temporal.Instant.from(instant).toZonedDateTimeISO(timeZone);
+  return `${String(local.hour).padStart(2, "0")}:${String(local.minute).padStart(2, "0")}`;
+}
+
+/**
  * Adds (or, when negative, subtracts) calendar days to an ISO date.
  *
  * @example
