@@ -77,6 +77,17 @@ export interface AppDependencies {
   timeChainKey?: string | undefined;
   /** Overrides of the time-tracking policy defaults (clock window, kiosk lockout). */
   timeTracking?: TimeTrackingConfigInput | undefined;
+  /**
+   * Overrides of the TIM-006 export limits (tests): the employee-days cap
+   * (default OFFICIAL_EXPORT_MAX_EMPLOYEE_DAYS) and the rate limit (default
+   * 10 per minute per user).
+   */
+  timeExport?:
+    | {
+        maxEmployeeDays?: number | undefined;
+        rateLimit?: { windowMs: number; max: number } | undefined;
+      }
+    | undefined;
   /** Overrides of the 2FA defaults (AUTH-003); see lib/two-factor-config.ts. */
   twoFactor?: TwoFactorConfigInput | undefined;
   /** NODE_ENV from the validated env: production always sets Secure cookies. */
@@ -242,7 +253,15 @@ export function createApp(deps: AppDependencies) {
     "/v1",
     createTimeRoutes(deps.sql, { sign: signTimeEvent, config: timeTracking }),
   );
-  app.route("/v1", createTimeExportRoutes(deps.sql, { timeChainKey }));
+  app.route(
+    "/v1",
+    createTimeExportRoutes(deps.sql, {
+      timeChainKey,
+      trustProxy: deps.trustProxy,
+      maxEmployeeDays: deps.timeExport?.maxEmployeeDays,
+      rateLimit: deps.timeExport?.rateLimit,
+    }),
+  );
   app.route(
     "/v1",
     createTimeKioskRoutes(deps.sql, {

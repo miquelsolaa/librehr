@@ -180,7 +180,13 @@ describe("renderInspectionPdf (TIM-006)", () => {
     periodStart: "2026-01-01",
     periodEnd: "2026-05-28",
     employees: [
-      { employeeId: "e1", name: "Núria Puig", days, correctedDates: [] },
+      {
+        employeeId: "e1",
+        name: "Núria Puig",
+        timeZone: "Europe/Madrid",
+        days,
+        correctedDates: [],
+      },
     ],
   });
 

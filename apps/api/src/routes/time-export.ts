@@ -4,10 +4,12 @@ import type { Sql } from "postgres";
 import {
   type AuthUser,
   type OfficialExportResponse,
+  OFFICIAL_EXPORT_MAX_EMPLOYEE_DAYS,
   OfficialExportQuerySchema,
 } from "@librehr/contracts";
 import {
   createInspectionExport,
+  datesInRange,
   inspectionExportLabels,
   inspectionRowCells,
   renderInspectionPdf,
@@ -19,9 +21,11 @@ import {
   OrganizationRepository,
 } from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
+import { createRateLimiter } from "../middleware/rate-limit.js";
 import { can } from "../policies/can.js";
 import { canOnEmployee, resolvePolicyContext } from "../policies/context.js";
 import {
+  AppError,
   ConflictError,
   ForbiddenError,
   NotFoundError,
@@ -34,8 +38,31 @@ import {
   type ExportSubject,
 } from "../lib/time-export.js";
 
-/** Response headers that browsers may read on a cross-origin export. */
-export const TIME_EXPORT_EXPOSED_HEADERS = ["X-Export-Id", "X-Content-SHA256"];
+/**
+ * Response headers that browsers may read on a cross-origin export
+ * (Content-Disposition carries the download's file name).
+ */
+export const TIME_EXPORT_EXPOSED_HEADERS = [
+  "X-Export-Id",
+  "X-Content-SHA256",
+  "Content-Disposition",
+];
+
+/** Default export rate limit: per user and client address. */
+const DEFAULT_RATE_LIMIT = { windowMs: 60_000, max: 10 };
+
+export interface TimeExportRouteOptions {
+  timeChainKey: string;
+  /** TRUST_PROXY: reverse-proxy hops whose X-Forwarded-For entries are trusted. */
+  trustProxy?: number | undefined;
+  /** Overrides OFFICIAL_EXPORT_MAX_EMPLOYEE_DAYS (tests). */
+  maxEmployeeDays?: number | undefined;
+  /** Overrides the default of 10 exports per minute (tests). */
+  rateLimit?: { windowMs: number; max: number } | undefined;
+}
+
+const currentUser = (c: { get: unknown }) =>
+  (c.get as (key: string) => unknown)("user") as AuthUser;
 
 /**
  * TIM-006: official working-time record for the Labour Inspectorate
@@ -44,15 +71,24 @@ export const TIME_EXPORT_EXPOSED_HEADERS = ["X-Export-Id", "X-Content-SHA256"];
  */
 export function createTimeExportRoutes(
   sql: Sql,
-  options: { timeChainKey: string },
+  options: TimeExportRouteOptions,
 ) {
   const router = new Hono();
+  const maxEmployeeDays =
+    options.maxEmployeeDays ?? OFFICIAL_EXPORT_MAX_EMPLOYEE_DAYS;
+  // Each export reads and verifies whole chains: cap how often one user can
+  // ask, so a loop of requests cannot monopolize the database.
+  const exportLimit = createRateLimiter({
+    ...(options.rateLimit ?? DEFAULT_RATE_LIMIT),
+    trustProxy: options.trustProxy,
+    account: (c) => currentUser(c).id,
+  });
   const employeeRepo = new EmployeeRepository();
   const orgRepo = new OrganizationRepository();
   const auditRepo = new AuditRepository();
 
-  router.get("/time/export", requireAuth, async (c) => {
-    const user = (c.get as (key: string) => unknown)("user") as AuthUser;
+  router.get("/time/export", requireAuth, exportLimit, async (c) => {
+    const user = currentUser(c);
     const query = parseQuery(c, OfficialExportQuerySchema);
     const { startDate, endDate, scope, format, locale } = query;
     const exportId = randomUUID();
@@ -63,8 +99,12 @@ export function createTimeExportRoutes(
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
         const ctx = await resolvePolicyContext(c, tx);
+        const org = await orgRepo.findById(tx, user.organizationId);
+        if (!org) throw new NotFoundError({ detail: "Organization not found" });
+        // The header shows the organization's zone; every employee's rows use
+        // their own business zone, in both scopes.
+        const timeZone = await resolveBusinessTimeZone(c, tx, null);
         let subjects: ExportSubject[];
-        let timeZone: string;
         let subjectEmployeeId: string | undefined;
 
         if (scope === "organization") {
@@ -75,13 +115,20 @@ export function createTimeExportRoutes(
                 "Exporting the whole organization requires organization-wide access to time records",
             });
           }
-          // One zone for the whole document: the header and every row agree.
-          timeZone = await resolveBusinessTimeZone(c, tx, null);
           subjects = await employeeRepo.listEmployedDuring(
             tx,
             startDate,
             endDate,
           );
+          const days = datesInRange(startDate, endDate).length;
+          if (subjects.length * days > maxEmployeeDays) {
+            throw new AppError({
+              status: 422,
+              title: "Export Too Large",
+              code: "EXPORT_TOO_LARGE",
+              detail: `An organization export can cover at most ${maxEmployeeDays} employee-days (employees × days of the period). Request a shorter period.`,
+            });
+          }
         } else {
           const employee = query.employeeId
             ? await employeeRepo.findById(tx, query.employeeId)
@@ -98,7 +145,6 @@ export function createTimeExportRoutes(
                 "You do not have permission to export this employee's time records",
             });
           }
-          timeZone = await resolveBusinessTimeZone(c, tx, employee.locationId);
           subjects = [employee];
           subjectEmployeeId = employee.id;
         }
@@ -110,7 +156,7 @@ export function createTimeExportRoutes(
               c,
               tx,
               subject,
-              { startDate, endDate, timeZone },
+              { startDate, endDate },
               options.timeChainKey,
             ),
           );
@@ -122,9 +168,6 @@ export function createTimeExportRoutes(
               "Configure a schedule rule for every day in the requested period.",
           });
         }
-
-        const org = await orgRepo.findById(tx, user.organizationId);
-        if (!org) throw new NotFoundError({ detail: "Organization not found" });
 
         const input = {
           exportId,
@@ -179,6 +222,7 @@ export function createTimeExportRoutes(
           employees: collected.map((e) => ({
             employeeId: e.input.employeeId,
             name: e.input.name,
+            timeZone: e.input.timeZone,
             scheduleConfigured: e.input.days !== null,
             chainStatus: e.input.chainStatus ?? null,
             totalWorkedMinutes: e.totalWorkedMinutes,

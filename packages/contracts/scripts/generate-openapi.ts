@@ -1046,7 +1046,7 @@ registry.registerPath({
   summary:
     "Labour Inspectorate working-time record (TIM-006) for one employee or the organization, as JSON, CSV or PDF",
   description:
-    "Every format carries the same export id and content hash (SHA-256 of the CSV body, every line before the final `# sha256=` line, without the BOM), also sent as the X-Export-Id and X-Content-SHA256 headers. Each successful export is written to the audit log (ADM-002).",
+    "Every format carries the same export id and content hash (SHA-256 of the CSV body, every line before the final `# sha256=` line, without the BOM), also sent as the X-Export-Id and X-Content-SHA256 headers. Each employee's days and clock times are in that employee's time zone (location, else organization), named on every row; the header zone is the organization's. Each successful export is written to the audit log (ADM-002). Limited to 10 requests per minute per user and client address.",
   request: { query: OfficialExportQuerySchema },
   responses: {
     200: {
@@ -1077,6 +1077,15 @@ registry.registerPath({
     },
     409: {
       description: "Schedule rule not configured (employee scope)",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    422: {
+      description:
+        "EXPORT_TOO_LARGE: organization export over OFFICIAL_EXPORT_MAX_EMPLOYEE_DAYS (employees × days); request a shorter period",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    429: {
+      description: "RATE_LIMIT_EXCEEDED, with a Retry-After header",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
   },

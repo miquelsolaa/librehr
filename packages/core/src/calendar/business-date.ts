@@ -103,6 +103,31 @@ export function localDayLengthMinutes(date: string, timeZone: string): number {
 }
 
 /**
+ * The instants that bound a period of local calendar days in a time zone:
+ * local midnight starting `startDate` (inclusive) and local midnight after
+ * `endDate` (exclusive), as ISO 8601 UTC strings. DST-aware, so a period
+ * holding a change day is 23 or 25 hours longer than its whole days.
+ *
+ * @example
+ * localPeriodBounds("2026-10-25", "2026-10-25", "Europe/Madrid");
+ * // => { start: "2026-10-24T22:00:00Z", end: "2026-10-25T23:00:00Z" }
+ */
+export function localPeriodBounds(
+  startDate: string,
+  endDate: string,
+  timeZone: string,
+): { start: string; end: string } {
+  const start = Temporal.PlainDate.from(startDate)
+    .toZonedDateTime(timeZone)
+    .toInstant();
+  const end = Temporal.PlainDate.from(endDate)
+    .add({ days: 1 })
+    .toZonedDateTime(timeZone)
+    .toInstant();
+  return { start: start.toString(), end: end.toString() };
+}
+
+/**
  * Whether `date` comes strictly before `other` (both ISO dates).
  *
  * @example

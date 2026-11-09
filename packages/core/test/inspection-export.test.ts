@@ -66,6 +66,8 @@ describe("createInspectionExport (TIM-006)", () => {
       baseInput({ employees: [{ ...employee, name: "Marta García" }] }),
       baseInput({ employees: [{ ...employee, correctedDates: [] }] }),
       baseInput({ employees: [{ ...employee, chainStatus: "tampered" }] }),
+      baseInput({ employees: [{ ...employee, timeZone: "Atlantic/Canary" }] }),
+      baseInput({ timeZone: "Atlantic/Canary" }),
       baseInput({
         employees: [
           {
@@ -109,6 +111,7 @@ describe("createInspectionExport (TIM-006)", () => {
       "No",
       "No",
       "Verificada",
+      "Europe/Madrid",
     ]);
     // Open session: start only, flagged as an anomaly; corrected day flagged.
     expect(records[METADATA_LINES + 2]).toEqual([
@@ -122,6 +125,7 @@ describe("createInspectionExport (TIM-006)", () => {
       "Sí",
       "Sí",
       "Verificada",
+      "Europe/Madrid",
     ]);
   });
 
@@ -134,6 +138,7 @@ describe("createInspectionExport (TIM-006)", () => {
           {
             employeeId: "e1",
             name: "Marta Garcia",
+            timeZone: "Europe/Madrid",
             correctedDates: [],
             days: [
               day("2026-03-29", [
@@ -164,6 +169,7 @@ describe("createInspectionExport (TIM-006)", () => {
           {
             employeeId: "e1",
             name: "Marta Garcia",
+            timeZone: "Europe/Madrid",
             correctedDates: [],
             days: [
               day("2026-12-31", [
@@ -185,7 +191,13 @@ describe("createInspectionExport (TIM-006)", () => {
       scope: "organization",
       employees: [
         ...baseInput().employees,
-        { employeeId: "e2", name: "Pau Vidal", days: null, correctedDates: [] },
+        {
+          employeeId: "e2",
+          name: "Pau Vidal",
+          timeZone: "Atlantic/Canary",
+          days: null,
+          correctedDates: [],
+        },
       ],
     });
     const result = createInspectionExport(input);
@@ -196,7 +208,7 @@ describe("createInspectionExport (TIM-006)", () => {
       scheduleNotConfigured: true,
     });
     expect(result.csv).toContain(
-      "\r\nPau Vidal,,Horario no configurado,,,,,,,\r\n",
+      "\r\nPau Vidal,,Horario no configurado,,,,,,,,Atlantic/Canary\r\n",
     );
     expect(result.csv).toContain("# Ámbito: Organización\r\n");
   });
@@ -239,6 +251,7 @@ describe("createInspectionExport (TIM-006)", () => {
             employees: names.map((n, i) => ({
               employeeId: `e${i}`,
               name: n,
+              timeZone: "Europe/Madrid",
               days: [day("2026-11-02", [])],
               correctedDates: [],
             })),

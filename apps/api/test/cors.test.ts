@@ -48,14 +48,21 @@ describe("CORS middleware", () => {
       );
     });
 
-    it("exposes the TIM-006 export id and content hash headers", async () => {
+    it("exposes the TIM-006 export id, content hash and file name headers", async () => {
       const res = await app.request("/healthz", {
         method: "GET",
         headers: { Origin: "http://localhost:3000" },
       });
-      const exposed = res.headers.get("access-control-expose-headers") ?? "";
-      expect(exposed).toContain("X-Export-Id");
-      expect(exposed).toContain("X-Content-SHA256");
+      const exposed = (res.headers.get("access-control-expose-headers") ?? "")
+        .split(",")
+        .map((name) => name.trim().toLowerCase());
+      expect(exposed).toEqual(
+        expect.arrayContaining([
+          "x-export-id",
+          "x-content-sha256",
+          "content-disposition",
+        ]),
+      );
     });
 
     it("allows local dev servers on any port", async () => {

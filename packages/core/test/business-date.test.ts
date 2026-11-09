@@ -8,6 +8,7 @@ import {
   isBeforeDate,
   isoDayOfWeek,
   localDayLengthMinutes,
+  localPeriodBounds,
   localTimeOfDay,
   todayInZone,
 } from "../src/calendar/business-date.js";
@@ -160,6 +161,20 @@ describe("calendar date arithmetic", () => {
     expect(localDayLengthMinutes("2026-10-25", "Atlantic/Canary")).toBe(1500);
     expect(localDayLengthMinutes("2026-11-09", "Europe/Madrid")).toBe(1440);
     expect(localDayLengthMinutes("2026-03-29", "UTC")).toBe(1440);
+  });
+
+  it("bounds a local period by local midnights, DST and zone aware", () => {
+    // Fall back on 2026-10-25: the period is 25 + 24 hours long.
+    expect(
+      localPeriodBounds("2026-10-25", "2026-10-26", "Europe/Madrid"),
+    ).toEqual({ start: "2026-10-24T22:00:00Z", end: "2026-10-26T23:00:00Z" });
+    expect(
+      localPeriodBounds("2026-03-29", "2026-03-29", "Atlantic/Canary"),
+    ).toEqual({ start: "2026-03-29T00:00:00Z", end: "2026-03-29T23:00:00Z" });
+    expect(localPeriodBounds("2026-12-31", "2026-12-31", "UTC")).toEqual({
+      start: "2026-12-31T00:00:00Z",
+      end: "2027-01-01T00:00:00Z",
+    });
   });
 });
 

@@ -57,6 +57,7 @@ export function baseInput(
       {
         employeeId: "e1",
         name: "Marta Garcia",
+        timeZone: "Europe/Madrid",
         days: [
           day("2026-11-02", [
             session("2026-11-02T08:00:00Z", "2026-11-02T12:00:00Z"),

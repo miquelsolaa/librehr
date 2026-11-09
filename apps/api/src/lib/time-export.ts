@@ -1,98 +1,14 @@
 import type { Context } from "hono";
-import {
-  chainStatus,
-  checkChainHead,
-  dateInZone,
-  verifyChainSegment,
-  INITIAL_CHAIN_CURSOR,
-  type ChainHead,
-  type ChainStatus,
-  type InspectionExportEmployee,
-  type StoredChainEvent,
-} from "@librehr/core";
-import { TimeRepository, type TenantTx, type TimeEventRow } from "@librehr/db";
+import { dateInZone, type InspectionExportEmployee } from "@librehr/core";
+import type { TenantTx, TimeEventRow } from "@librehr/db";
+import { resolveBusinessTimeZone } from "./business-date.js";
+import { verifyEmployeeChain } from "./time-export-chain.js";
 import { buildTimesheet } from "./timesheet.js";
-
-const timeRepo = new TimeRepository();
-
-function toStored(row: TimeEventRow): StoredChainEvent {
-  return {
-    id: row.id,
-    organizationId: row.organizationId,
-    employeeId: row.employeeId,
-    seq: row.seq,
-    eventType: row.eventType,
-    occurredAt: row.occurredAt.toISOString(),
-    recordedAt: row.recordedAt.toISOString(),
-    source: row.source,
-    actorId: row.actorId,
-    refEventId: row.refEventId,
-    reason: row.reason,
-    prevHash: row.prevHash,
-    hash: row.hash,
-    hashVersion: row.hashVersion,
-  };
-}
-
-/**
- * TIM-002 status of one employee's whole chain, checked the same way as the
- * worker's `audit.verify-chain` job: chained rows in `seq` order, rows without
- * a chain position on their own (legacy, or tampered when not v1), and the
- * newest link against the stored chain-head anchor. `anchor` must be read
- * before `events`, so a punch recorded meanwhile cannot look like truncation.
- */
-export function employeeChainStatus(
-  key: string,
-  employeeId: string,
-  events: readonly TimeEventRow[],
-  anchor: ChainHead | null,
-): ChainStatus {
-  const chained = events
-    .filter((e) => e.seq !== null)
-    .sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0));
-  const unchained = events.filter((e) => e.seq === null);
-
-  const main = verifyChainSegment(
-    key,
-    employeeId,
-    chained.map(toStored),
-    INITIAL_CHAIN_CURSOR,
-  );
-  const outside = verifyChainSegment(
-    key,
-    employeeId,
-    unchained.map(toStored),
-    // Never part of the real chain: only counted (legacy) or flagged.
-    { expectedSeq: -1, expectedPrevHash: null },
-  );
-
-  const newestRow = chained[chained.length - 1];
-  const newest =
-    newestRow && newestRow.seq !== null
-      ? { seq: newestRow.seq, hash: newestRow.hash }
-      : null;
-  const hashAtAnchorSeq =
-    anchor === null
-      ? null
-      : (chained.find((e) => e.seq === anchor.seq)?.hash ?? null);
-  const headIssues = checkChainHead({
-    newest,
-    anchor,
-    hashAtAnchorSeq,
-    previous: null,
-    hashAtPreviousSeq: null,
-  });
-
-  return chainStatus({
-    verified: main.verified,
-    tampered: main.tampered + outside.tampered + headIssues.length,
-    legacy: main.legacy + outside.legacy,
-  });
-}
 
 /**
  * Local dates within the period touched by a TIM-003 correction: the day of
- * the corrected time and the day of the record it replaces.
+ * the corrected time and the day of the record it replaces, both in
+ * `timeZone` (the employee's).
  */
 export function correctedDates(
   events: readonly TimeEventRow[],
@@ -128,43 +44,44 @@ export interface CollectedEmployee {
 }
 
 /**
- * Everything the export needs about one employee, in one zone: the period
- * timesheet (`days: null` without a configured schedule), corrected dates
- * and the chain status. Two queries for events and schedules, one for the
- * chain anchor.
+ * Everything the export needs about one employee, in that employee's
+ * business zone (location, else organization) whatever the export scope:
+ * the period timesheet (`days: null` without a configured schedule), the
+ * corrected dates and the chain status.
+ *
+ * Cost per employee: one bounded events query (the period plus a day on each
+ * side, and the corrections linked to those events), one schedules query,
+ * and one paged pass over the chain that verifies every stored row once.
  */
 export async function collectExportEmployee(
   c: Context,
   tx: TenantTx,
   subject: ExportSubject,
-  period: { startDate: string; endDate: string; timeZone: string },
+  period: { startDate: string; endDate: string },
   timeChainKey: string,
 ): Promise<CollectedEmployee> {
-  const anchor = await timeRepo.getChainHead(tx, subject.id);
+  const timeZone = await resolveBusinessTimeZone(c, tx, subject.locationId);
+  const chainStatus = await verifyEmployeeChain(tx, timeChainKey, subject.id);
   const { timesheet, events } = await buildTimesheet(c, tx, {
     employeeId: subject.id,
     locationId: subject.locationId,
     startDate: period.startDate,
     endDate: period.endDate,
-    timeZone: period.timeZone,
+    timeZone,
   });
   return {
     input: {
       employeeId: subject.id,
       name: `${subject.firstName} ${subject.lastName}`,
+      timeZone,
       days: timesheet.ok ? timesheet.days : null,
       correctedDates: correctedDates(
         events,
-        period.timeZone,
+        timeZone,
         period.startDate,
         period.endDate,
       ),
-      chainStatus: employeeChainStatus(
-        timeChainKey,
-        subject.id,
-        events,
-        anchor,
-      ),
+      chainStatus,
     },
     totalWorkedMinutes: timesheet.ok
       ? timesheet.summary.totalWorkedMinutes

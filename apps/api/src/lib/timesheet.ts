@@ -1,7 +1,9 @@
 import type { Context } from "hono";
 import {
+  addDays,
   buildLocalPeriodTimesheet,
   foldSessions,
+  localPeriodBounds,
   type LocalPeriodTimesheetResult,
 } from "@librehr/core";
 import {
@@ -49,10 +51,20 @@ export interface TimesheetArgs {
 
 export interface LoadedTimesheet {
   timesheet: LocalPeriodTimesheetResult;
-  /** Every stored event of the employee, ordered by `occurred_at`. */
+  /**
+   * The employee's events from the local day before the period to the local
+   * day after it, plus the corrections linked to them (TIM-003), ordered by
+   * `occurred_at`.
+   */
   events: TimeEventRow[];
   timeZone: string;
 }
+
+/**
+ * Local days loaded on each side of the period, so a session that crosses
+ * the period's first or last midnight (a night shift) is folded whole.
+ */
+const EDGE_DAYS = 1;
 
 /**
  * TIM-004/TIM-005: one events query and one schedule query for the whole
@@ -60,6 +72,10 @@ export interface LoadedTimesheet {
  * midnight, so 23 or 25 hours across DST) and resolves each day's schedule.
  * The events are returned too, so callers that also need them (exports) do
  * not query them twice.
+ *
+ * Only the period and {@link EDGE_DAYS} around it are read, never the whole
+ * history; a session longer than that across an edge is folded from the
+ * events inside the window only.
  */
 export async function buildTimesheet(
   c: Context,
@@ -68,8 +84,17 @@ export async function buildTimesheet(
 ): Promise<LoadedTimesheet> {
   const timeZone =
     args.timeZone ?? (await resolveBusinessTimeZone(c, tx, args.locationId));
-  // Include the enclosing session when it starts or ends outside the period.
-  const events = await timeRepo.getEventsForEmployee(tx, args.employeeId);
+  const window = localPeriodBounds(
+    addDays(args.startDate, -EDGE_DAYS),
+    addDays(args.endDate, EDGE_DAYS),
+    timeZone,
+  );
+  const events = await timeRepo.getEventsForPeriod(
+    tx,
+    args.employeeId,
+    window.start,
+    window.end,
+  );
   const schedules = await scheduleRepo.getScheduleSpansForEmployee(
     tx,
     args.employeeId,
