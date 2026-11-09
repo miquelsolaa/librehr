@@ -79,6 +79,17 @@ export const InstantiateChecklistSchema = z.object({
 });
 export type InstantiateChecklist = z.infer<typeof InstantiateChecklistSchema>;
 
+export const ToggleChecklistTaskSchema = z.object({
+  isCompleted: z.boolean(),
+});
+export type ToggleChecklistTask = z.infer<typeof ToggleChecklistTaskSchema>;
+
+export const EmployeeImportRequestSchema = z.object({
+  csvContent: z.string().min(1, "csvContent is required"),
+  dryRun: z.boolean().optional(),
+});
+export type EmployeeImportRequest = z.infer<typeof EmployeeImportRequestSchema>;
+
 export const EmployeeImportValidationResponseSchema = z.object({
   valid: z.boolean(),
   totalRows: z.number().int(),

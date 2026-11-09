@@ -5,6 +5,7 @@ import {
   SetupWizardRequestSchema,
 } from "@librehr/contracts";
 import { withTenant, EmployeeRepository, AuditRepository } from "@librehr/db";
+import { UnauthorizedError } from "../errors/index.js";
 import { hashPassword, verifyPassword } from "../lib/password.js";
 
 export function createSetupRoutes(sql: Sql) {
@@ -126,7 +127,13 @@ export function createSetupRoutes(sql: Sql) {
               ))
             ? adminUserId.id
             : null;
-      if (!userId) throw new Error("Account credentials changed during setup");
+      // The admin's password changed between the pre-check and this locked
+      // read: answer like the pre-check instead of a 500.
+      if (!userId)
+        throw new UnauthorizedError({
+          detail: "Invalid email or password",
+          code: "INVALID_CREDENTIALS",
+        });
 
       // 2e. Create Membership as admin
       await tx`

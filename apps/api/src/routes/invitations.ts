@@ -12,6 +12,7 @@ import {
   EmployeeRepository,
   AuditRepository,
 } from "@librehr/db";
+import { UnauthorizedError } from "../errors/index.js";
 import { requireAuth } from "../middleware/auth.js";
 import { can } from "../policies/can.js";
 import type { AuthPort } from "../ports/auth.js";
@@ -251,9 +252,12 @@ export function createInvitationRoutes(
             !account ||
             !(await verifyPassword(password, account.password_hash))
           )
-            throw new Error(
-              "Account credentials changed during invitation acceptance",
-            );
+            // The account's password changed between the pre-check and this
+            // locked read: answer like the pre-check instead of a 500.
+            throw new UnauthorizedError({
+              detail: "Invalid email or password",
+              code: "INVALID_CREDENTIALS",
+            });
           user = account;
         }
 

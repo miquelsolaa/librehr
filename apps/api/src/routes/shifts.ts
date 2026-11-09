@@ -16,6 +16,8 @@ import {
   type ShiftDefinition,
 } from "@librehr/core";
 import { withTenant, ShiftRepository, EmployeeRepository } from "@librehr/db";
+import { NotFoundError, ValidationError } from "../errors/index.js";
+import { IdParamSchema, parseJsonBody, parseParams } from "../lib/validate.js";
 import { requireAuth } from "../middleware/auth.js";
 
 export function createShiftRoutes(sql: Sql) {
@@ -49,25 +51,12 @@ export function createShiftRoutes(sql: Sql) {
       });
     }
 
-    const body = await c.req.json();
-    const parsed = CreateShiftTemplateRequestSchema.safeParse(body);
-    if (!parsed.success) {
-      const problem = createProblemDetails({
-        status: 400,
-        title: "Validation Error",
-        detail:
-          parsed.error.issues[0]?.message ?? "Invalid shift template data",
-        code: "VALIDATION_ERROR",
-      });
-      return c.json(problem, 400, {
-        "Content-Type": "application/problem+json",
-      });
-    }
+    const data = await parseJsonBody(c, CreateShiftTemplateRequestSchema);
 
     const template = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
-      async (tx) => shiftRepo.createShiftTemplate(tx, parsed.data),
+      async (tx) => shiftRepo.createShiftTemplate(tx, data),
     );
     return c.json(template, 201);
   });
@@ -106,29 +95,17 @@ export function createShiftRoutes(sql: Sql) {
       });
     }
 
-    const body = await c.req.json();
-    const parsed = CreateShiftPatternRequestSchema.safeParse(body);
-    if (!parsed.success) {
-      const problem = createProblemDetails({
-        status: 400,
-        title: "Validation Error",
-        detail: parsed.error.issues[0]?.message ?? "Invalid shift pattern data",
-        code: "VALIDATION_ERROR",
-      });
-      return c.json(problem, 400, {
-        "Content-Type": "application/problem+json",
-      });
-    }
+    const data = await parseJsonBody(c, CreateShiftPatternRequestSchema);
 
     const pattern = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) =>
         shiftRepo.createShiftPattern(tx, {
-          name: parsed.data.name,
-          cycleDays: parsed.data.cycleDays,
-          description: parsed.data.description,
-          steps: parsed.data.steps.map((s) => ({
+          name: data.name,
+          cycleDays: data.cycleDays,
+          description: data.description,
+          steps: data.steps.map((s) => ({
             stepOrder: s.stepOrder,
             shiftTemplateId: s.shiftTemplateId ?? null,
             isRest: s.isRest,
@@ -183,19 +160,7 @@ export function createShiftRoutes(sql: Sql) {
       });
     }
 
-    const body = await c.req.json();
-    const parsed = AssignShiftsRequestSchema.safeParse(body);
-    if (!parsed.success) {
-      const problem = createProblemDetails({
-        status: 400,
-        title: "Validation Error",
-        detail: parsed.error.issues[0]?.message ?? "Invalid assignments data",
-        code: "VALIDATION_ERROR",
-      });
-      return c.json(problem, 400, {
-        "Content-Type": "application/problem+json",
-      });
-    }
+    const data = await parseJsonBody(c, AssignShiftsRequestSchema);
 
     await withTenant(
       sql,
@@ -203,7 +168,7 @@ export function createShiftRoutes(sql: Sql) {
       async (tx) =>
         shiftRepo.assignShifts(
           tx,
-          parsed.data.assignments.map((a) => ({
+          data.assignments.map((a) => ({
             employeeId: a.employeeId,
             date: a.date,
             shiftTemplateId: a.shiftTemplateId ?? null,
@@ -212,7 +177,7 @@ export function createShiftRoutes(sql: Sql) {
           })),
         ),
     );
-    return c.json({ success: true, count: parsed.data.assignments.length });
+    return c.json({ success: true, count: data.assignments.length });
   });
 
   // 7. POST /shifts/generate-roster - Generate continuous rotational cycle roster (TIM-004, TIM-005)
@@ -230,23 +195,9 @@ export function createShiftRoutes(sql: Sql) {
       });
     }
 
-    const body = await c.req.json();
-    const parsed = GenerateRosterRequestSchema.safeParse(body);
-    if (!parsed.success) {
-      const problem = createProblemDetails({
-        status: 400,
-        title: "Validation Error",
-        detail:
-          parsed.error.issues[0]?.message ?? "Invalid generation parameters",
-        code: "VALIDATION_ERROR",
-      });
-      return c.json(problem, 400, {
-        "Content-Type": "application/problem+json",
-      });
-    }
+    const data = await parseJsonBody(c, GenerateRosterRequestSchema);
 
-    const { patternId, anchorDate, startDate, endDate, employeeIds } =
-      parsed.data;
+    const { patternId, anchorDate, startDate, endDate, employeeIds } = data;
 
     const result = await withTenant(
       sql,
@@ -256,7 +207,10 @@ export function createShiftRoutes(sql: Sql) {
         const patterns = await shiftRepo.getShiftPatterns(tx);
         const patternRow = patterns.find((p) => p.id === patternId);
         if (!patternRow) {
-          throw new Error("Pattern not found");
+          throw new NotFoundError({
+            detail: "Shift pattern not found",
+            code: "PATTERN_NOT_FOUND",
+          });
         }
 
         const steps = await shiftRepo.getShiftPatternSteps(tx, patternId);
@@ -354,19 +308,7 @@ export function createShiftRoutes(sql: Sql) {
   // 9. POST /shifts/swaps - Request shift swap (employee)
   router.post("/shifts/swaps", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const body = await c.req.json();
-    const parsed = CreateShiftSwapRequestSchema.safeParse(body);
-    if (!parsed.success) {
-      const problem = createProblemDetails({
-        status: 400,
-        title: "Validation Error",
-        detail: parsed.error.issues[0]?.message ?? "Invalid swap request",
-        code: "VALIDATION_ERROR",
-      });
-      return c.json(problem, 400, {
-        "Content-Type": "application/problem+json",
-      });
-    }
+    const data = await parseJsonBody(c, CreateShiftSwapRequestSchema);
 
     const swap = await withTenant(
       sql,
@@ -374,35 +316,21 @@ export function createShiftRoutes(sql: Sql) {
       async (tx) => {
         const currentEmp = await employeeRepo.findByUserId(tx, user.id);
         if (!currentEmp) {
-          throw new Error("NO_EMPLOYEE_PROFILE");
+          throw new ValidationError({
+            detail: "User is not linked to an employee profile",
+            code: "NO_EMPLOYEE_PROFILE",
+          });
         }
 
         return shiftRepo.createShiftSwap(tx, {
           requesterId: currentEmp.id,
-          targetEmployeeId: parsed.data.targetEmployeeId,
-          requesterDate: parsed.data.requesterDate,
-          targetDate: parsed.data.targetDate,
-          reason: parsed.data.reason,
+          targetEmployeeId: data.targetEmployeeId,
+          requesterDate: data.requesterDate,
+          targetDate: data.targetDate,
+          reason: data.reason,
         });
       },
-    ).catch((err: Error) => {
-      if (err.message === "NO_EMPLOYEE_PROFILE") {
-        return null;
-      }
-      throw err;
-    });
-
-    if (!swap) {
-      const problem = createProblemDetails({
-        status: 400,
-        title: "Bad Request",
-        detail: "User is not linked to an employee profile",
-        code: "NO_EMPLOYEE_PROFILE",
-      });
-      return c.json(problem, 400, {
-        "Content-Type": "application/problem+json",
-      });
-    }
+    );
 
     return c.json(swap, 201);
   });
@@ -422,20 +350,11 @@ export function createShiftRoutes(sql: Sql) {
       });
     }
 
-    const id = c.req.param("id");
-    const body = await c.req.json();
-    const parsed = DecideShiftSwapRequestSchema.safeParse(body);
-    if (!parsed.success) {
-      const problem = createProblemDetails({
-        status: 400,
-        title: "Validation Error",
-        detail: parsed.error.issues[0]?.message ?? "Invalid decision payload",
-        code: "VALIDATION_ERROR",
-      });
-      return c.json(problem, 400, {
-        "Content-Type": "application/problem+json",
-      });
-    }
+    const { id } = parseParams(c, IdParamSchema, {
+      detail: "Shift swap request not found",
+      code: "SWAP_NOT_FOUND",
+    });
+    const data = await parseJsonBody(c, DecideShiftSwapRequestSchema);
 
     const updated = await withTenant(
       sql,
@@ -443,7 +362,7 @@ export function createShiftRoutes(sql: Sql) {
       async (tx) => {
         const currentEmp = await employeeRepo.findByUserId(tx, user.id);
         return shiftRepo.decideShiftSwap(tx, id, {
-          status: parsed.data.status,
+          status: data.status,
           approverId: currentEmp ? currentEmp.id : user.id,
         });
       },

@@ -135,6 +135,25 @@ export const HolidaySchema = z.object({
 });
 export type Holiday = z.infer<typeof HolidaySchema>;
 
+export const ListHolidaysQuerySchema = z.object({
+  locationId: z.string().uuid(),
+  year: z.coerce.number().int().min(2000).max(2100).optional(),
+});
+export type ListHolidaysQuery = z.infer<typeof ListHolidaysQuerySchema>;
+
+export const TeamAbsencesQuerySchema = z.object({
+  startDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  endDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  departmentId: z.string().uuid().optional(),
+});
+export type TeamAbsencesQuery = z.infer<typeof TeamAbsencesQuerySchema>;
+
 export const CreateHolidayRequestSchema = z.object({
   locationId: z.string().uuid(),
   year: z.number().int().min(2000).max(2100).optional(),
