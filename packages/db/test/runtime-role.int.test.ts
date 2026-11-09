@@ -8,6 +8,7 @@ import {
 } from "@librehr/testing";
 import { runMigrations } from "../src/migrate.js";
 import { withTenant } from "../src/with-tenant.js";
+import { hashBearerToken } from "../src/crypto/token-hash.js";
 import { seedDevDatabase } from "../seeds/dev.js";
 
 const APPEND_ONLY_TABLES = ["time_events", "leave_ledger", "audit_log"];
@@ -112,7 +113,9 @@ describe("runtime and owner roles", () => {
 
     // The runtime role reaches memberships only through a secret it holds:
     // here, a session token bound to the default membership.
-    const token = "runtime-role-bind-token";
+    // Stored as the API stores it (migration 0026): the digest only. The
+    // functions compare the value given; the repositories hash before calling.
+    const token = hashBearerToken("runtime-role-bind-token");
     await db.adminSql`INSERT INTO sessions (user_id, token, expires_at)
       VALUES (${user}, ${token}, now() + interval '1 hour')`;
     const [viaFunction] = await db.appSql<

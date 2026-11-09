@@ -215,6 +215,44 @@ describe("auth and session hardening", () => {
       expect((await me(hashBearerToken(token))).status).toBe(401);
       expect((await me(token)).status).toBe(200);
     });
+
+    it("emails the only copy of an invitation token and stores its hash (AUTH-005)", async () => {
+      const sent: string[] = [];
+      const mailing = createApp({
+        sql: db.appSql,
+        authPort: new BetterAuthAdapter(db.appSql),
+        sessionSecret,
+        mailPort: {
+          async sendMail(message) {
+            sent.push(message.html);
+          },
+        },
+      });
+      const session = cookieOf(await signIn(admin));
+      const res = await post(
+        "/v1/invitations",
+        { email: "hashed-invite@example.invalid" },
+        { ...withCookie(session), Origin: "http://localhost:3000" },
+        mailing,
+      );
+      expect(res.status).toBe(201);
+      const body = (await res.json()) as { id: string };
+      expect(body).not.toHaveProperty("token");
+
+      const emailed = /\/invite\/([0-9a-f]{64})/.exec(sent[0] ?? "")?.[1];
+      if (!emailed) throw new Error("no invitation link in the email");
+      const stored = await withTenant(
+        db.adminSql,
+        { organizationId: org },
+        (tx) =>
+          tx<{ token: string }[]>`
+            SELECT token FROM invitations WHERE id = ${body.id}`,
+      );
+      expect(stored[0]?.token).toBe(hashBearerToken(emailed));
+      expect((await mailing.request(`/v1/invitations/${emailed}`)).status).toBe(
+        200,
+      );
+    });
   });
 
   describe("CSRF", () => {

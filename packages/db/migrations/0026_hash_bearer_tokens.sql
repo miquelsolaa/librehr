@@ -10,10 +10,13 @@
 -- change. This migration rewrites the rows already stored, so existing
 -- sessions and invitation links keep working.
 --
--- Run once, before the new API serves requests (the runner records it in
--- librehr_migrations). Rows written by an older API after this migration
--- would hold raw tokens and simply stop matching: deploy the code together
--- with the migration.
+-- Never re-apply this file by hand, and never let the new API write rows
+-- before it runs: raw tokens and their digests are both 64 hex characters,
+-- so a second pass would hash already-hashed values and log everyone out
+-- (the runner records it in librehr_migrations, so a normal upgrade applies
+-- it exactly once). Stop the old API before migrating: rows it writes after
+-- this migration hold raw tokens that the new code never matches. See
+-- docs/guides/upgrading.md.
 
 -- 1. sessions is a global table without RLS: a plain UPDATE.
 UPDATE "sessions"
