@@ -43,7 +43,12 @@ async function bootstrap() {
   });
 
   // 3. Create Hono application
-  const app = createApp({ sql, authPort, mailPort });
+  const app = createApp({
+    sql,
+    authPort,
+    mailPort,
+    sessionSecret: env.SESSION_SECRET,
+  });
 
   // 4. Start HTTP server
   serve(

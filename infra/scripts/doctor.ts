@@ -26,19 +26,19 @@ async function runDoctor(): Promise<void> {
   }
 
   // 2. Secret and Environment checks
-  const authSecret = process.env["AUTH_SECRET"];
+  const authSecret = process.env["BETTER_AUTH_SECRET"];
   if (authSecret && authSecret.length >= 32) {
     checks.push({
-      name: "AUTH_SECRET",
+      name: "BETTER_AUTH_SECRET",
       status: "pass",
       message: "Configured with adequate length (>= 32 chars)",
     });
   } else {
     checks.push({
-      name: "AUTH_SECRET",
+      name: "BETTER_AUTH_SECRET",
       status: "warn",
       message:
-        "AUTH_SECRET is unset or under 32 chars (required for production auth encryption)",
+        "BETTER_AUTH_SECRET is unset or under 32 chars (required for production auth encryption)",
     });
   }
 

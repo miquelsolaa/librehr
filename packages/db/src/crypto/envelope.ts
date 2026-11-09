@@ -14,8 +14,26 @@ const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12; // Standard 96-bit IV for GCM
 const KEY_LENGTH = 32; // 256 bits
 
+const DEV_MASTER_KEY_SEED = "dev_envelope_master_key_for_local_dev";
+
+function isDevMasterKey(envKey: string): boolean {
+  return (
+    envKey === DEV_MASTER_KEY_SEED ||
+    Buffer.from(envKey, "base64").toString("utf-8") === DEV_MASTER_KEY_SEED
+  );
+}
+
 export function getMasterKeyFromEnv(): Buffer {
   const envKey = process.env["ENVELOPE_MASTER_KEY"];
+  if (
+    process.env["NODE_ENV"] === "production" &&
+    (!envKey || isDevMasterKey(envKey))
+  ) {
+    // The dev key is public; encrypting real data with it is equivalent to plaintext.
+    throw new Error(
+      "ENVELOPE_MASTER_KEY is missing or uses the public development key; set a unique key in production (e.g. `openssl rand -base64 32`)",
+    );
+  }
   if (envKey) {
     const b64Buf = Buffer.from(envKey, "base64");
     if (b64Buf.length === KEY_LENGTH) {

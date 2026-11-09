@@ -1,3 +1,6 @@
+# Production-style compose. Every secret is required (`${VAR:?}`): compose
+# refuses to start instead of falling back to a well-known default.
+# See docs/guides/self-hosting.md for how to generate the values.
 services:
   postgres:
     image: postgres:16-alpine
@@ -5,7 +8,10 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-librehr}
       POSTGRES_USER: ${POSTGRES_USER:-librehr}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_in_production}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD (bootstrap superuser)}
+      # Read by infra/postgres/init/00-roles.sh on first start of the volume.
+      LIBREHR_OWNER_PASSWORD: ${LIBREHR_OWNER_PASSWORD:?set LIBREHR_OWNER_PASSWORD (migration/owner role)}
+      LIBREHR_APP_PASSWORD: ${LIBREHR_APP_PASSWORD:?set LIBREHR_APP_PASSWORD (runtime app role)}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ../postgres/init:/docker-entrypoint-initdb.d:ro
@@ -30,10 +36,20 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
-      DATABASE_URL: postgres://${POSTGRES_USER:-librehr}:${POSTGRES_PASSWORD:-change_me_in_production}@postgres:5432/${POSTGRES_DB:-librehr}
-      DATABASE_APP_URL: postgres://librehr_app:${APP_PASSWORD:-change_me_app_pass}@postgres:5432/${POSTGRES_DB:-librehr}
-      AUTH_SECRET: ${AUTH_SECRET}
-      SESSION_SECRET: ${SESSION_SECRET:-}
+      DATABASE_URL: postgres://${POSTGRES_USER:-librehr}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-librehr}
+      DATABASE_MIGRATION_URL: postgres://librehr_owner:${LIBREHR_OWNER_PASSWORD:?set LIBREHR_OWNER_PASSWORD}@postgres:5432/${POSTGRES_DB:-librehr}
+      DATABASE_APP_URL: postgres://librehr_app:${LIBREHR_APP_PASSWORD:?set LIBREHR_APP_PASSWORD}@postgres:5432/${POSTGRES_DB:-librehr}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET (openssl rand -base64 32)}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:?set BETTER_AUTH_URL (public API URL)}
+      ENVELOPE_MASTER_KEY: ${ENVELOPE_MASTER_KEY:?set ENVELOPE_MASTER_KEY (openssl rand -base64 32)}
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET (openssl rand -base64 32)}
+      TIME_CHAIN_KEY: ${TIME_CHAIN_KEY:?set TIME_CHAIN_KEY (openssl rand -base64 32)}
+      APP_URL: ${APP_URL:?set APP_URL (public web URL)}
+      SMTP_HOST: ${SMTP_HOST:?set SMTP_HOST (your SMTP relay)}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-LibreHR <noreply@librehr.local>}
       STORAGE_LOCAL_DIR: /data/storage
       STORAGE_DRIVER: local
     volumes:
@@ -49,9 +65,17 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgres://${POSTGRES_USER:-librehr}:${POSTGRES_PASSWORD:-change_me_in_production}@postgres:5432/${POSTGRES_DB:-librehr}
-      SMTP_HOST: mailpit
-      SMTP_PORT: 1025
+      DATABASE_URL: postgres://${POSTGRES_USER:-librehr}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-librehr}
+      DATABASE_MIGRATION_URL: postgres://librehr_owner:${LIBREHR_OWNER_PASSWORD:?set LIBREHR_OWNER_PASSWORD}@postgres:5432/${POSTGRES_DB:-librehr}
+      # No app secrets: the worker does not decrypt fields or sign time
+      # events today. Add ENVELOPE_MASTER_KEY / TIME_CHAIN_KEY when it does.
+      # Optional: the email queue only needs these once a real mailer is wired.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-LibreHR <noreply@librehr.local>}
+    # Healthcheck is defined in infra/docker/worker.Dockerfile.
 
   web:
     build:

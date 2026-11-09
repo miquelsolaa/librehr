@@ -15,7 +15,7 @@ All LibreHR database migrations are designed to be forward-only and safe to run 
    ```bash
    git pull origin main
    # or pull latest release container tags
-   docker compose -f infra/compose/docker-compose.yml pull
+   docker compose --env-file .env -f infra/compose/docker-compose.yml pull
    ```
 
 3. **Run database migrations:**
@@ -29,7 +29,7 @@ All LibreHR database migrations are designed to be forward-only and safe to run 
 4. **Restart services:**
 
    ```bash
-   docker compose -f infra/compose/docker-compose.yml up -d
+   docker compose --env-file .env -f infra/compose/docker-compose.yml up -d
    ```
 
 5. **Verify health:**

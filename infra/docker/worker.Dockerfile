@@ -2,7 +2,7 @@
 FROM node:22-alpine AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable && corepack prepare pnpm@10.5.2 --activate
+RUN corepack enable && corepack prepare pnpm@12.18.0 --activate
 
 FROM base AS builder
 WORKDIR /app
@@ -20,5 +20,9 @@ USER worker
 COPY --from=builder --chown=worker:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=worker:nodejs /app/packages ./packages
 COPY --from=builder --chown=worker:nodejs /app/apps/worker ./apps/worker
+
+# The worker has no HTTP port; check that the node process (PID 1) is alive.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD ["node", "-e", "process.kill(1, 0)"]
 
 CMD ["node", "--import", "tsx", "apps/worker/src/index.ts"]

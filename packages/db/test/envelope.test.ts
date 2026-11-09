@@ -1,6 +1,46 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import crypto from "node:crypto";
-import { encryptEnvelope, decryptEnvelope } from "../src/crypto/envelope.js";
+import {
+  encryptEnvelope,
+  decryptEnvelope,
+  getMasterKeyFromEnv,
+} from "../src/crypto/envelope.js";
+
+describe("getMasterKeyFromEnv in production (DOC-004)", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("throws when the master key is missing", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("ENVELOPE_MASTER_KEY", "");
+    expect(() => getMasterKeyFromEnv()).toThrow(/ENVELOPE_MASTER_KEY/);
+  });
+
+  it("throws when the master key is the known dev key (raw or base64)", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("ENVELOPE_MASTER_KEY", "dev_envelope_master_key_for_local_dev");
+    expect(() => getMasterKeyFromEnv()).toThrow(/ENVELOPE_MASTER_KEY/);
+    vi.stubEnv(
+      "ENVELOPE_MASTER_KEY",
+      "ZGV2X2VudmVsb3BlX21hc3Rlcl9rZXlfZm9yX2xvY2FsX2Rldg==",
+    );
+    expect(() => getMasterKeyFromEnv()).toThrow(/ENVELOPE_MASTER_KEY/);
+  });
+
+  it("accepts a real 32-byte key", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const key = crypto.randomBytes(32);
+    vi.stubEnv("ENVELOPE_MASTER_KEY", key.toString("base64"));
+    expect(getMasterKeyFromEnv().equals(key)).toBe(true);
+  });
+
+  it("keeps the dev fallback outside production", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("ENVELOPE_MASTER_KEY", "");
+    expect(getMasterKeyFromEnv()).toHaveLength(32);
+  });
+});
 
 describe("Envelope Encryption (AES-256-GCM)", () => {
   const masterKey = crypto.randomBytes(32);

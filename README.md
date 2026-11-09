@@ -318,10 +318,17 @@ Follow these steps to set up a local development environment.
 3. **Configure environment variables:**
 
    ```sh
-   cp infra/env/.env.example .env
+   cp .env.example .env
    ```
 
-4. **Start local infrastructure (Postgres 16, Mailpit, MinIO):**
+   The values in `.env.example` are public, development-only defaults. The API
+   refuses to start with them when `NODE_ENV=production`; for a production
+   install follow [docs/guides/self-hosting.md](docs/guides/self-hosting.md).
+
+4. **Start local infrastructure (Postgres 17, Mailpit, MinIO):**
+
+   Ports are bound to `127.0.0.1` only. If you have an existing Postgres 16
+   dev volume, remove it first (`docker compose -f infra/compose/docker-compose.dev.yml down -v`).
 
    ```sh
    pnpm infra:up

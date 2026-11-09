@@ -21,45 +21,98 @@ function tryLoadEnv(): void {
   }
 }
 
-function resolveSecret(val?: string, fileVal?: string): string | undefined {
-  if (fileVal && fs.existsSync(fileVal)) {
-    return fs.readFileSync(fileVal, "utf-8").trim();
-  }
-  return val;
-}
+// Development-only defaults. They are public (they live in the repo), so
+// production must never run with them; see the superRefine below.
+const DEV_DATABASE_URL =
+  "postgres://librehr_app:librehr_dev_password@localhost:5432/librehr";
+const DEV_DATABASE_MIGRATION_URL =
+  "postgres://librehr_owner:librehr_dev_password@localhost:5432/librehr";
+const DEV_BETTER_AUTH_SECRET =
+  "dev_auth_secret_must_be_changed_in_production_min_32_chars";
+const DEV_ENVELOPE_MASTER_KEY =
+  "ZGV2X2VudmVsb3BlX21hc3Rlcl9rZXlfZm9yX2xvY2FsX2Rldg==";
+const DEV_SESSION_SECRET =
+  "dev_session_secret_must_be_changed_in_production_32";
+const DEV_TIME_CHAIN_KEY =
+  "dev_time_chain_key_must_be_changed_in_production_32";
 
-const RawEnvSchema = z.object({
-  NODE_ENV: z
-    .enum(["development", "test", "production"])
-    .default("development"),
-  PORT: z.coerce.number().default(3001),
-  DATABASE_URL: z
-    .string()
-    .default(
-      "postgres://librehr_app:librehr_dev_password@localhost:5432/librehr",
-    ),
-  DATABASE_MIGRATION_URL: z
-    .string()
-    .default(
-      "postgres://librehr_owner:librehr_dev_password@localhost:5432/librehr",
-    ),
-  BETTER_AUTH_SECRET: z
-    .string()
-    .default("dev_auth_secret_must_be_changed_in_production_min_32_chars"),
-  BETTER_AUTH_SECRET_FILE: z.string().optional(),
-  BETTER_AUTH_URL: z.string().default("http://localhost:3001"),
-  ENVELOPE_MASTER_KEY: z
-    .string()
-    .default("ZGV2X2VudmVsb3BlX21hc3Rlcl9rZXlfZm9yX2xvY2FsX2Rldg=="),
-  ENVELOPE_MASTER_KEY_FILE: z.string().optional(),
-  ENVELOPE_KEY_ID: z.string().default("v1"),
-  SMTP_HOST: z.string().default("localhost"),
-  SMTP_PORT: z.coerce.number().default(1025),
-  SMTP_USER: z.string().optional(),
-  SMTP_PASS: z.string().optional(),
-  SMTP_FROM: z.string().default("LibreHR <noreply@librehr.local>"),
-  LOG_LEVEL: z.string().default("info"),
-});
+/** Secrets that may also be provided as `<NAME>_FILE` (Docker secrets). */
+const FILE_SECRETS = [
+  "BETTER_AUTH_SECRET",
+  "ENVELOPE_MASTER_KEY",
+  "SESSION_SECRET",
+  "TIME_CHAIN_KEY",
+] as const;
+
+const DEV_SECRET_VALUES: Record<(typeof FILE_SECRETS)[number], string> = {
+  BETTER_AUTH_SECRET: DEV_BETTER_AUTH_SECRET,
+  ENVELOPE_MASTER_KEY: DEV_ENVELOPE_MASTER_KEY,
+  SESSION_SECRET: DEV_SESSION_SECRET,
+  TIME_CHAIN_KEY: DEV_TIME_CHAIN_KEY,
+};
+
+const PROD_HINT = "generate one with `openssl rand -base64 32`";
+
+// Compose often passes `VAR=` for unset values; treat empty as missing so
+// the dev default (or the production check) applies.
+const optionalString = z.preprocess(
+  (v) => (v === "" ? undefined : v),
+  z.string().optional(),
+);
+const secret = (devDefault: string) =>
+  z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z
+      .string()
+      .min(32, { message: "must be at least 32 characters" })
+      .default(devDefault),
+  );
+
+const RawEnvSchema = z
+  .object({
+    NODE_ENV: z
+      .enum(["development", "test", "production"])
+      .default("development"),
+    PORT: z.coerce.number().default(3001),
+    DATABASE_URL: z.string().min(1).default(DEV_DATABASE_URL),
+    DATABASE_MIGRATION_URL: z
+      .string()
+      .min(1)
+      .default(DEV_DATABASE_MIGRATION_URL),
+    BETTER_AUTH_SECRET: secret(DEV_BETTER_AUTH_SECRET),
+    BETTER_AUTH_URL: z.string().default("http://localhost:3001"),
+    ENVELOPE_MASTER_KEY: secret(DEV_ENVELOPE_MASTER_KEY),
+    ENVELOPE_KEY_ID: z.string().default("v1"),
+    SESSION_SECRET: secret(DEV_SESSION_SECRET),
+    TIME_CHAIN_KEY: secret(DEV_TIME_CHAIN_KEY),
+    SMTP_HOST: z.string().default("localhost"),
+    SMTP_PORT: z.coerce.number().default(1025),
+    SMTP_USER: optionalString,
+    SMTP_PASS: optionalString,
+    SMTP_FROM: z.string().default("LibreHR <noreply@librehr.local>"),
+    LOG_LEVEL: z.string().default("info"),
+  })
+  .superRefine((env, ctx) => {
+    if (env.NODE_ENV !== "production") return;
+    for (const key of FILE_SECRETS) {
+      if (env[key] === DEV_SECRET_VALUES[key]) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: `is missing or uses the public development default; set ${key} (or ${key}_FILE) to a unique value in production (${PROD_HINT})`,
+        });
+      }
+    }
+    for (const key of ["DATABASE_URL", "DATABASE_MIGRATION_URL"] as const) {
+      if (env[key].includes("dev_password")) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: `is missing or contains a development password; set ${key} with a real password in production`,
+        });
+      }
+    }
+  });
 
 export interface ApiEnv {
   NODE_ENV: "development" | "test" | "production";
@@ -70,6 +123,8 @@ export interface ApiEnv {
   BETTER_AUTH_URL: string;
   ENVELOPE_MASTER_KEY: string;
   ENVELOPE_KEY_ID: string;
+  SESSION_SECRET: string;
+  TIME_CHAIN_KEY: string;
   SMTP_HOST: string;
   SMTP_PORT: number;
   SMTP_USER?: string | undefined;
@@ -78,33 +133,54 @@ export interface ApiEnv {
   LOG_LEVEL: string;
 }
 
+/**
+ * Replaces `<NAME>` with the contents of `<NAME>_FILE` when the latter is set.
+ * A `_FILE` that points nowhere is a deployment error, so it fails loudly
+ * instead of silently falling back to a default.
+ */
+function resolveFileSecrets(
+  input: Record<string, string | undefined>,
+): Record<string, string | undefined> {
+  const resolved = { ...input };
+  for (const key of FILE_SECRETS) {
+    const filePath = input[`${key}_FILE`];
+    if (!filePath) continue;
+    if (!fs.existsSync(filePath)) {
+      throw new Error(
+        `Invalid API environment configuration: ${key}_FILE points to a file that does not exist`,
+      );
+    }
+    resolved[key] = fs.readFileSync(filePath, "utf-8").trim();
+  }
+  return resolved;
+}
+
 export function loadEnv(envInput?: Record<string, string | undefined>): ApiEnv {
   if (!envInput) {
     tryLoadEnv();
   }
-  const input = envInput ?? process.env;
-  const parsed = RawEnvSchema.parse(input);
-
-  const authSecret = resolveSecret(
-    parsed.BETTER_AUTH_SECRET,
-    parsed.BETTER_AUTH_SECRET_FILE,
-  );
-  const envelopeKey = resolveSecret(
-    parsed.ENVELOPE_MASTER_KEY,
-    parsed.ENVELOPE_MASTER_KEY_FILE,
-  );
+  const input = resolveFileSecrets(envInput ?? process.env);
+  const result = RawEnvSchema.safeParse(input);
+  if (!result.success) {
+    // Only paths and our own messages: never echo the offending values.
+    const details = result.error.issues
+      .map((issue) => `- ${issue.path.join(".")}: ${issue.message}`)
+      .join("\n");
+    throw new Error(`Invalid API environment configuration:\n${details}`);
+  }
+  const parsed = result.data;
 
   return {
     NODE_ENV: parsed.NODE_ENV,
     PORT: parsed.PORT,
     DATABASE_URL: parsed.DATABASE_URL,
-    DATABASE_MIGRATION_URL:
-      parsed.DATABASE_MIGRATION_URL ||
-      "postgres://librehr_owner:librehr_dev_password@localhost:5432/librehr",
-    BETTER_AUTH_SECRET: authSecret ?? parsed.BETTER_AUTH_SECRET,
+    DATABASE_MIGRATION_URL: parsed.DATABASE_MIGRATION_URL,
+    BETTER_AUTH_SECRET: parsed.BETTER_AUTH_SECRET,
     BETTER_AUTH_URL: parsed.BETTER_AUTH_URL,
-    ENVELOPE_MASTER_KEY: envelopeKey ?? parsed.ENVELOPE_MASTER_KEY,
+    ENVELOPE_MASTER_KEY: parsed.ENVELOPE_MASTER_KEY,
     ENVELOPE_KEY_ID: parsed.ENVELOPE_KEY_ID,
+    SESSION_SECRET: parsed.SESSION_SECRET,
+    TIME_CHAIN_KEY: parsed.TIME_CHAIN_KEY,
     SMTP_HOST: parsed.SMTP_HOST,
     SMTP_PORT: parsed.SMTP_PORT,
     ...(parsed.SMTP_USER ? { SMTP_USER: parsed.SMTP_USER } : {}),
