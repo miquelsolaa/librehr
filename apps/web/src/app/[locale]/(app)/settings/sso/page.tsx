@@ -14,7 +14,11 @@ import {
 } from "lucide-react";
 import { Button, Input } from "@librehr/ui";
 import { getApiClient } from "@/lib/api-client";
-import type { SsoConfig, SsoProvider } from "@librehr/contracts";
+import type {
+  ProblemDetails,
+  SsoConfig,
+  SsoProvider,
+} from "@librehr/contracts";
 
 export default function SsoSettingsPage() {
   const params = useParams();
@@ -41,6 +45,7 @@ export default function SsoSettingsPage() {
     null,
   );
   const [copiedCallback, setCopiedCallback] = React.useState(false);
+  const [unavailable, setUnavailable] = React.useState(false);
 
   const callbackUrl =
     typeof window !== "undefined"
@@ -62,8 +67,13 @@ export default function SsoSettingsPage() {
         setEnabled(current.enabled);
         setEnforceSso(current.enforceSso);
       }
-    } catch {
-      setErrorMessage(t("loadError"));
+    } catch (err) {
+      const problem = err as Partial<ProblemDetails> | null;
+      if (problem?.code === "SSO_DISABLED") {
+        setUnavailable(true);
+      } else {
+        setErrorMessage(t("loadError"));
+      }
     } finally {
       setIsLoading(false);
     }
@@ -106,7 +116,8 @@ export default function SsoSettingsPage() {
       const saved = await client.saveSsoConfig({
         provider,
         clientId: clientId.trim(),
-        clientSecret: clientSecret.trim() || "unchanged_existing_secret",
+        // Omitted when blank: the API keeps the stored (encrypted) secret.
+        ...(clientSecret.trim() ? { clientSecret: clientSecret.trim() } : {}),
         issuerUrl: issuerUrl.trim(),
         allowedDomains: domains,
         enabled,
@@ -153,6 +164,16 @@ export default function SsoSettingsPage() {
         >
           <CheckCircle2 className="h-4 w-4" />
           {successMessage}
+        </div>
+      )}
+
+      {unavailable && (
+        <div
+          role="status"
+          className="rounded-card border border-border bg-surface p-4 text-sm text-muted-foreground flex items-center gap-2"
+        >
+          <AlertCircle className="h-4 w-4" />
+          {t("ssoUnavailable")}
         </div>
       )}
 

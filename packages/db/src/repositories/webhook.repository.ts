@@ -1,4 +1,5 @@
 import type { TenantTx } from "../with-tenant.js";
+import { jsonStringArray } from "./json-array.js";
 
 export interface WebhookRow {
   id: string;
@@ -14,30 +15,19 @@ export interface WebhookRow {
   updatedAt: Date;
 }
 
-function parseEvents(events: unknown): string[] {
-  if (Array.isArray(events)) {
-    return events as string[];
-  }
-  if (typeof events === "string") {
-    try {
-      const parsed = JSON.parse(events);
-      if (Array.isArray(parsed)) return parsed as string[];
-    } catch {
-      // ignore
-    }
-  }
-  return [];
-}
+/** A webhook as listed: the signing secret is never read for listings. */
+export type WebhookListRow = Omit<WebhookRow, "secret">;
+
+const parseEvents = jsonStringArray;
 
 export class WebhookRepository {
-  async list(tx: TenantTx): Promise<WebhookRow[]> {
-    const rows = await tx<WebhookRow[]>`
+  async list(tx: TenantTx): Promise<WebhookListRow[]> {
+    const rows = await tx<WebhookListRow[]>`
       SELECT
         id,
         organization_id as "organizationId",
         name,
         url,
-        secret,
         events,
         enabled,
         last_delivery_status as "lastDeliveryStatus",

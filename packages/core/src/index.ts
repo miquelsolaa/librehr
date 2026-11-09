@@ -8,3 +8,4 @@ export * from "./documents/index.js";
 export * from "./lifecycle/index.js";
 export * from "./reports/index.js";
 export * from "./webhooks/index.js";
+export * from "./net/index.js";

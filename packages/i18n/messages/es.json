@@ -334,6 +334,7 @@
     "enabled": "Activo",
     "disabled": "Inactivo",
     "ssoTitle": "Inicio de Sesión Único (SSO / OIDC)",
+    "ssoUnavailable": "El inicio de sesión único todavía no está disponible en esta instancia.",
     "ssoDescription": "Configura la integración de identidad corporativa con Google Workspace, Microsoft Entra ID u OIDC genérico.",
     "ssoCardTitle": "Inicio de sesión único (SSO)",
     "ssoCardDescription": "Integración con proveedores de identidad corporativa (Google, Microsoft 365, OIDC).",

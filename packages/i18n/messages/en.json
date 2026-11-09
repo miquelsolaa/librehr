@@ -334,6 +334,7 @@
     "enabled": "Enabled",
     "disabled": "Disabled",
     "ssoTitle": "Single Sign-On (SSO / OIDC)",
+    "ssoUnavailable": "Single sign-on is not available on this instance yet.",
     "ssoDescription": "Configure enterprise identity federation via Google Workspace, Microsoft Entra ID, or generic OIDC.",
     "ssoCardTitle": "Single Sign-On (SSO)",
     "ssoCardDescription": "Integrate with corporate identity providers (Google, Microsoft 365, OIDC).",

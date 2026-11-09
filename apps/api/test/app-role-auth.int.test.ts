@@ -86,6 +86,8 @@ describe("API on the restricted runtime role", () => {
       sql: db.appSql,
       authPort: new BetterAuthAdapter(db.appSql),
       sessionSecret,
+      // SSO is off by default (SSO_ENABLED); this suite covers its lookup.
+      config: { ssoEnabled: true },
     });
   }, 60000);
 

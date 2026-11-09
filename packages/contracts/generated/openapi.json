@@ -3714,7 +3714,12 @@
           "scopes": {
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "read",
+                "write",
+                "admin"
+              ]
             }
           },
           "expiresAt": {
@@ -3795,7 +3800,12 @@
               "scopes": {
                 "type": "array",
                 "items": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "read",
+                    "write",
+                    "admin"
+                  ]
                 }
               },
               "expiresAt": {
@@ -4225,7 +4235,17 @@
           "events": {
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "employee.created",
+                "employee.updated",
+                "employee.terminated",
+                "leave.requested",
+                "leave.approved",
+                "leave.rejected",
+                "time.clocked",
+                "document.uploaded"
+              ]
             }
           },
           "enabled": {
@@ -4261,7 +4281,6 @@
           "organizationId",
           "name",
           "url",
-          "secret",
           "events",
           "enabled",
           "createdAt",
@@ -4283,7 +4302,17 @@
           "events": {
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "employee.created",
+                "employee.updated",
+                "employee.terminated",
+                "leave.requested",
+                "leave.approved",
+                "leave.rejected",
+                "time.clocked",
+                "document.uploaded"
+              ]
             },
             "minItems": 1
           },
@@ -4313,7 +4342,17 @@
           "events": {
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "employee.created",
+                "employee.updated",
+                "employee.terminated",
+                "leave.requested",
+                "leave.approved",
+                "leave.rejected",
+                "time.clocked",
+                "document.uploaded"
+              ]
             },
             "minItems": 1
           },
@@ -11287,7 +11326,12 @@
                       "scopes": {
                         "type": "array",
                         "items": {
-                          "type": "string"
+                          "type": "string",
+                          "enum": [
+                            "read",
+                            "write",
+                            "admin"
+                          ]
                         }
                       },
                       "expiresAt": {
@@ -11387,7 +11431,12 @@
                         "scopes": {
                           "type": "array",
                           "items": {
-                            "type": "string"
+                            "type": "string",
+                            "enum": [
+                              "read",
+                              "write",
+                              "admin"
+                            ]
                           }
                         },
                         "expiresAt": {
@@ -12380,7 +12429,17 @@
                       "events": {
                         "type": "array",
                         "items": {
-                          "type": "string"
+                          "type": "string",
+                          "enum": [
+                            "employee.created",
+                            "employee.updated",
+                            "employee.terminated",
+                            "leave.requested",
+                            "leave.approved",
+                            "leave.rejected",
+                            "time.clocked",
+                            "document.uploaded"
+                          ]
                         }
                       },
                       "enabled": {
@@ -12416,7 +12475,6 @@
                       "organizationId",
                       "name",
                       "url",
-                      "secret",
                       "events",
                       "enabled",
                       "createdAt",
@@ -12449,7 +12507,17 @@
                   "events": {
                     "type": "array",
                     "items": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "employee.created",
+                        "employee.updated",
+                        "employee.terminated",
+                        "leave.requested",
+                        "leave.approved",
+                        "leave.rejected",
+                        "time.clocked",
+                        "document.uploaded"
+                      ]
                     },
                     "minItems": 1
                   },
@@ -12498,7 +12566,17 @@
                     "events": {
                       "type": "array",
                       "items": {
-                        "type": "string"
+                        "type": "string",
+                        "enum": [
+                          "employee.created",
+                          "employee.updated",
+                          "employee.terminated",
+                          "leave.requested",
+                          "leave.approved",
+                          "leave.rejected",
+                          "time.clocked",
+                          "document.uploaded"
+                        ]
                       }
                     },
                     "enabled": {
@@ -12534,7 +12612,6 @@
                     "organizationId",
                     "name",
                     "url",
-                    "secret",
                     "events",
                     "enabled",
                     "createdAt",
@@ -12568,7 +12645,17 @@
                   "events": {
                     "type": "array",
                     "items": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "employee.created",
+                        "employee.updated",
+                        "employee.terminated",
+                        "leave.requested",
+                        "leave.approved",
+                        "leave.rejected",
+                        "time.clocked",
+                        "document.uploaded"
+                      ]
                     },
                     "minItems": 1
                   },
@@ -12614,7 +12701,17 @@
                     "events": {
                       "type": "array",
                       "items": {
-                        "type": "string"
+                        "type": "string",
+                        "enum": [
+                          "employee.created",
+                          "employee.updated",
+                          "employee.terminated",
+                          "leave.requested",
+                          "leave.approved",
+                          "leave.rejected",
+                          "time.clocked",
+                          "document.uploaded"
+                        ]
                       }
                     },
                     "enabled": {
@@ -12650,7 +12747,6 @@
                     "organizationId",
                     "name",
                     "url",
-                    "secret",
                     "events",
                     "enabled",
                     "createdAt",

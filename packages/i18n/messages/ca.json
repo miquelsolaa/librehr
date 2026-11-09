@@ -334,6 +334,7 @@
     "enabled": "Actiu",
     "disabled": "Inactiu",
     "ssoTitle": "Inici de Sessió Únic (SSO / OIDC)",
+    "ssoUnavailable": "L'inici de sessió únic encara no està disponible en aquesta instància.",
     "ssoDescription": "Configura la integració d'identitat corporativa amb Google Workspace, Microsoft Entra ID o OIDC genèric.",
     "ssoCardTitle": "Inici de sessió únic (SSO)",
     "ssoCardDescription": "Integració amb proveïdors d'identitat corporativa (Google, Microsoft 365, OIDC).",

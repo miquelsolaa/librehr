@@ -22,7 +22,8 @@ describe("password creation and invitation acceptance", () => {
       throw new Error("Docker is required for password integration tests");
     db = database;
     await runMigrations(db.connectionString);
-    await db.sql`INSERT INTO organizations (id, name, slug) VALUES (${org}, 'Test Org', 'password-test')`;
+    // No organization yet: the setup wizard only runs on a fresh instance
+    // (ORG-001). The invitation tests create theirs on demand.
     app = createApp({
       sql: await db.appSql(),
       authPort: new BetterAuthAdapter(await db.appSql()),
@@ -46,13 +47,32 @@ describe("password creation and invitation acceptance", () => {
     locationCity: "Barcelona",
     locationRegion: "Catalonia",
   });
-  const invite = async (email: string, token: string) =>
-    withTenant(
+  const invite = async (email: string, token: string) => {
+    await db.sql`INSERT INTO organizations (id, name, slug)
+      VALUES (${org}, 'Test Org', 'password-test') ON CONFLICT (id) DO NOTHING`;
+    return withTenant(
       db.sql,
       { organizationId: org },
       (tx) =>
         tx`INSERT INTO invitations (email, role, token, expires_at) VALUES (${email}, 'employee', ${token}, now() + interval '1 day')`,
     );
+  };
+
+  // Runs first, while the instance has no organization; once one exists the
+  // wizard answers 409 before checking credentials.
+  it("does not allow setup to claim an existing account without its password", async () => {
+    const email = "setup-existing@example.invalid";
+    const hash = await hashPassword("owner-password");
+    await db.sql`INSERT INTO users (email, name, password_hash) VALUES (${email}, 'Owner', ${hash})`;
+    const response = await post(
+      "/v1/org/setup-wizard",
+      setup(email, "attacker-password", "auth-takeover-setup"),
+    );
+    expect(response.status).toBe(401);
+    const orgs =
+      await db.sql`SELECT id FROM organizations WHERE slug = 'auth-takeover-setup'`;
+    expect(orgs).toHaveLength(0);
+  });
 
   it("hashes new setup passwords and rejects wrong-password sign in", async () => {
     const email = "setup-new@example.invalid";
@@ -74,20 +94,6 @@ describe("password creation and invitation acceptance", () => {
         "wrong-password",
       ),
     ).toBeNull();
-  });
-
-  it("does not allow setup to claim an existing account without its password", async () => {
-    const email = "setup-existing@example.invalid";
-    const hash = await hashPassword("owner-password");
-    await db.sql`INSERT INTO users (email, name, password_hash) VALUES (${email}, 'Owner', ${hash})`;
-    const response = await post(
-      "/v1/org/setup-wizard",
-      setup(email, "attacker-password", "auth-takeover-setup"),
-    );
-    expect(response.status).toBe(401);
-    const orgs =
-      await db.sql`SELECT id FROM organizations WHERE slug = 'auth-takeover-setup'`;
-    expect(orgs).toHaveLength(0);
   });
 
   it("hashes new invitation passwords and verifies them on sign in", async () => {

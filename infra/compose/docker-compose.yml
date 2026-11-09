@@ -46,6 +46,11 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET (openssl rand -base64 32)}
       TIME_CHAIN_KEY: ${TIME_CHAIN_KEY:?set TIME_CHAIN_KEY (openssl rand -base64 32)}
       APP_URL: ${APP_URL:?set APP_URL (public web URL)}
+      # Extra browser origins allowed to call the API with credentials,
+      # comma-separated (APP_URL is always allowed).
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      # OIDC SSO (AUTH-004) is incomplete; keep it off until it ships.
+      SSO_ENABLED: ${SSO_ENABLED:-false}
       # Caddy is the one reverse proxy in front of the API: trust exactly one
       # X-Forwarded-For hop when rate-limiting by client IP.
       TRUST_PROXY: ${TRUST_PROXY:-1}

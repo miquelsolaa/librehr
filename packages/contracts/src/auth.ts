@@ -118,7 +118,11 @@ export type SsoConfig = z.infer<typeof SsoConfigSchema>;
 export const SaveSsoConfigRequestSchema = z.object({
   provider: SsoProviderSchema,
   clientId: z.string().min(1, "Client ID is required"),
-  clientSecret: z.string().min(1, "Client Secret is required"),
+  /**
+   * Write-only. Omit it to keep the stored secret; required for the first
+   * configuration. It is stored encrypted and never returned.
+   */
+  clientSecret: z.string().min(1, "Client Secret is required").optional(),
   issuerUrl: z.string().min(1, "Issuer URL is required"),
   enabled: z.boolean().default(true),
   enforceSso: z.boolean().default(false),

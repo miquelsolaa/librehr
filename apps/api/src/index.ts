@@ -56,6 +56,14 @@ async function bootstrap() {
     timeChainKey: env.TIME_CHAIN_KEY,
     nodeEnv: env.NODE_ENV,
     trustProxy: env.TRUST_PROXY,
+    config: {
+      nodeEnv: env.NODE_ENV,
+      appUrl: env.APP_URL,
+      corsOrigins: env.CORS_ORIGINS,
+      publicApiUrl: env.BETTER_AUTH_URL,
+      ssoEnabled: env.SSO_ENABLED,
+      webhooksAllowPrivate: env.WEBHOOKS_ALLOW_PRIVATE,
+    },
   });
 
   // 4. Start HTTP server

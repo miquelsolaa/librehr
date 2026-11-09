@@ -53,6 +53,8 @@ import { createSsoRoutes } from "./routes/sso.js";
 import { createSettingsSecurityRoutes } from "./routes/settings-security.js";
 import { createWebhookRoutes } from "./routes/webhooks.js";
 import { createShiftRoutes } from "./routes/shifts.js";
+import { createCorsOriginMatcher } from "./lib/cors-origin.js";
+import type { HostResolver } from "./lib/outbound-url.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -74,6 +76,50 @@ export interface AppDependencies {
   nodeEnv?: "development" | "test" | "production" | undefined;
   /** TRUST_PROXY from the validated env (trusted reverse-proxy hops). */
   trustProxy?: number | undefined;
+  /** Edge settings from the validated env; see `resolveAppConfig`. */
+  config?: Partial<AppConfig> | undefined;
+}
+
+export interface AppConfig {
+  nodeEnv: "development" | "test" | "production";
+  /** Public web app URL (APP_URL); always an allowed CORS origin. */
+  appUrl: string | undefined;
+  /** CORS_ORIGINS. */
+  corsOrigins: string[];
+  /** Public API base URL (BETTER_AUTH_URL), used for the SSO redirect URI. */
+  publicApiUrl: string;
+  /** SSO_ENABLED. */
+  ssoEnabled: boolean;
+  /** WEBHOOKS_ALLOW_PRIVATE (never true in production; env.ts refuses it). */
+  webhooksAllowPrivate: boolean;
+  /** DNS resolver for outbound URL checks; tests inject a fake. */
+  resolveHost: HostResolver | undefined;
+}
+
+/**
+ * Fills unset settings with closed defaults: an unknown NODE_ENV is treated
+ * as production, SSO is off and webhooks must target public https URLs.
+ * `fallbackNodeEnv` is the top-level `nodeEnv` dependency, when given.
+ */
+export function resolveAppConfig(
+  config: Partial<AppConfig> = {},
+  fallbackNodeEnv?: AppConfig["nodeEnv"],
+): AppConfig {
+  const envNode = process.env["NODE_ENV"];
+  const nodeEnv =
+    config.nodeEnv ??
+    fallbackNodeEnv ??
+    (envNode === "development" || envNode === "test" ? envNode : "production");
+  return {
+    nodeEnv,
+    appUrl: config.appUrl,
+    corsOrigins: config.corsOrigins ?? [],
+    publicApiUrl: config.publicApiUrl ?? "http://localhost:3001",
+    ssoEnabled: config.ssoEnabled ?? false,
+    webhooksAllowPrivate:
+      nodeEnv !== "production" && (config.webhooksAllowPrivate ?? false),
+    resolveHost: config.resolveHost,
+  };
 }
 
 export function createApp(deps: AppDependencies) {
@@ -82,25 +128,19 @@ export function createApp(deps: AppDependencies) {
     resolveTimeChainKey(deps.timeChainKey),
   );
   const timeTracking = resolveTimeTrackingConfig(deps.timeTracking);
+  const config = resolveAppConfig(deps.config, deps.nodeEnv);
 
   // 1. Global Middleware Pipeline (per ARCHITECTURE.md 3.2)
   app.use(
     "*",
     cors({
-      origin: (origin) => {
-        if (!origin) return "http://localhost:3000";
-        const appUrl = process.env["APP_URL"] ?? "http://localhost:3000";
-        if (
-          origin === "http://localhost:3000" ||
-          origin === "http://127.0.0.1:3000" ||
-          origin === appUrl ||
-          origin.startsWith("http://localhost:") ||
-          origin.startsWith("http://127.0.0.1:")
-        ) {
-          return origin;
-        }
-        return null;
-      },
+      origin: createCorsOriginMatcher({
+        nodeEnv: config.nodeEnv,
+        allowedOrigins: [
+          ...(config.appUrl ? [config.appUrl] : []),
+          ...config.corsOrigins,
+        ],
+      }),
       allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowHeaders: [
         "Content-Type",
@@ -120,7 +160,7 @@ export function createApp(deps: AppDependencies) {
   app.use(
     "*",
     createCsrfMiddleware({
-      appUrl: process.env["APP_URL"] ?? "http://localhost:3000",
+      appUrl: config.appUrl,
       nodeEnv: deps.nodeEnv,
     }),
   );
@@ -173,7 +213,10 @@ export function createApp(deps: AppDependencies) {
       trustProxy: deps.trustProxy,
     }),
   );
-  app.route("/v1", createSetupRoutes(deps.sql));
+  app.route(
+    "/v1",
+    createSetupRoutes(deps.sql, { trustProxy: deps.trustProxy }),
+  );
   app.route("/v1", createAuditRoutes(deps.sql));
   app.route("/v1", createLeaveRoutes(deps.sql, deps.mailPort));
   app.route("/v1", createCalendarRoutes(deps.sql));
@@ -205,9 +248,21 @@ export function createApp(deps: AppDependencies) {
   app.route("/v1", createReportRoutes(deps.sql));
   app.route("/v1", createTokenRoutes(deps.sql));
   app.route("/v1", createCustomFieldRoutes(deps.sql));
-  app.route("/v1", createSsoRoutes(deps.sql));
+  app.route(
+    "/v1",
+    createSsoRoutes(deps.sql, {
+      enabled: config.ssoEnabled,
+      publicApiUrl: config.publicApiUrl,
+    }),
+  );
   app.route("/v1", createSettingsSecurityRoutes(deps.sql));
-  app.route("/v1", createWebhookRoutes(deps.sql));
+  app.route(
+    "/v1",
+    createWebhookRoutes(deps.sql, {
+      allowPrivate: config.webhooksAllowPrivate,
+      resolve: config.resolveHost,
+    }),
+  );
   app.route("/v1", createShiftRoutes(deps.sql));
 
   // 5. RFC 9457 Problem Details Error Handler
