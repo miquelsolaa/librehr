@@ -54,6 +54,21 @@ Encryption in transit (TLS 1.2+); at rest for sensitive columns and documents; s
 | Backups                                                                                               | <= 35 days rolling                           | Document erasure behavior in backups.                      |
 | After retention: anonymize or delete via `retention.enforce` job with dry-run report and audit entry. |
 
+**Known gap (ADM-005 not yet implemented).** The `retention.enforce` worker job
+is a stub that fails loudly (dead-letters with "not implemented") instead of
+reporting success. Until ADM-005 ships:
+
+- Documents deleted by users are soft-deleted (DOC-001): rows, versions and
+  stored files are kept and hidden from the app, but never purged. This
+  includes payslips and other sensitive documents.
+- Soft-deleted documents still held are included in data-subject access
+  exports (ADM-004), because GDPR art. 15 covers all data held.
+- Nothing is anonymised or deleted when a retention period above ends.
+
+Implementing ADM-005 is the next required feature. Its retention periods are
+compliance defaults, so the maintainers must confirm them (with counsel)
+before it ships.
+
 ## 6. Feature-level compliance requirements
 
 - **Time tracking:** append-only events, corrections referenced not overwritten, 4-year retention, exports with hash, employee access to own records, optional inspector role with logged access, employee notified of corrections.
