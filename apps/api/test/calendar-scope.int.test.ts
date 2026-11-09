@@ -123,7 +123,7 @@ describe("calendar leave type scope", () => {
       });
       await leave.approveLeaveRequest(tx, request.id, person.id);
     });
-    app = createApp({ sql: db.sql, authPort: auth });
+    app = createApp({ sql: await db.appSql(), authPort: auth });
   }, 30000);
   afterAll(async () => {
     if (db) await db.close();

@@ -67,7 +67,7 @@ describe("Documents & Lifecycle API Integration Tests (DOC-001 - DOC-005, ONB-00
     db = await getTestDatabase();
     if (db) {
       await runMigrations(db.connectionString);
-      app = createApp({ sql: db.sql, authPort });
+      app = createApp({ sql: await db.appSql(), authPort });
     }
   });
 

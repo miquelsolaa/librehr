@@ -9,6 +9,7 @@ import {
 import {
   withTenant,
   InvitationRepository,
+  IdentityRepository,
   EmployeeRepository,
   AuditRepository,
 } from "@librehr/db";
@@ -26,6 +27,7 @@ export function createInvitationRoutes(
 ) {
   const router = new Hono();
   const invitationRepo = new InvitationRepository();
+  const identityRepo = new IdentityRepository();
   const employeeRepo = new EmployeeRepository();
   const auditRepo = new AuditRepository();
 
@@ -120,7 +122,7 @@ export function createInvitationRoutes(
   router.get("/invitations/:token", async (c) => {
     const token = c.req.param("token");
 
-    const invite = await invitationRepo.findByToken(sql, token);
+    const invite = await identityRepo.invitation(sql, token);
     if (!invite) {
       const problem = createProblemDetails({
         status: 404,
@@ -181,7 +183,7 @@ export function createInvitationRoutes(
     }
 
     const { token, name, password } = parse.data;
-    const invite = await invitationRepo.findByToken(sql, token);
+    const invite = await identityRepo.invitation(sql, token);
     if (
       !invite ||
       invite.acceptedAt ||

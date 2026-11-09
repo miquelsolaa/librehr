@@ -67,7 +67,7 @@ describe("Employees API Integration Tests (EMP-001 - EMP-007, ADM-001, ADM-002)"
     db = await getTestDatabase();
     if (db) {
       await runMigrations(db.connectionString);
-      app = createApp({ sql: db.sql, authPort });
+      app = createApp({ sql: await db.appSql(), authPort });
     }
   });
 

@@ -67,7 +67,7 @@ describe("Time Off API Integration Tests (LEA-001 - LEA-010, NOT-001, NOT-002)",
     db = await getTestDatabase();
     if (db) {
       await runMigrations(db.connectionString);
-      app = createApp({ sql: db.sql, authPort });
+      app = createApp({ sql: await db.appSql(), authPort });
     }
   });
 

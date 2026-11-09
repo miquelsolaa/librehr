@@ -5,12 +5,13 @@
 # hard-coded) and hands the database to the owner role so migrations do not
 # need the bootstrap superuser.
 #
-#   librehr_owner  NOSUPERUSER, owns the database/schema and runs migrations.
-#                  BYPASSRLS is kept for now because every tenant table uses
-#                  FORCE ROW LEVEL SECURITY: migrations that backfill data and
-#                  the API's identity lookups (until they move to SECURITY
-#                  DEFINER functions) must see rows across tenants.
-#   librehr_app    NOSUPERUSER NOBYPASSRLS, the runtime role; always bound by RLS.
+#   librehr_owner  NOSUPERUSER NOBYPASSRLS, owns the database/schema, runs
+#                  migrations and the worker (pg-boss schema). FORCE ROW LEVEL
+#                  SECURITY binds it too: no migration backfills tenant rows
+#                  across organizations, and the pre-tenant identity lookups
+#                  go through the SECURITY DEFINER functions of migration 0019.
+#   librehr_app    NOSUPERUSER NOBYPASSRLS, the API's runtime role
+#                  (DATABASE_URL); always bound by RLS.
 #
 # Required env: LIBREHR_OWNER_PASSWORD, LIBREHR_APP_PASSWORD.
 set -eu
@@ -32,7 +33,7 @@ SELECT 'CREATE ROLE librehr_owner'
 WHERE NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'librehr_owner')
 \gexec
 ALTER ROLE librehr_owner WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
-  NOREPLICATION BYPASSRLS PASSWORD :'owner_password';
+  NOREPLICATION NOBYPASSRLS PASSWORD :'owner_password';
 
 SELECT 'CREATE ROLE librehr_app'
 WHERE NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'librehr_app')

@@ -80,7 +80,7 @@ describe("location legal entity isolation", () => {
         city: "Other city",
       });
     });
-    app = createApp({ sql: db.sql, authPort: auth });
+    app = createApp({ sql: await db.appSql(), authPort: auth });
   }, 30000);
   afterAll(async () => {
     if (db) await db.close();

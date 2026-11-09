@@ -73,7 +73,7 @@ LibreHR is designed to be easily self-hostable on any standard Linux server, VPS
    | Variable                 | Required | Purpose                                                                           |
    | ------------------------ | -------- | --------------------------------------------------------------------------------- |
    | `POSTGRES_PASSWORD`      | yes      | Bootstrap superuser of the Postgres container                                     |
-   | `LIBREHR_OWNER_PASSWORD` | yes      | `librehr_owner` role: owns the schema, runs migrations (not a superuser)          |
+   | `LIBREHR_OWNER_PASSWORD` | yes      | `librehr_owner` role: owns the schema, runs migrations and the worker             |
    | `LIBREHR_APP_PASSWORD`   | yes      | `librehr_app` role: runtime role, always bound by Row-Level Security              |
    | `BETTER_AUTH_SECRET`     | yes      | Signs sessions                                                                    |
    | `SESSION_SECRET`         | yes      | Signs two-factor sign-in challenges                                               |
@@ -87,6 +87,13 @@ LibreHR is designed to be easily self-hostable on any standard Linux server, VPS
    for the four application secrets, to use Docker secrets instead of plain
    environment variables. The bundled compose file passes plain variables;
    adapt it if you switch to `_FILE`.
+
+   Compose derives the database URLs from these passwords: the API serves
+   requests as `librehr_app` (`DATABASE_URL`) and runs migrations as
+   `librehr_owner` (`DATABASE_MIGRATION_URL`); the worker also uses
+   `librehr_owner` because it owns the `pgboss` schema. Neither role is a
+   superuser or has `BYPASSRLS`; the bootstrap superuser is only used by the
+   init script. Upgrading an older install: see [upgrading.md](upgrading.md).
 
    The role passwords are applied by `infra/postgres/init/00-roles.sh` only
    when the Postgres data volume is created for the first time. To change them

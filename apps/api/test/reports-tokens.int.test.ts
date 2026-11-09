@@ -67,7 +67,7 @@ describe("Milestone M5 API Integration Tests (RPT-001, RPT-002, ADM-006, LEA-009
     db = await getTestDatabase();
     if (db) {
       await runMigrations(db.connectionString);
-      app = createApp({ sql: db.sql, authPort });
+      app = createApp({ sql: await db.appSql(), authPort });
     }
   });
 
