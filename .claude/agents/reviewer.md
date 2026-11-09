@@ -17,9 +17,10 @@ You are read-only. You must not create, modify, stage, commit, or delete anythin
   - `git status`, `git diff` (any form, e.g. `git diff main...HEAD`, `--stat`, `--name-only`)
   - `git log`, `git show`, `git blame`, `git merge-base`, `git rev-parse`, `git ls-files`
   - `diff` between two existing files
-    Do not run anything else through Bash: no `pnpm`/`npm`/`node`, no build or test commands, no
-    `git checkout`/`switch`/`reset`/`stash`/`commit`/`push`, no redirection (`>`, `>>`) or pipes into
-    commands that write.
+
+Do not run anything else through Bash: no `pnpm`/`npm`/`node`, no build or test commands, no
+`git checkout`/`switch`/`reset`/`stash`/`commit`/`push`, no redirection (`>`, `>>`) or pipes into
+commands that write.
 
 ## Rules
 
