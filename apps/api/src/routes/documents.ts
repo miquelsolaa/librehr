@@ -348,7 +348,9 @@ export function createDocumentRoutes(sql: Sql, storagePort: StoragePort) {
   // 4. DELETE /documents/:id - Delete a document
   router.delete("/documents/:id", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const id = c.req.param("id");
+    const { id } = parseParams(c, IdParamSchema, {
+      detail: "Document not found",
+    });
 
     const allowed = can(
       {
@@ -377,19 +379,22 @@ export function createDocumentRoutes(sql: Sql, storagePort: StoragePort) {
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
+        // DOC-001: soft delete. Rows, versions and stored files are kept for
+        // the retention job (ADM-005); a deleted or unknown id is a 404.
         const existing = await docRepo.findById(tx, id);
         if (!existing) return false;
+        if (!(await docRepo.softDelete(tx, id))) return false;
 
-        await docRepo.delete(tx, id);
         await auditRepo.log(tx, {
           actorId: user.id,
           action: "document.delete",
           resourceType: "document",
           resourceId: id,
-          metadata: { title: existing.title },
+          metadata: {
+            employeeId: existing.employeeId,
+            category: existing.category,
+          },
         });
-
-        await storagePort.delete(existing.latestStorageKey);
         return true;
       },
     );

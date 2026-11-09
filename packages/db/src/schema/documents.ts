@@ -6,6 +6,7 @@ import {
   index,
   integer,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { primaryId, organizationIdCol } from "./common.js";
 import { organizations } from "./platform.js";
 import { employees } from "./people.js";
@@ -34,11 +35,17 @@ export const documents = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
       .defaultNow()
       .notNull(),
+    // DOC-001 soft delete: set on DELETE; rows and files stay until the
+    // retention job (ADM-005) purges them. The actor is in the audit log.
+    deletedAt: timestamp("deleted_at", { withTimezone: true, mode: "date" }),
   },
   (table) => [
     index("documents_org_idx").on(table.organizationId),
     index("documents_employee_idx").on(table.employeeId),
     index("documents_category_idx").on(table.category),
+    index("documents_live_org_idx")
+      .on(table.organizationId)
+      .where(sql`${table.deletedAt} IS NULL`),
   ],
 );
 

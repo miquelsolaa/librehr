@@ -1,12 +1,16 @@
 import type { TenantTx } from "../with-tenant.js";
-import { EmployeeRepository } from "./employee.repository.js";
+import { decryptEnvelope } from "../crypto/envelope.js";
+import {
+  EmployeeRepository,
+  type EmployeeProfile,
+} from "./employee.repository.js";
 import { LeaveRepository } from "./leave.repository.js";
 import { TimeRepository } from "./time.repository.js";
 import { DocumentRepository } from "./document.repository.js";
 
 export interface DataSubjectExportDump {
   exportedAt: string;
-  employee: unknown;
+  employee: DataSubjectEmployee;
   leaveSummary: {
     balance: unknown;
     ledgerEntries: unknown[];
@@ -14,6 +18,46 @@ export interface DataSubjectExportDump {
   };
   timeRecords: unknown[];
   documents: unknown[];
+}
+
+/**
+ * The employee record as the data subject sees it: sensitive fields decrypted
+ * (it is their own data, GDPR art. 15), and no ciphertext, key material or
+ * credential hashes.
+ */
+export type DataSubjectEmployee = Omit<
+  EmployeeProfile,
+  | "nationalIdEncrypted"
+  | "ibanEncrypted"
+  | "pinHash"
+  | "pinSalt"
+  | "hasNationalId"
+  | "hasIban"
+> & {
+  nationalId: string | null;
+  iban: string | null;
+};
+
+/** Decrypts the envelope-encrypted fields and drops every secret column. */
+export function toDataSubjectEmployee(
+  employee: EmployeeProfile,
+): DataSubjectEmployee {
+  const {
+    nationalIdEncrypted,
+    ibanEncrypted,
+    pinHash: _pinHash,
+    pinSalt: _pinSalt,
+    hasNationalId: _hasNationalId,
+    hasIban: _hasIban,
+    ...rest
+  } = employee;
+  return {
+    ...rest,
+    nationalId: nationalIdEncrypted
+      ? decryptEnvelope(nationalIdEncrypted)
+      : null,
+    iban: ibanEncrypted ? decryptEnvelope(ibanEncrypted) : null,
+  };
 }
 
 /**
@@ -39,12 +83,14 @@ export class DsrRepository {
         this.leaveRepo.getLedgerEntries(tx, employeeId),
         this.leaveRepo.getLeaveRequests(tx, { employeeId }),
         this.timeRepo.getEventsForEmployee(tx, employeeId),
-        this.docRepo.list(tx, { employeeId }),
+        // Soft-deleted documents are still held until purged, so they are
+        // part of what the subject is entitled to see (marked by deletedAt).
+        this.docRepo.list(tx, { employeeId, includeDeleted: true }),
       ]);
 
     return {
       exportedAt: new Date().toISOString(),
-      employee,
+      employee: toDataSubjectEmployee(employee),
       leaveSummary: {
         balance,
         ledgerEntries,

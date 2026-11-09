@@ -17,7 +17,12 @@ import {
 import { ForbiddenError, NotFoundError } from "../errors/index.js";
 import { IdParamSchema, parseJsonBody, parseParams } from "../lib/validate.js";
 import { requireAuth } from "../middleware/auth.js";
-import { canToggleChecklistTask } from "../policies/checklists.js";
+import {
+  canAssignChecklist,
+  canToggleChecklistTask,
+  checklistInstanceReadScope,
+  mayAssignChecklists,
+} from "../policies/checklists.js";
 import { resolvePolicyContext } from "../policies/context.js";
 
 export function createChecklistRoutes(sql: Sql) {
@@ -106,40 +111,41 @@ export function createChecklistRoutes(sql: Sql) {
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        const currentEmp = await empRepo.findByUserId(tx, user.id);
-
-        // Employees can only view their own checklist instances
+        // ONB-002: HR/admin the organization, managers their own and their
+        // reports', everyone else their own only.
+        const scope = checklistInstanceReadScope(
+          await resolvePolicyContext(c, tx),
+        );
         if (
-          user.role === "employee" &&
-          employeeId &&
-          currentEmp &&
-          employeeId !== currentEmp.id
+          employeeId !== undefined &&
+          !IdParamSchema.safeParse({ id: employeeId }).success
         ) {
-          return "FORBIDDEN";
+          throw new NotFoundError({ detail: "Employee not found" });
         }
+        if (employeeId !== undefined && scope !== "all") {
+          if (!scope.has(employeeId)) {
+            // Unknown or other-tenant ids are 404; real colleagues are 403.
+            if (!(await empRepo.findById(tx, employeeId))) {
+              throw new NotFoundError({ detail: "Employee not found" });
+            }
+            throw new ForbiddenError({
+              detail: "Cannot view other employee's checklists",
+            });
+          }
+        }
+        if (scope !== "all" && scope.size === 0) return [];
 
-        const targetEmployeeId =
-          user.role === "employee" ? (currentEmp?.id ?? "none") : employeeId;
-
-        return checklistRepo.listInstances(tx, {
-          employeeId: targetEmployeeId,
+        const rows = await checklistRepo.listInstances(tx, {
+          employeeId:
+            employeeId ??
+            (scope !== "all" && scope.size === 1 ? [...scope][0] : undefined),
           status,
         });
+        return scope === "all"
+          ? rows
+          : rows.filter((r) => scope.has(r.employeeId));
       },
     );
-
-    if (instances === "FORBIDDEN") {
-      return c.json(
-        createProblemDetails({
-          status: 403,
-          title: "Forbidden",
-          detail: "Cannot view other employee's checklists",
-          code: "FORBIDDEN",
-        }),
-        403,
-        { "Content-Type": "application/problem+json" },
-      );
-    }
 
     return c.json(
       instances.map((i) => ({
@@ -155,17 +161,10 @@ export function createChecklistRoutes(sql: Sql) {
   router.post("/checklists/instances", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
 
-    if (user.role === "employee") {
-      return c.json(
-        createProblemDetails({
-          status: 403,
-          title: "Forbidden",
-          detail: "Only managers or admins can assign checklists",
-          code: "FORBIDDEN",
-        }),
-        403,
-        { "Content-Type": "application/problem+json" },
-      );
+    if (!mayAssignChecklists(user)) {
+      throw new ForbiddenError({
+        detail: "Only managers or admins can assign checklists",
+      });
     }
 
     const { templateId, employeeId, baseDate, customTitle } =
@@ -178,14 +177,27 @@ export function createChecklistRoutes(sql: Sql) {
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        const templateTasks = await checklistRepo.getTemplateTasks(
-          tx,
-          templateId,
-        );
+        // ONB-002: HR/admin for anyone in the organization, managers for
+        // their direct reports only. Unknown or other-tenant ids are 404.
         const employee = await empRepo.findById(tx, employeeId);
         if (!employee) {
           throw new NotFoundError({ detail: "Employee not found" });
         }
+        if (!canAssignChecklist(await resolvePolicyContext(c, tx), employee)) {
+          throw new ForbiddenError({
+            detail: "You can only assign checklists to your direct reports",
+          });
+        }
+        if (!(await checklistRepo.templateExists(tx, templateId))) {
+          throw new NotFoundError({
+            detail: "Checklist template not found",
+            code: "TEMPLATE_NOT_FOUND",
+          });
+        }
+        const templateTasks = await checklistRepo.getTemplateTasks(
+          tx,
+          templateId,
+        );
 
         const scheduledTasks = computeChecklistTaskDueDates(
           templateTasks.map((t) => ({

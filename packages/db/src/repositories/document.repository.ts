@@ -19,6 +19,8 @@ export interface DocumentRow {
   latestStorageKey: string;
   createdAt: Date;
   updatedAt: Date;
+  /** DOC-001 soft delete; only ever set in data-subject exports. */
+  deletedAt: Date | null;
 }
 
 export interface DocumentVersionRow {
@@ -119,7 +121,8 @@ export class DocumentRepository {
              v.mime_type as "latestMimeType",
              v.size_bytes as "latestSizeBytes",
              v.storage_key as "latestStorageKey",
-             d.created_at as "createdAt", d.updated_at as "updatedAt"
+             d.created_at as "createdAt", d.updated_at as "updatedAt",
+             d.deleted_at as "deletedAt"
       FROM documents d
       LEFT JOIN employees e ON e.id = d.employee_id
       JOIN LATERAL (
@@ -130,6 +133,7 @@ export class DocumentRepository {
         LIMIT 1
       ) v ON true
       WHERE d.id = ${id} AND d.organization_id = ${tx.__tenantContext.organizationId}
+        AND d.deleted_at IS NULL
       LIMIT 1
     `;
     return rows[0] ?? null;
@@ -141,6 +145,8 @@ export class DocumentRepository {
       employeeId?: string | undefined;
       category?: string | undefined;
       isCompanyWide?: boolean | undefined;
+      /** Data-subject exports (ADM-004) include soft-deleted documents still held. */
+      includeDeleted?: boolean | undefined;
     } = {},
   ): Promise<DocumentRow[]> {
     return tx<DocumentRow[]>`
@@ -154,7 +160,8 @@ export class DocumentRepository {
              v.mime_type as "latestMimeType",
              v.size_bytes as "latestSizeBytes",
              v.storage_key as "latestStorageKey",
-             d.created_at as "createdAt", d.updated_at as "updatedAt"
+             d.created_at as "createdAt", d.updated_at as "updatedAt",
+             d.deleted_at as "deletedAt"
       FROM documents d
       LEFT JOIN employees e ON e.id = d.employee_id
       JOIN LATERAL (
@@ -165,6 +172,7 @@ export class DocumentRepository {
         LIMIT 1
       ) v ON true
       WHERE d.organization_id = ${tx.__tenantContext.organizationId}
+        AND (${filters.includeDeleted ?? false} = true OR d.deleted_at IS NULL)
         AND (${filters.employeeId ?? null}::uuid IS NULL OR d.employee_id = ${filters.employeeId ?? null})
         AND (${filters.category ?? null}::text IS NULL OR d.category = ${filters.category ?? null})
         AND (
@@ -176,8 +184,18 @@ export class DocumentRepository {
     `;
   }
 
-  async delete(tx: TenantTx, id: string): Promise<boolean> {
-    const res = await tx`DELETE FROM documents WHERE id = ${id}`;
+  /**
+   * DOC-001 soft delete: hides the document from every read path while its
+   * row, versions and stored files are kept for retention enforcement
+   * (ADM-005). Returns false when the id is unknown or already deleted.
+   */
+  async softDelete(tx: TenantTx, id: string): Promise<boolean> {
+    const res = await tx`
+      UPDATE documents SET deleted_at = now(), updated_at = now()
+      WHERE id = ${id}
+        AND organization_id = ${tx.__tenantContext.organizationId}
+        AND deleted_at IS NULL
+    `;
     return res.count > 0;
   }
 

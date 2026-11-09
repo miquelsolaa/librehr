@@ -33,6 +33,7 @@ describe("documents API scope", () => {
   let a: ScopedOrgFixture;
   let b: ScopedOrgFixture;
   const docs: Record<string, string> = {};
+  const storage = new MemoryStorage();
   let templateId = "";
 
   async function upload(
@@ -61,8 +62,8 @@ describe("documents API scope", () => {
     a = await seedScopedOrg(db.sql, "docs-a");
     b = await seedScopedOrg(db.sql, "docs-b");
     app = createApp({
-      sql: db.sql,
-      storagePort: new MemoryStorage(),
+      sql: await db.appSql(),
+      storagePort: storage,
       authPort: fixtureAuthPort([
         a.admin,
         a.manager,
@@ -145,10 +146,28 @@ describe("documents API scope", () => {
       expect((await download(docs["contract"], a.admin)).status).toBe(200);
     });
 
-    it("restricts payslips to their employee (and payroll)", async () => {
+    it("lets the employee and HR/admin open a payslip, not managers or auditors", async () => {
       expect((await download(docs["payslip"], a.report)).status).toBe(200);
-      expect((await download(docs["payslip"], a.admin)).status).toBe(403);
+      expect((await download(docs["payslip"], a.admin)).status).toBe(200);
       expect((await download(docs["payslip"], a.manager)).status).toBe(403);
+      expect((await download(docs["payslip"], a.auditor)).status).toBe(403);
+      expect((await download(docs["payslip"], a.peer)).status).toBe(403);
+    });
+
+    it("audits every payslip open with ids only", async () => {
+      const rows = await db.sql<{ actor_id: string; metadata: unknown }[]>`
+        SELECT actor_id, metadata FROM audit_log
+        WHERE action = 'document.download' AND resource_id = ${docs["payslip"] ?? ""}
+      `;
+      expect(rows.map((r) => r.actor_id).sort()).toEqual(
+        [a.admin.id, a.report.id].sort(),
+      );
+      for (const row of rows) {
+        const meta = JSON.stringify(row.metadata);
+        expect(meta).not.toContain("Payslip");
+        expect(meta).not.toContain("file.pdf");
+        expect(meta).not.toContain("@fixture.invalid");
+      }
     });
 
     it("serves company documents to their audience only", async () => {
@@ -207,6 +226,55 @@ describe("documents API scope", () => {
         { headers: as(a.peer) },
       );
       expect(res.status).toBe(403);
+    });
+  });
+
+  // DOC-001: DELETE is a soft delete; rows and files are kept for ADM-005.
+  describe("DELETE /v1/documents/:id", () => {
+    const remove = (doc: string | undefined, who: FixturePerson) =>
+      app.request(`/v1/documents/${doc}`, {
+        method: "DELETE",
+        headers: as(who),
+      });
+    let doomed = "";
+
+    beforeAll(async () => {
+      doomed = await upload(a.admin, {
+        employeeId: a.report.employeeId,
+        title: "Certificate",
+        category: "certificates",
+      });
+    });
+
+    it("forbids employees and managers", async () => {
+      expect((await remove(doomed, a.report)).status).toBe(403);
+      expect((await remove(doomed, a.manager)).status).toBe(403);
+    });
+
+    it("returns 404 for another tenant", async () => {
+      expect((await remove(doomed, b.admin)).status).toBe(404);
+    });
+
+    it("hides the document but keeps its row and stored file", async () => {
+      expect((await remove(doomed, a.admin)).status).toBe(200);
+
+      const rows = await db.sql<{ deleted: boolean; key: string }[]>`
+        SELECT d.deleted_at IS NOT NULL AS deleted, v.storage_key AS key
+        FROM documents d JOIN document_versions v ON v.document_id = d.id
+        WHERE d.id = ${doomed}
+      `;
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.deleted).toBe(true);
+      expect(await storage.get(rows[0]?.key ?? "")).not.toBeNull();
+
+      for (const who of [a.admin, a.report]) {
+        const list = await app.request("/v1/documents", { headers: as(who) });
+        expect(list.status).toBe(200);
+        expect(JSON.stringify(await list.json())).not.toContain(doomed);
+      }
+      expect((await download(doomed, a.report)).status).toBe(404);
+      expect((await download(doomed, a.admin)).status).toBe(404);
+      expect((await remove(doomed, a.admin)).status).toBe(404);
     });
   });
 

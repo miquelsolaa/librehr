@@ -88,3 +88,15 @@ tests.
 - Research supplied for the redesign is secondary research, not completed
   primary usability validation. Legal status and compliance claims require
   independent review.
+- Approvals (LEA-004, TIM-003): nobody approves or rejects their own leave
+  request or time correction, administrators included; the API answers 403
+  with code `SELF_APPROVAL_FORBIDDEN`. Built-in roles do not separate Owner
+  and HR Admin (both are `admin`), so an organization whose only approver is a
+  single admin without a manager cannot get that admin's requests decided.
+  Add a second admin, or set a manager for that admin; there is no override.
+- Payslips (DOC-003): opened by the employee and by administrators (standing
+  in for Owner/HR Admin until a Payroll role exists, ADM-001); not by managers
+  or auditors. Every download is audited with ids only (ADM-002).
+- Document deletion (DOC-001) is soft: the document disappears from lists,
+  downloads and acknowledgements, while its rows and stored files are kept
+  until retention enforcement (ADM-005, not yet implemented) purges them.

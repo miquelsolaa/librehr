@@ -17,6 +17,7 @@ import {
 } from "@librehr/db";
 import { IdParamSchema, parseParams } from "../lib/validate.js";
 import { requireAuth } from "../middleware/auth.js";
+import { assertNotSelfApproval } from "../policies/approvals.js";
 import {
   canOnEmployee,
   inEmployeeFilter,
@@ -193,11 +194,13 @@ export function createTimeCorrectionRoutes(sql: Sql) {
         const targetEmp = await employeeRepo.findById(tx, corr.employeeId);
         if (!targetEmp) return { error: "NOT_FOUND" as const };
 
-        const allowed = canOnEmployee(
-          await resolvePolicyContext(c, tx),
-          "time.record.correct",
-          targetEmp,
-        );
+        const ctx = await resolvePolicyContext(c, tx);
+        // TIM-003: nobody decides their own correction, admins included.
+        assertNotSelfApproval(ctx, {
+          employeeId: targetEmp.id,
+          userId: targetEmp.userId,
+        });
+        const allowed = canOnEmployee(ctx, "time.record.correct", targetEmp);
 
         if (!allowed) {
           return { error: "FORBIDDEN" as const };

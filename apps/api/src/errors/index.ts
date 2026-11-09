@@ -8,6 +8,7 @@ export {
   ConflictError,
   ForbiddenError,
   NotFoundError,
+  SelfApprovalForbiddenError,
   UnauthorizedError,
   ValidationError,
   type ValidationErrorOptions,
