@@ -1,10 +1,24 @@
-import { describe, it, expect, vi } from "vitest";
-import type { Sql } from "postgres";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
+import {
+  createRoleSeparatedDatabase,
+  getTestDatabase,
+  type RoleSeparatedDatabase,
+  type TestDatabase,
+} from "@librehr/testing";
+import { runMigrations } from "@librehr/db/migrate";
+import type { AuthUser, ProblemDetails, WebhookItem } from "@librehr/contracts";
 import { createApp } from "../src/app.js";
 import type { AuthPort, AuthSession } from "../src/ports/auth.js";
-import type { AuthUser, ProblemDetails, WebhookItem } from "@librehr/contracts";
 
-class FakeAuthPort implements AuthPort {
+class MockAuthPort implements AuthPort {
   private sessions = new Map<string, AuthSession>();
 
   async verifyCredentials(): Promise<AuthUser | null> {
@@ -14,7 +28,7 @@ class FakeAuthPort implements AuthPort {
   async createSession(user: AuthUser): Promise<AuthSession> {
     const session: AuthSession = {
       user,
-      token: "fake_session_token",
+      token: `token_${user.id}`,
       expiresAt: new Date(Date.now() + 3600000),
     };
     this.sessions.set(session.token, session);
@@ -22,32 +36,6 @@ class FakeAuthPort implements AuthPort {
   }
 
   async getSession(token: string): Promise<AuthSession | null> {
-    if (token === "fake_admin_token") {
-      return {
-        user: {
-          id: "00000000-0000-0000-0000-000000000001",
-          email: "admin@librehr.local",
-          name: "Admin User",
-          role: "admin",
-          organizationId: "10000000-0000-0000-0000-000000000001",
-        },
-        token: "fake_admin_token",
-        expiresAt: new Date(Date.now() + 3600000),
-      };
-    }
-    if (token === "fake_employee_token") {
-      return {
-        user: {
-          id: "00000000-0000-0000-0000-000000000002",
-          email: "employee@librehr.local",
-          name: "Employee User",
-          role: "employee",
-          organizationId: "10000000-0000-0000-0000-000000000001",
-        },
-        token: "fake_employee_token",
-        expiresAt: new Date(Date.now() + 3600000),
-      };
-    }
     return this.sessions.get(token) ?? null;
   }
 
@@ -56,209 +44,165 @@ class FakeAuthPort implements AuthPort {
   }
 }
 
+// ADM-006. Runs as librehr_app against a real database; the previous version
+// used a hand-written fake `tx` that did not implement `tx.json()`.
 describe("Outbound Webhooks API (ADM-006)", () => {
-  const inMemoryWebhooks: WebhookItem[] = [];
+  let base: TestDatabase;
+  let db: RoleSeparatedDatabase;
+  let app: ReturnType<typeof createApp>;
 
-  const fakeTx = Object.assign(
-    async (strings: TemplateStringsArray, ...values: unknown[]) => {
-      try {
-        const query = strings ? strings.join("?") : "";
-        if (query.includes("SET LOCAL") || query.includes("set_config")) {
-          return [];
-        }
-        if (query.includes("INSERT INTO audit_log")) {
-          return [];
-        }
-        if (query.includes("INSERT INTO webhooks")) {
-          const name = values[0] as string;
-          const url = values[1] as string;
-          const secret = values[2] as string;
-          const events = JSON.parse(values[3] as string) as string[];
-          const enabled = values[4] as boolean;
+  const orgId = "d1000000-0000-0000-0000-000000000001";
+  const otherOrgId = "d2000000-0000-0000-0000-000000000002";
+  const admin: AuthUser = {
+    id: "d1000000-0000-0000-0000-0000000000a1",
+    email: "admin@example.invalid",
+    name: "Admin User",
+    role: "admin",
+    organizationId: orgId,
+  };
+  const employee: AuthUser = {
+    id: "d1000000-0000-0000-0000-0000000000e1",
+    email: "employee@example.invalid",
+    name: "Employee User",
+    role: "employee",
+    organizationId: orgId,
+  };
+  const otherAdmin: AuthUser = {
+    id: "d2000000-0000-0000-0000-0000000000a2",
+    email: "other-admin@example.invalid",
+    name: "Other Admin",
+    role: "admin",
+    organizationId: otherOrgId,
+  };
+  const authPort = new MockAuthPort();
+  let createdId = "";
 
-          const item: WebhookItem = {
-            id: "20000000-0000-0000-0000-000000000001",
-            organizationId: "10000000-0000-0000-0000-000000000001",
-            name,
-            url,
-            secret,
-            events,
-            enabled,
-            lastDeliveryStatus: null,
-            lastDeliveredAt: null,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          };
-          inMemoryWebhooks.push(item);
-          return [item];
-        }
+  const call = (
+    method: string,
+    path: string,
+    user: AuthUser | null,
+    body?: unknown,
+  ) =>
+    app.request(path, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        ...(user ? { Authorization: `Bearer token_${user.id}` } : {}),
+      },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    });
 
-        if (
-          query.includes("SELECT") &&
-          query.includes("FROM webhooks") &&
-          query.includes("WHERE id =")
-        ) {
-          const id = values[0] as string;
-          return inMemoryWebhooks.filter((w) => w.id === id);
-        }
+  beforeAll(async () => {
+    const database = await getTestDatabase();
+    if (!database) throw new Error("Docker is required for integration tests");
+    base = database;
+    db = await createRoleSeparatedDatabase(base);
+    await runMigrations(db.ownerConnectionString);
 
-        if (query.includes("SELECT") && query.includes("FROM webhooks")) {
-          return inMemoryWebhooks;
-        }
+    const sql = db.adminSql;
+    await sql`INSERT INTO organizations (id, name, slug) VALUES
+      (${orgId}, 'Org Hooks', 'org-hooks'), (${otherOrgId}, 'Other', 'org-hooks-other')`;
+    await sql`INSERT INTO users (id, email, name) VALUES
+      (${admin.id}, ${admin.email}, ${admin.name}),
+      (${employee.id}, ${employee.email}, ${employee.name}),
+      (${otherAdmin.id}, ${otherAdmin.email}, ${otherAdmin.name})`;
 
-        if (
-          query.includes("UPDATE webhooks") &&
-          query.includes("SET") &&
-          query.includes("last_delivery_status =")
-        ) {
-          const status = values[0] as number;
-          const id = values[1] as string;
-          const found = inMemoryWebhooks.find((w) => w.id === id);
-          if (found) {
-            found.lastDeliveryStatus = status;
-            found.lastDeliveredAt = new Date();
-          }
-          return [];
-        }
+    for (const user of [admin, employee, otherAdmin]) {
+      await authPort.createSession(user);
+    }
 
-        if (query.includes("DELETE FROM webhooks")) {
-          const id = values[0] as string;
-          const idx = inMemoryWebhooks.findIndex((w) => w.id === id);
-          if (idx >= 0) {
-            inMemoryWebhooks.splice(idx, 1);
-            return Object.assign([], { count: 1 });
-          }
-          return Object.assign([], { count: 0 });
-        }
+    app = createApp({ sql: db.appSql, authPort });
+  }, 60000);
 
-        return [];
-      } catch (e) {
-        console.error("FAKE TX ERROR:", e);
-        throw e;
-      }
-    },
-    { count: 0 },
-  );
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
 
-  const fakeSql = Object.assign(async () => [], {
-    begin: async (callback: (tx: unknown) => Promise<unknown>) => {
-      const txInstance = Object.assign(
-        (...args: [TemplateStringsArray, ...unknown[]]) => fakeTx(...args),
-        { count: 0 },
-      );
-      return callback(txInstance);
-    },
-  }) as unknown as Sql;
-
-  const authPort = new FakeAuthPort();
-  const app = createApp({ sql: fakeSql, authPort });
+  afterAll(async () => {
+    if (db) await db.close();
+    if (base) await base.close();
+  });
 
   it("GET /v1/webhooks requires authentication", async () => {
-    const res = await app.request("/v1/webhooks");
+    const res = await call("GET", "/v1/webhooks", null);
     expect(res.status).toBe(401);
   });
 
   it("GET /v1/webhooks denies non-admin users with 403", async () => {
-    const res = await app.request("/v1/webhooks", {
-      headers: { Authorization: "Bearer fake_employee_token" },
-    });
+    const res = await call("GET", "/v1/webhooks", employee);
     expect(res.status).toBe(403);
     const body = (await res.json()) as ProblemDetails;
     expect(body.code).toBe("FORBIDDEN");
   });
 
   it("POST /v1/webhooks validates request payload", async () => {
-    const res = await app.request("/v1/webhooks", {
-      method: "POST",
-      headers: {
-        Authorization: "Bearer fake_admin_token",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        name: "Test",
-      }),
-    });
-
+    const res = await call("POST", "/v1/webhooks", admin, { name: "Test" });
     expect(res.status).toBe(400);
     const body = (await res.json()) as ProblemDetails;
     expect(body.code).toBe("VALIDATION_ERROR");
   });
 
   it("POST /v1/webhooks creates a webhook subscription", async () => {
-    const res = await app.request("/v1/webhooks", {
-      method: "POST",
-      headers: {
-        Authorization: "Bearer fake_admin_token",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        name: "Slack Notifications",
-        url: "https://hooks.slack.com/services/test",
-        events: ["employee.created", "leave.approved"],
-        enabled: true,
-      }),
+    const res = await call("POST", "/v1/webhooks", admin, {
+      name: "Slack Notifications",
+      url: "https://hooks.slack.com/services/test",
+      events: ["employee.created", "leave.approved"],
+      enabled: true,
     });
 
     expect(res.status).toBe(201);
     const body = (await res.json()) as WebhookItem;
-    expect(body.id).toBe("20000000-0000-0000-0000-000000000001");
+    createdId = body.id;
     expect(body.name).toBe("Slack Notifications");
+    expect(body.organizationId).toBe(orgId);
     expect(body.secret).toMatch(/^whsec_/);
     expect(body.events).toContain("employee.created");
   });
 
   it("GET /v1/webhooks lists subscriptions", async () => {
-    const res = await app.request("/v1/webhooks", {
-      headers: { Authorization: "Bearer fake_admin_token" },
-    });
-
+    const res = await call("GET", "/v1/webhooks", admin);
     expect(res.status).toBe(200);
     const list = (await res.json()) as WebhookItem[];
-    expect(list.length).toBeGreaterThanOrEqual(1);
+    expect(list).toHaveLength(1);
     expect(list[0]?.name).toBe("Slack Notifications");
   });
 
+  it("does not list or test another organization's webhooks", async () => {
+    const list = await call("GET", "/v1/webhooks", otherAdmin);
+    expect((await list.json()) as WebhookItem[]).toHaveLength(0);
+    const test = await call(
+      "POST",
+      `/v1/webhooks/${createdId}/test`,
+      otherAdmin,
+    );
+    expect(test.status).toBe(404);
+  });
+
   it("POST /v1/webhooks/:id/test sends ping and records delivery", async () => {
-    // Mock global fetch to return 200
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      statusText: "OK",
-    }) as unknown as typeof fetch;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("ok", { status: 200 })),
+    );
 
-    try {
-      const res = await app.request(
-        "/v1/webhooks/20000000-0000-0000-0000-000000000001/test",
-        {
-          method: "POST",
-          headers: { Authorization: "Bearer fake_admin_token" },
-        },
-      );
+    const res = await call("POST", `/v1/webhooks/${createdId}/test`, admin);
+    expect(res.status).toBe(200);
+    const result = (await res.json()) as {
+      success: boolean;
+      statusCode: number;
+      durationMs: number;
+    };
+    expect(result.success).toBe(true);
+    expect(result.statusCode).toBe(200);
+    expect(result.durationMs).toBeGreaterThanOrEqual(0);
 
-      expect(res.status).toBe(200);
-      const result = (await res.json()) as {
-        success: boolean;
-        statusCode: number;
-        durationMs: number;
-      };
-      expect(result.success).toBe(true);
-      expect(result.statusCode).toBe(200);
-      expect(result.durationMs).toBeGreaterThanOrEqual(0);
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
+    const [row] = await db.adminSql<
+      { last_delivery_status: number | null }[]
+    >`SELECT last_delivery_status FROM webhooks WHERE id = ${createdId}`;
+    expect(row?.last_delivery_status).toBe(200);
   });
 
   it("DELETE /v1/webhooks/:id removes webhook subscription", async () => {
-    const res = await app.request(
-      "/v1/webhooks/20000000-0000-0000-0000-000000000001",
-      {
-        method: "DELETE",
-        headers: { Authorization: "Bearer fake_admin_token" },
-      },
-    );
-
+    const res = await call("DELETE", `/v1/webhooks/${createdId}`, admin);
     expect(res.status).toBe(200);
     const body = (await res.json()) as { success: boolean };
     expect(body.success).toBe(true);
