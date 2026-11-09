@@ -56,10 +56,14 @@ step 4. Older installs, where `DATABASE_URL` pointed at the bootstrap superuser
 1. **Back up** the database (see the standard workflow above) and stop `api`
    and `worker`.
 
-2. **Choose passwords** for both roles (`openssl rand -base64 32` each) and put
+2. **Choose passwords** for both roles (`openssl rand -hex 32` each) and put
    them in `.env` as `LIBREHR_OWNER_PASSWORD` and `LIBREHR_APP_PASSWORD`. The
    init script never runs again on an existing volume, so the next step applies
-   them.
+   them. Use hex, not base64: these passwords end up inside
+   `postgres://user:password@host` URLs, where base64's `/` and `+` break
+   parsing. A password you choose yourself must be URL-encoded in the URL
+   (`/` as `%2F`, `+` as `%2B`, `@` as `%40`, ...); the API and worker refuse
+   to start with an unparseable database URL.
 
 3. **Fix roles, ownership and grants** as the bootstrap superuser. Save the
    script below as `upgrade-roles.sql` and run it with the passwords passed as
