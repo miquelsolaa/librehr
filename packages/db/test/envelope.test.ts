@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import crypto from "node:crypto";
 import {
+  configureEnvelopeKey,
   encryptEnvelope,
   decryptEnvelope,
   getMasterKeyFromEnv,
@@ -33,6 +34,31 @@ describe("getMasterKeyFromEnv in production (DOC-004)", () => {
     const key = crypto.randomBytes(32);
     vi.stubEnv("ENVELOPE_MASTER_KEY", key.toString("base64"));
     expect(getMasterKeyFromEnv().equals(key)).toBe(true);
+  });
+
+  it("uses a configured key when the process env has none (Docker secrets)", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("ENVELOPE_MASTER_KEY", "");
+    const key = crypto.randomBytes(32);
+    configureEnvelopeKey(key.toString("base64"));
+    try {
+      expect(getMasterKeyFromEnv().equals(key)).toBe(true);
+    } finally {
+      configureEnvelopeKey(undefined);
+    }
+  });
+
+  it("ignores a configured dev key, so production still refuses it", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("ENVELOPE_MASTER_KEY", "");
+    configureEnvelopeKey(
+      "ZGV2X2VudmVsb3BlX21hc3Rlcl9rZXlfZm9yX2xvY2FsX2Rldg==",
+    );
+    try {
+      expect(() => getMasterKeyFromEnv()).toThrow(/ENVELOPE_MASTER_KEY/);
+    } finally {
+      configureEnvelopeKey(undefined);
+    }
   });
 
   it("keeps the dev fallback outside production", () => {

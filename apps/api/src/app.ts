@@ -14,6 +14,7 @@ import { securityHeadersMiddleware } from "./middleware/security-headers.js";
 import { createAuthMiddleware } from "./middleware/auth.js";
 import { createCsrfMiddleware } from "./middleware/csrf.js";
 import { tenantContextMiddleware } from "./middleware/tenant-context.js";
+import { patScopeMiddleware } from "./middleware/pat-scopes.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { createHealthRoutes } from "./routes/health.js";
 import { createAuthRoutes } from "./routes/auth.js";
@@ -104,6 +105,7 @@ export function createApp(deps: AppDependencies) {
     }),
   );
   app.use("*", tenantContextMiddleware);
+  app.use("*", patScopeMiddleware);
 
   // 2. Health & Readiness
   const healthRoutes = createHealthRoutes(deps.sql);

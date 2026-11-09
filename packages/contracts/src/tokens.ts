@@ -11,9 +11,21 @@ export const PersonalAccessTokenSchema = z.object({
 });
 export type PersonalAccessTokenItem = z.infer<typeof PersonalAccessTokenSchema>;
 
+/** Scopes enforced by the API for token-authenticated requests (ADM-006). */
+export const PersonalAccessTokenScopeSchema = z.enum([
+  "read",
+  "write",
+  "admin",
+]);
+export type PersonalAccessTokenScope = z.infer<
+  typeof PersonalAccessTokenScopeSchema
+>;
+
 export const CreatePersonalAccessTokenSchema = z.object({
   name: z.string().min(1, "Token name is required"),
-  scopes: z.array(z.string()).min(1, "At least one scope is required"),
+  scopes: z
+    .array(PersonalAccessTokenScopeSchema)
+    .min(1, "At least one scope is required"),
   expiresInDays: z.number().int().positive().optional(),
 });
 export type CreatePersonalAccessToken = z.infer<

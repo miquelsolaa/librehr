@@ -25,9 +25,20 @@ import {
   AuditRepository,
   EmergencyContactRepository,
   AccessRevocationRepository,
+  type TenantTx,
 } from "@librehr/db";
+import { z } from "zod";
+import { ForbiddenError, NotFoundError } from "../errors/index.js";
+import { IdParamSchema, parseParams } from "../lib/validate.js";
 import { requireAuth } from "../middleware/auth.js";
-import { can } from "../policies/can.js";
+import { can, permissionScope } from "../policies/can.js";
+import { canOnEmployee, resolvePolicyContext } from "../policies/context.js";
+import {
+  canSeeDirectory,
+  employeeProfileView,
+  toDirectoryEntry,
+  toEmployeeProfile,
+} from "../policies/employee-visibility.js";
 
 export function createEmployeeRoutes(sql: Sql) {
   const router = new Hono();
@@ -36,29 +47,10 @@ export function createEmployeeRoutes(sql: Sql) {
   const emergencyRepo = new EmergencyContactRepository();
   const accessRevocationRepo = new AccessRevocationRepository();
 
+  // EMP-001 directory: visible to anyone holding employee.read at any scope,
+  // limited to directory fields whatever the caller's scope.
   router.get("/employees", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-
-    const allowed = can(
-      {
-        userId: user.id,
-        organizationId: user.organizationId,
-        role: user.role,
-      },
-      "employee.read",
-    );
-
-    if (!allowed) {
-      const problem = createProblemDetails({
-        status: 403,
-        title: "Forbidden",
-        detail: "You do not have permission to view employees",
-        code: "FORBIDDEN",
-      });
-      return c.json(problem, 403, {
-        "Content-Type": "application/problem+json",
-      });
-    }
 
     const queryParse = ListEmployeesQuerySchema.safeParse(c.req.query());
     if (!queryParse.success) {
@@ -79,12 +71,17 @@ export function createEmployeeRoutes(sql: Sql) {
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
+        if (!canSeeDirectory(await resolvePolicyContext(c, tx))) {
+          throw new ForbiddenError({
+            detail: "You do not have permission to view employees",
+          });
+        }
         return employeeRepo.list(tx, filters);
       },
     );
 
     return c.json({
-      items: result.items,
+      items: result.items.map(toDirectoryEntry),
       total: result.total,
       page: filters.page,
       pageSize: filters.pageSize,
@@ -189,59 +186,36 @@ export function createEmployeeRoutes(sql: Sql) {
       },
     );
 
-    return c.json(created, 201);
+    return c.json(toEmployeeProfile(created, "full"), 201);
   });
 
+  // EMP-004: field-level visibility by relationship; never ciphertext.
   router.get("/employees/:id", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const id = c.req.param("id");
+    const { id } = parseParams(c, IdParamSchema, {
+      detail: "Employee not found",
+    });
 
-    const allowed = can(
-      {
-        userId: user.id,
-        organizationId: user.organizationId,
-        role: user.role,
-      },
-      "employee.read",
-      {
-        organizationId: user.organizationId,
-        employeeId: id,
-      },
-    );
-
-    if (!allowed) {
-      const problem = createProblemDetails({
-        status: 403,
-        title: "Forbidden",
-        detail: "Access denied to this employee record",
-        code: "FORBIDDEN",
-      });
-      return c.json(problem, 403, {
-        "Content-Type": "application/problem+json",
-      });
-    }
-
-    const emp = await withTenant(
+    const profile = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        return employeeRepo.findById(tx, id);
+        const emp = await employeeRepo.findById(tx, id);
+        if (!emp) throw new NotFoundError({ detail: "Employee not found" });
+        const view = employeeProfileView(
+          await resolvePolicyContext(c, tx),
+          emp,
+        );
+        if (!view) {
+          throw new ForbiddenError({
+            detail: "Access denied to this employee record",
+          });
+        }
+        return toEmployeeProfile(emp, view);
       },
     );
 
-    if (!emp) {
-      const problem = createProblemDetails({
-        status: 404,
-        title: "Not Found",
-        detail: "Employee not found",
-        code: "NOT_FOUND",
-      });
-      return c.json(problem, 404, {
-        "Content-Type": "application/problem+json",
-      });
-    }
-
-    return c.json(emp);
+    return c.json(profile);
   });
 
   router.patch("/employees/:id", requireAuth, async (c) => {
@@ -317,6 +291,9 @@ export function createEmployeeRoutes(sql: Sql) {
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
+        if (!(await employeeRepo.findById(tx, id))) {
+          throw new NotFoundError({ detail: "Employee not found" });
+        }
         const result = await employeeRepo.update(tx, id, data);
         await auditRepo.log(tx, {
           actorId: user.id,
@@ -328,7 +305,7 @@ export function createEmployeeRoutes(sql: Sql) {
       },
     );
 
-    return c.json(updated);
+    return c.json(toEmployeeProfile(updated, "full"));
   });
 
   router.post("/employees/:id/terminate", requireAuth, async (c) => {
@@ -378,6 +355,9 @@ export function createEmployeeRoutes(sql: Sql) {
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
+        if (!(await employeeRepo.findById(tx, id))) {
+          throw new NotFoundError({ detail: "Employee not found" });
+        }
         const result = await employeeRepo.terminate(tx, id, parse.data);
         // EMP-007: when the date is today or past (org time zone) the user's
         // sessions and tokens in this org go now; a future date is enforced
@@ -400,7 +380,7 @@ export function createEmployeeRoutes(sql: Sql) {
       },
     );
 
-    return c.json(terminated);
+    return c.json(toEmployeeProfile(terminated, "full"));
   });
 
   router.post("/employees/:id/reveal", requireAuth, async (c) => {
@@ -452,6 +432,9 @@ export function createEmployeeRoutes(sql: Sql) {
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
+        if (!(await employeeRepo.findById(tx, id))) {
+          throw new NotFoundError({ detail: "Employee not found" });
+        }
         const revealed = await employeeRepo.revealSensitiveField(tx, id, field);
 
         // Immutable audit log recording who revealed the sensitive field
@@ -476,31 +459,18 @@ export function createEmployeeRoutes(sql: Sql) {
   // Org Chart endpoint (ORG-004) - supports /people/org-chart and /employees/org-chart
   const handleOrgChart = async (c: import("hono").Context) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const allowed = can(
-      {
-        userId: user.id,
-        organizationId: user.organizationId,
-        role: user.role,
-      },
-      "employee.read",
-    );
 
-    if (!allowed) {
-      const problem = createProblemDetails({
-        status: 403,
-        title: "Forbidden",
-        detail: "You do not have permission to view the org chart",
-        code: "FORBIDDEN",
-      });
-      return c.json(problem, 403, {
-        "Content-Type": "application/problem+json",
-      });
-    }
-
+    // Org chart nodes carry directory fields only, so it follows the
+    // directory rule (EMP-001).
     const orgChart = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
+        if (!canSeeDirectory(await resolvePolicyContext(c, tx))) {
+          throw new ForbiddenError({
+            detail: "You do not have permission to view the org chart",
+          });
+        }
         const flatItems = await employeeRepo.findOrgChartItems(tx);
         return buildOrgChart(flatItems);
       },
@@ -512,15 +482,39 @@ export function createEmployeeRoutes(sql: Sql) {
   router.get("/employees/org-chart", requireAuth, handleOrgChart);
   router.get("/people/org-chart", requireAuth, handleOrgChart);
 
-  // Emergency Contacts endpoints (EMP-002)
+  // Emergency contacts (EMP-002) are personal data: the employee themselves
+  // and organization-scoped HR/admin only, not managers or colleagues.
+  const requireContactAccess = async (
+    c: import("hono").Context,
+    tx: TenantTx,
+    employeeId: string,
+    permission: "employee.read" | "employee.write",
+  ) => {
+    const ctx = await resolvePolicyContext(c, tx);
+    const emp = await employeeRepo.findById(tx, employeeId);
+    if (!emp) throw new NotFoundError({ detail: "Employee not found" });
+    const isSelf = ctx.employeeId === emp.id;
+    const isHr =
+      permissionScope(ctx, permission) === "organization" &&
+      canOnEmployee(ctx, permission, emp);
+    if (!isSelf && !isHr) {
+      throw new ForbiddenError({
+        detail: "You can only manage your own emergency contacts",
+      });
+    }
+  };
+
   router.get("/people/:id/emergency-contacts", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const employeeId = c.req.param("id");
+    const { id: employeeId } = parseParams(c, IdParamSchema, {
+      detail: "Employee not found",
+    });
 
     const contacts = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
+        await requireContactAccess(c, tx, employeeId, "employee.read");
         return emergencyRepo.findByEmployeeId(tx, employeeId);
       },
     );
@@ -530,7 +524,9 @@ export function createEmployeeRoutes(sql: Sql) {
 
   router.post("/people/:id/emergency-contacts", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const employeeId = c.req.param("id");
+    const { id: employeeId } = parseParams(c, IdParamSchema, {
+      detail: "Employee not found",
+    });
 
     const body = await c.req.json();
     const parse = CreateEmergencyContactSchema.safeParse(body);
@@ -550,17 +546,19 @@ export function createEmployeeRoutes(sql: Sql) {
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
+        await requireContactAccess(c, tx, employeeId, "employee.write");
         const created = await emergencyRepo.create(tx, {
           employeeId,
           ...parse.data,
         });
 
+        // Ids only: the contact's name is third-party personal data.
         await auditRepo.log(tx, {
           actorId: user.id,
           action: "employee.emergency_contact_created",
           resourceType: "emergency_contact",
           resourceId: created.id,
-          metadata: { employeeId, fullName: created.fullName },
+          metadata: { employeeId },
         });
 
         return created;
@@ -575,12 +573,21 @@ export function createEmployeeRoutes(sql: Sql) {
     requireAuth,
     async (c) => {
       const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-      const contactId = c.req.param("contactId");
+      const { id: employeeId, contactId } = parseParams(
+        c,
+        z.object({ id: z.string().uuid(), contactId: z.string().uuid() }),
+        { detail: "Emergency contact not found" },
+      );
 
       await withTenant(
         sql,
         { organizationId: user.organizationId, userId: user.id },
         async (tx) => {
+          await requireContactAccess(c, tx, employeeId, "employee.write");
+          const existing = await emergencyRepo.findById(tx, contactId);
+          if (!existing || existing.employeeId !== employeeId) {
+            throw new NotFoundError({ detail: "Emergency contact not found" });
+          }
           await emergencyRepo.delete(tx, contactId);
           await auditRepo.log(tx, {
             actorId: user.id,
@@ -623,7 +630,11 @@ export function createEmployeeRoutes(sql: Sql) {
 
         // Verify that the user is editing their own employee profile or is HR/Admin
         const isSelf = current.userId === user.id;
-        const isAdminOrHr = user.role === "admin" || user.role === "hr";
+        const isAdminOrHr = canOnEmployee(
+          await resolvePolicyContext(c, tx),
+          "employee.write",
+          current,
+        );
 
         if (!isSelf && !isAdminOrHr) {
           return "FORBIDDEN";
@@ -640,8 +651,9 @@ export function createEmployeeRoutes(sql: Sql) {
           action: "employee.self_service_update",
           resourceType: "employee",
           resourceId: employeeId,
+          // Field names only: the values are contact data (PII).
           metadata: {
-            changes: parse.data,
+            fields: Object.keys(parse.data),
             isSelf,
           },
         });
@@ -674,7 +686,7 @@ export function createEmployeeRoutes(sql: Sql) {
       });
     }
 
-    return c.json(updated);
+    return c.json(toEmployeeProfile(updated, "full"));
   });
 
   // TIM-010: Set or update employee Kiosk PIN

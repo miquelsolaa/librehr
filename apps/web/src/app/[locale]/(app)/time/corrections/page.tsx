@@ -18,6 +18,35 @@ export default function TimeCorrectionsPage() {
     searchParams.get("date") ?? new Date().toISOString().slice(0, 10);
 
   const t = useTranslations("timeTracking");
+  const tTimeOff = useTranslations("timeOff");
+
+  const eventTypeLabel = (value: string): string => {
+    switch (value) {
+      case "clock_in":
+        return t("clockIn");
+      case "clock_out":
+        return t("clockOut");
+      case "break_start":
+        return t("startBreak");
+      case "break_end":
+        return t("endBreak");
+      default:
+        return value;
+    }
+  };
+
+  const statusLabel = (value: string): string => {
+    switch (value) {
+      case "approved":
+        return tTimeOff("statusApproved");
+      case "rejected":
+        return tTimeOff("statusRejected");
+      case "pending":
+        return tTimeOff("statusPending");
+      default:
+        return value;
+    }
+  };
 
   const [corrections, setCorrections] = React.useState<TimeCorrectionItem[]>(
     [],
@@ -73,10 +102,8 @@ export default function TimeCorrectionsPage() {
 
       setReason("");
       await fetchCorrections();
-    } catch (err: unknown) {
-      setError(
-        err instanceof Error ? err.message : "Failed to submit correction",
-      );
+    } catch {
+      setError(t("correctionFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -102,8 +129,8 @@ export default function TimeCorrectionsPage() {
           href={`/${locale}/time`}
           className="flex items-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
-          <ArrowLeft className="mr-1 h-4 w-4" />
-          Back to Time Tracking
+          <ArrowLeft className="mr-1 h-4 w-4" aria-hidden="true" />
+          {t("backToTime")}
         </Link>
       </div>
 
@@ -118,7 +145,10 @@ export default function TimeCorrectionsPage() {
           </div>
 
           {error && (
-            <div className="rounded-md bg-red-50 p-3 text-xs text-red-700 dark:bg-red-950/50 dark:text-red-400">
+            <div
+              role="alert"
+              className="rounded-md bg-red-50 p-3 text-xs text-red-700 dark:bg-red-950/50 dark:text-red-400"
+            >
               {error}
             </div>
           )}
@@ -128,10 +158,14 @@ export default function TimeCorrectionsPage() {
             className="space-y-4 text-sm"
           >
             <div>
-              <label className="block font-medium text-foreground mb-1">
-                Event Type
+              <label
+                htmlFor="correction-type"
+                className="block font-medium text-foreground mb-1"
+              >
+                {t("eventType")}
               </label>
               <select
+                id="correction-type"
                 value={proposedType}
                 onChange={(e) =>
                   setProposedType(e.target.value as typeof proposedType)
@@ -146,10 +180,14 @@ export default function TimeCorrectionsPage() {
             </div>
 
             <div>
-              <label className="block font-medium text-foreground mb-1">
+              <label
+                htmlFor="correction-time"
+                className="block font-medium text-foreground mb-1"
+              >
                 {t("proposedTime")}
               </label>
               <Input
+                id="correction-time"
                 type="datetime-local"
                 value={proposedTime}
                 onChange={(e) => setProposedTime(e.target.value)}
@@ -158,15 +196,19 @@ export default function TimeCorrectionsPage() {
             </div>
 
             <div>
-              <label className="block font-medium text-foreground mb-1">
+              <label
+                htmlFor="correction-reason"
+                className="block font-medium text-foreground mb-1"
+              >
                 {t("correctionReason")}
               </label>
               <textarea
+                id="correction-reason"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 required
                 rows={3}
-                placeholder="Forgot to clock out before doctor appointment..."
+                placeholder={t("correctionReasonPlaceholder")}
                 className="w-full rounded-md border border-input bg-background p-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
@@ -177,7 +219,7 @@ export default function TimeCorrectionsPage() {
               disabled={submitting}
               className="w-full"
             >
-              {submitting ? "Submitting..." : t("submitCorrection")}
+              {submitting ? t("submitting") : t("submitCorrection")}
             </Button>
           </form>
         </div>
@@ -193,7 +235,7 @@ export default function TimeCorrectionsPage() {
 
           {loading ? (
             <div className="py-12 text-center text-sm text-muted-foreground">
-              Loading corrections...
+              {t("loadingCorrections")}
             </div>
           ) : corrections.length === 0 ? (
             <div className="py-12 text-center text-sm text-muted-foreground">
@@ -204,17 +246,17 @@ export default function TimeCorrectionsPage() {
               <table className="w-full text-left text-sm">
                 <thead className="border-b border-border text-xs font-semibold uppercase text-muted-foreground">
                   <tr>
-                    <th className="pb-3">Type</th>
-                    <th className="pb-3">Proposed Time</th>
-                    <th className="pb-3">Reason</th>
-                    <th className="pb-3">Status</th>
+                    <th className="pb-3">{t("colType")}</th>
+                    <th className="pb-3">{t("proposedTime")}</th>
+                    <th className="pb-3">{t("colReason")}</th>
+                    <th className="pb-3">{t("colStatus")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {corrections.map((c) => (
                     <tr key={c.id} className="hover:bg-muted/30">
-                      <td className="py-3 font-medium capitalize text-foreground">
-                        {c.proposedEventType.replace("_", " ")}
+                      <td className="py-3 font-medium text-foreground">
+                        {eventTypeLabel(c.proposedEventType)}
                       </td>
                       <td className="py-3 text-muted-foreground">
                         {new Date(c.proposedOccurredAt).toLocaleString(locale)}
@@ -225,7 +267,7 @@ export default function TimeCorrectionsPage() {
                       <td className="py-3">
                         <StatusPill
                           status={mapStatusToPill(c.status)}
-                          label={c.status}
+                          label={statusLabel(c.status)}
                         />
                       </td>
                     </tr>

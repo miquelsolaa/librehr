@@ -13,6 +13,7 @@ export default function SetupWizardPage() {
   const locale = (params?.["locale"] as string) ?? "es";
   const t = useTranslations("setup");
   const tCommon = useTranslations("common");
+  const tRegions = useTranslations("regions");
 
   const [step, setStep] = React.useState<1 | 2 | 3>(1);
   const [submitting, setSubmitting] = React.useState(false);
@@ -62,7 +63,7 @@ export default function SetupWizardPage() {
       !formData.adminEmail ||
       !formData.adminPassword
     ) {
-      setError("Please fill out all required organization and admin fields");
+      setError(t("requiredStep1"));
       return;
     }
     setError("");
@@ -77,7 +78,7 @@ export default function SetupWizardPage() {
       !formData.locationName ||
       !formData.locationCity
     ) {
-      setError("Please fill out all required legal entity and location fields");
+      setError(t("requiredStep2"));
       return;
     }
     setError("");
@@ -105,12 +106,8 @@ export default function SetupWizardPage() {
       });
 
       router.push(`/${locale}/sign-in`);
-    } catch (err: unknown) {
-      const errorObj = err as { detail?: string };
-      setError(
-        errorObj.detail ??
-          "Setup failed. Please check the values and try again.",
-      );
+    } catch {
+      setError(t("setupFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -155,7 +152,10 @@ export default function SetupWizardPage() {
       </div>
 
       {error && (
-        <div className="rounded-card bg-destructive/10 p-3 text-sm text-destructive">
+        <div
+          role="alert"
+          className="rounded-card bg-destructive/10 p-3 text-sm text-destructive"
+        >
           {error}
         </div>
       )}
@@ -173,7 +173,7 @@ export default function SetupWizardPage() {
             <Input
               id="org-name"
               required
-              placeholder="e.g. Acme Iberia"
+              placeholder={t("orgNamePlaceholder")}
               value={formData.orgName}
               onChange={(e) => updateField("orgName", e.target.value)}
             />
@@ -248,7 +248,7 @@ export default function SetupWizardPage() {
 
           <div className="pt-4 flex justify-end">
             <Button type="submit" className="gap-2">
-              <span>Next</span>
+              <span>{t("next")}</span>
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
@@ -268,7 +268,7 @@ export default function SetupWizardPage() {
             <Input
               id="legal-name"
               required
-              placeholder="e.g. Acme Iberia S.L."
+              placeholder={t("legalEntityNamePlaceholder")}
               value={formData.legalEntityName}
               onChange={(e) => updateField("legalEntityName", e.target.value)}
             />
@@ -300,7 +300,7 @@ export default function SetupWizardPage() {
             <Input
               id="loc-name"
               required
-              placeholder="e.g. Barcelona Diagonal"
+              placeholder={t("locationNamePlaceholder")}
               value={formData.locationName}
               onChange={(e) => updateField("locationName", e.target.value)}
             />
@@ -336,11 +336,11 @@ export default function SetupWizardPage() {
                 value={formData.locationRegion}
                 onChange={(e) => updateField("locationRegion", e.target.value)}
               >
-                <option value="CT">Catalunya</option>
-                <option value="MD">Madrid</option>
-                <option value="AN">Andalucía</option>
-                <option value="VC">Comunitat Valenciana</option>
-                <option value="PV">País Vasco</option>
+                {["CT", "MD", "AN", "VC", "PV"].map((code) => (
+                  <option key={code} value={code}>
+                    {tRegions(code)}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -353,10 +353,10 @@ export default function SetupWizardPage() {
               className="gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
-              <span>Back</span>
+              <span>{tCommon("back")}</span>
             </Button>
             <Button type="submit" className="gap-2">
-              <span>Next</span>
+              <span>{t("next")}</span>
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
@@ -368,7 +368,7 @@ export default function SetupWizardPage() {
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="rounded-card border border-border bg-surface p-6 space-y-3 text-sm">
             <h3 className="font-semibold text-foreground border-b border-border pb-2">
-              Summary Review
+              {t("summaryTitle")}
             </h3>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <span className="text-muted-foreground">{t("orgName")}:</span>
@@ -396,7 +396,7 @@ export default function SetupWizardPage() {
               </span>
               <span className="text-foreground">
                 {formData.locationName} ({formData.locationCity},{" "}
-                {formData.locationRegion})
+                {tRegions(formData.locationRegion)})
               </span>
             </div>
           </div>
@@ -409,7 +409,7 @@ export default function SetupWizardPage() {
               className="gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
-              <span>Back</span>
+              <span>{tCommon("back")}</span>
             </Button>
             <Button type="submit" disabled={submitting} className="gap-2">
               <Check className="h-4 w-4" />

@@ -238,7 +238,7 @@ describe("API on the restricted runtime role", () => {
         new TokenRepository().createToken(tx, {
           userId,
           name: "ci",
-          scopes: ["employees:read"],
+          scopes: ["read"],
         }),
     );
     const res = await me(created.plainToken);

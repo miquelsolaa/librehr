@@ -23,8 +23,27 @@ function isDevMasterKey(envKey: string): boolean {
   );
 }
 
+// Set once at process startup from the validated environment. The API resolves
+// `ENVELOPE_MASTER_KEY_FILE` (Docker secrets) into its parsed env only, so the
+// crypto layer must be handed the key rather than read process.env itself.
+let configuredMasterKey: string | undefined;
+
+/**
+ * Hands the resolved master key to the crypto layer. Call once at startup with
+ * the value from the validated environment (which already resolved any
+ * `ENVELOPE_MASTER_KEY_FILE`). The public development key is ignored here so
+ * development keeps deriving the same key it always has; production rejects it
+ * in {@link getMasterKeyFromEnv}.
+ *
+ * @example
+ * configureEnvelopeKey(env.ENVELOPE_MASTER_KEY);
+ */
+export function configureEnvelopeKey(key: string | undefined): void {
+  configuredMasterKey = key && !isDevMasterKey(key) ? key : undefined;
+}
+
 export function getMasterKeyFromEnv(): Buffer {
-  const envKey = process.env["ENVELOPE_MASTER_KEY"];
+  const envKey = configuredMasterKey ?? process.env["ENVELOPE_MASTER_KEY"];
   if (
     process.env["NODE_ENV"] === "production" &&
     (!envKey || isDevMasterKey(envKey))

@@ -49,6 +49,7 @@ export default function SsoSettingsPage() {
 
   const loadConfig = React.useCallback(async () => {
     setIsLoading(true);
+    setErrorMessage(null);
     try {
       const client = getApiClient();
       const current = await client.getSsoConfig();
@@ -61,12 +62,12 @@ export default function SsoSettingsPage() {
         setEnabled(current.enabled);
         setEnforceSso(current.enforceSso);
       }
-    } catch (err) {
-      console.error("Failed to load SSO configuration", err);
+    } catch {
+      setErrorMessage(t("loadError"));
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   React.useEffect(() => {
     loadConfig();
@@ -133,8 +134,9 @@ export default function SsoSettingsPage() {
         <Link
           href={`/${locale}/settings`}
           className="rounded-btn p-2 text-muted-foreground hover:bg-surface hover:text-foreground transition-colors"
+          aria-label={t("backToSettings")}
         >
-          <ArrowLeft className="h-5 w-5" />
+          <ArrowLeft className="h-5 w-5" aria-hidden="true" />
         </Link>
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
@@ -178,12 +180,13 @@ export default function SsoSettingsPage() {
                 {[
                   { id: "google", label: "Google Workspace" },
                   { id: "microsoft", label: "Microsoft Entra ID" },
-                  { id: "generic_oidc", label: "Generic OIDC" },
+                  { id: "generic_oidc", label: t("ssoGenericOidc") },
                 ].map((item) => (
                   <button
                     key={item.id}
                     type="button"
                     onClick={() => handleProviderChange(item.id as SsoProvider)}
+                    aria-pressed={provider === item.id}
                     className={`rounded-card border p-3 text-center text-sm font-medium transition-all cursor-pointer ${
                       provider === item.id
                         ? "border-primary bg-primary/10 text-primary font-bold shadow-xs"
@@ -289,15 +292,23 @@ export default function SsoSettingsPage() {
             <div className="pt-2 border-t border-border space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-sm font-medium text-foreground">
+                  <div
+                    id="sso-enabled-label"
+                    className="text-sm font-medium text-foreground"
+                  >
                     {t("ssoEnabledLabel")}
                   </div>
-                  <div className="text-xs text-muted-foreground">
+                  <div
+                    id="sso-enabled-hint"
+                    className="text-xs text-muted-foreground"
+                  >
                     {t("ssoEnabledHint")}
                   </div>
                 </div>
                 <input
                   type="checkbox"
+                  aria-labelledby="sso-enabled-label"
+                  aria-describedby="sso-enabled-hint"
                   checked={enabled}
                   onChange={(e) => setEnabled(e.target.checked)}
                   className="h-5 w-5 rounded border-border text-primary focus:ring-primary cursor-pointer"
@@ -306,15 +317,23 @@ export default function SsoSettingsPage() {
 
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-sm font-medium text-foreground">
+                  <div
+                    id="sso-enforce-label"
+                    className="text-sm font-medium text-foreground"
+                  >
                     {t("ssoEnforceLabel")}
                   </div>
-                  <div className="text-xs text-muted-foreground">
+                  <div
+                    id="sso-enforce-hint"
+                    className="text-xs text-muted-foreground"
+                  >
                     {t("ssoEnforceHint")}
                   </div>
                 </div>
                 <input
                   type="checkbox"
+                  aria-labelledby="sso-enforce-label"
+                  aria-describedby="sso-enforce-hint"
                   checked={enforceSso}
                   onChange={(e) => setEnforceSso(e.target.checked)}
                   className="h-5 w-5 rounded border-border text-primary focus:ring-primary cursor-pointer"

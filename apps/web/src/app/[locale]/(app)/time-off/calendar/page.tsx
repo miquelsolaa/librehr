@@ -92,8 +92,8 @@ export default function TeamCalendarPage() {
           href={`/${locale}/time-off`}
           className="flex items-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
-          <ArrowLeft className="mr-1 h-4 w-4" />
-          Back to Time Off
+          <ArrowLeft className="mr-1 h-4 w-4" aria-hidden="true" />
+          {t("backToTimeOff")}
         </Link>
       </div>
 
@@ -108,14 +108,27 @@ export default function TeamCalendarPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={prevMonth} className="p-2">
-            <ChevronLeft className="h-4 w-4" />
+          <Button
+            variant="outline"
+            onClick={prevMonth}
+            className="p-2"
+            aria-label={t("previousMonth")}
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           </Button>
-          <span className="min-w-36 text-center text-sm font-semibold capitalize text-foreground">
+          <span
+            aria-live="polite"
+            className="min-w-36 text-center text-sm font-semibold capitalize text-foreground"
+          >
             {monthName}
           </span>
-          <Button variant="outline" onClick={nextMonth} className="p-2">
-            <ChevronRight className="h-4 w-4" />
+          <Button
+            variant="outline"
+            onClick={nextMonth}
+            className="p-2"
+            aria-label={t("nextMonth")}
+          >
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Button>
         </div>
       </div>
@@ -123,22 +136,21 @@ export default function TeamCalendarPage() {
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-border">
           <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <Users className="h-4 w-4 text-primary" />
-            Scheduled Absences ({absences.length})
+            <Users className="h-4 w-4 text-primary" aria-hidden="true" />
+            {t("scheduledAbsences", { count: absences.length })}
           </div>
           <div className="text-xs text-muted-foreground">
-            Privacy: Statutory details masked for non-manager roles (GDPR Art.
-            9)
+            {t("calendarPrivacyNotice")}
           </div>
         </div>
 
         {loading ? (
           <div className="py-12 text-center text-sm text-muted-foreground">
-            Loading team schedule...
+            {t("loadingCalendar")}
           </div>
         ) : absences.length === 0 ? (
           <div className="py-12 text-center text-sm text-muted-foreground">
-            No absences scheduled for this month.
+            {t("noAbsencesMonth")}
           </div>
         ) : (
           <div className="divide-y divide-border">
@@ -156,7 +168,7 @@ export default function TeamCalendarPage() {
                       {a.employeeName}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {a.departmentName || "General"}
+                      {a.departmentName || t("noDepartment")}
                     </p>
                   </div>
                 </div>
@@ -167,9 +179,10 @@ export default function TeamCalendarPage() {
                   </span>
                   <div className="text-right text-xs text-muted-foreground">
                     <div className="flex items-center gap-1 font-medium text-foreground">
-                      <CalendarIcon className="h-3 w-3" />
-                      {a.startDate}{" "}
-                      {a.startDate !== a.endDate ? `to ${a.endDate}` : ""}
+                      <CalendarIcon className="h-3 w-3" aria-hidden="true" />
+                      {a.startDate !== a.endDate
+                        ? t("dateRange", { start: a.startDate, end: a.endDate })
+                        : a.startDate}
                     </div>
                   </div>
                 </div>

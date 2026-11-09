@@ -42,6 +42,21 @@ export default function ShiftRosterPage() {
   const locale = (params?.["locale"] as string) ?? "ca";
   const t = useTranslations("timeTracking");
   const tCommon = useTranslations("common");
+  const tNav = useTranslations("nav");
+  const tTimeOff = useTranslations("timeOff");
+
+  const swapStatusLabel = (value: string): string => {
+    switch (value) {
+      case "approved":
+        return tTimeOff("statusApproved");
+      case "rejected":
+        return tTimeOff("statusRejected");
+      case "pending":
+        return tTimeOff("statusPending");
+      default:
+        return value;
+    }
+  };
 
   const [currentYear, setCurrentYear] = React.useState(2026);
   const [currentMonth, setCurrentMonth] = React.useState(11); // November (1-indexed)
@@ -202,7 +217,7 @@ export default function ShiftRosterPage() {
           const item = assignments.find((a) => a.employeeId === id);
           return {
             id,
-            firstName: item?.employeeName?.split(" ")[0] ?? "Employee",
+            firstName: item?.employeeName?.split(" ")[0] ?? t("colEmployee"),
             lastName: item?.employeeName?.split(" ").slice(1).join(" ") ?? "",
             email: "",
             departmentName: null,
@@ -223,7 +238,7 @@ export default function ShiftRosterPage() {
       return (
         <span
           className="inline-block w-full py-1 text-center font-mono font-bold text-[10px] rounded text-amber-900 bg-amber-100 dark:bg-amber-950/70 dark:text-amber-300"
-          title="Morning 06:00-14:00"
+          title={t("shiftMorning")}
         >
           M
         </span>
@@ -234,7 +249,7 @@ export default function ShiftRosterPage() {
       return (
         <span
           className="inline-block w-full py-1 text-center font-mono font-bold text-[10px] rounded text-blue-900 bg-blue-100 dark:bg-blue-950/70 dark:text-blue-300"
-          title="Afternoon 14:00-22:00"
+          title={t("shiftAfternoon")}
         >
           T
         </span>
@@ -245,9 +260,9 @@ export default function ShiftRosterPage() {
       return (
         <span
           className="inline-flex items-center justify-center gap-0.5 w-full py-1 text-center font-mono font-bold text-[10px] rounded text-indigo-900 bg-indigo-100 dark:bg-indigo-950/70 dark:text-indigo-300"
-          title="Night 22:00-06:00 (Statutory Night Hours ET art. 36)"
+          title={t("shiftNight")}
         >
-          <Moon className="h-2.5 w-2.5" />N
+          <Moon className="h-2.5 w-2.5" aria-hidden="true" />N
         </span>
       );
     }
@@ -279,8 +294,8 @@ export default function ShiftRosterPage() {
             href={`/${locale}/time`}
             className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
           >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            <span>Time Tracking</span>
+            <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>{tNav("time")}</span>
           </Link>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             {t("shiftsTitle")}
@@ -301,17 +316,20 @@ export default function ShiftRosterPage() {
               <DialogHeader>
                 <DialogTitle>{t("requestSwapButton")}</DialogTitle>
                 <DialogDescription>
-                  Request a peer-to-peer shift exchange with statutory rest
-                  period validation (ET art. 34.3).
+                  {t("swapDialogDescription")}
                 </DialogDescription>
               </DialogHeader>
 
               <form onSubmit={handleCreateSwap} className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-foreground">
+                  <label
+                    htmlFor="swap-target"
+                    className="text-xs font-medium text-foreground"
+                  >
                     {t("targetColleague")}
                   </label>
                   <select
+                    id="swap-target"
                     className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
                     value={targetEmpId}
                     onChange={(e) => setTargetEmpId(e.target.value)}
@@ -327,10 +345,14 @@ export default function ShiftRosterPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-foreground">
+                    <label
+                      htmlFor="swap-my-date"
+                      className="text-xs font-medium text-foreground"
+                    >
                       {t("myShiftDate")}
                     </label>
                     <Input
+                      id="swap-my-date"
                       type="date"
                       required
                       value={myShiftDate}
@@ -338,10 +360,14 @@ export default function ShiftRosterPage() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-foreground">
+                    <label
+                      htmlFor="swap-target-date"
+                      className="text-xs font-medium text-foreground"
+                    >
                       {t("targetShiftDate")}
                     </label>
                     <Input
+                      id="swap-target-date"
                       type="date"
                       required
                       value={targetShiftDate}
@@ -351,11 +377,15 @@ export default function ShiftRosterPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-foreground">
+                  <label
+                    htmlFor="swap-reason"
+                    className="text-xs font-medium text-foreground"
+                  >
                     {t("swapReason")}
                   </label>
                   <Input
-                    placeholder="e.g. Personal family appointment"
+                    id="swap-reason"
+                    placeholder={t("swapReasonPlaceholder")}
                     value={swapReason}
                     onChange={(e) => setSwapReason(e.target.value)}
                   />
@@ -394,17 +424,20 @@ export default function ShiftRosterPage() {
               <DialogHeader>
                 <DialogTitle>{t("generateRosterButton")}</DialogTitle>
                 <DialogDescription>
-                  Apply a continuous 24/7 rotation cycle (e.g. 6x2: 2 morning, 2
-                  afternoon, 2 night, 2 rest) across team members.
+                  {t("generateDialogDescription")}
                 </DialogDescription>
               </DialogHeader>
 
               <form onSubmit={handleGenerateRoster} className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-foreground">
+                  <label
+                    htmlFor="gen-pattern"
+                    className="text-xs font-medium text-foreground"
+                  >
                     {t("selectPattern")}
                   </label>
                   <select
+                    id="gen-pattern"
                     className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
                     value={selectedPatternId}
                     onChange={(e) => setSelectedPatternId(e.target.value)}
@@ -412,33 +445,44 @@ export default function ShiftRosterPage() {
                   >
                     {patterns.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.name} ({p.cycleDays} days cycle)
+                        {t("patternOption", {
+                          name: p.name,
+                          days: p.cycleDays,
+                        })}
                       </option>
                     ))}
                   </select>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-foreground">
+                  <label
+                    htmlFor="gen-anchor"
+                    className="text-xs font-medium text-foreground"
+                  >
                     {t("anchorDate")}
                   </label>
                   <Input
+                    id="gen-anchor"
                     type="date"
                     required
                     value={anchorDate}
                     onChange={(e) => setAnchorDate(e.target.value)}
                   />
                   <p className="text-[11px] text-muted-foreground">
-                    Date when step 0 (first morning shift) of the cycle began.
+                    {t("anchorDateHint")}
                   </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-foreground">
-                      Start date
+                    <label
+                      htmlFor="gen-start"
+                      className="text-xs font-medium text-foreground"
+                    >
+                      {t("startDate")}
                     </label>
                     <Input
+                      id="gen-start"
                       type="date"
                       required
                       value={genStartDate}
@@ -446,10 +490,14 @@ export default function ShiftRosterPage() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-foreground">
-                      End date
+                    <label
+                      htmlFor="gen-end"
+                      className="text-xs font-medium text-foreground"
+                    >
+                      {t("endDate")}
                     </label>
                     <Input
+                      id="gen-end"
                       type="date"
                       required
                       value={genEndDate}
@@ -459,10 +507,17 @@ export default function ShiftRosterPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-foreground">
+                  <span
+                    id="gen-employees-label"
+                    className="text-xs font-medium text-foreground"
+                  >
                     {t("selectEmployees")} ({selectedEmpIds.length})
-                  </label>
-                  <div className="max-h-32 overflow-y-auto rounded border border-border p-2 space-y-1 text-xs">
+                  </span>
+                  <div
+                    role="group"
+                    aria-labelledby="gen-employees-label"
+                    className="max-h-32 overflow-y-auto rounded border border-border p-2 space-y-1 text-xs"
+                  >
                     {employees.map((emp) => (
                       <label
                         key={emp.id}
@@ -533,7 +588,7 @@ export default function ShiftRosterPage() {
             {loading ? "..." : `${totalNightHours}h`}
           </div>
           <span className="text-[11px] text-muted-foreground">
-            {nightShiftsCount} torns nocturns (22:00 - 06:00)
+            {t("nightShiftsCount", { count: nightShiftsCount })}
           </span>
         </div>
 
@@ -543,11 +598,13 @@ export default function ShiftRosterPage() {
             <Repeat className="h-4 w-4 text-amber-500" />
           </div>
           <div className="mt-2 text-sm font-semibold text-foreground truncate">
-            {patterns[0]?.name ?? "Continuous 6x2"}
+            {patterns[0]?.name ?? t("noActivePattern")}
           </div>
-          <span className="text-[11px] text-muted-foreground">
-            Cicle de 8 dies 24/7
-          </span>
+          {patterns[0] && (
+            <span className="text-[11px] text-muted-foreground">
+              {t("patternCycle", { days: patterns[0].cycleDays })}
+            </span>
+          )}
         </div>
 
         <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
@@ -561,7 +618,7 @@ export default function ShiftRosterPage() {
             {loading ? "..." : pendingSwaps}
           </div>
           <span className="text-[11px] text-muted-foreground">
-            Validació descans de 12h
+            {t("restValidation")}
           </span>
         </div>
       </div>
@@ -577,7 +634,7 @@ export default function ShiftRosterPage() {
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
-          Quadrant Mensual (Roster Grid)
+          {t("tabRoster")}
         </button>
         <button
           type="button"
@@ -588,7 +645,7 @@ export default function ShiftRosterPage() {
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
-          <span>Sol·licituds de Canvi de Torn</span>
+          <span>{t("tabSwaps")}</span>
           {pendingSwaps > 0 && (
             <span className="rounded-full bg-primary/20 px-1.5 py-0.2 text-[10px] font-bold text-primary">
               {pendingSwaps}
@@ -612,6 +669,7 @@ export default function ShiftRosterPage() {
                   size="sm"
                   variant="outline"
                   className="h-7 w-7 p-0"
+                  aria-label={t("previousMonth")}
                   onClick={() => {
                     if (currentMonth === 1) {
                       setCurrentMonth(12);
@@ -621,7 +679,7 @@ export default function ShiftRosterPage() {
                     }
                   }}
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                 </Button>
                 <span className="font-semibold text-sm text-foreground px-1">
                   {new Date(currentYear, currentMonth - 1, 1).toLocaleString(
@@ -637,6 +695,7 @@ export default function ShiftRosterPage() {
                   size="sm"
                   variant="outline"
                   className="h-7 w-7 p-0"
+                  aria-label={t("nextMonth")}
                   onClick={() => {
                     if (currentMonth === 12) {
                       setCurrentMonth(1);
@@ -646,13 +705,17 @@ export default function ShiftRosterPage() {
                     }
                   }}
                 >
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
                 </Button>
               </div>
 
               <span className="text-xs text-muted-foreground">
-                ({rosterEmployees.length} empleats programats &middot;{" "}
-                {templates.length} plantilles)
+                (
+                {t("rosterSummary", {
+                  employees: rosterEmployees.length,
+                  templates: templates.length,
+                })}
+                )
               </span>
             </div>
 
@@ -660,29 +723,35 @@ export default function ShiftRosterPage() {
             <div className="flex items-center gap-3 text-xs">
               <div className="flex items-center gap-1">
                 <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
-                <span>M (Matí 06-14h)</span>
+                <span>{t("legendMorning")}</span>
               </div>
               <div className="flex items-center gap-1">
                 <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
-                <span>T (Tarda 14-22h)</span>
+                <span>{t("legendAfternoon")}</span>
               </div>
               <div className="flex items-center gap-1">
                 <span className="h-2.5 w-2.5 rounded-full bg-indigo-500" />
-                <span>N (Nit 22-06h)</span>
+                <span>{t("legendNight")}</span>
               </div>
               <div className="flex items-center gap-1">
                 <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/40" />
-                <span>Descans</span>
+                <span>{t("shiftRest")}</span>
               </div>
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Focusable so keyboard users can scroll the wide roster. */}
+          <div
+            className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+            role="region"
+            aria-label={t("tabRoster")}
+            tabIndex={0}
+          >
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-border bg-muted/40 font-semibold text-muted-foreground">
                   <th className="sticky left-0 bg-muted/90 backdrop-blur z-10 px-3 py-2 w-48 border-r border-border">
-                    Empleat
+                    {t("colEmployee")}
                   </th>
                   {daysArray.map((day) => (
                     <th
@@ -701,8 +770,7 @@ export default function ShiftRosterPage() {
                       colSpan={daysInMonth + 1}
                       className="p-8 text-center text-muted-foreground"
                     >
-                      No hi ha cap empleat assignat. Fes clic a "Generar Cicle
-                      Rotatiu" per planificar el mes.
+                      {t("rosterEmpty", { action: t("generateRosterButton") })}
                     </td>
                   </tr>
                 ) : (
@@ -740,7 +808,7 @@ export default function ShiftRosterPage() {
         <div className="rounded-card border border-border bg-card divide-y divide-border">
           {swaps.length === 0 ? (
             <div className="p-8 text-center text-sm text-muted-foreground">
-              No s'ha registrat cap sol·licitud de canvi de torn.
+              {t("swapsEmpty")}
             </div>
           ) : (
             swaps.map((s) => (
@@ -751,11 +819,14 @@ export default function ShiftRosterPage() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-sm text-foreground">
-                      {s.requesterName ?? "Requester"}
+                      {s.requesterName ?? t("requesterFallback")}
                     </span>
-                    <ArrowLeftRight className="h-3.5 w-3.5 text-muted-foreground" />
+                    <ArrowLeftRight
+                      className="h-3.5 w-3.5 text-muted-foreground"
+                      aria-hidden="true"
+                    />
                     <span className="font-semibold text-sm text-foreground">
-                      {s.targetEmployeeName ?? "Colleague"}
+                      {s.targetEmployeeName ?? t("colleagueFallback")}
                     </span>
                     <Badge
                       variant={
@@ -766,18 +837,19 @@ export default function ShiftRosterPage() {
                             : "warning"
                       }
                     >
-                      {s.status}
+                      {swapStatusLabel(s.status)}
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Torn sol·licitant:{" "}
-                    <span className="font-medium text-foreground">
-                      {s.requesterDate}
-                    </span>{" "}
-                    &middot; Torn company:{" "}
-                    <span className="font-medium text-foreground">
-                      {s.targetDate}
-                    </span>
+                    {t.rich("swapDates", {
+                      requesterDate: s.requesterDate,
+                      targetDate: s.targetDate,
+                      b: (chunks) => (
+                        <span className="font-medium text-foreground">
+                          {chunks}
+                        </span>
+                      ),
+                    })}
                   </p>
                   {s.reason && (
                     <p className="text-xs italic text-muted-foreground">

@@ -25,6 +25,7 @@ export default function DepartmentsSettingsPage() {
   const locale = (params?.["locale"] as string) ?? "es";
   const t = useTranslations("settings");
   const tCommon = useTranslations("common");
+  const tNav = useTranslations("nav");
 
   const [departments, setDepartments] = React.useState<Department[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -83,8 +84,8 @@ export default function DepartmentsSettingsPage() {
             href={`/${locale}/settings`}
             className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
           >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            <span>Settings</span>
+            <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>{tNav("settings")}</span>
           </Link>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             {t("departmentsTitle")}
@@ -105,7 +106,7 @@ export default function DepartmentsSettingsPage() {
             <DialogHeader>
               <DialogTitle>{t("addDepartment")}</DialogTitle>
               <DialogDescription>
-                Define a new department within your organization structure.
+                {t("addDepartmentDescription")}
               </DialogDescription>
             </DialogHeader>
 
@@ -125,7 +126,7 @@ export default function DepartmentsSettingsPage() {
                 <Input
                   id="dept-name"
                   required
-                  placeholder="e.g. Product Design"
+                  placeholder={t("departmentNamePlaceholder")}
                   value={deptName}
                   onChange={(e) => setDeptName(e.target.value)}
                 />
@@ -144,7 +145,7 @@ export default function DepartmentsSettingsPage() {
                   value={parentId}
                   onChange={(e) => setParentId(e.target.value)}
                 >
-                  <option value="">None (Top-level)</option>
+                  <option value="">{t("noParentDepartment")}</option>
                   {departments.map((d) => (
                     <option key={d.id} value={d.id}>
                       {d.name}
@@ -184,8 +185,7 @@ export default function DepartmentsSettingsPage() {
           </div>
         ) : departments.length === 0 ? (
           <div className="p-8 text-center text-sm text-muted-foreground">
-            No departments defined yet. Click &apos;{t("addDepartment")}&apos;
-            to create one.
+            {t("departmentsEmpty", { action: t("addDepartment") })}
           </div>
         ) : (
           departments.map((d) => (
@@ -201,7 +201,7 @@ export default function DepartmentsSettingsPage() {
                     </h3>
                     {d.parentName && (
                       <span className="text-xs text-muted-foreground">
-                        Sub-department of {d.parentName}
+                        {t("subDepartmentOf", { parent: d.parentName })}
                       </span>
                     )}
                   </div>
@@ -209,7 +209,7 @@ export default function DepartmentsSettingsPage() {
 
                 {d.leadName && (
                   <span className="text-xs text-muted-foreground">
-                    Lead: {d.leadName}
+                    {t("departmentLead", { name: d.leadName })}
                   </span>
                 )}
               </div>

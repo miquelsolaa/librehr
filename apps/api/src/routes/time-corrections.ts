@@ -15,8 +15,14 @@ import {
   AuditRepository,
   NotificationRepository,
 } from "@librehr/db";
+import { IdParamSchema, parseParams } from "../lib/validate.js";
 import { requireAuth } from "../middleware/auth.js";
-import { can } from "../policies/can.js";
+import {
+  canOnEmployee,
+  inEmployeeFilter,
+  resolvePolicyContext,
+  scopedEmployeeFilter,
+} from "../policies/context.js";
 
 export function createTimeCorrectionRoutes(sql: Sql) {
   const router = new Hono();
@@ -36,20 +42,17 @@ export function createTimeCorrectionRoutes(sql: Sql) {
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        const isAdmin = user.role === "admin";
-        const isManager = user.role === "manager";
-        const currentEmp = await employeeRepo.findByUserId(tx, user.id);
-
-        let filterEmpId = requestedEmpId;
-        if (!isAdmin && !isManager) {
-          if (!currentEmp) return [];
-          filterEmpId = currentEmp.id;
-        }
-
-        return correctionRepo.list(tx, {
-          employeeId: filterEmpId,
+        // Managers see their own and their direct reports' corrections only.
+        const filter = scopedEmployeeFilter(
+          await resolvePolicyContext(c, tx),
+          "time.record.read",
+          requestedEmpId,
+        );
+        const rows = await correctionRepo.list(tx, {
+          employeeId: filter.employeeId,
           status,
         });
+        return rows.filter((r) => inEmployeeFilter(filter, r.employeeId));
       },
     );
 
@@ -162,7 +165,9 @@ export function createTimeCorrectionRoutes(sql: Sql) {
   // 3. POST /time/corrections/:id/decide - Approve or Reject correction
   router.post("/time/corrections/:id/decide", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const correctionId = c.req.param("id");
+    const { id: correctionId } = parseParams(c, IdParamSchema, {
+      detail: "Correction not found",
+    });
     const body = await c.req.json().catch(() => null);
     const parsed = DecideTimeCorrectionSchema.safeParse(body);
 
@@ -188,18 +193,10 @@ export function createTimeCorrectionRoutes(sql: Sql) {
         const targetEmp = await employeeRepo.findById(tx, corr.employeeId);
         if (!targetEmp) return { error: "NOT_FOUND" as const };
 
-        const allowed = can(
-          {
-            userId: user.id,
-            organizationId: user.organizationId,
-            role: user.role,
-          },
+        const allowed = canOnEmployee(
+          await resolvePolicyContext(c, tx),
           "time.record.correct",
-          {
-            organizationId: user.organizationId,
-            employeeId: targetEmp.id,
-            managerId: targetEmp.managerId ?? undefined,
-          },
+          targetEmp,
         );
 
         if (!allowed) {

@@ -8,10 +8,10 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-librehr}
       POSTGRES_USER: ${POSTGRES_USER:-librehr}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD (bootstrap superuser)}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD (bootstrap superuser; openssl rand -hex 32)}
       # Read by infra/postgres/init/00-roles.sh on first start of the volume.
-      LIBREHR_OWNER_PASSWORD: ${LIBREHR_OWNER_PASSWORD:?set LIBREHR_OWNER_PASSWORD (migration/owner role)}
-      LIBREHR_APP_PASSWORD: ${LIBREHR_APP_PASSWORD:?set LIBREHR_APP_PASSWORD (runtime app role)}
+      LIBREHR_OWNER_PASSWORD: ${LIBREHR_OWNER_PASSWORD:?set LIBREHR_OWNER_PASSWORD (migration/owner role; openssl rand -hex 32)}
+      LIBREHR_APP_PASSWORD: ${LIBREHR_APP_PASSWORD:?set LIBREHR_APP_PASSWORD (runtime app role; openssl rand -hex 32)}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ../postgres/init:/docker-entrypoint-initdb.d:ro

@@ -16,6 +16,7 @@ export default function RequestLeavePage() {
   const locale = (params?.["locale"] as string | undefined) ?? "ca";
 
   const t = useTranslations("timeOff");
+  const tCommon = useTranslations("common");
 
   const [leaveTypes, setLeaveTypes] = React.useState<LeaveType[]>([]);
   const [blackouts, setBlackouts] = React.useState<BlackoutPeriod[]>([]);
@@ -71,7 +72,7 @@ export default function RequestLeavePage() {
     if (!session) return;
 
     if (!startDate || !endDate) {
-      setError("Please select both start and end dates.");
+      setError(t("validationDates"));
       return;
     }
 
@@ -114,8 +115,8 @@ export default function RequestLeavePage() {
           href={`/${locale}/time-off`}
           className="flex items-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
-          <ArrowLeft className="mr-1 h-4 w-4" />
-          Back to Time Off
+          <ArrowLeft className="mr-1 h-4 w-4" aria-hidden="true" />
+          {t("backToTimeOff")}
         </Link>
       </div>
 
@@ -129,7 +130,7 @@ export default function RequestLeavePage() {
               {t("requestFormTitle")}
             </h1>
             <p className="text-sm text-muted-foreground">
-              Submit your dates for manager approval.
+              {t("requestFormSubtitle")}
             </p>
           </div>
         </div>
@@ -152,8 +153,11 @@ export default function RequestLeavePage() {
               </p>
               <p className="mt-0.5 text-xs">
                 {activeBlackoutConflict.reason} (
-                {activeBlackoutConflict.startDate} to{" "}
-                {activeBlackoutConflict.endDate})
+                {t("dateRange", {
+                  start: activeBlackoutConflict.startDate,
+                  end: activeBlackoutConflict.endDate,
+                })}
+                )
               </p>
             </div>
           </div>
@@ -161,10 +165,14 @@ export default function RequestLeavePage() {
 
         <form onSubmit={(e) => void handleSubmit(e)} className="mt-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
+            <label
+              htmlFor="leave-type"
+              className="block text-sm font-medium text-foreground mb-1.5"
+            >
               {t("leaveType")}
             </label>
             <select
+              id="leave-type"
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value)}
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -193,7 +201,7 @@ export default function RequestLeavePage() {
                   )}
                   {currentType.requiresAttachment && (
                     <Badge variant="warning" className="text-[11px]">
-                      📎 Document Required
+                      <span aria-hidden="true">📎</span> {t("documentRequired")}
                     </Badge>
                   )}
                 </div>
@@ -208,10 +216,14 @@ export default function RequestLeavePage() {
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">
+              <label
+                htmlFor="leave-start"
+                className="block text-sm font-medium text-foreground mb-1.5"
+              >
                 {t("startDate")}
               </label>
               <Input
+                id="leave-start"
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
@@ -235,10 +247,14 @@ export default function RequestLeavePage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">
+              <label
+                htmlFor="leave-end"
+                className="block text-sm font-medium text-foreground mb-1.5"
+              >
                 {t("endDate")}
               </label>
               <Input
+                id="leave-end"
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
@@ -263,26 +279,28 @@ export default function RequestLeavePage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
+            <label
+              htmlFor="leave-notes"
+              className="block text-sm font-medium text-foreground mb-1.5"
+            >
               {t("notes")}
             </label>
             <textarea
+              id="leave-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
               className="w-full rounded-md border border-input bg-background p-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              placeholder="Provide context or coverage arrangements..."
+              placeholder={t("notesPlaceholder")}
             />
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-border">
-            <Link href={`/${locale}/time-off`}>
-              <Button type="button" variant="outline">
-                Cancel
-              </Button>
-            </Link>
+            <Button asChild variant="outline">
+              <Link href={`/${locale}/time-off`}>{tCommon("cancel")}</Link>
+            </Button>
             <Button type="submit" variant="default" disabled={submitting}>
-              {submitting ? "Submitting..." : t("submitRequest")}
+              {submitting ? t("submitting") : t("submitRequest")}
             </Button>
           </div>
         </form>
