@@ -30,6 +30,8 @@
       "Bash(cat .env)",
       "Bash(cat .env.local)",
       "Bash(cat .env.*.local)",
+      "Bash(cat .env.development)",
+      "Bash(cat .env.test)",
       "Bash(cat .env.production)",
       "Read(**/.env)",
       "Read(**/.env.local)",
