@@ -364,15 +364,3 @@ export const shiftSwaps = pgTable(
     index("shift_swaps_target_idx").on(table.targetEmployeeId),
   ],
 );
-
-// TODO(TIM-006): Time export reports for Labour Inspectorate
-export const timeExportsStub = {
-  table: "time_exports",
-  requirementId: "TIM-006",
-};
-
-// TODO(TIM-004): Closed period monthly timesheet snapshots
-export const timesheetClosuresStub = {
-  table: "timesheet_closures",
-  requirementId: "TIM-004",
-};
