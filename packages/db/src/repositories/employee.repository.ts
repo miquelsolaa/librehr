@@ -96,7 +96,47 @@ export interface UpdateEmployeeData {
   iban?: string | null | undefined;
 }
 
+export interface EmployeePolicyIdentity {
+  employeeId: string;
+  departmentId: string | null;
+  locationId: string | null;
+  /** Employee ids of direct reports. */
+  reports: string[];
+}
+
 export class EmployeeRepository {
+  /**
+   * Resolves the employee linked to a user in the current organization and
+   * their direct reports, for authorization scope checks.
+   */
+  async findPolicyIdentity(
+    tx: TenantTx,
+    userId: string,
+  ): Promise<EmployeePolicyIdentity | null> {
+    const orgId = tx.__tenantContext.organizationId;
+    const rows = await tx<
+      {
+        employeeId: string;
+        departmentId: string | null;
+        locationId: string | null;
+        reports: string[] | null;
+      }[]
+    >`
+      SELECT e.id as "employeeId", e.department_id as "departmentId",
+             e.location_id as "locationId",
+             ARRAY(
+               SELECT r.id::text FROM employees r
+               WHERE r.manager_id = e.id AND r.organization_id = ${orgId}
+             ) as "reports"
+      FROM employees e
+      WHERE e.user_id = ${userId} AND e.organization_id = ${orgId}
+      LIMIT 1
+    `;
+    const row = rows[0];
+    if (!row) return null;
+    return { ...row, reports: row.reports ?? [] };
+  }
+
   async findByUserId(
     tx: TenantTx,
     userId: string,
