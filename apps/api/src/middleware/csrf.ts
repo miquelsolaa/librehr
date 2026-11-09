@@ -6,7 +6,15 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 export interface CsrfOptions {
   /** Public web origin (APP_URL); requests from it are trusted. */
   appUrl?: string | undefined;
-  /** Outside production, any http://localhost:* / 127.0.0.1:* origin is trusted. */
+  /**
+   * Cross-origin web clients allowed to use the cookie (CORS_ORIGINS); the
+   * same list CORS allows, so the two layers agree.
+   */
+  allowedOrigins?: readonly string[] | undefined;
+  /**
+   * In development and test, any http://localhost:* / 127.0.0.1:* origin is
+   * trusted. Unset is treated as production (fails closed).
+   */
   nodeEnv?: "development" | "test" | "production" | undefined;
 }
 
@@ -36,13 +44,18 @@ function originOf(value: string): string | null {
 export function createCsrfMiddleware(
   options: CsrfOptions = {},
 ): MiddlewareHandler {
-  const appOrigin = options.appUrl ? originOf(options.appUrl) : null;
-  const allowLocalhost = options.nodeEnv !== "production";
+  const trustedOrigins = new Set(
+    [options.appUrl, ...(options.allowedOrigins ?? [])]
+      .map((value) => (value ? originOf(value) : null))
+      .filter((value): value is string => value !== null),
+  );
+  const allowLocalhost =
+    options.nodeEnv === "development" || options.nodeEnv === "test";
 
   const trusted = (origin: string, host: string | undefined): boolean => {
     const parsed = originOf(origin);
     if (!parsed) return false;
-    if (appOrigin && parsed === appOrigin) return true;
+    if (trustedOrigins.has(parsed)) return true;
     const url = new URL(parsed);
     if (host && url.host === host) return true;
     return (

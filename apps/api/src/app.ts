@@ -162,9 +162,12 @@ export function createApp(deps: AppDependencies) {
   app.use("*", createAuthMiddleware(deps.authPort, deps.sql));
   app.use(
     "*",
+    // The resolved config: an unset NODE_ENV is production (closed), and the
+    // CORS_ORIGINS cookie clients are trusted by CORS and CSRF alike.
     createCsrfMiddleware({
       appUrl: config.appUrl,
-      nodeEnv: deps.nodeEnv,
+      allowedOrigins: config.corsOrigins,
+      nodeEnv: config.nodeEnv,
     }),
   );
   app.use("*", tenantContextMiddleware);
@@ -206,7 +209,10 @@ export function createApp(deps: AppDependencies) {
   );
   app.route("/v1", createMeRoutes(deps.sql));
   app.route("/v1", createOrgRoutes(deps.sql));
-  app.route("/v1", createEmployeeRoutes(deps.sql));
+  app.route(
+    "/v1",
+    createEmployeeRoutes(deps.sql, { trustProxy: deps.trustProxy }),
+  );
   app.route("/v1", createEmploymentHistoryRoutes(deps.sql));
   app.route("/v1", createDepartmentRoutes(deps.sql));
   app.route("/v1", createLocationRoutes(deps.sql));

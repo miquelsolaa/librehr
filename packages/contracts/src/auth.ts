@@ -128,7 +128,8 @@ export const SaveSsoConfigRequestSchema = z.object({
   clientId: z.string().min(1, "Client ID is required"),
   /**
    * Write-only. Omit it to keep the stored secret; required for the first
-   * configuration. It is stored encrypted and never returned.
+   * configuration and whenever the provider, client id or issuer changes.
+   * It is stored encrypted and never returned.
    */
   clientSecret: z.string().min(1, "Client Secret is required").optional(),
   issuerUrl: z.string().min(1, "Issuer URL is required"),

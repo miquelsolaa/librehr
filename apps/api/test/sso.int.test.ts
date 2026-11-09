@@ -145,11 +145,29 @@ describe("SSO configuration when enabled (AUTH-004)", () => {
     expect(await read.text()).not.toContain("clientSecret");
   });
 
-  it("keeps the stored secret when a save omits it", async () => {
+  it("keeps the stored secret when a save omits it for the same client", async () => {
     const before = await storedSecret();
-    const res = await saveConfig({ clientId: "renamed-client" });
+    const res = await saveConfig({
+      allowedDomains: ["acme.example", "b.example"],
+    });
     expect(res.status).toBe(200);
     expect(await storedSecret()).toBe(before);
+  });
+
+  it.each([
+    ["issuer", { issuerUrl: "https://attacker.example/realms/acme" }],
+    ["client id", { clientId: "renamed-client" }],
+    ["provider", { provider: "google" }],
+  ])("requires a new secret when the %s changes (400)", async (_, change) => {
+    const before = await storedSecret();
+    const res = await saveConfig(change);
+    expect(res.status).toBe(400);
+    expect(await storedSecret()).toBe(before);
+    // Accepted together with a new secret.
+    const withSecret = await saveConfig({ ...change, clientSecret });
+    expect(withSecret.status).toBe(200);
+    // Back to the original client for the following tests.
+    expect((await saveConfig({ clientSecret })).status).toBe(200);
   });
 
   it("re-encrypts a legacy plaintext secret on the next save", async () => {

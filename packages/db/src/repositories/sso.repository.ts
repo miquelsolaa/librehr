@@ -31,10 +31,15 @@ export interface SaveSsoConfigInput {
   allowedDomains: string[];
 }
 
-/** Thrown when a first configuration is saved without a client secret. */
+/**
+ * Thrown when a configuration is saved without a client secret and there is
+ * no stored secret for the same provider, client id and issuer.
+ */
 export class SsoClientSecretRequiredError extends Error {
   constructor() {
-    super("A client secret is required for a new SSO configuration");
+    super(
+      "A client secret is required for a new SSO configuration or a changed provider, client or issuer",
+    );
     this.name = "SsoClientSecretRequiredError";
   }
 }
@@ -98,16 +103,32 @@ export class SsoRepository {
     tx: TenantTx,
     data: SaveSsoConfigInput,
   ): Promise<SsoConfigRow> {
-    const existing = await tx<{ id: string; clientSecret: string }[]>`
-      SELECT id, client_secret AS "clientSecret"
+    const existing = await tx<
+      {
+        id: string;
+        clientSecret: string;
+        provider: string;
+        clientId: string;
+        issuerUrl: string;
+      }[]
+    >`
+      SELECT id, client_secret AS "clientSecret", provider,
+             client_id AS "clientId", issuer_url AS "issuerUrl"
       FROM sso_configurations LIMIT 1
     `;
     const current = existing[0];
+    // The stored secret belongs to one client at one identity provider; it is
+    // never carried over to another (it would be sent to the new issuer).
+    const sameClient =
+      current !== undefined &&
+      current.provider === data.provider &&
+      current.clientId === data.clientId &&
+      current.issuerUrl === data.issuerUrl;
 
     let encryptedSecret: string;
     if (data.clientSecret !== undefined) {
       encryptedSecret = encryptEnvelope(data.clientSecret);
-    } else if (current) {
+    } else if (current && sameClient) {
       encryptedSecret = isEnvelope(current.clientSecret)
         ? current.clientSecret
         : encryptEnvelope(current.clientSecret);

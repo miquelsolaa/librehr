@@ -13,7 +13,7 @@ import { can, permissionScope, type PolicyUserContext } from "./can.js";
  * Field-level visibility of an employee profile (EMP-004):
  * - "full": the employee themselves, and organization-scoped readers (HR/admin).
  * - "job": a manager looking at a report: job and contact data, no personal
- *   data (address, birth date).
+ *   data (address, birth date) and no termination reason.
  * Sensitive fields (national id, IBAN) are never part of a profile response;
  * only their presence is. Values are revealed through the audited
  * `POST /employees/:id/reveal` endpoint.
@@ -64,7 +64,9 @@ export function toEmployeeProfile(
     birthDate: personal ? row.birthDate : null,
     status: row.status,
     terminationDate: row.terminationDate,
-    terminationReason: row.terminationReason,
+    // EMP-004/EMP-007: the reason a person left is for HR/admin and the
+    // person themselves, not for their manager.
+    terminationReason: personal ? row.terminationReason : null,
     departmentName: row.departmentName,
     locationName: row.locationName,
     managerName: row.managerName,

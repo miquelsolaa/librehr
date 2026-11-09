@@ -126,6 +126,46 @@ describe("employees API scope", () => {
       });
     });
 
+    it("shows the termination reason to HR/admin and self, never to the manager", async () => {
+      await db.sql`UPDATE employees SET termination_reason = 'other'
+        WHERE id = ${a.report.employeeId}`;
+      const reasonFor = async (who: typeof a.admin) =>
+        (
+          (await (await get(a.report.employeeId, who)).json()) as {
+            terminationReason: string | null;
+          }
+        ).terminationReason;
+      expect(await reasonFor(a.manager)).toBeNull();
+      expect(await reasonFor(a.admin)).toBe("other");
+      expect(await reasonFor(a.report)).toBe("other");
+      await db.sql`UPDATE employees SET termination_reason = NULL
+        WHERE id = ${a.report.employeeId}`;
+    });
+
+    it("records the socket IP in the reveal audit, ignoring a forged X-Forwarded-For (TRUST_PROXY=0)", async () => {
+      // No stored value, so the reveal returns null but is still audited.
+      await db.sql`UPDATE employees SET national_id_encrypted = NULL
+        WHERE id = ${a.auditor.employeeId}`;
+      const res = await app.request(
+        `/v1/employees/${a.auditor.employeeId}/reveal`,
+        {
+          method: "POST",
+          headers: { ...as(a.admin, true), "X-Forwarded-For": "6.6.6.6" },
+          body: JSON.stringify({ field: "nationalId" }),
+        },
+        // What @hono/node-server exposes as the connection.
+        { incoming: { socket: { remoteAddress: "198.51.100.20" } } },
+      );
+      expect(res.status).toBe(200);
+      const [entry] = await db.sql<{ metadata: { ip: string } }[]>`
+        SELECT metadata FROM audit_log
+        WHERE organization_id = ${a.orgId}
+          AND action = 'employee.reveal_sensitive'
+          AND resource_id = ${a.auditor.employeeId}
+        ORDER BY created_at DESC LIMIT 1`;
+      expect(entry?.metadata.ip).toBe("198.51.100.20");
+    });
+
     it("forbids an employee reading a colleague's profile", async () => {
       expect((await get(a.peer.employeeId, a.report)).status).toBe(403);
     });
