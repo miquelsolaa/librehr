@@ -16,7 +16,7 @@ the backup according to your retention policy, and rebuild/redeploy the API
 image with the current code. Then run:
 
 ```bash
-docker compose -f infra/compose/docker-compose.yml exec api node apps/api/dist/src/cli/recover-account.js
+docker compose --env-file .env -f infra/compose/docker-compose.yml exec api node apps/api/dist/src/cli/recover-account.js
 ```
 
 The command uses the API container's configured `DATABASE_URL`. It requires a
@@ -58,23 +58,49 @@ LibreHR is designed to be easily self-hostable on any standard Linux server, VPS
 
 2. **Configure environment:**
 
-   ```bash
-   cp infra/env/.env.example .env
-   ```
+   Create a `.env` file (keep it out of version control, readable only by the
+   operator). The production compose file has **no defaults for secrets**: it
+   refuses to start if any required variable is missing, and the API refuses to
+   start in `NODE_ENV=production` if a secret is shorter than 32 characters or
+   is one of the public development values from `.env.example`.
 
-   Generate a secure random secret for authentication and encryption:
+   Generate each secret separately (never reuse one value for two variables):
 
    ```bash
    openssl rand -base64 32
    ```
 
-   Set `AUTH_SECRET=<generated_secret>` and secure passwords in `.env`.
+   | Variable                 | Required | Purpose                                                                           |
+   | ------------------------ | -------- | --------------------------------------------------------------------------------- |
+   | `POSTGRES_PASSWORD`      | yes      | Bootstrap superuser of the Postgres container                                     |
+   | `LIBREHR_OWNER_PASSWORD` | yes      | `librehr_owner` role: owns the schema, runs migrations (not a superuser)          |
+   | `LIBREHR_APP_PASSWORD`   | yes      | `librehr_app` role: runtime role, always bound by Row-Level Security              |
+   | `BETTER_AUTH_SECRET`     | yes      | Signs sessions                                                                    |
+   | `SESSION_SECRET`         | yes      | Signs two-factor sign-in challenges                                               |
+   | `ENVELOPE_MASTER_KEY`    | yes      | Encrypts sensitive fields at rest. **Back it up: losing it loses that data**      |
+   | `TIME_CHAIN_KEY`         | yes      | Keys the tamper-evidence chain of time-tracking events                            |
+   | `BETTER_AUTH_URL`        | yes      | Public URL of the API                                                             |
+   | `APP_URL`                | yes      | Public URL of the web app                                                         |
+   | `SMTP_HOST`              | yes      | Your SMTP relay (`SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` are optional) |
+
+   The API also accepts `<NAME>_FILE` (for example `ENVELOPE_MASTER_KEY_FILE`)
+   for the four application secrets, to use Docker secrets instead of plain
+   environment variables. The bundled compose file passes plain variables;
+   adapt it if you switch to `_FILE`.
+
+   The role passwords are applied by `infra/postgres/init/00-roles.sh` only
+   when the Postgres data volume is created for the first time. To change them
+   later, use `ALTER ROLE ... PASSWORD` in `psql` and update `.env`.
 
 3. **Start the stack:**
 
    ```bash
-   docker compose -f infra/compose/docker-compose.yml up -d
+   docker compose --env-file .env -f infra/compose/docker-compose.yml up -d
    ```
+
+   Upgrading from a release that used `postgres:16-alpine`: the compose files
+   now use PostgreSQL 17. An existing 16 data volume does not start on 17;
+   dump and restore it (see `backup-restore.md`) before switching images.
 
 4. **Verify installation:**
    Visit `http://localhost:3000` or check system health:

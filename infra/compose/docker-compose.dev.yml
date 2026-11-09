@@ -1,13 +1,18 @@
+# Local development infrastructure only. Every port is bound to 127.0.0.1 so
+# these well-known dev credentials are not reachable from the network.
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:17-alpine
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_DB: librehr
       POSTGRES_USER: librehr
+      # Dev-only passwords; they match the defaults in apps/api/src/env.ts.
       POSTGRES_PASSWORD: librehr_dev_password
+      LIBREHR_OWNER_PASSWORD: librehr_dev_password
+      LIBREHR_APP_PASSWORD: librehr_dev_password
     volumes:
       - librehr_dev_pgdata:/var/lib/postgresql/data
       - ../postgres/init:/docker-entrypoint-initdb.d:ro
@@ -18,21 +23,22 @@ services:
       retries: 5
 
   mailpit:
-    image: axllent/mailpit:latest
+    image: axllent/mailpit:v1.33.1
     restart: unless-stopped
     ports:
-      - "1025:1025"
-      - "8025:8025"
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
     environment:
       MP_MAX_MESSAGES: 500
 
   minio:
-    image: cgr.dev/chainguard/minio:latest
+    # Chainguard only publishes `latest` publicly, so pin the digest instead.
+    image: cgr.dev/chainguard/minio@sha256:a1ac4589a5f8136b616e667b48a0bea9719bb10bd45799ea946f24bbedfafde4
     restart: unless-stopped
     command: server /data --console-address ":9001"
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     environment:
       MINIO_ROOT_USER: librehr_minio_user
       MINIO_ROOT_PASSWORD: librehr_minio_password

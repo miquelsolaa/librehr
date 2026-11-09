@@ -31,7 +31,7 @@ Add the following line to `/etc/cron.d/librehr-backup` to run daily at 02:00 UTC
 1. **Stop web, api, and worker containers:**
 
    ```bash
-   docker compose -f infra/compose/docker-compose.yml stop web api worker
+   docker compose --env-file .env -f infra/compose/docker-compose.yml stop web api worker
    ```
 
 2. **Execute restore script:**
@@ -49,5 +49,5 @@ Add the following line to `/etc/cron.d/librehr-backup` to run daily at 02:00 UTC
 
 4. **Restart application services:**
    ```bash
-   docker compose -f infra/compose/docker-compose.yml start api worker web
+   docker compose --env-file .env -f infra/compose/docker-compose.yml start api worker web
    ```
