@@ -49,6 +49,7 @@ async function bootstrap() {
     authPort,
     mailPort,
     sessionSecret: env.SESSION_SECRET,
+    timeChainKey: env.TIME_CHAIN_KEY,
   });
 
   // 4. Start HTTP server

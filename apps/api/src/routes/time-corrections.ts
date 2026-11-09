@@ -6,7 +6,6 @@ import {
   CreateTimeCorrectionSchema,
   DecideTimeCorrectionSchema,
 } from "@librehr/contracts";
-import { computeEventHash } from "@librehr/core";
 import {
   withTenant,
   TimeCorrectionRepository,
@@ -14,6 +13,7 @@ import {
   EmployeeRepository,
   AuditRepository,
   NotificationRepository,
+  type TimeChainSigner,
 } from "@librehr/db";
 import { IdParamSchema, parseParams } from "../lib/validate.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -24,7 +24,10 @@ import {
   scopedEmployeeFilter,
 } from "../policies/context.js";
 
-export function createTimeCorrectionRoutes(sql: Sql) {
+export function createTimeCorrectionRoutes(
+  sql: Sql,
+  options: { sign: TimeChainSigner },
+) {
   const router = new Hono();
   const correctionRepo = new TimeCorrectionRepository();
   const timeRepo = new TimeRepository();
@@ -209,22 +212,10 @@ export function createTimeCorrectionRoutes(sql: Sql) {
         let createdEventId: string | null = null;
 
         if (parsed.data.decision === "approve") {
-          const latest = await timeRepo.getLatestEvent(tx, corr.employeeId);
-          const prevHash = latest?.hash ?? null;
-
-          const hash = computeEventHash(prevHash, {
+          // The correction is a new event that references the original; the
+          // original stays in the chain untouched (TIM-003).
+          const createdEv = await timeRepo.appendEvent(tx, options.sign, {
             organizationId: user.organizationId,
-            employeeId: corr.employeeId,
-            eventType: corr.proposedEventType,
-            occurredAt: corr.proposedOccurredAt.toISOString(),
-            recordedAt: new Date().toISOString(),
-            source: "manual",
-            actorId: user.id,
-            refEventId: corr.refEventId ?? undefined,
-            reason: `Approved correction: ${corr.reason}`,
-          });
-
-          const createdEv = await timeRepo.appendEvent(tx, {
             employeeId: corr.employeeId,
             eventType: corr.proposedEventType as
               | "clock_in"
@@ -237,8 +228,6 @@ export function createTimeCorrectionRoutes(sql: Sql) {
             actorId: user.id,
             refEventId: corr.refEventId,
             reason: `Approved correction: ${corr.reason}`,
-            prevHash,
-            hash,
           });
 
           createdEventId = createdEv.id;

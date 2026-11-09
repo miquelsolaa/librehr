@@ -16,7 +16,6 @@ import {
   validateSpanishId,
   validateIban,
   buildOrgChart,
-  generatePinSalt,
   hashKioskPin,
 } from "@librehr/core";
 import {
@@ -699,6 +698,9 @@ export function createEmployeeRoutes(sql: Sql) {
       });
     }
 
+    // scrypt is deliberately slow: hash before opening the transaction.
+    const pinHash = await hashKioskPin(parse.data.pin);
+
     const result = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
@@ -712,13 +714,11 @@ export function createEmployeeRoutes(sql: Sql) {
           return "FORBIDDEN";
         }
 
-        const pinSalt = generatePinSalt();
-        const pinHash = hashKioskPin(parse.data.pin, pinSalt);
         await employeeRepo.setKioskPin(
           tx,
           employeeId,
           pinHash,
-          pinSalt,
+          null,
           parse.data.badgeId,
         );
 

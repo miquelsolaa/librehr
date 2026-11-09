@@ -12,3 +12,7 @@ export {
   ValidationError,
   type ValidationErrorOptions,
 } from "./http-errors.js";
+export {
+  TIME_EVENT_OUT_OF_WINDOW_TYPE,
+  TimeEventOutOfWindowError,
+} from "./time-errors.js";

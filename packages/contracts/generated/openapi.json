@@ -2218,22 +2218,15 @@
             "type": "string",
             "format": "date-time"
           },
-          "source": {
-            "type": "string",
-            "enum": [
-              "web",
-              "mobile",
-              "kiosk"
-            ],
-            "default": "web"
-          },
           "notes": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 500
           }
         },
         "required": [
           "eventType"
-        ]
+        ],
+        "additionalProperties": false
       },
       "ClockStatusResponse": {
         "type": "object",
@@ -3766,7 +3759,12 @@
           "scopes": {
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "read",
+                "write",
+                "admin"
+              ]
             },
             "minItems": 1
           },
@@ -11351,7 +11349,12 @@
                   "scopes": {
                     "type": "array",
                     "items": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "read",
+                        "write",
+                        "admin"
+                      ]
                     },
                     "minItems": 1
                   },

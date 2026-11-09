@@ -51,10 +51,8 @@ export function ClockWidget({ onClockChange }: { onClockChange?: () => void }) {
     setActionError(false);
     try {
       const client = getApiClient(session.token);
-      await client.clock({
-        eventType: action,
-        source: "web",
-      });
+      // The server sets the event source; it is never sent by the client.
+      await client.clock({ eventType: action });
       await fetchStatus();
       onClockChange?.();
     } catch {

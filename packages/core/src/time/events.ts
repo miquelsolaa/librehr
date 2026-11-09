@@ -1,7 +1,7 @@
 export type TimeEventType =
   "clock_in" | "clock_out" | "break_start" | "break_end" | "correction";
 
-export type TimeEventSource = "web" | "mobile" | "manual" | "import";
+export type TimeEventSource = "web" | "mobile" | "kiosk" | "manual" | "import";
 
 export interface TimeEvent {
   id: string;
