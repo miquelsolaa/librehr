@@ -1,6 +1,10 @@
 import { Hono } from "hono";
 import type { Sql } from "postgres";
-import { type AuthUser, createProblemDetails } from "@librehr/contracts";
+import {
+  type AuthUser,
+  createProblemDetails,
+  EmployeeImportRequestSchema,
+} from "@librehr/contracts";
 import { validateEmployeeCsv } from "@librehr/core";
 import {
   withTenant,
@@ -9,6 +13,7 @@ import {
   LocationRepository,
   AuditRepository,
 } from "@librehr/db";
+import { parseJsonBody } from "../lib/validate.js";
 import { requireAuth } from "../middleware/auth.js";
 
 export function createEmployeeImportRoutes(sql: Sql) {
@@ -35,23 +40,7 @@ export function createEmployeeImportRoutes(sql: Sql) {
       );
     }
 
-    const body = (await c.req.json()) as {
-      csvContent?: string;
-      dryRun?: boolean;
-    };
-    if (!body.csvContent) {
-      return c.json(
-        createProblemDetails({
-          status: 400,
-          title: "Bad Request",
-          detail: "csvContent is required",
-          code: "BAD_REQUEST",
-        }),
-        400,
-        { "Content-Type": "application/problem+json" },
-      );
-    }
-
+    const body = await parseJsonBody(c, EmployeeImportRequestSchema);
     const validationReport = validateEmployeeCsv(body.csvContent);
 
     // If invalid or dryRun=true, return report without modifying database

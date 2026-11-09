@@ -4,7 +4,9 @@ import {
   type AuthUser,
   createProblemDetails,
   CreateHolidayRequestSchema,
+  ListHolidaysQuerySchema,
   SeedStatutoryHolidaysRequestSchema,
+  TeamAbsencesQuerySchema,
 } from "@librehr/contracts";
 import { generateIcsCalendar, resolveLocationHolidays } from "@librehr/core";
 import {
@@ -13,6 +15,12 @@ import {
   LeaveRepository,
   LocationRepository,
 } from "@librehr/db";
+import {
+  IdParamSchema,
+  parseJsonBody,
+  parseParams,
+  parseQuery,
+} from "../lib/validate.js";
 import { requireAuth } from "../middleware/auth.js";
 import { canSeeLeaveType } from "../policies/calendar-visibility.js";
 
@@ -25,21 +33,9 @@ export function createCalendarRoutes(sql: Sql) {
   // 1. GET /calendar/holidays - List holidays for a location and year
   router.get("/calendar/holidays", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const locationId = c.req.query("locationId");
-    const yearStr = c.req.query("year");
-    const year = yearStr ? parseInt(yearStr, 10) : new Date().getFullYear();
-
-    if (!locationId) {
-      const problem = createProblemDetails({
-        status: 400,
-        title: "Bad Request",
-        detail: "locationId query parameter is required",
-        code: "MISSING_LOCATION_ID",
-      });
-      return c.json(problem, 400, {
-        "Content-Type": "application/problem+json",
-      });
-    }
+    const query = parseQuery(c, ListHolidaysQuerySchema);
+    const locationId = query.locationId;
+    const year = query.year ?? new Date().getFullYear();
 
     const holidays = await withTenant(
       sql,
@@ -75,22 +71,9 @@ export function createCalendarRoutes(sql: Sql) {
       });
     }
 
-    const body = await c.req.json();
-    const parsed = CreateHolidayRequestSchema.safeParse(body);
-    if (!parsed.success) {
-      const problem = createProblemDetails({
-        status: 400,
-        title: "Validation Error",
-        detail: parsed.error.issues[0]?.message ?? "Invalid holiday data",
-        code: "VALIDATION_ERROR",
-      });
-      return c.json(problem, 400, {
-        "Content-Type": "application/problem+json",
-      });
-    }
-
-    const { locationId, date, name, scope } = parsed.data;
-    const year = parsed.data.year ?? parseInt(date.slice(0, 4), 10);
+    const data = await parseJsonBody(c, CreateHolidayRequestSchema);
+    const { locationId, date, name, scope } = data;
+    const year = data.year ?? parseInt(date.slice(0, 4), 10);
 
     const holiday = await withTenant(
       sql,
@@ -136,7 +119,10 @@ export function createCalendarRoutes(sql: Sql) {
       });
     }
 
-    const id = c.req.param("id");
+    const { id } = parseParams(c, IdParamSchema, {
+      detail: "Holiday not found",
+      code: "HOLIDAY_NOT_FOUND",
+    });
     const success = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
@@ -175,29 +161,16 @@ export function createCalendarRoutes(sql: Sql) {
       });
     }
 
-    const body = await c.req.json();
-    const parsed = SeedStatutoryHolidaysRequestSchema.safeParse(body);
-    if (!parsed.success) {
-      const problem = createProblemDetails({
-        status: 400,
-        title: "Validation Error",
-        detail: parsed.error.issues[0]?.message ?? "Invalid request",
-        code: "VALIDATION_ERROR",
-      });
-      return c.json(problem, 400, {
-        "Content-Type": "application/problem+json",
-      });
-    }
-
-    const { locationId, year } = parsed.data;
+    const data = await parseJsonBody(c, SeedStatutoryHolidaysRequestSchema);
+    const { locationId, year } = data;
 
     const holidays = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
         const loc = await locationRepo.findById(tx, locationId);
-        const region = parsed.data.region ?? loc?.region ?? "CT";
-        const city = parsed.data.city ?? loc?.city ?? "Barcelona";
+        const region = data.region ?? loc?.region ?? "CT";
+        const city = data.city ?? loc?.city ?? "Barcelona";
 
         const statutory = resolveLocationHolidays({
           year,
@@ -232,14 +205,14 @@ export function createCalendarRoutes(sql: Sql) {
   // 2. GET /calendar/team-absences - Team calendar with GDPR Art. 9 privacy masking
   router.get("/calendar/team-absences", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const startDate =
-      c.req.query("startDate") ?? new Date().toISOString().slice(0, 10);
+    const query = parseQuery(c, TeamAbsencesQuerySchema);
+    const startDate = query.startDate ?? new Date().toISOString().slice(0, 10);
     const endDate =
-      c.req.query("endDate") ??
+      query.endDate ??
       new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
         .toISOString()
         .slice(0, 10);
-    const departmentId = c.req.query("departmentId");
+    const departmentId = query.departmentId;
 
     const absences = await withTenant(
       sql,

@@ -1,7 +1,12 @@
 import { Hono } from "hono";
 import type { Sql } from "postgres";
-import { type AuthUser, createProblemDetails } from "@librehr/contracts";
+import {
+  type AuthUser,
+  createProblemDetails,
+  ListAuditLogQuerySchema,
+} from "@librehr/contracts";
 import { withTenant, AuditRepository } from "@librehr/db";
+import { parseQuery } from "../lib/validate.js";
 import { requireAuth } from "../middleware/auth.js";
 import { can } from "../policies/can.js";
 
@@ -33,13 +38,7 @@ export function createAuditRoutes(sql: Sql) {
       });
     }
 
-    const query = c.req.query();
-    const filters = {
-      resourceType: query["resourceType"] || undefined,
-      resourceId: query["resourceId"] || undefined,
-      actorId: query["actorId"] || undefined,
-      limit: query["limit"] ? parseInt(query["limit"], 10) : undefined,
-    };
+    const filters = parseQuery(c, ListAuditLogQuerySchema);
 
     const logs = await withTenant(
       sql,

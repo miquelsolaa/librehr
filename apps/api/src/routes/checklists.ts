@@ -5,6 +5,7 @@ import {
   createProblemDetails,
   CreateChecklistTemplateSchema,
   InstantiateChecklistSchema,
+  ToggleChecklistTaskSchema,
 } from "@librehr/contracts";
 import { computeChecklistTaskDueDates } from "@librehr/core";
 import {
@@ -13,6 +14,8 @@ import {
   EmployeeRepository,
   AuditRepository,
 } from "@librehr/db";
+import { NotFoundError } from "../errors/index.js";
+import { IdParamSchema, parseJsonBody, parseParams } from "../lib/validate.js";
 import { requireAuth } from "../middleware/auth.js";
 
 export function createChecklistRoutes(sql: Sql) {
@@ -60,26 +63,16 @@ export function createChecklistRoutes(sql: Sql) {
       );
     }
 
-    const body = await c.req.json();
-    const parsed = CreateChecklistTemplateSchema.safeParse(body);
-    if (!parsed.success) {
-      return c.json(
-        createProblemDetails({
-          status: 422,
-          title: "Validation Error",
-          detail: "Invalid template payload",
-          code: "VALIDATION_ERROR",
-        }),
-        422,
-        { "Content-Type": "application/problem+json" },
-      );
-    }
+    const data = await parseJsonBody(c, CreateChecklistTemplateSchema, {
+      status: 422,
+      detail: "Invalid template payload",
+    });
 
     const template = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        const created = await checklistRepo.createTemplate(tx, parsed.data);
+        const created = await checklistRepo.createTemplate(tx, data);
         await auditRepo.log(tx, {
           actorId: user.id,
           action: "checklist.template_create",
@@ -173,22 +166,11 @@ export function createChecklistRoutes(sql: Sql) {
       );
     }
 
-    const body = await c.req.json();
-    const parsed = InstantiateChecklistSchema.safeParse(body);
-    if (!parsed.success) {
-      return c.json(
-        createProblemDetails({
-          status: 422,
-          title: "Validation Error",
-          detail: "Invalid checklist instantiation payload",
-          code: "VALIDATION_ERROR",
-        }),
-        422,
-        { "Content-Type": "application/problem+json" },
-      );
-    }
-
-    const { templateId, employeeId, baseDate, customTitle } = parsed.data;
+    const { templateId, employeeId, baseDate, customTitle } =
+      await parseJsonBody(c, InstantiateChecklistSchema, {
+        status: 422,
+        detail: "Invalid checklist instantiation payload",
+      });
 
     const instance = await withTenant(
       sql,
@@ -200,7 +182,7 @@ export function createChecklistRoutes(sql: Sql) {
         );
         const employee = await empRepo.findById(tx, employeeId);
         if (!employee) {
-          throw new Error("Employee not found");
+          throw new NotFoundError({ detail: "Employee not found" });
         }
 
         const scheduledTasks = computeChecklistTaskDueDates(
@@ -255,21 +237,10 @@ export function createChecklistRoutes(sql: Sql) {
   // 5. PATCH /checklists/tasks/:id - Toggle task completion status
   router.patch("/checklists/tasks/:id", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const taskId = c.req.param("id");
-    const body = (await c.req.json()) as { isCompleted?: boolean };
-
-    if (body.isCompleted === undefined) {
-      return c.json(
-        createProblemDetails({
-          status: 400,
-          title: "Bad Request",
-          detail: "isCompleted field is required",
-          code: "BAD_REQUEST",
-        }),
-        400,
-        { "Content-Type": "application/problem+json" },
-      );
-    }
+    const { id: taskId } = parseParams(c, IdParamSchema, {
+      detail: "Checklist task not found",
+    });
+    const body = await parseJsonBody(c, ToggleChecklistTaskSchema);
 
     const updatedTask = await withTenant(
       sql,
@@ -278,7 +249,7 @@ export function createChecklistRoutes(sql: Sql) {
         const task = await checklistRepo.toggleTask(
           tx,
           taskId,
-          body.isCompleted!,
+          body.isCompleted,
           user.id,
         );
 
