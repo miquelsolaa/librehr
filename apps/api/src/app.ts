@@ -57,6 +57,7 @@ import { createTokenRoutes } from "./routes/tokens.js";
 import { createCustomFieldRoutes } from "./routes/custom-fields.js";
 import { createSsoRoutes } from "./routes/sso.js";
 import { createSettingsSecurityRoutes } from "./routes/settings-security.js";
+import { createAuditorAccessRoutes } from "./routes/auditor-access.js";
 import { createWebhookRoutes } from "./routes/webhooks.js";
 import { createShiftRoutes } from "./routes/shifts.js";
 import { createCorsOriginMatcher } from "./lib/cors-origin.js";
@@ -303,6 +304,7 @@ export function createApp(deps: AppDependencies) {
     }),
   );
   app.route("/v1", createSettingsSecurityRoutes(deps.sql));
+  app.route("/v1", createAuditorAccessRoutes(deps.sql));
   app.route(
     "/v1",
     createWebhookRoutes(deps.sql, {

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AuditorAccessMaxDaysSchema } from "./auditor-access.js";
 
 export const SignInRequestSchema = z.object({
   email: z.string().email(),
@@ -91,12 +92,23 @@ export type TwoFactorDisableRequest = z.infer<
 
 export const OrgSecuritySettingsSchema = z.object({
   requireTwoFactor: z.boolean(),
+  /** TIM-008: maximum days ahead an auditor's access end date may be set. */
+  auditorAccessMaxDays: AuditorAccessMaxDaysSchema,
 });
 export type OrgSecuritySettings = z.infer<typeof OrgSecuritySettingsSchema>;
 
-export const UpdateOrgSecuritySettingsSchema = z.object({
-  requireTwoFactor: z.boolean(),
-});
+/** Partial update: at least one setting must be present. */
+export const UpdateOrgSecuritySettingsSchema = z
+  .object({
+    requireTwoFactor: z.boolean().optional(),
+    auditorAccessMaxDays: AuditorAccessMaxDaysSchema.optional(),
+  })
+  .refine(
+    (value) =>
+      value.requireTwoFactor !== undefined ||
+      value.auditorAccessMaxDays !== undefined,
+    { message: "At least one setting is required" },
+  );
 export type UpdateOrgSecuritySettings = z.infer<
   typeof UpdateOrgSecuritySettingsSchema
 >;

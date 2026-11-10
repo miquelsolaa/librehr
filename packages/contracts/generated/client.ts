@@ -47,6 +47,11 @@ import type {
   AcceptInvitationRequest,
 } from '../src/invitations.js';
 import type {
+  Auditor,
+  AuditorListResponse,
+  UpdateAuditorAccessRequest,
+} from '../src/auditor-access.js';
+import type {
   LeaveType,
   CreateLeaveTypeRequest,
   LeaveBalanceSummary,
@@ -332,6 +337,24 @@ export class LibreHrApiClient {
     return this.request<SessionResponse>('/v1/invitations/accept', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  }
+
+  // Inspector / auditor access (TIM-008)
+  async listAuditors(): Promise<AuditorListResponse> {
+    return this.request<AuditorListResponse>('/v1/auditors');
+  }
+
+  async updateAuditorAccess(userId: string, data: UpdateAuditorAccessRequest): Promise<Auditor> {
+    return this.request<Auditor>(`/v1/auditors/${userId}/access`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async cancelAuditorInvitation(id: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/v1/auditors/invitations/${id}`, {
+      method: 'DELETE',
     });
   }
 

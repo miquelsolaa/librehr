@@ -6,7 +6,10 @@ import { useTranslations } from "next-intl";
 import { Mail, Check, AlertCircle } from "lucide-react";
 import { Button, Input } from "@librehr/ui";
 import { apiClient } from "../../../../../lib/api-client.js";
-import type { InvitationDetails } from "@librehr/contracts";
+import {
+  AUDITOR_ACCESS_ERROR_CODES,
+  type InvitationDetails,
+} from "@librehr/contracts";
 
 export default function AcceptInvitePage() {
   const params = useParams();
@@ -25,6 +28,8 @@ export default function AcceptInvitePage() {
         return t("roleManager");
       case "admin":
         return t("roleAdmin");
+      case "auditor":
+        return t("roleAuditor");
       default:
         return role;
     }
@@ -44,8 +49,17 @@ export default function AcceptInvitePage() {
     apiClient
       .getInvitation(token)
       .then((res) => setInvite(res))
-      .catch(() => {
-        setError(t("invalidToken"));
+      .catch((err: unknown) => {
+        // TIM-008: an auditor invitation whose access period has ended.
+        const code =
+          typeof err === "object" && err !== null && "code" in err
+            ? err.code
+            : undefined;
+        setError(
+          code === AUDITOR_ACCESS_ERROR_CODES.invitationAccessExpired
+            ? t("accessExpired")
+            : t("invalidToken"),
+        );
       })
       .finally(() => setLoading(false));
   }, [token, t]);

@@ -4,6 +4,7 @@ export * from "./audit.js";
 export * from "./auth.js";
 export * from "./org.js";
 export * from "./invitations.js";
+export * from "./auditor-access.js";
 export * from "./permissions.js";
 export * from "./employees.js";
 export * from "./employment-history.js";

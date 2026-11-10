@@ -77,6 +77,11 @@ export const memberships = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     role: text("role").notNull().default("employee"), // admin, hr_admin, manager, employee, auditor
+    // TIM-008: access ends at this instant (auditors); NULL means no end (0029).
+    accessExpiresAt: timestamp("access_expires_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
     ...timestamps,
   },
   (table) => [
@@ -103,6 +108,11 @@ export const invitations = pgTable(
       onDelete: "set null",
     }),
     acceptedAt: timestamp("accepted_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    // TIM-008: auditor access end date, copied to the membership on accept.
+    accessExpiresAt: timestamp("access_expires_at", {
       withTimezone: true,
       mode: "date",
     }),

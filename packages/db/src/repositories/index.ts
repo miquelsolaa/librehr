@@ -2,6 +2,7 @@ export * from "./org.repository.js";
 export * from "./user.repository.js";
 export * from "./identity.repository.js";
 export * from "./access-revocation.repository.js";
+export * from "./auditor-access.repository.js";
 export * from "./employee.repository.js";
 export * from "./employment-history.repository.js";
 export * from "./employment-periods.js";

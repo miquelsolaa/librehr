@@ -39,9 +39,13 @@ async function createPerson(
   const email = `${label}-${id.slice(0, 8)}@fixture.invalid`;
   const name = `Fixture ${label}`;
   await sql`INSERT INTO users (id, email, name) VALUES (${id}, ${email}, ${name})`;
+  // TIM-008: auditor access is time-boxed, as the API requires.
   await sql`
-    INSERT INTO memberships (organization_id, user_id, role)
-    VALUES (${orgId}, ${id}, ${role})
+    INSERT INTO memberships (organization_id, user_id, role, access_expires_at)
+    VALUES (
+      ${orgId}, ${id}, ${role},
+      CASE WHEN ${role}::text = 'auditor' THEN now() + interval '30 days' END
+    )
   `;
   await sql`
     INSERT INTO employees (id, organization_id, user_id, manager_id, first_name, last_name, email)
