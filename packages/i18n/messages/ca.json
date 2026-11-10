@@ -668,6 +668,7 @@
     "exportEmployeeLabel": "Persona empleada",
     "exportEmployeeSelf": "Jo",
     "exportDirectoryUnavailable": "No s’ha pogut carregar la llista de persones empleades; només pots seleccionar el teu propi registre.",
+    "exportEmployeeReset": "La persona seleccionada no està contractada en aquest període; ara l’exportació inclou només el teu propi registre.",
     "exportPreview": "Previsualitzar",
     "exportDownloadCsv": "Descarregar CSV",
     "exportDownloadPdf": "Descarregar PDF",

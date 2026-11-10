@@ -57,6 +57,44 @@ A period covers at most 366 days.
   address, behind `TRUST_PROXY` hops). Beyond that the API answers
   `429 RATE_LIMIT_EXCEEDED` with a `Retry-After` header.
 
+## Employee picker
+
+`GET /v1/time/export/employees?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD` lists
+whom the caller may export for that period, as `{ items: [{ id, name }] }`
+sorted by name. The web export page fills its employee picker from it and
+reloads it when the dates change.
+
+| Role     | Listed                                                         |
+| -------- | -------------------------------------------------------------- |
+| Employee | themselves                                                     |
+| Manager  | themselves and their direct reports                            |
+| Auditor  | every employee an organization export of the period would list |
+| Admin    | every employee an organization export of the period would list |
+
+The list starts from the same employees as an organization export of the
+period (see above) and keeps those inside the caller's `time.record.read`
+scope. It needs `time.record.read` only, not `employee.read`, so an auditor
+can pick one employee without seeing the employee directory. It returns ids
+and display names only (no email, department or other directory fields).
+Period rules are the export's: `400` for an invalid date, an end before the
+start or more than 366 days; `401` without a session; `403` without
+`time.record.read`.
+
+- **Audit log (TIM-008).** A caller with organization-wide `time.record.read`
+  but no `employee.read` (the auditor role) gets one
+  `inspector.export_picker_access` entry per call, with the period and the
+  number of employees listed (`periodStart`, `periodEnd`, `employeeCount`):
+  no names or emails. Admin, manager and employee listings are not logged;
+  their exports are (see below).
+- **Rate limit.** 60 requests per minute per user and client address, counted
+  apart from the export's 10. Beyond that the API answers
+  `429 RATE_LIMIT_EXCEEDED` with a `Retry-After` header.
+- **Web page.** While the list reloads after a date change, the employee
+  select and the export buttons are disabled. If the new period no longer
+  lists the selected employee, the choice resets to your own record and the
+  page says so. If the list cannot be loaded, it is cleared and only your own
+  record can be exported.
+
 ## What the document contains
 
 - A header with the organization, period, scope, the organization's time

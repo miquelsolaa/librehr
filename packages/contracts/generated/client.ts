@@ -89,6 +89,7 @@ import type {
   DecideTimeCorrection,
   TimeCorrectionItem,
   OfficialExportResponse,
+  ExportEmployeesResponse,
   KioskClockRequest,
   KioskClockResponse,
   SetEmployeePin,
@@ -573,6 +574,14 @@ export class LibreHrApiClient {
     if (params.scope) searchParams.set('scope', params.scope);
     if (params.locale) searchParams.set('locale', params.locale);
     return this.request<OfficialExportResponse>(`/v1/time/export?${searchParams.toString()}`);
+  }
+
+  async listExportEmployees(params: { startDate: string; endDate: string }): Promise<ExportEmployeesResponse> {
+    const searchParams = new URLSearchParams({
+      startDate: params.startDate,
+      endDate: params.endDate,
+    });
+    return this.request<ExportEmployeesResponse>(`/v1/time/export/employees?${searchParams.toString()}`);
   }
 
   async listTimeCorrections(params?: { employeeId?: string; status?: string }): Promise<TimeCorrectionItem[]> {

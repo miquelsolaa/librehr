@@ -35,6 +35,7 @@ import {
   createTimeExportRoutes,
   TIME_EXPORT_EXPOSED_HEADERS,
 } from "./routes/time-export.js";
+import { createTimeExportEmployeesRoutes } from "./routes/time-export-employees.js";
 import { createTimeCorrectionRoutes } from "./routes/time-corrections.js";
 import { createTimeKioskRoutes } from "./routes/time-kiosk.js";
 import {
@@ -80,12 +81,14 @@ export interface AppDependencies {
   /**
    * Overrides of the TIM-006 export limits (tests): the employee-days cap
    * (default OFFICIAL_EXPORT_MAX_EMPLOYEE_DAYS) and the rate limit (default
-   * 10 per minute per user).
+   * 10 per minute per user), and the employee picker's rate limit (default
+   * 60 per minute per user).
    */
   timeExport?:
     | {
         maxEmployeeDays?: number | undefined;
         rateLimit?: { windowMs: number; max: number } | undefined;
+        pickerRateLimit?: { windowMs: number; max: number } | undefined;
       }
     | undefined;
   /** Overrides of the 2FA defaults (AUTH-003); see lib/two-factor-config.ts. */
@@ -260,6 +263,13 @@ export function createApp(deps: AppDependencies) {
       trustProxy: deps.trustProxy,
       maxEmployeeDays: deps.timeExport?.maxEmployeeDays,
       rateLimit: deps.timeExport?.rateLimit,
+    }),
+  );
+  app.route(
+    "/v1",
+    createTimeExportEmployeesRoutes(deps.sql, {
+      trustProxy: deps.trustProxy,
+      rateLimit: deps.timeExport?.pickerRateLimit,
     }),
   );
   app.route(

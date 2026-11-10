@@ -37,6 +37,13 @@ export interface ExportSubject {
   lastName: string;
 }
 
+/** Display name of an employee in the export (and its employee picker). */
+export function exportEmployeeName(
+  subject: Pick<ExportSubject, "firstName" | "lastName">,
+): string {
+  return `${subject.firstName} ${subject.lastName}`;
+}
+
 export interface CollectedEmployee {
   input: InspectionExportEmployee;
   totalWorkedMinutes: number | null;
@@ -72,7 +79,7 @@ export async function collectExportEmployee(
   return {
     input: {
       employeeId: subject.id,
-      name: `${subject.firstName} ${subject.lastName}`,
+      name: exportEmployeeName(subject),
       timeZone,
       days: timesheet.ok ? timesheet.days : null,
       correctedDates: correctedDates(
