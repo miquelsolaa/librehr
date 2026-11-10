@@ -676,7 +676,6 @@
     "exportCopyValue": "Copy {label}",
     "exportTableLabel": "Daily working-time record",
     "exportNoRows": "No working days in this period.",
-    "exportNotEmployed": "Not employed",
     "exportErrorInvalidPeriod": "Check the dates: the end date must be on or after the start date, and the period cannot be longer than 366 days.",
     "exportErrorForbidden": "You do not have permission to export this record. You can export your own record and, if you manage a team, your direct reports’.",
     "exportErrorNotFound": "This employee was not found.",

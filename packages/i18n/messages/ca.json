@@ -676,7 +676,6 @@
     "exportCopyValue": "Copiar {label}",
     "exportTableLabel": "Registre diari de jornada",
     "exportNoRows": "No hi ha dies laborables en aquest període.",
-    "exportNotEmployed": "No contractat",
     "exportErrorInvalidPeriod": "Revisa les dates: la data de fi ha de ser igual o posterior a la d’inici, i el període no pot superar els 366 dies.",
     "exportErrorForbidden": "No tens permís per exportar aquest registre. Pots exportar el teu i, si gestiones un equip, el de les persones que depenen de tu.",
     "exportErrorNotFound": "No s’ha trobat aquesta persona empleada.",
