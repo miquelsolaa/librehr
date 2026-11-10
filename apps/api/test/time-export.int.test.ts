@@ -1,131 +1,30 @@
 import { createHash } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import {
-  getTestDatabase,
-  seedScopedOrg,
-  type FixturePerson,
-  type ScopedOrgFixture,
-  type TestDatabase,
-} from "@librehr/testing";
-import { runMigrations } from "@librehr/db/migrate";
-import { TimeRepository, withTenant } from "@librehr/db";
+import type { FixturePerson, ScopedOrgFixture } from "@librehr/testing";
 import type { OfficialExportResponse } from "@librehr/contracts";
-import { createApp } from "../src/app.js";
 import {
-  createTimeChainSigner,
-  resolveTimeChainKey,
-} from "../src/lib/time-chain.js";
-import { as, fixtureAuthPort } from "./support/fixture-app.js";
+  PERIOD,
+  setupTimeExportFixture,
+  type TimeExportFixture,
+} from "./support/time-export-fixture.js";
 
-// TIM-006 Labour Inspectorate export: formats, content hash, scope and the
-// ADM-002 audit entry, per AGENTS §6 (success, validation, 401, 403, tenant).
-const PERIOD = "startDate=2026-11-02&endDate=2026-11-04";
-const sign = createTimeChainSigner(resolveTimeChainKey(undefined));
-
+// TIM-006 Labour Inspectorate export: formats, content hash, validation and
+// the ADM-002 audit entry, per AGENTS §6. Authorization and tenant isolation
+// live in time-export-authz.int.test.ts.
 describe("GET /v1/time/export (TIM-006)", () => {
-  let db: TestDatabase;
-  let app: ReturnType<typeof createApp>;
+  let fx: TimeExportFixture;
   let a: ScopedOrgFixture;
-  let b: ScopedOrgFixture;
 
-  const get = (path: string, person?: FixturePerson) =>
-    app.request(path, person ? { headers: as(person) } : {});
-
-  const assignSchedule = async (employeeId: string) => {
-    const rules = Array.from({ length: 7 }, (_, i) => ({
-      dayOfWeek: i + 1,
-      expectedHours: i < 5 ? 8 : 0,
-      breakMinutes: 0,
-    }));
-    const res = await app.request("/v1/schedules/assignments", {
-      method: "POST",
-      headers: as(a.admin, true),
-      body: JSON.stringify({
-        employeeId,
-        name: "Office",
-        effectiveFrom: "2026-01-01",
-        minimumDailyRestHours: 12,
-        rules,
-      }),
-    });
-    expect(res.status).toBe(201);
-  };
-
-  const exportAudits = () =>
-    withTenant(
-      db.sql,
-      { organizationId: a.orgId },
-      (tx) => tx<
-        { resourceId: string; resourceType: string; metadata: unknown }[]
-      >`
-        SELECT resource_id::text AS "resourceId", resource_type AS "resourceType", metadata
-        FROM audit_log WHERE action = 'time.export' ORDER BY created_at`,
-    );
+  const get = (path: string, person?: FixturePerson) => fx.get(path, person);
+  const exportAudits = () => fx.exportAudits();
 
   beforeAll(async () => {
-    const database = await getTestDatabase();
-    if (!database) throw new Error("Docker is required for this suite");
-    db = database;
-    await runMigrations(db.connectionString);
-    a = await seedScopedOrg(db.sql, "tx-a");
-    b = await seedScopedOrg(db.sql, "tx-b");
-    await db.sql`UPDATE organizations SET timezone = 'Europe/Madrid' WHERE id = ${a.orgId}`;
-    // Left before the period: never part of an organization export.
-    await db.sql`
-      INSERT INTO employees (organization_id, first_name, last_name, email, status, termination_date)
-      VALUES (${a.orgId}, 'Former', 'Leaver', 'former@fixture.invalid', 'terminated', '2026-01-31')`;
-    app = createApp({
-      sql: await db.appSql(),
-      authPort: fixtureAuthPort([
-        a.admin,
-        a.manager,
-        a.report,
-        a.peer,
-        a.auditor,
-        b.admin,
-      ]),
-      // The rate limit has its own test (time-export-integrity.int.test.ts).
-      timeExport: { rateLimit: { windowMs: 60_000, max: 1000 } },
-    });
-    // The peer stays unconfigured on purpose.
-    for (const person of [a.admin, a.manager, a.report, a.auditor]) {
-      await assignSchedule(person.employeeId);
-    }
-    await withTenant(
-      db.sql,
-      { organizationId: a.orgId, userId: a.report.id },
-      async (tx) => {
-        const repo = new TimeRepository();
-        const punch = (eventType: "clock_in" | "clock_out", at: string) =>
-          repo.appendEvent(tx, sign, {
-            organizationId: a.orgId,
-            employeeId: a.report.employeeId,
-            eventType,
-            occurredAt: new Date(at),
-            source: "web",
-            actorId: a.report.id,
-          });
-        await punch("clock_in", "2026-11-02T08:00:00Z");
-        await punch("clock_out", "2026-11-02T16:00:00Z");
-        await punch("clock_in", "2026-11-03T08:00:00Z");
-        const out = await punch("clock_out", "2026-11-03T15:00:00Z");
-        // TIM-003: a correction is a new event referencing the original.
-        await repo.appendEvent(tx, sign, {
-          organizationId: a.orgId,
-          employeeId: a.report.employeeId,
-          eventType: "clock_out",
-          occurredAt: new Date("2026-11-03T16:00:00Z"),
-          source: "manual",
-          actorId: a.manager.id,
-          refEventId: out.id,
-          reason: "Forgot to clock out",
-        });
-      },
-    );
+    fx = await setupTimeExportFixture("tx");
+    a = fx.a;
   }, 90000);
 
   afterAll(async () => {
-    if (db) await db.close();
+    if (fx) await fx.db.close();
   });
 
   it("returns the JSON document with hash, metadata, corrections and chain status", async () => {
@@ -229,46 +128,6 @@ describe("GET /v1/time/export (TIM-006)", () => {
       expect.arrayContaining(["", "Schedule not configured"]),
     ]);
     expect(doc.rows).toHaveLength(4 * 3 + 1);
-  });
-
-  it("forbids organization scope without organization-wide access", async () => {
-    for (const person of [a.manager, a.report]) {
-      const res = await get(
-        `/v1/time/export?${PERIOD}&scope=organization`,
-        person,
-      );
-      expect(res.status).toBe(403);
-      expect(res.headers.get("content-type")).toContain(
-        "application/problem+json",
-      );
-    }
-  });
-
-  it("applies employee scope for every role", async () => {
-    const at = async (person: FixturePerson, employeeId?: string) => {
-      const filter = employeeId ? `&employeeId=${employeeId}` : "";
-      return (await get(`/v1/time/export?${PERIOD}${filter}`, person)).status;
-    };
-    expect(await at(a.manager, a.report.employeeId)).toBe(200);
-    expect(await at(a.manager, a.admin.employeeId)).toBe(403);
-    expect(await at(a.report)).toBe(200);
-    expect(await at(a.report, a.report.employeeId)).toBe(200);
-    expect(await at(a.report, a.manager.employeeId)).toBe(403);
-    expect(await at(a.auditor, a.report.employeeId)).toBe(200);
-    expect(await at(a.admin, a.report.employeeId)).toBe(200);
-  });
-
-  it("never exposes another tenant's employee", async () => {
-    const res = await get(
-      `/v1/time/export?${PERIOD}&employeeId=${b.report.employeeId}&format=csv`,
-      a.admin,
-    );
-    expect(res.status).toBe(404);
-    expect(await res.text()).not.toContain("Fixture");
-  });
-
-  it("requires authentication", async () => {
-    expect((await get(`/v1/time/export?${PERIOD}`)).status).toBe(401);
   });
 
   it.each([
