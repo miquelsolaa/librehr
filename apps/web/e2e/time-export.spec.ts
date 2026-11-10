@@ -1,11 +1,17 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { mockRoute, seedProfile } from "./support/mock-api";
+import {
+  AXE_TAGS,
+  CONTENT_HASH,
+  EMPLOYEE_ID,
+  EXPORT_ID,
+  REPORT_ID,
+  mockJsonExport,
+  mockPicker,
+} from "./support/time-export";
 
 // TIM-006: official working-time export screen. Fictional fixtures only.
-const EXPORT_ID = "00000000-0000-4000-8000-0000000000e1";
-const CONTENT_HASH = "a".repeat(64);
-const EMPLOYEE_ID = "00000000-0000-4000-8000-000000000002";
 // The API starts CSVs with a byte-order mark.
 const BOM = String.fromCharCode(0xfeff);
 
@@ -13,29 +19,6 @@ test("admin downloads the whole organization as CSV and sees its id and hash", a
   page,
 }) => {
   await seedProfile(page, { role: "admin" });
-  await mockRoute(page, "**/v1/employees**", (route) =>
-    route.fulfill({
-      json: {
-        items: [
-          {
-            id: EMPLOYEE_ID,
-            firstName: "Alex",
-            lastName: "Example",
-            preferredName: null,
-            email: "alex@example.invalid",
-            status: "active",
-            departmentName: null,
-            locationName: null,
-            jobTitle: null,
-            managerName: null,
-          },
-        ],
-        total: 1,
-        page: 1,
-        pageSize: 100,
-      },
-    }),
-  );
   const exportRequests: URL[] = [];
   await mockRoute(page, "**/v1/time/export**", (route) => {
     exportRequests.push(new URL(route.request().url()));
@@ -51,6 +34,7 @@ test("admin downloads the whole organization as CSV and sees its id and hash", a
       body: `${BOM}Empleado;Fecha\n# sha256=${CONTENT_HASH}\n`,
     });
   });
+  await mockPicker(page, [{ id: EMPLOYEE_ID, name: "Alex Example" }]);
 
   await page.goto("/en/time/export");
   await expect(
@@ -91,9 +75,7 @@ test("admin downloads the whole organization as CSV and sees its id and hash", a
     page.getByRole("button", { name: "Copy Export ID" }),
   ).toBeVisible();
 
-  const results = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-    .analyze();
+  const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
   expect(results.violations).toEqual([]);
 });
 
@@ -135,8 +117,79 @@ test("employee sees a specific message when the export is forbidden", async ({
     ),
   ).toBe(true);
 
-  const results = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-    .analyze();
+  const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
+  expect(results.violations).toEqual([]);
+});
+
+test("auditor picks one employee and previews their record", async ({
+  page,
+}) => {
+  await seedProfile(page, { role: "auditor" });
+  const exportRequests: URL[] = [];
+  await mockJsonExport(page, exportRequests);
+  const pickerRequests: URL[] = [];
+  await mockPicker(
+    page,
+    [
+      { id: EMPLOYEE_ID, name: "Alex Example" },
+      { id: REPORT_ID, name: "Blake Sample" },
+    ],
+    pickerRequests,
+  );
+
+  await page.goto("/en/time/export");
+  await page.getByLabel("Start date").fill("2026-01-01");
+  await page.getByLabel("End date").fill("2026-01-31");
+  await expect
+    .poll(() => pickerRequests.at(-1)?.searchParams.get("endDate"))
+    .toBe("2026-01-31");
+  expect(pickerRequests.at(-1)?.searchParams.get("startDate")).toBe(
+    "2026-01-01",
+  );
+  await page
+    .getByLabel("Employee", { exact: true })
+    .selectOption({ label: "Alex Example" });
+  await page.getByRole("button", { name: "Preview" }).click();
+
+  await expect(page.getByTestId("export-receipt-id")).toHaveText(EXPORT_ID);
+  const query = exportRequests[0]?.searchParams;
+  expect(query?.get("employeeId")).toBe(EMPLOYEE_ID);
+  expect(query?.get("scope")).toBe("employee");
+  await expect(page.locator("main").getByRole("alert")).toHaveCount(0);
+
+  const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
+  expect(results.violations).toEqual([]);
+});
+
+test("manager's picker lists only what the API returns for their scope", async ({
+  page,
+}) => {
+  await seedProfile(page, { role: "manager" });
+  let directoryCalls = 0;
+  await mockRoute(page, "**/v1/employees**", (route) => {
+    directoryCalls++;
+    return route.fulfill({ status: 403, json: {} });
+  });
+  await mockPicker(page, [
+    { id: EMPLOYEE_ID, name: "Alex Example" },
+    { id: REPORT_ID, name: "Blake Sample" },
+  ]);
+
+  await page.goto("/en/time/export");
+  const picker = page.getByLabel("Employee", { exact: true });
+  await expect(
+    picker.getByRole("option", { name: "Blake Sample" }),
+  ).toBeAttached();
+  await expect(picker.getByRole("option")).toHaveText([
+    "Myself",
+    "Alex Example",
+    "Blake Sample",
+  ]);
+  // Managers export people, never the whole organization.
+  await expect(page.getByLabel("Who to export")).toHaveCount(0);
+  await expect(page.locator("#export-directory-hint")).toHaveCount(0);
+  expect(directoryCalls).toBe(0);
+
+  const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
   expect(results.violations).toEqual([]);
 });

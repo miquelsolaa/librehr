@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { Button, Input } from "@librehr/ui";
 import { ArrowLeft, Download, Eye, FileText, ShieldCheck } from "lucide-react";
 import type {
-  EmployeeListItem,
+  ExportEmployeesResponse,
   OfficialExportResponse,
 } from "@librehr/contracts";
 import { getStoredSession } from "@/lib/auth";
@@ -32,21 +32,7 @@ const LABEL = "mb-1.5 block text-sm font-medium text-foreground";
 const SELECT =
   "h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-50";
 
-/** Every page of the directory the API lets the caller see. */
-async function loadDirectory(): Promise<EmployeeListItem[]> {
-  const client = getApiClient();
-  const items: EmployeeListItem[] = [];
-  for (let page = 1; page <= 50; page++) {
-    const res = await client.listEmployees({ page, pageSize: 100 });
-    items.push(...res.items);
-    if (res.items.length === 0 || items.length >= res.total) break;
-  }
-  return items;
-}
-
-function employeeName(e: EmployeeListItem): string {
-  return `${e.preferredName ?? e.firstName} ${e.lastName}`;
-}
+type PickerEmployee = ExportEmployeesResponse["items"][number];
 
 export default function TimeExportPage() {
   const params = useParams();
@@ -69,22 +55,53 @@ export default function TimeExportPage() {
   const allowOrganization = canExportOrganization(role);
   const allowOthers = canExportOthers(role);
 
-  const [directory, setDirectory] = React.useState<EmployeeListItem[]>([]);
+  // Whom the caller may export for the period (time.record.read scope), not
+  // the employee directory: an auditor has no employee.read.
+  const [directory, setDirectory] = React.useState<PickerEmployee[]>([]);
   const [directoryFailed, setDirectoryFailed] = React.useState(false);
+  const [directoryLoading, setDirectoryLoading] = React.useState(false);
+  const [selectionReset, setSelectionReset] = React.useState(false);
+  // Read when a reload lands, without reloading on every selection.
+  const employeeIdRef = React.useRef(employeeId);
+  employeeIdRef.current = employeeId;
+  const periodValid = isValidExportPeriod(startDate, endDate);
   React.useEffect(() => {
-    if (!allowOthers) return;
+    if (!allowOthers || !periodValid) {
+      setDirectoryLoading(false);
+      return;
+    }
     let cancelled = false;
-    loadDirectory()
-      .then((items) => {
-        if (!cancelled) setDirectory(items);
+    setDirectoryLoading(true);
+    getApiClient()
+      .listExportEmployees({ startDate, endDate })
+      .then(({ items }) => {
+        if (cancelled) return;
+        setDirectory(items);
+        setDirectoryFailed(false);
+        // Drop a choice the new period no longer lists: the select would show
+        // "Myself" while the export still targeted the hidden employee.
+        const id = employeeIdRef.current;
+        if (id && !items.some((e) => e.id === id)) {
+          setEmployeeId("");
+          setSelectionReset(true);
+        }
       })
       .catch(() => {
-        if (!cancelled) setDirectoryFailed(true);
+        if (cancelled) return;
+        // Only the caller's own record is left, as the hint says.
+        setDirectory([]);
+        setEmployeeId("");
+        setDirectoryFailed(true);
+      })
+      .finally(() => {
+        if (!cancelled) setDirectoryLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [allowOthers]);
+  }, [allowOthers, periodValid, startDate, endDate]);
+  // An export started while the list reloads could target a stale choice.
+  const pickerLoading = allowOthers && scope === "employee" && directoryLoading;
 
   const [busy, setBusy] = React.useState<Action | null>(null);
   const [error, setError] = React.useState<ExportErrorKey | null>(null);
@@ -112,6 +129,7 @@ export default function TimeExportPage() {
 
     setError(null);
     setDownloaded(null);
+    setSelectionReset(false);
     setReceipt(null);
     // A preview left on screen would show another export's id and hash.
     setDoc(null);
@@ -262,7 +280,11 @@ export default function TimeExportPage() {
                 <select
                   id="export-employee"
                   value={employeeId}
-                  onChange={(e) => setEmployeeId(e.target.value)}
+                  onChange={(e) => {
+                    setEmployeeId(e.target.value);
+                    setSelectionReset(false);
+                  }}
+                  disabled={directoryLoading}
                   aria-describedby={
                     directoryFailed ? "export-directory-hint" : undefined
                   }
@@ -271,7 +293,7 @@ export default function TimeExportPage() {
                   <option value="">{t("exportEmployeeSelf")}</option>
                   {directory.map((e) => (
                     <option key={e.id} value={e.id}>
-                      {employeeName(e)}
+                      {e.name}
                     </option>
                   ))}
                 </select>
@@ -290,7 +312,7 @@ export default function TimeExportPage() {
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <Button
               type="submit"
-              disabled={busy !== null}
+              disabled={busy !== null || pickerLoading}
               isLoading={busy === "json"}
               className="gap-2"
             >
@@ -302,7 +324,7 @@ export default function TimeExportPage() {
             <Button
               type="button"
               variant="outline"
-              disabled={busy !== null}
+              disabled={busy !== null || pickerLoading}
               isLoading={busy === "csv"}
               onClick={() => void run("csv")}
               className="gap-2"
@@ -315,7 +337,7 @@ export default function TimeExportPage() {
             <Button
               type="button"
               variant="outline"
-              disabled={busy !== null}
+              disabled={busy !== null || pickerLoading}
               isLoading={busy === "pdf"}
               onClick={() => void run("pdf")}
               className="gap-2"
@@ -333,7 +355,9 @@ export default function TimeExportPage() {
             ? t("generating")
             : downloaded
               ? t("exportDownloaded", { filename: downloaded })
-              : ""}
+              : selectionReset
+                ? t("exportEmployeeReset")
+                : ""}
         </p>
 
         {error && (
