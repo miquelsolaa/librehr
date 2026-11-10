@@ -1,0 +1,78 @@
+LibreHR Enterprise License
+Version 0.1 (DRAFT) - 2026-11-10
+
+DRAFT. Not yet reviewed by a lawyer. It will be replaced by a reviewed
+version before the first commercial licence is sold.
+
+Copyright (c) 2026 Miquel Solà and LibreHR contributors under the LibreHR
+Contributor License Agreement (CLA.md).
+
+1. Scope
+
+This licence applies to everything inside the "ee/" directory of the LibreHR
+repository and to any copy or modification of it (the "Software"). Everything
+outside "ee/" is licensed under the GNU Affero General Public License v3.0 or
+later; see the LICENSE file at the root of the repository.
+
+2. Permitted use without a subscription
+
+You may copy, modify and run the Software, free of charge, only to:
+  a. develop, test and debug LibreHR or the Software itself;
+  b. contribute changes back to the LibreHR project;
+  c. evaluate the Software in a non-production environment for up to
+     30 days.
+"Production" means any use with real employee data or for real business
+operations.
+
+3. Production use
+
+Production use requires one of:
+  a. a valid LibreHR licence key covering the features and the number of
+     employees in use, issued by the Licensor; or
+  b. a LibreHR Cloud subscription; or
+  c. a separate written agreement with the Licensor (for example a partner
+     agreement).
+The licence ends automatically when the key or subscription expires. After
+that, Business features stop working but the Community edition and all of
+your data remain available to you.
+
+4. Restrictions
+
+Unless a written agreement with the Licensor says otherwise, you may not:
+  a. remove, disable or circumvent the licence key check, or change the key
+     verification so that it accepts keys not issued by the Licensor;
+  b. provide the Software, or features of it, to third parties as a hosted
+     or managed service;
+  c. sell, sublicense or distribute the Software outside the scope above;
+  d. remove or alter this licence or any copyright, licence or trademark
+     notices.
+
+5. Your modifications
+
+You may modify the Software for permitted use. The Licensor owns no rights
+in your own data. Modifications you submit to the project are governed by
+CLA.md.
+
+6. Trademarks
+
+This licence grants no right to use the LibreHR name or logo. See
+TRADEMARKS.md.
+
+7. No warranty and limitation of liability
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED. TO THE EXTENT PERMITTED BY LAW, THE LICENSOR IS NOT LIABLE FOR ANY
+DAMAGES ARISING FROM THE USE OF THE SOFTWARE, EXCEPT AS AGREED IN A SEPARATE
+WRITTEN CONTRACT. Mandatory consumer and data protection rights are not
+affected.
+
+8. Termination
+
+If you breach this licence, your rights under it end. They are reinstated if
+you fix the breach within 30 days of being notified, unless the breach is
+repeated.
+
+9. Governing law
+
+This licence is governed by Spanish law. The courts of Barcelona, Spain have
+jurisdiction, unless mandatory law provides otherwise.

@@ -1,6 +1,6 @@
 # LibreHR Brand Identity Guidelines
 
-> **License:** The brand marks, logos, iconography, and image assets in this repository are licensed under **Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)**. The software code implementing them is licensed under **AGPL-3.0**.
+> **License:** The brand marks, logos, iconography, and image assets in this repository are licensed under **Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)**. The software code implementing them is licensed under **AGPL-3.0** (Business code in `ee/` under `ee/LICENSE`). These copyright licences grant no trademark rights: use of the LibreHR name and logo is governed by [`TRADEMARKS.md`](../TRADEMARKS.md).
 
 ---
 

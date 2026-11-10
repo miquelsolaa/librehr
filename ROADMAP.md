@@ -52,12 +52,24 @@ RPT-001/002, AUTH-003/004, LEA-007..009, TIM-002, ADM-006, performance audits, d
 - **Team Absence Coverage Rules & Blackouts (`LEA-007`):** Minimum team staffing constraints and blackout period rules (`/time-off/rules`).
 - **Manager Absence Approval Delegations (`LEA-008`):** Automatic delegation of approval duties during manager absences (`/time-off/delegations`).
 - **Enterprise TOTP Two-Factor Authentication (`AUTH-003`):** RFC 6238 TOTP 2FA with recovery codes and organization-wide enforcement (`/settings/security`).
-- **Enterprise Single Sign-On (`AUTH-004`):** OIDC SSO for Google, Microsoft, and generic identity providers with domain restrictions (`/settings/sso`).
+- **Enterprise Single Sign-On (`AUTH-004`, Business edition from v1.3):** OIDC SSO configuration for Google, Microsoft, and generic identity providers with domain restrictions (`/settings/sso`). The sign-in callback is still to be built, in `ee/`.
 - **Document Merge Templates (`DOC-007`):** Dynamic template engine with Mustache placeholder substitution (`/documents/templates`).
 - **Outbound Webhooks Engine (`ADM-006`):** Event subscription engine with HMAC-SHA256 signature verification, event filtering, and test ping dispatch (`/settings/webhooks`).
 - **Statutory Leave Catalogue (`LEA-001`):** Complete statutory absence types under Spanish & European labor law (ET art. 37 & RDL 5/2023) covering marriage, family hospitalization, bereavement, moving, civic duty, prenatal care, family force majeure, unpaid parental leave, maternity/paternity, and exams with legal references and attachment rules.
 - **Location-Specific Holiday Calendars & Municipal Holidays (`LEA-003`):** 3-tier statutory holiday inheritance (National, Autonomous Community Regional, and Municipal local holidays) with location calendar management, custom holiday creation, automatic statutory holiday population, and per-work-center absence day deduction.
 - **Shift Rosters & Continuous Rotational Systems (`TIM-004`, `TIM-005`):** Complete 24/7 continuous cycle shift engine (e.g. 6x2 continuous rotations: 2 morning, 2 afternoon, 2 night, 2 rest), statutory night hours computation (22:00–06:00, ET art. 36), mandatory 12-hour rest validation (ET art. 34.3), interactive monthly shift roster matrix grid (`/time/shifts`), and colleague shift swap request & manager approval workflow.
+
+## [ ] v1.3 - Open Core & LibreHR Business (In progress)
+
+Business model decided in `docs/adr/0004-open-core-licensing.md`; editions in `docs/editions.md`.
+
+- [x] Governance: CLA (`CLA.md`), LibreHR Enterprise License (`ee/LICENSE`), trademark policy (`TRADEMARKS.md`), editions page.
+- [ ] **`LIC-001`/`LIC-002`:** `ee/` workspace package, API extension point, offline Ed25519 licence keys, `GET /v1/edition`.
+- [ ] **`LIC-003` + `AUTH-004`:** move OIDC SSO into `ee/`, `LICENSE_REQUIRED` gating and UI notice.
+- [ ] Legal review of CLA, Enterprise License and trademark policy; trademark registration (OEPM/EUIPO).
+- [ ] Production licence signing keypair generated offline; public key replaces the placeholder.
+- [ ] **LibreHR Cloud:** EU-hosted managed offering (provisioning, billing, backups, status page).
+- [ ] **Partner programme** for gestorías, integrators and hosting providers.
 
 ## Pending Backlog (What is Left to Build)
 
@@ -67,8 +79,8 @@ The following items represent secondary or post-v1.1 extensions scheduled for su
 2. **`ONB-003`: Candidate Pre-boarding Intake Form (P2):** Public or token-authenticated pre-boarding web form allowing newly hired employees to fill in their own personal information, DNI/NIE, and bank details prior to day one.
 3. **`NOT-003`: Web Push Notifications (P2):** Web Push API integration for mobile and desktop browser push notifications (service worker, VAPID key exchange).
 4. **`RPT-003`: Scheduled Email Digest Reports (P2):** Cron-triggered pg-boss background worker delivering weekly or monthly workforce and absence digests to managers and HR admins.
-5. **Direct Payroll Provider Connectors:** API connectors for Spanish payroll platforms (A3, Sage, Wolters Kluwer).
-6. **Whistleblowing Channel (Ley 2/2023):** Statutory anonymous whistleblower submission and communication portal.
+5. **Direct Payroll Provider Connectors (Business edition):** API connectors for Spanish payroll platforms (A3, Sage, Wolters Kluwer).
+6. **Whistleblowing Channel (Ley 2/2023, Community edition: legal compliance stays free):** Statutory anonymous whistleblower submission and communication portal.
 
 ## Principles for prioritization
 
