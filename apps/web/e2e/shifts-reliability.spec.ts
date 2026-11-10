@@ -71,6 +71,9 @@ test("failed shift swap shows an error and preserves the reason", async ({
   await page.goto("/en/time/shifts");
   await page.getByRole("button", { name: "Request Shift Swap" }).click();
   const dialog = page.getByRole("dialog");
+  // The colleague list loads asynchronously; until it does, the required
+  // select is empty and the browser blocks the submit without an alert.
+  await expect(dialog.getByLabel("Colleague to swap with")).toHaveValue("two");
   await dialog
     .getByPlaceholder("e.g. Personal family appointment")
     .fill("Family appointment");
