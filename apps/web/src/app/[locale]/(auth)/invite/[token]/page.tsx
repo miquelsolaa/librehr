@@ -97,16 +97,16 @@ export default function AcceptInvitePage() {
     return (
       <div
         role="alert"
-        className="mx-auto max-w-md rounded-card border border-destructive/20 bg-destructive/10 p-6 text-center space-y-3"
+        className="mx-auto max-w-md rounded-card border border-danger/20 bg-danger/10 p-6 text-center space-y-3"
       >
         <AlertCircle
-          className="mx-auto h-8 w-8 text-destructive"
+          className="mx-auto h-8 w-8 text-danger"
           aria-hidden="true"
         />
-        <h1 className="text-base font-semibold text-destructive">
+        <h1 className="text-base font-semibold text-danger">
           {t("errorTitle")}
         </h1>
-        <p className="text-sm text-destructive">{error}</p>
+        <p className="text-sm text-danger">{error}</p>
       </div>
     );
   }
@@ -114,10 +114,10 @@ export default function AcceptInvitePage() {
   return (
     <div className="mx-auto max-w-md space-y-6 py-12">
       <div className="text-center space-y-2">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-btn bg-primary/10 text-primary">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-input bg-primary/10 text-primary">
           <Mail className="h-6 w-6" />
         </div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           {t("title")}
         </h1>
         <p className="text-sm text-muted-foreground">
@@ -133,7 +133,7 @@ export default function AcceptInvitePage() {
           {error && (
             <div
               role="alert"
-              className="rounded-card bg-destructive/10 p-3 text-sm text-destructive"
+              className="rounded-card bg-danger/10 p-3 text-sm text-danger"
             >
               {error}
             </div>

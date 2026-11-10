@@ -123,7 +123,7 @@ export default function SignInPage() {
           >
             LH
           </div>
-          <h1 className="mt-4 text-2xl font-bold tracking-tight text-foreground">
+          <h1 className="mt-4 text-2xl font-semibold tracking-tight text-foreground">
             {challengeToken ? tAuth("twoFactorTitle") : tAuth("signInTitle")}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">

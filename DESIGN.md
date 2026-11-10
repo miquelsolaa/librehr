@@ -45,6 +45,8 @@ Leave-type colors come from a fixed, color-blind-safe categorical palette (8 hue
 
 - Self-hosted variable font (Inter or system UI stack fallback). **No Google Fonts or external CDNs.**
 - Scale (rem): 12, 14 (base for dense UI), 16 (base for forms/mobile), 18, 20, 24, 30, 36. Line-height 1.5 body, 1.25 headings.
+- Headings: every page title comes from `PageHeader` (24 px, semibold, no icons in the title). Section headings (`h2`) are 16 px semibold. Keep semantic order h1 → h2 → h3.
+- No arbitrary font sizes (`text-[11px]`); use the scale above. Lint enforces this in `apps/web` and `packages/ui`.
 - Numerals: use tabular figures for tables, balances, and timesheets (`font-variant-numeric: tabular-nums`).
 - Never truncate meaningful text without a tooltip/expand affordance.
 
@@ -104,7 +106,7 @@ Build on shadcn primitives; every component supports light/dark, RTL-safe logica
 - **Inputs:** Text, Textarea, Select, Combobox (async), DatePicker (locale-aware, keyboard typing supported), DateRangePicker (with half-day toggles), TimePicker, Switch, Checkbox, RadioGroup, FileDropzone, SecretField (masked + reveal).
 - **Feedback:** Toast (non-critical), Alert (inline, persistent), Banner (org-level), Skeleton, Spinner, ProgressBar, EmptyState, ErrorState.
 - **Data display:** DataTable (server pagination/sort/filter, column visibility, density toggle, sticky header, bulk selection, row actions), StatCard, Badge/StatusPill, Avatar/AvatarGroup, Timeline, Calendar (month/week/timeline-by-person), OrgChart, DescriptionList, BalanceExplainer.
-- **Navigation:** Sidebar, Topbar, BottomNav, Tabs, Breadcrumbs, CommandPalette (Ctrl/Cmd+K).
+- **Navigation:** PageHeader (breadcrumb, title, description, actions), Sidebar, Topbar, BottomNav, Tabs, Breadcrumbs, CommandPalette (Ctrl/Cmd+K).
 - **Overlays:** Dialog, Sheet (mobile-friendly), Popover, Tooltip, ConfirmDialog (typed confirmation for destructive/irreversible).
 - **Domain components:** ClockWidget, LeaveRequestForm, ApprovalCard, TimesheetGrid, CorrectionDialog, ChecklistRunner, DocumentList, AuditLogTable.
 
