@@ -17,6 +17,7 @@ export * from "./data-table.js";
 export * from "./tabs.js";
 export * from "./sidebar.js";
 export * from "./topbar.js";
+export * from "./page-header.js";
 export * from "./bottom-nav.js";
 export * from "./confirm-dialog.js";
 export * from "./secret-field.js";

@@ -89,6 +89,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     {
       href: `/${locale}/time`,
       label: tNav("time"),
+      shortLabel: tNav("timeShort"),
       icon: <IconClockIn size={16} />,
     },
     {
@@ -128,11 +129,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     {
       href: `/${locale}/time`,
       label: tNav("time"),
+      shortLabel: tNav("timeShort"),
       icon: <IconClockIn size={16} />,
     },
     {
       href: `/${locale}/time/export`,
       label: tNav("inspectionRecords"),
+      shortLabel: tNav("inspectionRecordsShort"),
       icon: <FileText className="h-4 w-4" />,
     },
     {

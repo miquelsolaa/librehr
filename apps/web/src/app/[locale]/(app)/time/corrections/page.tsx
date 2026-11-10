@@ -136,7 +136,7 @@ export default function TimeCorrectionsPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Form Card */}
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-4">
+        <div className="rounded-xl border border-border bg-surface p-6 shadow-sm space-y-4">
           <div className="flex items-center gap-2 border-b border-border pb-3">
             <Clock className="h-5 w-5 text-primary" />
             <h2 className="text-base font-semibold text-foreground">
@@ -170,7 +170,7 @@ export default function TimeCorrectionsPage() {
                 onChange={(e) =>
                   setProposedType(e.target.value as typeof proposedType)
                 }
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
               >
                 <option value="clock_in">{t("clockIn")}</option>
                 <option value="clock_out">{t("clockOut")}</option>
@@ -209,7 +209,7 @@ export default function TimeCorrectionsPage() {
                 required
                 rows={3}
                 placeholder={t("correctionReasonPlaceholder")}
-                className="w-full rounded-md border border-input bg-background p-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full rounded-md border border-border bg-background p-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
               />
             </div>
 
@@ -225,7 +225,7 @@ export default function TimeCorrectionsPage() {
         </div>
 
         {/* History Table */}
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-4 lg:col-span-2">
+        <div className="rounded-xl border border-border bg-surface p-6 shadow-sm space-y-4 lg:col-span-2">
           <div className="flex items-center gap-2 border-b border-border pb-3">
             <CheckCircle2 className="h-5 w-5 text-primary" />
             <h2 className="text-base font-semibold text-foreground">
@@ -254,7 +254,7 @@ export default function TimeCorrectionsPage() {
                 </thead>
                 <tbody className="divide-y divide-border">
                   {corrections.map((c) => (
-                    <tr key={c.id} className="hover:bg-muted/30">
+                    <tr key={c.id} className="hover:bg-surface">
                       <td className="py-3 font-medium text-foreground">
                         {eventTypeLabel(c.proposedEventType)}
                       </td>

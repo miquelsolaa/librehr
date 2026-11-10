@@ -4,6 +4,8 @@ import { getMessages, getTranslations } from "next-intl/server";
 import { UiStringsProvider } from "@librehr/ui/components/ui-strings";
 import { ThemeProvider } from "../../components/theme-provider";
 
+// Bundled and served from our own origin: no third-party font request.
+import "@fontsource-variable/inter";
 import "../globals.css";
 
 const ogLocales: Record<string, string> = {
@@ -82,7 +84,7 @@ export default async function LocaleLayout({
 
   return (
     <html lang={locale} suppressHydrationWarning>
-      <body className="min-h-screen bg-background text-foreground antialiased">
+      <body className="min-h-screen bg-background font-sans text-foreground antialiased">
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

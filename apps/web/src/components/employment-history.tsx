@@ -69,11 +69,14 @@ export function EmploymentHistory({ employeeId }: { employeeId: string }) {
       className="rounded-card border border-border bg-surface p-6 space-y-4"
       aria-labelledby="employment-history-title"
     >
-      <h2 id="employment-history-title" className="text-base font-semibold">
+      <h2
+        id="employment-history-title"
+        className="text-base font-semibold text-foreground"
+      >
         {t("historyTitle")}
       </h2>
       {loadError ? (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="text-sm text-danger">
           {t("historyLoadError")}
         </p>
       ) : periods === null ? (
@@ -135,7 +138,7 @@ export function EmploymentHistory({ employeeId }: { employeeId: string }) {
             </label>
           </div>
           {saveError && (
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="text-sm text-danger">
               {t("historySaveError")}
             </p>
           )}

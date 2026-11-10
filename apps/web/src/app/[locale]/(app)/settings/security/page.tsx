@@ -11,7 +11,7 @@ import {
   KeyRound,
   Copy,
   Check,
-  ArrowLeft,
+  ChevronLeft,
 } from "lucide-react";
 import {
   Button,
@@ -22,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  PageHeader,
 } from "@librehr/ui";
 import { getApiClient } from "@/lib/api-client";
 import { getStoredSession } from "@/lib/auth";
@@ -50,6 +51,8 @@ export default function SecuritySettingsPage() {
   const locale = (params?.["locale"] as string | undefined) ?? "ca";
 
   const t = useTranslations("settings");
+
+  const tNav = useTranslations("nav");
   const tCommon = useTranslations("common");
 
   const [session, setSession] = React.useState(getStoredSession());
@@ -194,23 +197,19 @@ export default function SecuritySettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Link
-          href={`/${locale}/settings`}
-          className="rounded-btn p-2 text-muted-foreground hover:bg-surface hover:text-foreground transition-colors"
-          aria-label={t("backToSettings")}
-        >
-          <ArrowLeft className="h-5 w-5" aria-hidden="true" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            {t("securityTitle")}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {t("securityDescription")}
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        breadcrumb={
+          <Link
+            href={`/${locale}/settings`}
+            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+            {tNav("settings")}
+          </Link>
+        }
+        title={t("securityTitle")}
+        description={t("securityDescription")}
+      />
 
       {successMessage && (
         <div
@@ -235,7 +234,7 @@ export default function SecuritySettingsPage() {
         <div className="rounded-card border border-border bg-surface p-6 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-btn bg-primary/10">
+              <div className="flex h-10 w-10 items-center justify-center rounded-input bg-primary/10">
                 <KeyRound className="h-5 w-5 text-primary" />
               </div>
               <div>
@@ -253,7 +252,7 @@ export default function SecuritySettingsPage() {
                 {t("enabled")}
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/20 px-2.5 py-1 text-xs font-medium text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-surface px-2.5 py-1 text-xs font-medium text-muted-foreground">
                 <ShieldAlert className="h-3.5 w-3.5" />
                 {t("disabled")}
               </span>
@@ -289,7 +288,7 @@ export default function SecuritySettingsPage() {
         {isAdmin && (
           <div className="rounded-card border border-border bg-surface p-6 shadow-sm space-y-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-btn bg-primary/10">
+              <div className="flex h-10 w-10 items-center justify-center rounded-input bg-primary/10">
                 <Shield className="h-5 w-5 text-primary" />
               </div>
               <div>
@@ -407,17 +406,25 @@ export default function SecuritySettingsPage() {
       </Dialog>
 
       {/* Setup 2FA Modal */}
-      {isSetupOpen && setupData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-card border border-border bg-background p-6 shadow-xl space-y-5 animate-in fade-in zoom-in-95">
-            <div>
-              <h2 className="text-lg font-bold text-foreground">
-                {t("setupTwoFactorModalTitle")}
-              </h2>
-              <p className="text-xs text-muted-foreground mt-1">
+      <Dialog
+        open={isSetupOpen && setupData !== null}
+        onOpenChange={(open) => {
+          if (!open && !actionLoading) setIsSetupOpen(false);
+        }}
+      >
+        {setupData && (
+          <DialogContent
+            className="max-h-[90vh] overflow-y-auto"
+            // Recovery codes are on screen: a stray click outside must not
+            // dismiss them. Esc and the explicit buttons still close.
+            onInteractOutside={(event) => event.preventDefault()}
+          >
+            <DialogHeader>
+              <DialogTitle>{t("setupTwoFactorModalTitle")}</DialogTitle>
+              <DialogDescription>
                 {t("setupTwoFactorModalSubtitle")}
-              </p>
-            </div>
+              </DialogDescription>
+            </DialogHeader>
 
             <div className="space-y-4">
               <div>
@@ -503,9 +510,9 @@ export default function SecuritySettingsPage() {
                 </div>
               </form>
             </div>
-          </div>
-        </div>
-      )}
+          </DialogContent>
+        )}
+      </Dialog>
     </div>
   );
 }

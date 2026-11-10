@@ -12,9 +12,9 @@ import {
   Building2,
   MapPin,
   GitFork,
-  ArrowLeft,
+  ChevronLeft,
 } from "lucide-react";
-import { Input, Badge, Button } from "@librehr/ui";
+import { Input, Badge, Button, PageHeader } from "@librehr/ui";
 import { getApiClient } from "@/lib/api-client";
 import { getStoredSession } from "@/lib/auth";
 import type { OrgChartNode } from "@librehr/contracts";
@@ -69,7 +69,7 @@ function OrgNodeCard({ node, locale, search }: OrgNodeCardProps) {
           </div>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2 pt-2 border-t border-border/50 text-[11px] text-muted-foreground">
+        <div className="mt-3 flex flex-wrap items-center gap-2 pt-2 border-t border-border/50 text-xs text-muted-foreground">
           {node.departmentName && (
             <span className="flex items-center gap-1 bg-surface-raised px-1.5 py-0.5 rounded">
               <Building2 className="h-3 w-3" />
@@ -91,7 +91,7 @@ function OrgNodeCard({ node, locale, search }: OrgNodeCardProps) {
         {/* Team stats badge & expand toggle */}
         {hasReports && (
           <div className="mt-3 flex items-center justify-between pt-1">
-            <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0">
+            <Badge variant="outline" className="text-xs gap-1 px-1.5 py-0">
               <GitFork className="h-3 w-3" />
               <span>
                 {t("directReports", { count: node.directReportsCount })}{" "}
@@ -203,44 +203,41 @@ export default function OrgChartPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header with Navigation Tabs */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <Link
-              href={`/${locale}/people`}
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              <span>{tPeople("title")}</span>
-            </Link>
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <span>{tPeople("orgChart")}</span>
+      <PageHeader
+        breadcrumb={
+          <Link
+            href={`/${locale}/people`}
+            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+            {tPeople("title")}
+          </Link>
+        }
+        title={
+          <span className="inline-flex flex-wrap items-center gap-2">
+            {tPeople("orgChart")}
             {!loading && !loadError && (
               <Badge variant="outline" className="text-xs">
                 {tPeople("orgChartCount", { count: totalEmployees })}
               </Badge>
             )}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {tPeople("orgChartDescription")}
-          </p>
-        </div>
-
-        {/* Tab switch between directory and org-chart */}
-        <div className="flex items-center rounded-btn border border-border bg-surface p-1">
-          <Link
-            href={`/${locale}/people`}
-            className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {tPeople("directory")}
-          </Link>
-          <span className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-sm">
-            {tPeople("orgChart")}
           </span>
-        </div>
-      </div>
+        }
+        description={tPeople("orgChartDescription")}
+        actions={
+          <div className="flex items-center rounded-input border border-border bg-surface p-1">
+            <Link
+              href={`/${locale}/people`}
+              className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {tPeople("directory")}
+            </Link>
+            <span className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-sm">
+              {tPeople("orgChart")}
+            </span>
+          </div>
+        }
+      />
 
       {/* Filter and Search Bar */}
       <div className="flex items-center gap-3">

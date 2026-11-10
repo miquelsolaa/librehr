@@ -4,9 +4,8 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Button } from "@librehr/ui";
+import { Button, PageHeader } from "@librehr/ui";
 import {
-  ArrowLeft,
   Users,
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -21,6 +20,7 @@ export default function TeamCalendarPage() {
   const locale = (params?.["locale"] as string | undefined) ?? "ca";
 
   const t = useTranslations("timeOff");
+  const tNav = useTranslations("nav");
 
   const [absences, setAbsences] = React.useState<TeamAbsence[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -87,53 +87,47 @@ export default function TeamCalendarPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <Link
-          href={`/${locale}/time-off`}
-          className="flex items-center text-sm font-medium text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="mr-1 h-4 w-4" aria-hidden="true" />
-          {t("backToTimeOff")}
-        </Link>
-      </div>
-
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            {t("calendarTitle")}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t("calendarSubtitle")}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={prevMonth}
-            className="p-2"
-            aria-label={t("previousMonth")}
+      <PageHeader
+        breadcrumb={
+          <Link
+            href={`/${locale}/time-off`}
+            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-          </Button>
-          <span
-            aria-live="polite"
-            className="min-w-36 text-center text-sm font-semibold capitalize text-foreground"
-          >
-            {monthName}
-          </span>
-          <Button
-            variant="outline"
-            onClick={nextMonth}
-            className="p-2"
-            aria-label={t("nextMonth")}
-          >
-            <ChevronRight className="h-4 w-4" aria-hidden="true" />
-          </Button>
-        </div>
-      </div>
+            {tNav("timeOff")}
+          </Link>
+        }
+        title={t("calendarTitle")}
+        description={t("calendarSubtitle")}
+        actions={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={prevMonth}
+              className="p-2"
+              aria-label={t("previousMonth")}
+            >
+              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+            </Button>
+            <span
+              aria-live="polite"
+              className="min-w-36 text-center text-sm font-semibold capitalize text-foreground"
+            >
+              {monthName}
+            </span>
+            <Button
+              variant="outline"
+              onClick={nextMonth}
+              className="p-2"
+              aria-label={t("nextMonth")}
+            >
+              <ChevronRight className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </div>
+        }
+      />
 
-      <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-4">
+      <div className="rounded-xl border border-border bg-surface p-6 shadow-sm space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-border">
           <div className="flex items-center gap-2 text-sm font-medium text-foreground">
             <Users className="h-4 w-4 text-primary" aria-hidden="true" />
@@ -157,7 +151,7 @@ export default function TeamCalendarPage() {
             {absences.map((a) => (
               <div
                 key={a.requestId}
-                className="flex items-center justify-between py-3 hover:bg-muted/30 px-2 rounded-lg"
+                className="flex items-center justify-between py-3 hover:bg-surface px-2 rounded-lg"
               >
                 <div className="flex items-center gap-3">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
@@ -174,7 +168,7 @@ export default function TeamCalendarPage() {
                 </div>
 
                 <div className="flex items-center gap-4">
-                  <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                  <span className="rounded-full bg-surface px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
                     {a.leaveTypeName}
                   </span>
                   <div className="text-right text-xs text-muted-foreground">
