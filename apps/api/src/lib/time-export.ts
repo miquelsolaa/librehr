@@ -1,5 +1,9 @@
 import type { Context } from "hono";
-import { dateInZone, type InspectionExportEmployee } from "@librehr/core";
+import {
+  dateInZone,
+  type EmploymentPeriod,
+  type InspectionExportEmployee,
+} from "@librehr/core";
 import type { TenantTx, TimeEventRow } from "@librehr/db";
 import { resolveBusinessTimeZone } from "./business-date.js";
 import { verifyEmployeeChain } from "./time-export-chain.js";
@@ -53,8 +57,11 @@ export interface CollectedEmployee {
 /**
  * Everything the export needs about one employee, in that employee's
  * business zone (location, else organization) whatever the export scope:
- * the period timesheet (`days: null` without a configured schedule), the
- * corrected dates and the chain status.
+ * the period timesheet (`days: null` without a configured schedule on an
+ * employed day), the corrected dates and the chain status. Days outside
+ * `employmentPeriods` (null: unknown, employed every day) expect nothing
+ * and need no schedule, so an employee with no employed day in the period
+ * is exported with every day flagged, never as absent.
  *
  * Cost per employee: one bounded events query (the period plus a day on each
  * side, and the corrections linked to those events), one schedules query,
@@ -65,6 +72,7 @@ export async function collectExportEmployee(
   tx: TenantTx,
   subject: ExportSubject,
   period: { startDate: string; endDate: string },
+  employmentPeriods: readonly EmploymentPeriod[] | null,
   timeChainKey: string,
 ): Promise<CollectedEmployee> {
   const timeZone = await resolveBusinessTimeZone(c, tx, subject.locationId);
@@ -75,6 +83,7 @@ export async function collectExportEmployee(
     startDate: period.startDate,
     endDate: period.endDate,
     timeZone,
+    employmentPeriods,
   });
   return {
     input: {
@@ -89,6 +98,7 @@ export async function collectExportEmployee(
         period.endDate,
       ),
       chainStatus,
+      employmentPeriods,
     },
     totalWorkedMinutes: timesheet.ok
       ? timesheet.summary.totalWorkedMinutes

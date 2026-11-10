@@ -298,6 +298,13 @@ export const OfficialExportResponseSchema = z.object({
   metadataLines: z.array(z.string()),
   columns: z.array(z.string()),
   rows: z.array(z.array(z.string())),
+  /**
+   * One entry per row of `rows`, same order: whether that day falls inside
+   * one of the employee's employment periods (null on a "schedule not
+   * configured" row). The same flag is the last display cell of each row; a
+   * day outside employment expects 0 minutes but still lists recorded work.
+   */
+  rowsEmployed: z.array(z.boolean().nullable()),
   employees: z.array(
     z.object({
       employeeId: z.string().uuid(),

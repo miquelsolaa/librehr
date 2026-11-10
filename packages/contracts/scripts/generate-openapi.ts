@@ -1049,7 +1049,7 @@ registry.registerPath({
   summary:
     "Labour Inspectorate working-time record (TIM-006) for one employee or the organization, as JSON, CSV or PDF",
   description:
-    "Every format carries the same export id and content hash (SHA-256 of the CSV body, every line before the final `# sha256=` line, without the BOM), also sent as the X-Export-Id and X-Content-SHA256 headers. Each employee's days and clock times are in that employee's time zone (location, else organization), named on every row; the header zone is the organization's. Each successful export is written to the audit log (ADM-002). Limited to 10 requests per minute per user and client address.",
+    "Every format carries the same export id and content hash (SHA-256 of the CSV body, every line before the final `# sha256=` line, without the BOM), also sent as the X-Export-Id and X-Content-SHA256 headers. Each employee's days and clock times are in that employee's time zone (location, else organization), named on every row; the header zone is the organization's. The last column (and `rowsEmployed` in JSON) flags whether the day falls inside one of the employee's employment periods: a day outside them expects 0 minutes, so its difference equals the recorded work, which is still listed. Each successful export is written to the audit log (ADM-002). Limited to 10 requests per minute per user and client address.",
   request: { query: OfficialExportQuerySchema },
   responses: {
     200: {
@@ -1079,7 +1079,8 @@ registry.registerPath({
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
     409: {
-      description: "Schedule rule not configured (employee scope)",
+      description:
+        "Schedule rule not configured for a day the employee is employed (employee scope)",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
     422: {

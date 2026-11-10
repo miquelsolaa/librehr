@@ -39,9 +39,30 @@ A period covers at most 366 days.
   zone and the generation time in it. For example, with a Europe/Madrid
   organization, an employee at an Atlantic/Canary location who clocks in at
   08:00 UTC in November reads `08:00`, a Madrid colleague `09:00`.
-- **Employee scope.** If no schedule covers every day of the period, the
-  export fails with `409 SCHEDULE_NOT_CONFIGURED`. Without `employeeId`, a
-  user who has no employee record gets `404`.
+- **Employment days.** The last column, "Employed" ("Contractat",
+  "Contratado"), says whether the day falls inside one of the employee's
+  employment periods, taken from their employment records. Terminating an
+  employee only records a termination date and leaves the current employment
+  record open, so the export ends any record that is open, or ends later, on
+  the termination date, provided it started on or before it; a record that
+  starts after the termination date is a re-hire and is not cut. An employee
+  without employment records is employed every day unless terminated, then
+  until the termination date. The organization scope and the employee picker
+  use the same rule. A day outside employment expects 0 minutes, so its
+  difference equals the work recorded that day, which is still listed with
+  its anomaly and corrected flags: a former or not-yet-hired employee never
+  shows a fake absence. JSON responses also carry the flag per row in
+  `rowsEmployed` (null on a "schedule not configured" row), and the preview
+  badges those days with the document's own "Employed" label and value.
+  The timesheet endpoint (`GET /v1/time/timesheet`) does not apply
+  employment days: it still expects the schedule on every day of the period
+  and answers `409 SCHEDULE_NOT_CONFIGURED` when one is missing.
+- **Employee scope.** If no schedule covers every day of the period on which
+  the employee is employed, the export fails with
+  `409 SCHEDULE_NOT_CONFIGURED`. An employee with no employed day in the
+  period (for example a manager's former report) is exported with every day
+  flagged instead. Without `employeeId`, a user who has no employee record
+  gets `404`.
 - **Organization scope.** Every employee with an employment record that
   overlaps the period (a re-hired employee is included whatever their old
   termination date says), with no employment record at all and not terminated
@@ -104,7 +125,8 @@ start or more than 366 days; `401` without a session; `403` without
   worked minutes, expected minutes, the difference, an anomaly flag (a session
   left open), a "corrected" flag (a correction changed or replaced a record of
   that day), the integrity status of the employee's time records
-  (verified, tampered, legacy or no data) and the time zone of the row.
+  (verified, tampered, legacy or no data), the time zone of the row and
+  whether the employee was employed that day (see "Employment days" above).
 
 The integrity status checks every stored record of the employee: each
 record's keyed signature, the order and links of the chain, and the anchor

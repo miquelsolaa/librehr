@@ -1,9 +1,9 @@
 import { Temporal } from "temporal-polyfill";
 import { textWidth, type PdfFont } from "./helvetica-metrics.js";
+import { fit, wrap } from "./pdf-text.js";
 import {
   binaryStringToBytes,
   pdfLiteral,
-  WIN_ANSI_ELLIPSIS,
   winAnsiBinaryString,
 } from "./winansi.js";
 
@@ -12,6 +12,12 @@ export interface PdfTableColumn {
   /** Width in points; all columns are scaled down together to fit the page. */
   width: number;
   align?: "left" | "right" | undefined;
+  /**
+   * Body cells wrap at spaces onto up to this many lines (the row grows to
+   * its tallest cell); without it a cell stays on one line. Either way, text
+   * that still does not fit ends in an ellipsis.
+   */
+  maxLines?: number | undefined;
 }
 
 export interface TextPdfInput {
@@ -46,42 +52,6 @@ const FONT_RESOURCE: Record<PdfFont, string> = { regular: "F1", bold: "F2" };
 /** Fixed-precision number for content streams (deterministic, no exponent). */
 function num(value: number): string {
   return value.toFixed(2).replace(/\.?0+$/, "");
-}
-
-/** Cuts WinAnsi text to a width, ending in an ellipsis when it was cut. */
-function fit(bytes: string, font: PdfFont, size: number, max: number): string {
-  if (textWidth(bytes, font, size) <= max) return bytes;
-  const ellipsis = String.fromCharCode(WIN_ANSI_ELLIPSIS);
-  let cut = bytes;
-  while (cut.length > 0 && textWidth(cut + ellipsis, font, size) > max) {
-    cut = cut.slice(0, -1);
-  }
-  return cut.trimEnd() + ellipsis;
-}
-
-/** Greedy word wrap into at most `maxLines` lines; the last one is cut. */
-function wrap(
-  bytes: string,
-  font: PdfFont,
-  size: number,
-  max: number,
-  maxLines: number,
-): string[] {
-  const lines: string[] = [];
-  let current = "";
-  for (const word of bytes.split(" ")) {
-    const candidate = current === "" ? word : `${current} ${word}`;
-    if (current === "" || textWidth(candidate, font, size) <= max) {
-      current = candidate;
-    } else {
-      lines.push(current);
-      current = word;
-    }
-  }
-  lines.push(current);
-  const kept = lines.slice(0, maxLines);
-  if (lines.length > maxLines) kept[maxLines - 1] += ` ${lines[maxLines]}`;
-  return kept.map((line) => fit(line, font, size, max));
 }
 
 function textOp(
@@ -192,30 +162,35 @@ function layout(input: TextPdfInput): string[][] {
   if (y - headerHeight - lineHeight < BOTTOM) newPage();
   drawHeader();
   for (const row of rows) {
-    if (y - lineHeight < BOTTOM) {
+    const cells = columns.map((column, i) => {
+      const max = (widths[i] ?? 0) - 2 * CELL_PADDING;
+      const bytes = winAnsiBinaryString(row[i] ?? "");
+      return (column.maxLines ?? 1) > 1
+        ? wrap(bytes, "regular", TABLE_SIZE, max, column.maxLines ?? 1)
+        : [fit(bytes, "regular", TABLE_SIZE, max)];
+    });
+    const rowHeight =
+      Math.max(1, ...cells.map((lines) => lines.length)) * lineHeight;
+    // A row is never split across pages.
+    if (y - rowHeight < BOTTOM) {
       newPage();
       drawHeader();
     }
-    y -= lineHeight;
-    columns.forEach((_, i) => {
-      const max = (widths[i] ?? 0) - 2 * CELL_PADDING;
-      const bytes = fit(
-        winAnsiBinaryString(row[i] ?? ""),
-        "regular",
-        TABLE_SIZE,
-        max,
-      );
-      if (bytes !== "")
+    cells.forEach((lines, i) => {
+      lines.forEach((bytes, line) => {
+        if (bytes === "") return;
         ops.push(
           textOp(
             cellX(i, "regular", bytes),
-            y + 1.5,
+            y - (line + 1) * lineHeight + 1.5,
             "regular",
             TABLE_SIZE,
             bytes,
           ),
         );
+      });
     });
+    y -= rowHeight;
   }
   return pages;
 }
@@ -225,7 +200,9 @@ function layout(input: TextPdfInput): string[][] {
  * the standard (not embedded) Helvetica and Helvetica-Bold fonts with
  * WinAnsiEncoding, so Catalan and Spanish accents print and characters
  * outside WinAnsi become `?`. Rows flow onto new pages with the table
- * header repeated; cells too wide for their column end in `…`. Streams are
+ * header repeated; a row is never split across pages. Cells too wide for
+ * their column end in `…`, or first wrap onto more lines when the column
+ * allows it (`maxLines`). Streams are
  * uncompressed and nothing reads a clock: the same input gives the same
  * bytes.
  *

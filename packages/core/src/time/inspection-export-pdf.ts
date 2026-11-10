@@ -3,26 +3,41 @@ import {
   type PdfTableColumn,
 } from "../reports/pdf/minimal-pdf.js";
 import { inspectionExportLabels } from "./export-labels.js";
-import {
-  inspectionRowCells,
-  type InspectionExportInput,
-  type InspectionExportResult,
+import type {
+  InspectionExportInput,
+  InspectionExportResult,
 } from "./inspection-export.js";
+import { inspectionRowCells } from "./inspection-export-rows.js";
 
-/** Column widths in points (A4 content width is 515), in column order. */
-const COLUMN_LAYOUT: readonly Pick<PdfTableColumn, "width" | "align">[] = [
+/**
+ * Column widths of the export table in points, in column order. They add up
+ * to the A4 content width (515), every word of every header label fits its
+ * column (headers wrap but are never cut) and typical cells fit on one line;
+ * the employee name wraps onto up to four lines, the integrity status onto
+ * two (tested).
+ */
+export const INSPECTION_PDF_COLUMN_LAYOUT: readonly Pick<
+  PdfTableColumn,
+  "width" | "align" | "maxLines"
+>[] = [
+  // The name is the only identifier on paper: it wraps instead of being cut.
+  { width: 62, maxLines: 4 },
+  // Fits "2026-11-02".
+  { width: 40 },
+  // Fits two sessions; more are cut with an ellipsis.
   { width: 80 },
-  { width: 44 },
-  { width: 100 },
-  { width: 32, align: "right" },
-  { width: 34, align: "right" },
+  { width: 30, align: "right" },
+  { width: 36, align: "right" },
   { width: 34, align: "right" },
   { width: 36, align: "right" },
-  { width: 34 },
-  { width: 33 },
-  { width: 38 },
+  { width: 36 },
+  { width: 36 },
+  // Integrity: "Sense dades" wraps onto two lines.
+  { width: 36, maxLines: 2 },
   // Time zone: fits "Atlantic/Canary"; longer names are cut with an ellipsis.
-  { width: 50 },
+  { width: 49 },
+  // Employed.
+  { width: 40 },
 ];
 
 /**
@@ -47,8 +62,9 @@ export function renderInspectionPdf(
     table: {
       columns: result.columns.map((label, i) => ({
         label,
-        width: COLUMN_LAYOUT[i]?.width ?? 40,
-        align: COLUMN_LAYOUT[i]?.align,
+        width: INSPECTION_PDF_COLUMN_LAYOUT[i]?.width ?? 40,
+        align: INSPECTION_PDF_COLUMN_LAYOUT[i]?.align,
+        maxLines: INSPECTION_PDF_COLUMN_LAYOUT[i]?.maxLines,
       })),
       rows: result.rows.map((row) => inspectionRowCells(row, labels)),
     },

@@ -133,6 +133,129 @@ describe("TIM-006 export repositories", () => {
     expect(rows.find((r) => r.lastName === "current")?.id).toBe(ids["current"]);
   });
 
+  it("loads each employee's employment periods overlapping the period", async () => {
+    const all = Object.values(ids);
+    const periods = await withTenant(app, { organizationId: orgId }, (tx) =>
+      employees.employmentPeriods(tx, all, "2026-11-02", "2026-11-04"),
+    );
+    const of = (label: string) => periods.get(ids[label]!);
+    expect(of("current")).toEqual([{ start: "2026-01-01", end: null }]);
+    expect(of("hiredAfter")).toEqual([]);
+    expect(of("lastDayOnly")).toEqual([{ start: "2026-11-04", end: null }]);
+    expect(of("leftOnStart")).toEqual([
+      { start: "2025-01-01", end: "2026-11-02" },
+    ]);
+    // Only the overlapping employment; the stale termination is ignored.
+    expect(of("rehired")).toEqual([{ start: "2026-10-01", end: null }]);
+    expect(of("leftBefore")).toEqual([]);
+    // Legacy (no employment rows): unknown, or until the termination date.
+    expect(of("noRecord")).toBeNull();
+    expect(of("noRecordLeft")).toEqual([]);
+    expect(of("punchedMadrid")).toEqual([]);
+    expect(periods.size).toBe(all.length);
+  });
+
+  it("returns several overlapping periods in order, and legacy leavers clipped", async () => {
+    const twice = await addEmployee("twice");
+    await employment(twice, "2026-11-04", null);
+    await employment(twice, "2026-10-01", "2026-11-02");
+    const leaving = await addEmployee("leaving", {
+      terminationDate: "2026-11-03",
+    });
+    const periods = await withTenant(app, { organizationId: orgId }, (tx) =>
+      employees.employmentPeriods(
+        tx,
+        [twice, leaving, randomUUID()],
+        "2026-11-02",
+        "2026-11-04",
+      ),
+    );
+    expect(periods.get(twice)).toEqual([
+      { start: "2026-10-01", end: "2026-11-02" },
+      { start: "2026-11-04", end: null },
+    ]);
+    expect(periods.get(leaving)).toEqual([
+      { start: "2026-11-02", end: "2026-11-03" },
+    ]);
+    expect(periods.size).toBe(2);
+  });
+
+  it("clips an open employment at the termination date, but not a later re-hire", async () => {
+    // Terminated mid-period by EMP-007: only termination_date is set, the
+    // employment row stays open.
+    const offboarded = await addEmployee("offboarded", {
+      terminationDate: "2026-11-03",
+    });
+    await employment(offboarded, "2025-01-01", null);
+    // Ends after the termination date: clipped too.
+    const lateEnd = await addEmployee("lateEnd", {
+      terminationDate: "2026-11-02",
+    });
+    await employment(lateEnd, "2025-01-01", "2026-12-31");
+    // Left on the period's first day, then re-hired in it with an open row
+    // (the stale termination date must not close the new row).
+    const rehiredOpen = await addEmployee("rehiredOpen", {
+      terminationDate: "2026-11-02",
+    });
+    await employment(rehiredOpen, "2025-01-01", "2026-11-02");
+    await employment(rehiredOpen, "2026-11-04", null);
+    // Terminated before the period with the row left open: not employed.
+    const leftOpen = await addEmployee("leftOpen", {
+      terminationDate: "2026-10-31",
+    });
+    await employment(leftOpen, "2025-01-01", null);
+
+    const [periods, listed] = await withTenant(
+      app,
+      { organizationId: orgId },
+      async (tx) =>
+        [
+          await employees.employmentPeriods(
+            tx,
+            [offboarded, lateEnd, rehiredOpen, leftOpen],
+            "2026-11-02",
+            "2026-11-04",
+          ),
+          new Set(
+            (
+              await employees.listEmployedDuring(tx, "2026-11-02", "2026-11-04")
+            ).map((r) => r.id),
+          ),
+        ] as const,
+    );
+    expect(periods.get(offboarded)).toEqual([
+      { start: "2025-01-01", end: "2026-11-03" },
+    ]);
+    expect(periods.get(lateEnd)).toEqual([
+      { start: "2025-01-01", end: "2026-11-02" },
+    ]);
+    expect(periods.get(rehiredOpen)).toEqual([
+      { start: "2025-01-01", end: "2026-11-02" },
+      { start: "2026-11-04", end: null },
+    ]);
+    expect(periods.get(leftOpen)).toEqual([]);
+    // The organization export and the picker agree.
+    expect(listed.has(offboarded)).toBe(true);
+    expect(listed.has(lateEnd)).toBe(true);
+    expect(listed.has(rehiredOpen)).toBe(true);
+    expect(listed.has(leftOpen)).toBe(false);
+  });
+
+  it("does not read another tenant's employees", async () => {
+    const periods = await withTenant(
+      app,
+      { organizationId: randomUUID() },
+      (tx) =>
+        employees.employmentPeriods(
+          tx,
+          [ids["current"]!],
+          "2026-11-02",
+          "2026-11-04",
+        ),
+    );
+    expect(periods.size).toBe(0);
+  });
+
   it("loads the window plus the corrections linked to it, in both directions", async () => {
     const employeeId = await addEmployee("window");
     const before = await punch(employeeId, "2026-11-10T16:00:00Z", "clock_out");

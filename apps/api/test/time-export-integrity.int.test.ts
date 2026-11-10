@@ -150,6 +150,7 @@ describe("GET /v1/time/export integrity (TIM-006)", () => {
         "No",
         "Verified",
         "Atlantic/Canary",
+        "Yes",
       ],
     ]);
 

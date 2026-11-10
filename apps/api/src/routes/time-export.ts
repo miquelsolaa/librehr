@@ -149,23 +149,41 @@ export function createTimeExportRoutes(
           subjectEmployeeId = employee.id;
         }
 
+        // One query for every subject: whose days count as employed.
+        const employment = await employeeRepo.employmentPeriods(
+          tx,
+          subjects.map((subject) => subject.id),
+          startDate,
+          endDate,
+        );
         const collected: CollectedEmployee[] = [];
         for (const subject of subjects) {
+          // Every subject was just read in this transaction: a missing entry
+          // is a bug, and defaulting to "employed every day" would bring
+          // back fake absences, so fail loudly (a generic 500).
+          const periods = employment.get(subject.id);
+          if (periods === undefined) {
+            throw new Error(
+              "Invariant: employment periods missing for an export subject",
+            );
+          }
           collected.push(
             await collectExportEmployee(
               c,
               tx,
               subject,
               { startDate, endDate },
+              periods,
               options.timeChainKey,
             ),
           );
         }
+        // Only employed days need a schedule (core skips the others).
         if (scope === "employee" && collected[0]?.input.days === null) {
           throw new ConflictError({
             code: "SCHEDULE_NOT_CONFIGURED",
             detail:
-              "Configure a schedule rule for every day in the requested period.",
+              "Configure a schedule rule for every day of the requested period on which the employee is employed.",
           });
         }
 
@@ -219,6 +237,7 @@ export function createTimeExportRoutes(
           metadataLines: result.metadataLines,
           columns: result.columns,
           rows: result.rows.map((row) => inspectionRowCells(row, labels)),
+          rowsEmployed: result.rows.map((row) => row.employed),
           employees: collected.map((e) => ({
             employeeId: e.input.employeeId,
             name: e.input.name,

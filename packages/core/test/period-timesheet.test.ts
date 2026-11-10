@@ -206,3 +206,50 @@ describe("buildLocalPeriodTimesheet", () => {
     );
   });
 });
+
+describe("buildLocalPeriodTimesheet with employment periods (TIM-006)", () => {
+  it("needs no schedule on days outside employment", () => {
+    const result = buildLocalPeriodTimesheet({
+      startDate: "2026-11-02",
+      endDate: "2026-11-03",
+      timeZone: "Europe/Madrid",
+      sessions: [closed("2026-11-02T08:00:00Z", "2026-11-02T09:00:00Z")],
+      schedules: [],
+      employmentPeriods: [],
+    });
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.days.map((d) => d.expectedHours)).toEqual([0, 0]);
+    expect(result.summary.totalWorkedMinutes).toBe(60);
+    expect(result.summary.totalOvertimeMinutes).toBe(60);
+  });
+
+  it("still requires a schedule on employed days", () => {
+    const result = buildLocalPeriodTimesheet({
+      startDate: "2026-11-02",
+      endDate: "2026-11-03",
+      timeZone: "Europe/Madrid",
+      sessions: [],
+      schedules: [],
+      employmentPeriods: [{ start: "2026-11-03", end: null }],
+    });
+    expect(result).toEqual({
+      ok: false,
+      reason: "SCHEDULE_NOT_CONFIGURED",
+      date: "2026-11-03",
+    });
+  });
+
+  it("totals only employed days' expected hours", () => {
+    const result = buildLocalPeriodTimesheet({
+      startDate: "2026-11-02",
+      endDate: "2026-11-04",
+      timeZone: "Europe/Madrid",
+      sessions: [],
+      schedules: [defaultSpan],
+      employmentPeriods: [{ start: "2025-01-01", end: "2026-11-02" }],
+    });
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.summary.totalExpectedHours).toBe(8);
+    expect(result.summary.totalOvertimeMinutes).toBe(-480);
+  });
+});

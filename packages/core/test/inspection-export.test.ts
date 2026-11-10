@@ -112,6 +112,7 @@ describe("createInspectionExport (TIM-006)", () => {
       "No",
       "Verificada",
       "Europe/Madrid",
+      "Sí",
     ]);
     // Open session: start only, flagged as an anomaly; corrected day flagged.
     expect(records[METADATA_LINES + 2]).toEqual([
@@ -126,6 +127,7 @@ describe("createInspectionExport (TIM-006)", () => {
       "Sí",
       "Verificada",
       "Europe/Madrid",
+      "Sí",
     ]);
   });
 
@@ -140,6 +142,7 @@ describe("createInspectionExport (TIM-006)", () => {
             name: "Marta Garcia",
             timeZone: "Europe/Madrid",
             correctedDates: [],
+            employmentPeriods: null,
             days: [
               day("2026-03-29", [
                 session("2026-03-29T00:30:00Z", "2026-03-29T01:30:00Z"),
@@ -171,6 +174,7 @@ describe("createInspectionExport (TIM-006)", () => {
             name: "Marta Garcia",
             timeZone: "Europe/Madrid",
             correctedDates: [],
+            employmentPeriods: null,
             days: [
               day("2026-12-31", [
                 session("2026-12-31T08:00:00Z", "2026-12-31T16:00:00Z"),
@@ -197,6 +201,7 @@ describe("createInspectionExport (TIM-006)", () => {
           timeZone: "Atlantic/Canary",
           days: null,
           correctedDates: [],
+          employmentPeriods: null,
         },
       ],
     });
@@ -208,7 +213,7 @@ describe("createInspectionExport (TIM-006)", () => {
       scheduleNotConfigured: true,
     });
     expect(result.csv).toContain(
-      "\r\nPau Vidal,,Horario no configurado,,,,,,,,Atlantic/Canary\r\n",
+      "\r\nPau Vidal,,Horario no configurado,,,,,,,,Atlantic/Canary,\r\n",
     );
     expect(result.csv).toContain("# Ámbito: Organización\r\n");
   });
@@ -254,6 +259,7 @@ describe("createInspectionExport (TIM-006)", () => {
               timeZone: "Europe/Madrid",
               days: [day("2026-11-02", [])],
               correctedDates: [],
+              employmentPeriods: null,
             })),
           }),
         );
