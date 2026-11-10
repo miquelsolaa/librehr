@@ -6,6 +6,23 @@ export interface EmploymentSpan {
   end: string | null;
 }
 
+/**
+ * SQL for the effective last day of employment row `x` of employee `e`.
+ * Terminating an employee (EMP-007) only sets `employees.termination_date`
+ * and leaves the current `employments` row open, so a row that is open, or
+ * ends after the termination date, ends on that date instead, as long as it
+ * started on or before it. A row that starts after the termination date is a
+ * re-hire: the old termination date does not apply to it. Read-side only, so
+ * stored rows stay as they are. A constant (no input): safe to inline.
+ */
+export const EFFECTIVE_EMPLOYMENT_END = `CASE
+  WHEN e.termination_date IS NOT NULL
+   AND e.termination_date >= x.start_date
+   AND (x.end_date IS NULL OR x.end_date > e.termination_date)
+  THEN e.termination_date
+  ELSE x.end_date
+END`;
+
 interface PeriodRow {
   employeeId: string;
   terminationDate: string | null;
@@ -19,7 +36,8 @@ interface PeriodRow {
  * (TIM-006), with one query for any number of employees of the current
  * tenant. Per employee:
  * - the `employments` rows overlapping the period, ordered by start, when
- *   the employee has any employment row (possibly none overlap: `[]`);
+ *   the employee has any employment row (possibly none overlap: `[]`),
+ *   each ending at its effective end (see {@link EFFECTIVE_EMPLOYMENT_END});
  * - otherwise (legacy, hire date unknown) `null` when there is no
  *   termination date, or one span from the period start to the termination
  *   date (`[]` when they left before the period).
@@ -44,12 +62,16 @@ export async function loadEmploymentPeriods(
              SELECT 1 FROM employments x
              WHERE x.employee_id = e.id AND x.organization_id = ${orgId}
            ) AS "hasEmployments",
-           emp.start_date::text AS "start", emp.end_date::text AS "end"
+           emp.start_date::text AS "start", emp.effective_end::text AS "end"
     FROM employees e
-    LEFT JOIN employments emp
-      ON emp.employee_id = e.id AND emp.organization_id = ${orgId}
-     AND emp.start_date <= ${periodEnd}::date
-     AND (emp.end_date IS NULL OR emp.end_date >= ${periodStart}::date)
+    LEFT JOIN LATERAL (
+      SELECT x.id, x.start_date,
+             ${tx.unsafe(EFFECTIVE_EMPLOYMENT_END)} AS effective_end
+      FROM employments x
+      WHERE x.employee_id = e.id AND x.organization_id = ${orgId}
+    ) emp
+      ON emp.start_date <= ${periodEnd}::date
+     AND (emp.effective_end IS NULL OR emp.effective_end >= ${periodStart}::date)
     WHERE e.organization_id = ${orgId} AND e.id IN ${tx([...employeeIds])}
     ORDER BY e.id, emp.start_date, emp.id
   `;

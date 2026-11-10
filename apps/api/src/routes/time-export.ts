@@ -158,13 +158,22 @@ export function createTimeExportRoutes(
         );
         const collected: CollectedEmployee[] = [];
         for (const subject of subjects) {
+          // Every subject was just read in this transaction: a missing entry
+          // is a bug, and defaulting to "employed every day" would bring
+          // back fake absences, so fail loudly (a generic 500).
+          const periods = employment.get(subject.id);
+          if (periods === undefined) {
+            throw new Error(
+              "Invariant: employment periods missing for an export subject",
+            );
+          }
           collected.push(
             await collectExportEmployee(
               c,
               tx,
               subject,
               { startDate, endDate },
-              employment.get(subject.id) ?? null,
+              periods,
               options.timeChainKey,
             ),
           );

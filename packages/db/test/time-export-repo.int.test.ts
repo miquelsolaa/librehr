@@ -180,6 +180,67 @@ describe("TIM-006 export repositories", () => {
     expect(periods.size).toBe(2);
   });
 
+  it("clips an open employment at the termination date, but not a later re-hire", async () => {
+    // Terminated mid-period by EMP-007: only termination_date is set, the
+    // employment row stays open.
+    const offboarded = await addEmployee("offboarded", {
+      terminationDate: "2026-11-03",
+    });
+    await employment(offboarded, "2025-01-01", null);
+    // Ends after the termination date: clipped too.
+    const lateEnd = await addEmployee("lateEnd", {
+      terminationDate: "2026-11-02",
+    });
+    await employment(lateEnd, "2025-01-01", "2026-12-31");
+    // Left on the period's first day, then re-hired in it with an open row
+    // (the stale termination date must not close the new row).
+    const rehiredOpen = await addEmployee("rehiredOpen", {
+      terminationDate: "2026-11-02",
+    });
+    await employment(rehiredOpen, "2025-01-01", "2026-11-02");
+    await employment(rehiredOpen, "2026-11-04", null);
+    // Terminated before the period with the row left open: not employed.
+    const leftOpen = await addEmployee("leftOpen", {
+      terminationDate: "2026-10-31",
+    });
+    await employment(leftOpen, "2025-01-01", null);
+
+    const [periods, listed] = await withTenant(
+      app,
+      { organizationId: orgId },
+      async (tx) =>
+        [
+          await employees.employmentPeriods(
+            tx,
+            [offboarded, lateEnd, rehiredOpen, leftOpen],
+            "2026-11-02",
+            "2026-11-04",
+          ),
+          new Set(
+            (
+              await employees.listEmployedDuring(tx, "2026-11-02", "2026-11-04")
+            ).map((r) => r.id),
+          ),
+        ] as const,
+    );
+    expect(periods.get(offboarded)).toEqual([
+      { start: "2025-01-01", end: "2026-11-03" },
+    ]);
+    expect(periods.get(lateEnd)).toEqual([
+      { start: "2025-01-01", end: "2026-11-02" },
+    ]);
+    expect(periods.get(rehiredOpen)).toEqual([
+      { start: "2025-01-01", end: "2026-11-02" },
+      { start: "2026-11-04", end: null },
+    ]);
+    expect(periods.get(leftOpen)).toEqual([]);
+    // The organization export and the picker agree.
+    expect(listed.has(offboarded)).toBe(true);
+    expect(listed.has(lateEnd)).toBe(true);
+    expect(listed.has(rehiredOpen)).toBe(true);
+    expect(listed.has(leftOpen)).toBe(false);
+  });
+
   it("does not read another tenant's employees", async () => {
     const periods = await withTenant(
       app,

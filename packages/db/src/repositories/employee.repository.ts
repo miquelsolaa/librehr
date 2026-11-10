@@ -1,6 +1,7 @@
 import type { TenantTx } from "../with-tenant.js";
 import { encryptEnvelope, decryptEnvelope } from "../crypto/envelope.js";
 import {
+  EFFECTIVE_EMPLOYMENT_END,
   loadEmploymentPeriods,
   type EmploymentSpan,
 } from "./employment-periods.js";
@@ -277,8 +278,9 @@ export class EmployeeRepository {
    * Employees of the current tenant to list in a working-time record for a
    * period of local dates (TIM-006), ordered by last name, first name. An
    * employee is included when any of these holds:
-   * - an employment record overlaps the period (whatever the termination
-   *   date says, so a re-hired employee is not dropped);
+   * - an employment record overlaps the period, its end clipped to the
+   *   termination date when it started on or before it (a later re-hire
+   *   is not clipped, so it is not dropped);
    * - they have no employment record (hire date unknown) and did not leave
    *   before the period;
    * - they have a time event in the period, in their business zone
@@ -303,10 +305,13 @@ export class EmployeeRepository {
       WHERE e.organization_id = ${orgId}
         AND (
           EXISTS (
-            SELECT 1 FROM employments emp
-            WHERE emp.employee_id = e.id AND emp.organization_id = ${orgId}
-              AND emp.start_date <= ${endDate}::date
-              AND (emp.end_date IS NULL OR emp.end_date >= ${startDate}::date)
+            -- Ends clipped by the termination date (EFFECTIVE_EMPLOYMENT_END),
+            -- as in the export's employment days.
+            SELECT 1 FROM employments x
+            WHERE x.employee_id = e.id AND x.organization_id = ${orgId}
+              AND x.start_date <= ${endDate}::date
+              AND COALESCE(${tx.unsafe(EFFECTIVE_EMPLOYMENT_END)}, 'infinity'::date)
+                >= ${startDate}::date
           )
           OR (
             NOT EXISTS (
