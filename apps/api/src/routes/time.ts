@@ -11,6 +11,7 @@ import { calculateTimeBankBalance, isWithinClockWindow } from "@librehr/core";
 import {
   withTenant,
   TimeRepository,
+  TimeBankRepository,
   EmployeeRepository,
   AuditRepository,
   type TimeChainSigner,
@@ -33,6 +34,7 @@ export function createTimeRoutes(
 ) {
   const router = new Hono();
   const timeRepo = new TimeRepository();
+  const timeBankRepo = new TimeBankRepository();
   const employeeRepo = new EmployeeRepository();
   const auditRepo = new AuditRepository();
 
@@ -308,7 +310,7 @@ export function createTimeRoutes(
           if (!allowed) return "FORBIDDEN";
         }
 
-        const records = await timeRepo.getTimeBankRecords(tx, employeeId);
+        const records = await timeBankRepo.getTimeBankRecords(tx, employeeId);
         const summary = calculateTimeBankBalance(
           records.map((r) => ({
             type: r.type as
@@ -410,7 +412,7 @@ export function createTimeRoutes(
           "EMPLOYEE_NOT_FOUND",
         );
 
-        const record = await timeRepo.createTimeBankRecord(tx, {
+        const record = await timeBankRepo.createTimeBankRecord(tx, {
           employeeId: parse.data.employeeId,
           type: parse.data.type,
           minutes: parse.data.minutes,
