@@ -1,6 +1,6 @@
 # Upgrading LibreHR
 
-All LibreHR database migrations are designed to be forward-only and safe to run on populated production databases without downtime.
+All LibreHR database migrations are designed to be forward-only and safe to run on populated production databases. Most need no downtime; the sections below call out the ones that need the API stopped or a quiet window.
 
 ## Standard Upgrade Workflow
 
