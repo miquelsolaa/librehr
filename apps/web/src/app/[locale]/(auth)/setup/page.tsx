@@ -142,7 +142,7 @@ export default function SetupWizardPage() {
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-input bg-primary/10 text-primary">
           <Building2 className="h-6 w-6" />
         </div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           {t("title")}
         </h1>
         {!alreadyCompleted && (
@@ -159,7 +159,7 @@ export default function SetupWizardPage() {
             ref={completedHeading}
             tabIndex={-1}
             id="setup-completed-title"
-            className="text-lg font-semibold text-foreground"
+            className="text-base font-semibold text-foreground"
           >
             {t("alreadyCompletedTitle")}
           </h2>

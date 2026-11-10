@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Calendar, Clock, FileText } from "lucide-react";
+import { PageHeader } from "@librehr/ui";
 import { ClockWidget } from "@/components/clock-widget";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
@@ -40,16 +41,12 @@ export default function HomePage() {
 
   return (
     <div className="space-y-8">
-      <header className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-          {session?.name
-            ? t("welcome", { name: session.name })
-            : t("homeTitle")}
-        </h1>
-        <p className="max-w-2xl text-sm text-muted-foreground">
-          {t("homeIntro")}
-        </p>
-      </header>
+      <PageHeader
+        title={
+          session?.name ? t("welcome", { name: session.name }) : t("homeTitle")
+        }
+        description={t("homeIntro")}
+      />
       {!ready ? (
         <p role="status">{t("loadingHome")}</p>
       ) : !session ? (
@@ -67,7 +64,9 @@ export default function HomePage() {
           <section className="space-y-4 rounded-card border border-border bg-surface p-6">
             <div className="flex items-center gap-2">
               <Clock className="h-5 w-5 text-primary" aria-hidden="true" />
-              <h2 className="text-lg font-semibold">{t("yourTime")}</h2>
+              <h2 className="text-base font-semibold text-foreground">
+                {t("yourTime")}
+              </h2>
             </div>
             <p className="text-sm text-muted-foreground">
               {t("timeDescription")}
@@ -83,7 +82,9 @@ export default function HomePage() {
           <section className="space-y-4 rounded-card border border-border bg-surface p-6">
             <div className="flex items-center gap-2">
               <Calendar className="h-5 w-5 text-primary" aria-hidden="true" />
-              <h2 className="text-lg font-semibold">{t("yourTimeOff")}</h2>
+              <h2 className="text-base font-semibold text-foreground">
+                {t("yourTimeOff")}
+              </h2>
             </div>
             {balanceError ? (
               <div role="alert" className="space-y-2 text-sm">

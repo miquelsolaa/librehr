@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Button } from "@librehr/ui";
+import { Button, PageHeader } from "@librehr/ui";
 import {
   Clock,
   FileText,
@@ -102,61 +102,57 @@ export default function TimeTrackingPage() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            {t("title")}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t("subtitle")}</p>
-        </div>
+      <PageHeader
+        title={t("title")}
+        description={t("subtitle")}
+        actions={
+          <>
+            <Button
+              asChild
+              variant="outline"
+              className="min-h-11 max-w-full gap-2"
+            >
+              <Link href={`/${locale}/kiosk`} className="gap-2">
+                <Tablet className="h-4 w-4" />
+                {t("kioskTitle")}
+              </Link>
+            </Button>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            asChild
-            variant="outline"
-            className="min-h-11 max-w-full gap-2"
-          >
-            <Link href={`/${locale}/kiosk`} className="gap-2">
-              <Tablet className="h-4 w-4" />
-              {t("kioskTitle")}
-            </Link>
-          </Button>
+            <Button
+              asChild
+              variant="outline"
+              className="min-h-11 max-w-full gap-2"
+            >
+              <Link href={`/${locale}/time/shifts`} className="gap-2">
+                <Repeat className="h-4 w-4" />
+                {t("shiftsNav")}
+              </Link>
+            </Button>
 
-          <Button
-            asChild
-            variant="outline"
-            className="min-h-11 max-w-full gap-2"
-          >
-            <Link href={`/${locale}/time/shifts`} className="gap-2">
-              <Repeat className="h-4 w-4" />
-              {t("shiftsNav")}
-            </Link>
-          </Button>
+            <Button
+              asChild
+              variant="outline"
+              className="min-h-11 max-w-full gap-2"
+            >
+              <Link href={`/${locale}/time/corrections`} className="gap-2">
+                <CheckCircle2 className="h-4 w-4" />
+                {t("correctionsTitle")}
+              </Link>
+            </Button>
 
-          <Button
-            asChild
-            variant="outline"
-            className="min-h-11 max-w-full gap-2"
-          >
-            <Link href={`/${locale}/time/corrections`} className="gap-2">
-              <CheckCircle2 className="h-4 w-4" />
-              {t("correctionsTitle")}
-            </Link>
-          </Button>
-
-          <Button
-            asChild
-            variant="default"
-            className="min-h-11 max-w-full gap-2"
-          >
-            <Link href={`/${locale}/time/export`} className="gap-2">
-              <FileText className="h-4 w-4" />
-              {t("exportTitle")}
-            </Link>
-          </Button>
-        </div>
-      </div>
+            <Button
+              asChild
+              variant="default"
+              className="min-h-11 max-w-full gap-2"
+            >
+              <Link href={`/${locale}/time/export`} className="gap-2">
+                <FileText className="h-4 w-4" />
+                {t("exportTitle")}
+              </Link>
+            </Button>
+          </>
+        }
+      />
 
       <div className="sm:hidden">
         <ClockWidget onClockChange={() => void fetchTimesheet()} />
@@ -293,7 +289,7 @@ export default function TimeTrackingPage() {
 
           {/* Timesheet Days Table */}
           <div className="rounded-xl border border-border bg-surface p-6 shadow-sm space-y-4">
-            <h2 className="text-lg font-semibold text-foreground">
+            <h2 className="text-base font-semibold text-foreground">
               {t("timesheetTitle")}
             </h2>
 

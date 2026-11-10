@@ -15,6 +15,7 @@ import {
   Clock,
 } from "lucide-react";
 
+import { PageHeader } from "@librehr/ui";
 export default function SettingsPage() {
   const params = useParams();
   const locale = (params?.["locale"] as string) ?? "es";
@@ -75,14 +76,10 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          {tNav("settings")}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {t("settingsDescription")}
-        </p>
-      </div>
+      <PageHeader
+        title={tNav("settings")}
+        description={t("settingsDescription")}
+      />
 
       <div className="grid gap-4 sm:grid-cols-2">
         {settingsCards.map((card) => (

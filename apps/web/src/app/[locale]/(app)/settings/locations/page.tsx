@@ -7,10 +7,10 @@ import { useTranslations } from "next-intl";
 import {
   MapPin,
   Plus,
-  ArrowLeft,
   CalendarDays,
   Sparkles,
   Trash2,
+  ChevronLeft,
 } from "lucide-react";
 import {
   Button,
@@ -23,6 +23,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
+  PageHeader,
 } from "@librehr/ui";
 import { apiClient } from "../../../../../lib/api-client.js";
 import type { Location, Holiday, LegalEntityOption } from "@librehr/contracts";
@@ -263,196 +264,195 @@ export default function LocationsSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1">
+      <PageHeader
+        breadcrumb={
           <Link
             href={`/${locale}/settings`}
-            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
           >
-            <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>{tNav("settings")}</span>
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+            {tNav("settings")}
           </Link>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            {t("locationsTitle")}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {t("locationsDescription")}
-          </p>
-        </div>
+        }
+        title={t("locationsTitle")}
+        description={t("locationsDescription")}
+        actions={
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                <span>{t("addLocation")}</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{t("addLocation")}</DialogTitle>
+                <DialogDescription>
+                  {t("locationDescription")}
+                </DialogDescription>
+              </DialogHeader>
 
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              <span>{t("addLocation")}</span>
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{t("addLocation")}</DialogTitle>
-              <DialogDescription>{t("locationDescription")}</DialogDescription>
-            </DialogHeader>
-
-            {!legalEntitiesLoading &&
-              !legalEntitiesError &&
-              legalEntities.length === 0 && (
-                <form
-                  onSubmit={handleCreateEntity}
-                  className="space-y-3 rounded-card border border-border p-4"
-                >
-                  <p className="text-sm">{t("legalEntitiesEmpty")}</p>
-                  {entityCreateError && (
-                    <p role="alert" className="text-sm text-danger">
-                      {t("legalEntityCreateError")}
-                    </p>
+              {!legalEntitiesLoading &&
+                !legalEntitiesError &&
+                legalEntities.length === 0 && (
+                  <form
+                    onSubmit={handleCreateEntity}
+                    className="space-y-3 rounded-card border border-border p-4"
+                  >
+                    <p className="text-sm">{t("legalEntitiesEmpty")}</p>
+                    {entityCreateError && (
+                      <p role="alert" className="text-sm text-danger">
+                        {t("legalEntityCreateError")}
+                      </p>
+                    )}
+                    <div className="space-y-1">
+                      <label htmlFor="entity-name" className="text-sm">
+                        {t("legalEntityName")}
+                      </label>
+                      <Input
+                        id="entity-name"
+                        required
+                        value={newEntityName}
+                        onChange={(e) => setNewEntityName(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label htmlFor="entity-tax-id" className="text-sm">
+                        {t("legalEntityTaxId")}
+                      </label>
+                      <Input
+                        id="entity-tax-id"
+                        required
+                        value={newEntityTaxId}
+                        onChange={(e) => setNewEntityTaxId(e.target.value)}
+                      />
+                    </div>
+                    <Button type="submit" disabled={creatingEntity}>
+                      {creatingEntity
+                        ? tCommon("loading")
+                        : t("createLegalEntity")}
+                    </Button>
+                  </form>
+                )}
+              <form onSubmit={handleCreate} className="space-y-4">
+                {actionError && (
+                  <p role="alert" className="text-sm text-danger">
+                    {t(actionError)}
+                  </p>
+                )}
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="loc-entity"
+                    className="text-xs font-medium text-foreground"
+                  >
+                    {t("legalEntityLabel")}
+                  </label>
+                  <select
+                    id="loc-entity"
+                    required
+                    value={legalEntityId}
+                    onChange={(e) => setLegalEntityId(e.target.value)}
+                    disabled={legalEntitiesLoading || legalEntitiesError}
+                    className="min-h-11 w-full rounded-md border border-border bg-background px-3 text-sm"
+                  >
+                    <option value="">{t("legalEntityPlaceholder")}</option>
+                    {legalEntities.map((entity) => (
+                      <option key={entity.id} value={entity.id}>
+                        {entity.name}
+                      </option>
+                    ))}
+                  </select>
+                  {legalEntitiesLoading && (
+                    <p role="status">{tCommon("loading")}</p>
                   )}
-                  <div className="space-y-1">
-                    <label htmlFor="entity-name" className="text-sm">
-                      {t("legalEntityName")}
-                    </label>
-                    <Input
-                      id="entity-name"
-                      required
-                      value={newEntityName}
-                      onChange={(e) => setNewEntityName(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label htmlFor="entity-tax-id" className="text-sm">
-                      {t("legalEntityTaxId")}
-                    </label>
-                    <Input
-                      id="entity-tax-id"
-                      required
-                      value={newEntityTaxId}
-                      onChange={(e) => setNewEntityTaxId(e.target.value)}
-                    />
-                  </div>
-                  <Button type="submit" disabled={creatingEntity}>
-                    {creatingEntity
-                      ? tCommon("loading")
-                      : t("createLegalEntity")}
+                  {legalEntitiesError && (
+                    <div role="alert">
+                      <p>{t("legalEntitiesLoadError")}</p>
+                      <button
+                        type="button"
+                        className="text-primary underline"
+                        onClick={() => void loadLegalEntities()}
+                      >
+                        {t("retry")}
+                      </button>
+                    </div>
+                  )}
+                  {!legalEntitiesLoading &&
+                    !legalEntitiesError &&
+                    legalEntities.length === 0 && (
+                      <p>{t("legalEntitiesEmpty")}</p>
+                    )}
+                </div>
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="loc-name"
+                    className="text-xs font-medium text-foreground"
+                  >
+                    {t("locationName")}
+                  </label>
+                  <Input
+                    id="loc-name"
+                    required
+                    placeholder={t("locationNamePlaceholder")}
+                    value={locName}
+                    onChange={(e) => setLocName(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="loc-city"
+                    className="text-xs font-medium text-foreground"
+                  >
+                    {t("city")}
+                  </label>
+                  <Input
+                    id="loc-city"
+                    required
+                    placeholder={t("cityPlaceholder")}
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="loc-region"
+                    className="text-xs font-medium text-foreground"
+                  >
+                    {t("region")}
+                  </label>
+                  <select
+                    id="loc-region"
+                    className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                    value={region}
+                    onChange={(e) => setRegion(e.target.value)}
+                  >
+                    {["CT", "MD", "AN", "VC", "PV", "GA", "IB"].map((code) => (
+                      <option key={code} value={code}>
+                        {tRegions(code)} ({code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setCreateOpen(false)}
+                  >
+                    {tCommon("cancel")}
                   </Button>
-                </form>
-              )}
-            <form onSubmit={handleCreate} className="space-y-4">
-              {actionError && (
-                <p role="alert" className="text-sm text-danger">
-                  {t(actionError)}
-                </p>
-              )}
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="loc-entity"
-                  className="text-xs font-medium text-foreground"
-                >
-                  {t("legalEntityLabel")}
-                </label>
-                <select
-                  id="loc-entity"
-                  required
-                  value={legalEntityId}
-                  onChange={(e) => setLegalEntityId(e.target.value)}
-                  disabled={legalEntitiesLoading || legalEntitiesError}
-                  className="min-h-11 w-full rounded-md border border-border bg-background px-3 text-sm"
-                >
-                  <option value="">{t("legalEntityPlaceholder")}</option>
-                  {legalEntities.map((entity) => (
-                    <option key={entity.id} value={entity.id}>
-                      {entity.name}
-                    </option>
-                  ))}
-                </select>
-                {legalEntitiesLoading && (
-                  <p role="status">{tCommon("loading")}</p>
-                )}
-                {legalEntitiesError && (
-                  <div role="alert">
-                    <p>{t("legalEntitiesLoadError")}</p>
-                    <button
-                      type="button"
-                      className="text-primary underline"
-                      onClick={() => void loadLegalEntities()}
-                    >
-                      {t("retry")}
-                    </button>
-                  </div>
-                )}
-                {!legalEntitiesLoading &&
-                  !legalEntitiesError &&
-                  legalEntities.length === 0 && (
-                    <p>{t("legalEntitiesEmpty")}</p>
-                  )}
-              </div>
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="loc-name"
-                  className="text-xs font-medium text-foreground"
-                >
-                  {t("locationName")}
-                </label>
-                <Input
-                  id="loc-name"
-                  required
-                  placeholder={t("locationNamePlaceholder")}
-                  value={locName}
-                  onChange={(e) => setLocName(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="loc-city"
-                  className="text-xs font-medium text-foreground"
-                >
-                  {t("city")}
-                </label>
-                <Input
-                  id="loc-city"
-                  required
-                  placeholder={t("cityPlaceholder")}
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="loc-region"
-                  className="text-xs font-medium text-foreground"
-                >
-                  {t("region")}
-                </label>
-                <select
-                  id="loc-region"
-                  className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-                  value={region}
-                  onChange={(e) => setRegion(e.target.value)}
-                >
-                  {["CT", "MD", "AN", "VC", "PV", "GA", "IB"].map((code) => (
-                    <option key={code} value={code}>
-                      {tRegions(code)} ({code})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setCreateOpen(false)}
-                >
-                  {tCommon("cancel")}
-                </Button>
-                <Button type="submit" disabled={submitting}>
-                  {submitting ? tCommon("loading") : tCommon("save")}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
+                  <Button type="submit" disabled={submitting}>
+                    {submitting ? tCommon("loading") : tCommon("save")}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        }
+      />
 
       <div className="rounded-card border border-border bg-surface divide-y divide-border">
         {loading ? (

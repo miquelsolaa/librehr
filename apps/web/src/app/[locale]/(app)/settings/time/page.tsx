@@ -4,13 +4,14 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Button, Input } from "@librehr/ui";
+import { Button, Input, PageHeader } from "@librehr/ui";
 import {
   CreateScheduleAssignmentSchema,
   type EmployeeListItem,
 } from "@librehr/contracts";
 import { apiClient } from "@/lib/api-client";
 
+import { ChevronLeft } from "lucide-react";
 const dayKeys = [
   "monday",
   "tuesday",
@@ -23,6 +24,7 @@ const dayKeys = [
 
 export default function ScheduleSettingsPage() {
   const t = useTranslations("scheduleSettings");
+  const tNav = useTranslations("nav");
   const locale = String(useParams()?.["locale"] ?? "ca");
   const [employees, setEmployees] = React.useState<EmployeeListItem[]>([]);
   const [search, setSearch] = React.useState("");
@@ -117,16 +119,19 @@ export default function ScheduleSettingsPage() {
   }
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <Link
-        href={`/${locale}/settings`}
-        className="text-sm text-primary underline underline-offset-4"
-      >
-        {t("title")}
-      </Link>
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t("description")}</p>
-      </header>
+      <PageHeader
+        breadcrumb={
+          <Link
+            href={`/${locale}/settings`}
+            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+            {tNav("settings")}
+          </Link>
+        }
+        title={t("title")}
+        description={t("description")}
+      />
       {loadError && (
         <div role="alert" className="space-y-2">
           <p>{t("loadError")}</p>

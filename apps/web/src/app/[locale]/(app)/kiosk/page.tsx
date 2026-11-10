@@ -132,8 +132,11 @@ export default function KioskModePage() {
     <div className="mx-auto flex max-w-4xl flex-col items-center justify-center p-4 sm:p-6 lg:p-8">
       {/* Header with Live Clock */}
       <div className="mb-6 flex w-full flex-col items-center text-center">
-        <h1 className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
-          <Tablet className="h-3.5 w-3.5" aria-hidden="true" />
+        <h1 className="inline-flex items-center gap-2 text-base font-semibold text-foreground">
+          <Tablet
+            className="h-4 w-4 text-muted-foreground"
+            aria-hidden="true"
+          />
           {t("kioskTitle")}
         </h1>
         <div className="mt-2 text-4xl font-extrabold tracking-tight sm:text-5xl">
@@ -152,7 +155,7 @@ export default function KioskModePage() {
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
               <CheckCircle2 className="h-10 w-10" />
             </div>
-            <h2 className="mt-4 text-2xl font-bold tracking-tight">
+            <h2 className="mt-4 text-2xl font-semibold tracking-tight text-foreground">
               {t("kioskClockSuccess", { name: successEvent.employeeName })}
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">

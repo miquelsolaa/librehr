@@ -6,7 +6,6 @@ import {
   FileText,
   Upload,
   Trash2,
-  FolderOpen,
   Users,
   CheckCircle2,
   AlertCircle,
@@ -17,6 +16,7 @@ import {
 } from "lucide-react";
 import {
   Button,
+  PageHeader,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -428,50 +428,46 @@ export default function DocumentsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <FolderOpen className="h-7 w-7 text-primary" />
-            {t("title")}
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">{t("subtitle")}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant={activeTab === "list" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setActiveTab("list")}
-          >
-            <FileText className="h-4 w-4 mr-1.5" />
-            {t("title")}
-          </Button>
-          <Button
-            variant={activeTab === "upload" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setActiveTab("upload")}
-          >
-            <Upload className="h-4 w-4 mr-1.5" />
-            {t("upload")}
-          </Button>
-          <Button
-            variant={activeTab === "bulk" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setActiveTab("bulk")}
-          >
-            <FileSpreadsheet className="h-4 w-4 mr-1.5" />
-            {t("bulkPayslips")}
-          </Button>
-          <Button
-            variant={activeTab === "templates" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setActiveTab("templates")}
-          >
-            <FileSignature className="h-4 w-4 mr-1.5" />
-            {t("templatesTab")}
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title={t("title")}
+        description={t("subtitle")}
+        actions={
+          <>
+            <Button
+              variant={activeTab === "list" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setActiveTab("list")}
+            >
+              <FileText className="h-4 w-4 mr-1.5" />
+              {t("title")}
+            </Button>
+            <Button
+              variant={activeTab === "upload" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setActiveTab("upload")}
+            >
+              <Upload className="h-4 w-4 mr-1.5" />
+              {t("upload")}
+            </Button>
+            <Button
+              variant={activeTab === "bulk" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setActiveTab("bulk")}
+            >
+              <FileSpreadsheet className="h-4 w-4 mr-1.5" />
+              {t("bulkPayslips")}
+            </Button>
+            <Button
+              variant={activeTab === "templates" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setActiveTab("templates")}
+            >
+              <FileSignature className="h-4 w-4 mr-1.5" />
+              {t("templatesTab")}
+            </Button>
+          </>
+        }
+      />
 
       {successMsg && (
         <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-4 text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
@@ -586,7 +582,7 @@ export default function DocumentsPage() {
                             {(doc.category === "company_policies" ||
                               !doc.employeeName) &&
                               (acknowledgedDocs.has(doc.id) ? (
-                                <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 bg-emerald-500/10 px-2 py-1 rounded font-medium">
+                                <span className="inline-flex items-center gap-1 text-xs text-emerald-600 bg-emerald-500/10 px-2 py-1 rounded font-medium">
                                   <CheckCircle2 className="h-3.5 w-3.5" />
                                   <span>{t("acknowledged")}</span>
                                 </span>
@@ -626,7 +622,7 @@ export default function DocumentsPage() {
 
       {activeTab === "upload" && (
         <div className="max-w-xl rounded-lg border border-border bg-surface p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-foreground mb-4">
+          <h2 className="mb-4 text-base font-semibold text-foreground">
             {t("uploadTitle")}
           </h2>
           <form onSubmit={handleFileUpload} className="space-y-4">
@@ -712,7 +708,7 @@ export default function DocumentsPage() {
       {activeTab === "bulk" && (
         <div className="max-w-3xl rounded-lg border border-border bg-surface p-6 shadow-sm space-y-6">
           <div>
-            <h2 className="text-lg font-semibold text-foreground">
+            <h2 className="text-base font-semibold text-foreground">
               {t("bulkUploadTitle")}
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
@@ -784,7 +780,7 @@ export default function DocumentsPage() {
                         </td>
                         <td className="px-3 py-2">
                           <span
-                            className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                            className={`inline-flex px-1.5 py-0.5 rounded text-xs font-medium ${
                               m.status === "matched"
                                 ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
                                 : "bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300"
@@ -810,7 +806,7 @@ export default function DocumentsPage() {
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-foreground">
+              <h2 className="text-base font-semibold text-foreground">
                 {t("templatesListTitle")}
               </h2>
               <p className="text-xs text-muted-foreground">
@@ -883,7 +879,7 @@ export default function DocumentsPage() {
                       <h3 className="font-semibold text-foreground text-sm line-clamp-1">
                         {tpl.name}
                       </h3>
-                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary shrink-0 uppercase tracking-wider">
+                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary shrink-0 uppercase tracking-wider">
                         {categoryLabel(tpl.category)}
                       </span>
                     </div>
@@ -892,7 +888,7 @@ export default function DocumentsPage() {
                         {tpl.description}
                       </p>
                     )}
-                    <pre className="rounded bg-background p-2 font-mono text-[11px] text-muted-foreground max-h-24 overflow-hidden border border-border/50">
+                    <pre className="rounded bg-background p-2 font-mono text-xs text-muted-foreground max-h-24 overflow-hidden border border-border/50">
                       {tpl.content}
                     </pre>
                   </div>
@@ -982,7 +978,7 @@ export default function DocumentsPage() {
                     <label className="block text-xs font-medium text-foreground">
                       {t("templateContentMarkdown")} *
                     </label>
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       {t("markdownHint")}
                     </span>
                   </div>
@@ -1001,10 +997,10 @@ export default function DocumentsPage() {
 
                 {/* Cheat sheet of merge fields */}
                 <div className="rounded-input border border-border bg-surface p-3 text-xs space-y-1.5">
-                  <div className="font-semibold text-foreground text-[11px] uppercase tracking-wider">
+                  <div className="font-semibold text-foreground text-xs uppercase tracking-wider">
                     {t("availableMergeFields")}
                   </div>
-                  <div className="flex flex-wrap gap-1.5 font-mono text-[11px] text-primary">
+                  <div className="flex flex-wrap gap-1.5 font-mono text-xs text-primary">
                     {[
                       "{{employee.name}}",
                       "{{employee.dni}}",
@@ -1094,7 +1090,7 @@ export default function DocumentsPage() {
                       <div className="text-xs font-medium text-foreground">
                         {t("saveAsDocumentCheckbox")}
                       </div>
-                      <div className="text-[10px] text-muted-foreground">
+                      <div className="text-xs text-muted-foreground">
                         {t("saveAsDocumentHint")}
                       </div>
                     </div>

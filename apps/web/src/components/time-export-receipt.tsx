@@ -32,7 +32,7 @@ export function TimeExportReceipt({
         <div className="min-w-0 flex-1 space-y-3">
           <h2
             id="export-receipt-title"
-            className="text-sm font-semibold text-foreground"
+            className="text-base font-semibold text-foreground"
           >
             {t("exportVerificationTitle")}
           </h2>

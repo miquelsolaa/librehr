@@ -5,6 +5,8 @@ import { LibreHRMark } from "../icons/index.js";
 export interface NavItem {
   href: string;
   label: string;
+  /** One-word label for the mobile bottom bar, where `label` won't fit. */
+  shortLabel?: string;
   icon: React.ReactNode;
   isActive?: boolean;
   badge?: string | number;
