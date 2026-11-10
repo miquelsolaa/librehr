@@ -186,6 +186,7 @@ describe("renderInspectionPdf (TIM-006)", () => {
         timeZone: "Europe/Madrid",
         days,
         correctedDates: [],
+        employmentPeriods: null,
       },
     ],
   });

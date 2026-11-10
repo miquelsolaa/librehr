@@ -66,6 +66,7 @@ export function baseInput(
           day("2026-11-03", [session("2026-11-03T08:00:00Z")]),
         ],
         correctedDates: ["2026-11-03"],
+        employmentPeriods: null,
         chainStatus: "verified",
       },
     ],

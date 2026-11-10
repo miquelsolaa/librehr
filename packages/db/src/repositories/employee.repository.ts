@@ -1,5 +1,9 @@
 import type { TenantTx } from "../with-tenant.js";
 import { encryptEnvelope, decryptEnvelope } from "../crypto/envelope.js";
+import {
+  loadEmploymentPeriods,
+  type EmploymentSpan,
+} from "./employment-periods.js";
 
 export interface EmployeeRow {
   id: string;
@@ -323,6 +327,19 @@ export class EmployeeRepository {
         )
       ORDER BY e.last_name, e.first_name, e.id
     `;
+  }
+
+  /**
+   * Employment periods overlapping a period of local dates, per employee
+   * (TIM-006); see {@link loadEmploymentPeriods}.
+   */
+  employmentPeriods(
+    tx: TenantTx,
+    employeeIds: readonly string[],
+    periodStart: string,
+    periodEnd: string,
+  ): Promise<Map<string, EmploymentSpan[] | null>> {
+    return loadEmploymentPeriods(tx, employeeIds, periodStart, periodEnd);
   }
 
   async create(

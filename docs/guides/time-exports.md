@@ -39,8 +39,21 @@ A period covers at most 366 days.
   zone and the generation time in it. For example, with a Europe/Madrid
   organization, an employee at an Atlantic/Canary location who clocks in at
   08:00 UTC in November reads `08:00`, a Madrid colleague `09:00`.
-- **Employee scope.** If no schedule covers every day of the period, the
-  export fails with `409 SCHEDULE_NOT_CONFIGURED`. Without `employeeId`, a
+- **Employment days.** The last column, "Employed" ("Contractat",
+  "Contratado"), says whether the day falls inside one of the employee's
+  employment periods (their employment records; an employee without any is
+  employed every day unless terminated, then until the termination date). A
+  day outside them expects 0 minutes, so its difference equals the work
+  recorded that day, which is still listed with its anomaly and corrected
+  flags: a former or not-yet-hired employee never shows a fake absence. JSON
+  responses also carry the flag per row in `rowsEmployed` (null on a
+  "schedule not configured" row), and the preview badges those days "Not
+  employed".
+- **Employee scope.** If no schedule covers every day of the period on which
+  the employee is employed, the export fails with
+  `409 SCHEDULE_NOT_CONFIGURED`. An employee with no employed day in the
+  period (for example a manager's former report) is exported with every day
+  flagged instead. Without `employeeId`, a
   user who has no employee record gets `404`.
 - **Organization scope.** Every employee with an employment record that
   overlaps the period (a re-hired employee is included whatever their old
@@ -104,7 +117,8 @@ start or more than 366 days; `401` without a session; `403` without
   worked minutes, expected minutes, the difference, an anomaly flag (a session
   left open), a "corrected" flag (a correction changed or replaced a record of
   that day), the integrity status of the employee's time records
-  (verified, tampered, legacy or no data) and the time zone of the row.
+  (verified, tampered, legacy or no data), the time zone of the row and
+  whether the employee was employed that day (see "Employment days" above).
 
 The integrity status checks every stored record of the employee: each
 record's keyed signature, the order and links of the chain, and the anchor

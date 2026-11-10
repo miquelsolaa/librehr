@@ -28,6 +28,8 @@ export interface InspectionExportLabels {
     chainStatus: string;
     /** Zone of the row's date and clock times (the employee's). */
     timeZone: string;
+    /** Whether the day is inside an employment period; uses yes/no values. */
+    employed: string;
   };
   meta: {
     document: string;
@@ -63,6 +65,7 @@ const ca: InspectionExportLabels = {
     corrected: "Corregit",
     chainStatus: "Integritat",
     timeZone: "Zona horària",
+    employed: "Contractat",
   },
   meta: {
     document: "Document",
@@ -101,6 +104,7 @@ const es: InspectionExportLabels = {
     corrected: "Corregido",
     chainStatus: "Integridad",
     timeZone: "Zona horaria",
+    employed: "Contratado",
   },
   meta: {
     document: "Documento",
@@ -139,6 +143,7 @@ const en: InspectionExportLabels = {
     corrected: "Corrected",
     chainStatus: "Integrity",
     timeZone: "Time zone",
+    employed: "Employed",
   },
   meta: {
     document: "Document",

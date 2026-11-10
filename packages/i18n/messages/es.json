@@ -676,6 +676,7 @@
     "exportCopyValue": "Copiar {label}",
     "exportTableLabel": "Registro diario de jornada",
     "exportNoRows": "No hay días laborables en este periodo.",
+    "exportNotEmployed": "No contratado",
     "exportErrorInvalidPeriod": "Revisa las fechas: la fecha de fin debe ser igual o posterior a la de inicio, y el periodo no puede superar los 366 días.",
     "exportErrorForbidden": "No tienes permiso para exportar este registro. Puedes exportar el tuyo y, si gestionas un equipo, el de las personas que dependen de ti.",
     "exportErrorNotFound": "No se ha encontrado a esta persona empleada.",

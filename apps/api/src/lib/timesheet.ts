@@ -4,6 +4,7 @@ import {
   buildLocalPeriodTimesheet,
   foldSessions,
   localPeriodBounds,
+  type EmploymentPeriod,
   type LocalPeriodTimesheetResult,
 } from "@librehr/core";
 import {
@@ -47,6 +48,11 @@ export interface TimesheetArgs {
    * zone (location, else organization).
    */
   timeZone?: string | undefined;
+  /**
+   * TIM-006: when the employee was employed. Days outside expect nothing and
+   * need no schedule. Omitted or null: employed every day.
+   */
+  employmentPeriods?: readonly EmploymentPeriod[] | null | undefined;
 }
 
 export interface LoadedTimesheet {
@@ -107,6 +113,7 @@ export async function buildTimesheet(
     timeZone,
     sessions: foldRecordedEvents(events),
     schedules,
+    employmentPeriods: args.employmentPeriods,
   });
   return { timesheet, events, timeZone };
 }

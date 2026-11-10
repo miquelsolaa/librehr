@@ -42,6 +42,7 @@ function employeeIn(
     timeZone,
     days: timesheet.days,
     correctedDates: [],
+    employmentPeriods: null,
   };
 }
 

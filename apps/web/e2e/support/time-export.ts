@@ -62,8 +62,13 @@ export async function mockJsonExport(
         organizationName: "Example Org",
         generatedBy: { name: "Ada Auditor", role: "auditor" },
         metadataLines: [],
-        columns: ["Employee", "Date"],
-        rows: [["Alex Example", "2026-01-02"]],
+        columns: ["Employee", "Date", "Employed"],
+        // TIM-006: the second day is outside the employee's employment.
+        rows: [
+          ["Alex Example", "2026-01-02", "Yes"],
+          ["Alex Example", "2026-01-03", "No"],
+        ],
+        rowsEmployed: [true, false],
         employees: [
           {
             employeeId: EMPLOYEE_ID,

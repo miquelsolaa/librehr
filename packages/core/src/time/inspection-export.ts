@@ -7,8 +7,15 @@ import {
   type InspectionExportLabels,
   type InspectionExportLocale,
 } from "./export-labels.js";
-import type { WorkSession } from "./fold-sessions.js";
+import type { EmploymentPeriod } from "./employment-periods.js";
 import type { ChainStatus } from "./hash-chain.js";
+import {
+  buildInspectionRows,
+  inspectionColumnLabels,
+  inspectionRowCells,
+  INSPECTION_NUMERIC_COLUMNS,
+  type InspectionExportRow,
+} from "./inspection-export-rows.js";
 import type { DayTimesheetSummary } from "./timesheet-calculator.js";
 
 export type InspectionExportScope = "employee" | "organization";
@@ -27,6 +34,13 @@ export interface InspectionExportEmployee {
   correctedDates: readonly string[];
   /** Result of the TIM-002 chain verifier, when it was run. */
   chainStatus?: ChainStatus | undefined;
+  /**
+   * Employment periods overlapping the export period (local dates,
+   * inclusive). A day outside all of them is exported with `employed: false`
+   * and 0 expected minutes; its recorded work is still listed. Null when
+   * unknown (no employment records): every day counts as employed.
+   */
+  employmentPeriods: readonly EmploymentPeriod[] | null;
 }
 
 export interface InspectionExportInput {
@@ -48,27 +62,6 @@ export interface InspectionExportInput {
   employees: readonly InspectionExportEmployee[];
 }
 
-/** One document row: an employee's day, or an employee without a schedule. */
-export interface InspectionExportRow {
-  employeeId: string;
-  employeeName: string;
-  /** Zone of the row's date and times (the employee's). */
-  timeZone: string;
-  /** Null on a "schedule not configured" row. */
-  date: string | null;
-  /** Local `HH:MM-HH:MM` intervals joined by ` | `; an open one ends in `-`. */
-  sessions: string;
-  breakMinutes: number | null;
-  workedMinutes: number | null;
-  expectedMinutes: number | null;
-  /** Worked minus expected; negative when short. */
-  overtimeMinutes: number | null;
-  anomaly: boolean | null;
-  corrected: boolean | null;
-  chainStatus: ChainStatus | null;
-  scheduleNotConfigured: boolean;
-}
-
 export interface InspectionExportResult {
   exportId: string;
   /** SHA-256 (hex) of the CSV body: every line before the signature line. */
@@ -87,112 +80,6 @@ const CRLF = "\r\n";
 /** Metadata values sit on one comment line: fold any line break away. */
 function oneLine(value: string): string {
   return value.replace(/[\r\n]+/g, " ").trim();
-}
-
-function formatSession(session: WorkSession, timeZone: string): string {
-  const start = localTimeOfDay(session.clockIn, timeZone);
-  const end = session.clockOut
-    ? localTimeOfDay(session.clockOut, timeZone)
-    : "";
-  return `${start}-${end}`;
-}
-
-function buildRows(input: InspectionExportInput): InspectionExportRow[] {
-  const rows: InspectionExportRow[] = [];
-  for (const employee of input.employees) {
-    const chainStatus = employee.chainStatus ?? null;
-    if (employee.days === null) {
-      rows.push({
-        employeeId: employee.employeeId,
-        employeeName: employee.name,
-        timeZone: employee.timeZone,
-        date: null,
-        sessions: "",
-        breakMinutes: null,
-        workedMinutes: null,
-        expectedMinutes: null,
-        overtimeMinutes: null,
-        anomaly: null,
-        corrected: null,
-        chainStatus,
-        scheduleNotConfigured: true,
-      });
-      continue;
-    }
-    const corrected = new Set(employee.correctedDates);
-    for (const day of employee.days) {
-      rows.push({
-        employeeId: employee.employeeId,
-        employeeName: employee.name,
-        timeZone: employee.timeZone,
-        date: day.date,
-        sessions: day.sessions
-          .map((session) => formatSession(session, employee.timeZone))
-          .join(" | "),
-        breakMinutes: day.totalBreakMinutes,
-        workedMinutes: day.totalWorkedMinutes,
-        expectedMinutes: Math.round(day.expectedHours * 60),
-        overtimeMinutes: day.overtimeMinutes,
-        anomaly: day.hasAnomaly,
-        corrected: corrected.has(day.date),
-        chainStatus,
-        scheduleNotConfigured: false,
-      });
-    }
-  }
-  return rows;
-}
-
-/**
- * Display text of each cell of a row, in column order. Shared by the CSV and
- * the PDF so both formats show the same values.
- *
- * @example
- * inspectionRowCells(row, inspectionExportLabels("en"));
- * // => ["Marta Garcia", "2026-11-02", "09:00-17:30", "60", "450", "480", "-30", "No", "No", "Verified", "Europe/Madrid"]
- */
-export function inspectionRowCells(
-  row: InspectionExportRow,
-  labels: InspectionExportLabels,
-): string[] {
-  const flag = (value: boolean | null) =>
-    value === null ? "" : value ? labels.yes : labels.no;
-  const minutes = (value: number | null) =>
-    value === null ? "" : String(value);
-  return [
-    row.employeeName,
-    row.date ?? "",
-    row.scheduleNotConfigured ? labels.scheduleNotConfigured : row.sessions,
-    minutes(row.breakMinutes),
-    minutes(row.workedMinutes),
-    minutes(row.expectedMinutes),
-    minutes(row.overtimeMinutes),
-    flag(row.anomaly),
-    flag(row.corrected),
-    row.chainStatus === null ? "" : labels.chainStatus[row.chainStatus],
-    // Last, so the columns before it keep their positions for consumers.
-    row.timeZone,
-  ];
-}
-
-/** Indexes of the columns whose cells are numbers (no formula guard). */
-const NUMERIC_COLUMNS = new Set([3, 4, 5, 6]);
-
-function columnLabels(labels: InspectionExportLabels): string[] {
-  const c = labels.columns;
-  return [
-    c.employee,
-    c.date,
-    c.sessions,
-    c.breakMinutes,
-    c.workedMinutes,
-    c.expectedMinutes,
-    c.overtimeMinutes,
-    c.anomaly,
-    c.corrected,
-    c.chainStatus,
-    c.timeZone,
-  ];
 }
 
 function metadata(
@@ -223,7 +110,9 @@ function metadata(
 /**
  * Builds the Labour Inspectorate working-time export (TIM-006, ET art. 34.9):
  * one row per employee per local day, preceded by generation metadata and
- * signed with a content hash. Each employee's days and clock times are in
+ * signed with a content hash. Days outside the employee's employment
+ * periods are flagged `employed: false` and expect nothing (never a fake
+ * absence). Each employee's days and clock times are in
  * that employee's zone (named on every row), so an employee's rows are the
  * same in an employee and an organization export; the header zone is the
  * organization's.
@@ -246,7 +135,7 @@ function metadata(
  *   generatedBy: { name: "Ana Ruiz", role: "admin" },
  *   employees: [{
  *     employeeId: "e1", name: "Marta Garcia", timeZone: "Atlantic/Canary",
- *     days, correctedDates: [],
+ *     days, correctedDates: [], employmentPeriods: null,
  *   }],
  * });
  * // Verify a downloaded file (shell): head -n -1 export.csv | sha256sum
@@ -258,8 +147,8 @@ export function createInspectionExport(
   input: InspectionExportInput,
 ): InspectionExportResult {
   const labels = inspectionExportLabels(input.locale);
-  const rows = buildRows(input);
-  const columns = columnLabels(labels);
+  const rows = buildInspectionRows(input);
+  const columns = inspectionColumnLabels(labels);
   const metadataLines = metadata(input, labels);
 
   const lines = [
@@ -270,7 +159,7 @@ export function createInspectionExport(
     ...rows.map((row) =>
       inspectionRowCells(row, labels)
         .map((cell, index) =>
-          csvCell(cell, { numeric: NUMERIC_COLUMNS.has(index) }),
+          csvCell(cell, { numeric: INSPECTION_NUMERIC_COLUMNS.has(index) }),
         )
         .join(","),
     ),

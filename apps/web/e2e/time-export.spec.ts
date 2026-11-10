@@ -156,6 +156,11 @@ test("auditor picks one employee and previews their record", async ({
   expect(query?.get("employeeId")).toBe(EMPLOYEE_ID);
   expect(query?.get("scope")).toBe("employee");
   await expect(page.locator("main").getByRole("alert")).toHaveCount(0);
+  // TIM-006: only the day outside employment is badged.
+  await expect(page.getByText("Not employed", { exact: true })).toHaveCount(1);
+  await expect(
+    page.getByRole("row").filter({ hasText: "2026-01-03" }),
+  ).toContainText("Not employed");
 
   const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
   expect(results.violations).toEqual([]);

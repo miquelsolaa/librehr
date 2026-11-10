@@ -3,6 +3,7 @@ import {
   isBeforeDate,
   isoDayOfWeek,
 } from "../calendar/business-date.js";
+import { isEmployedOn, type EmploymentPeriod } from "./employment-periods.js";
 import type { WorkSession } from "./fold-sessions.js";
 import { splitSessionsByLocalDay } from "./local-day-sessions.js";
 import type { ScheduleRule } from "./schedules.js";
@@ -69,6 +70,12 @@ export interface LocalPeriodTimesheetInput {
   sessions: readonly WorkSession[];
   /** Every schedule span that may cover the period, fetched once. */
   schedules: readonly ScheduleSpan[];
+  /**
+   * When the employee was employed (TIM-006). A day outside every period
+   * expects 0 hours and needs no schedule. Omitted or null: employed every
+   * day (unknown, legacy data).
+   */
+  employmentPeriods?: readonly EmploymentPeriod[] | null | undefined;
 }
 
 /**
@@ -76,7 +83,9 @@ export interface LocalPeriodTimesheetInput {
  * Each day runs from local midnight to the next local midnight, so a daylight
  * saving day is 23 or 25 hours long and work is counted by real elapsed time.
  * Expected hours come from the schedule in force on each day; a day with no
- * schedule at all makes the whole period unconfigured.
+ * schedule at all makes the whole period unconfigured. Days outside the
+ * `employmentPeriods` expect 0 hours and are never unconfigured, so a period
+ * with no employed day always succeeds; work recorded on them still counts.
  *
  * @example
  * buildLocalPeriodTimesheet({
@@ -97,15 +106,26 @@ export function buildLocalPeriodTimesheet(
     input.timeZone,
   );
   const days: DayTimesheetSummary[] = [];
+  const periods = input.employmentPeriods ?? null;
   for (const date of datesInRange(input.startDate, input.endDate)) {
+    const dayOfWeek = isoDayOfWeek(date);
+    const sessions = sessionsByDay.get(date) ?? [];
+    if (!isEmployedOn(periods, date)) {
+      days.push(
+        calculateDailyTimesheet(date, sessions, {
+          dayOfWeek,
+          expectedHours: 0,
+        }),
+      );
+      continue;
+    }
     const schedule = resolveScheduleForDate(input.schedules, date);
     if (!schedule) {
       return { ok: false, reason: "SCHEDULE_NOT_CONFIGURED", date };
     }
-    const dayOfWeek = isoDayOfWeek(date);
     const rule = schedule.rules.find((item) => item.dayOfWeek === dayOfWeek);
     days.push(
-      calculateDailyTimesheet(date, sessionsByDay.get(date) ?? [], {
+      calculateDailyTimesheet(date, sessions, {
         dayOfWeek,
         expectedHours: rule?.expectedHours ?? 0,
       }),

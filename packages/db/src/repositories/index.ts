@@ -4,6 +4,7 @@ export * from "./identity.repository.js";
 export * from "./access-revocation.repository.js";
 export * from "./employee.repository.js";
 export * from "./employment-history.repository.js";
+export * from "./employment-periods.js";
 export * from "./department.repository.js";
 export * from "./location.repository.js";
 export * from "./invitation.repository.js";

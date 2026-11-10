@@ -149,6 +149,13 @@ export function createTimeExportRoutes(
           subjectEmployeeId = employee.id;
         }
 
+        // One query for every subject: whose days count as employed.
+        const employment = await employeeRepo.employmentPeriods(
+          tx,
+          subjects.map((subject) => subject.id),
+          startDate,
+          endDate,
+        );
         const collected: CollectedEmployee[] = [];
         for (const subject of subjects) {
           collected.push(
@@ -157,15 +164,17 @@ export function createTimeExportRoutes(
               tx,
               subject,
               { startDate, endDate },
+              employment.get(subject.id) ?? null,
               options.timeChainKey,
             ),
           );
         }
+        // Only employed days need a schedule (core skips the others).
         if (scope === "employee" && collected[0]?.input.days === null) {
           throw new ConflictError({
             code: "SCHEDULE_NOT_CONFIGURED",
             detail:
-              "Configure a schedule rule for every day in the requested period.",
+              "Configure a schedule rule for every day of the requested period on which the employee is employed.",
           });
         }
 
@@ -219,6 +228,7 @@ export function createTimeExportRoutes(
           metadataLines: result.metadataLines,
           columns: result.columns,
           rows: result.rows.map((row) => inspectionRowCells(row, labels)),
+          rowsEmployed: result.rows.map((row) => row.employed),
           employees: collected.map((e) => ({
             employeeId: e.input.employeeId,
             name: e.input.name,
