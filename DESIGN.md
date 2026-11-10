@@ -66,7 +66,7 @@ Leave-type colors come from a fixed, color-blind-safe categorical palette (8 hue
 - **App shell (desktop):** left sidebar (collapsible, modules), top bar (global search, notifications, user menu, org switcher), content area with page header (title, breadcrumbs, primary action right-aligned).
 - **App shell (mobile):** top bar + bottom navigation (Home, Time off, Clock, Documents, Profile). Admin features are reachable but optimized for desktop.
 - **Breakpoints:** 360, 640, 768, 1024, 1280. Test at 360 px.
-- **Home dashboards:** Employee: clock widget, balance cards, upcoming leave, tasks. Manager: approval inbox, who's away today, team alerts. HR: tasks needing attention, upcoming joiners/leavers, compliance warnings.
+- **Home dashboards:** Employee: today first. The page header greets the person and shows today's date; the clock widget (current state, since when, next action) is the main block, and the leave balance is a single figure with "Request time off" next to it. Later: upcoming leave, tasks. Manager: approval inbox, who's away today, team alerts. HR: tasks needing attention, upcoming joiners/leavers, compliance warnings.
 
 ### Wireframes (ASCII, illustrative)
 
