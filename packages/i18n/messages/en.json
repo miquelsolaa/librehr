@@ -666,6 +666,7 @@
     "exportEmployeeLabel": "Employee",
     "exportEmployeeSelf": "Myself",
     "exportDirectoryUnavailable": "The employee list could not be loaded, so only your own record can be selected.",
+    "exportEmployeeReset": "The selected employee isn’t employed in this period; the export now covers your own record.",
     "exportPreview": "Preview",
     "exportDownloadCsv": "Download CSV",
     "exportDownloadPdf": "Download PDF",

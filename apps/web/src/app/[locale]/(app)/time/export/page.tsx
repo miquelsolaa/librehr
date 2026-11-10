@@ -59,10 +59,19 @@ export default function TimeExportPage() {
   // the employee directory: an auditor has no employee.read.
   const [directory, setDirectory] = React.useState<PickerEmployee[]>([]);
   const [directoryFailed, setDirectoryFailed] = React.useState(false);
+  const [directoryLoading, setDirectoryLoading] = React.useState(false);
+  const [selectionReset, setSelectionReset] = React.useState(false);
+  // Read when a reload lands, without reloading on every selection.
+  const employeeIdRef = React.useRef(employeeId);
+  employeeIdRef.current = employeeId;
   const periodValid = isValidExportPeriod(startDate, endDate);
   React.useEffect(() => {
-    if (!allowOthers || !periodValid) return;
+    if (!allowOthers || !periodValid) {
+      setDirectoryLoading(false);
+      return;
+    }
     let cancelled = false;
+    setDirectoryLoading(true);
     getApiClient()
       .listExportEmployees({ startDate, endDate })
       .then(({ items }) => {
@@ -71,17 +80,28 @@ export default function TimeExportPage() {
         setDirectoryFailed(false);
         // Drop a choice the new period no longer lists: the select would show
         // "Myself" while the export still targeted the hidden employee.
-        setEmployeeId((id) =>
-          id && !items.some((e) => e.id === id) ? "" : id,
-        );
+        const id = employeeIdRef.current;
+        if (id && !items.some((e) => e.id === id)) {
+          setEmployeeId("");
+          setSelectionReset(true);
+        }
       })
       .catch(() => {
-        if (!cancelled) setDirectoryFailed(true);
+        if (cancelled) return;
+        // Only the caller's own record is left, as the hint says.
+        setDirectory([]);
+        setEmployeeId("");
+        setDirectoryFailed(true);
+      })
+      .finally(() => {
+        if (!cancelled) setDirectoryLoading(false);
       });
     return () => {
       cancelled = true;
     };
   }, [allowOthers, periodValid, startDate, endDate]);
+  // An export started while the list reloads could target a stale choice.
+  const pickerLoading = allowOthers && scope === "employee" && directoryLoading;
 
   const [busy, setBusy] = React.useState<Action | null>(null);
   const [error, setError] = React.useState<ExportErrorKey | null>(null);
@@ -109,6 +129,7 @@ export default function TimeExportPage() {
 
     setError(null);
     setDownloaded(null);
+    setSelectionReset(false);
     setReceipt(null);
     // A preview left on screen would show another export's id and hash.
     setDoc(null);
@@ -259,7 +280,11 @@ export default function TimeExportPage() {
                 <select
                   id="export-employee"
                   value={employeeId}
-                  onChange={(e) => setEmployeeId(e.target.value)}
+                  onChange={(e) => {
+                    setEmployeeId(e.target.value);
+                    setSelectionReset(false);
+                  }}
+                  disabled={directoryLoading}
                   aria-describedby={
                     directoryFailed ? "export-directory-hint" : undefined
                   }
@@ -287,7 +312,7 @@ export default function TimeExportPage() {
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <Button
               type="submit"
-              disabled={busy !== null}
+              disabled={busy !== null || pickerLoading}
               isLoading={busy === "json"}
               className="gap-2"
             >
@@ -299,7 +324,7 @@ export default function TimeExportPage() {
             <Button
               type="button"
               variant="outline"
-              disabled={busy !== null}
+              disabled={busy !== null || pickerLoading}
               isLoading={busy === "csv"}
               onClick={() => void run("csv")}
               className="gap-2"
@@ -312,7 +337,7 @@ export default function TimeExportPage() {
             <Button
               type="button"
               variant="outline"
-              disabled={busy !== null}
+              disabled={busy !== null || pickerLoading}
               isLoading={busy === "pdf"}
               onClick={() => void run("pdf")}
               className="gap-2"
@@ -330,7 +355,9 @@ export default function TimeExportPage() {
             ? t("generating")
             : downloaded
               ? t("exportDownloaded", { filename: downloaded })
-              : ""}
+              : selectionReset
+                ? t("exportEmployeeReset")
+                : ""}
         </p>
 
         {error && (

@@ -1,30 +1,19 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { mockRoute, seedProfile } from "./support/mock-api";
+import {
+  AXE_TAGS,
+  CONTENT_HASH,
+  EMPLOYEE_ID,
+  EXPORT_ID,
+  REPORT_ID,
+  mockJsonExport,
+  mockPicker,
+} from "./support/time-export";
 
 // TIM-006: official working-time export screen. Fictional fixtures only.
-const EXPORT_ID = "00000000-0000-4000-8000-0000000000e1";
-const CONTENT_HASH = "a".repeat(64);
-const EMPLOYEE_ID = "00000000-0000-4000-8000-000000000002";
-const REPORT_ID = "00000000-0000-4000-8000-000000000003";
 // The API starts CSVs with a byte-order mark.
 const BOM = String.fromCharCode(0xfeff);
-const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
-
-/**
- * Mocks the export's employee picker. Registered after the export mock: the
- * last matching route wins, and `**\/v1/time/export**` also matches it.
- */
-async function mockPicker(
-  page: Page,
-  items: { id: string; name: string }[],
-  requests: URL[] = [],
-) {
-  await mockRoute(page, "**/v1/time/export/employees**", (route) => {
-    requests.push(new URL(route.request().url()));
-    return route.fulfill({ json: { items } });
-  });
-}
 
 test("admin downloads the whole organization as CSV and sees its id and hash", async ({
   page,
@@ -137,37 +126,7 @@ test("auditor picks one employee and previews their record", async ({
 }) => {
   await seedProfile(page, { role: "auditor" });
   const exportRequests: URL[] = [];
-  await mockRoute(page, "**/v1/time/export**", (route) => {
-    exportRequests.push(new URL(route.request().url()));
-    return route.fulfill({
-      json: {
-        exportId: EXPORT_ID,
-        contentHash: CONTENT_HASH,
-        scope: "employee",
-        locale: "en",
-        periodStart: "2026-01-01",
-        periodEnd: "2026-01-31",
-        timeZone: "Europe/Madrid",
-        generatedAt: "2026-02-01T09:00:00.000Z",
-        organizationName: "Example Org",
-        generatedBy: { name: "Ada Auditor", role: "auditor" },
-        metadataLines: [],
-        columns: ["Employee", "Date"],
-        rows: [["Alex Example", "2026-01-02"]],
-        employees: [
-          {
-            employeeId: EMPLOYEE_ID,
-            name: "Alex Example",
-            timeZone: "Europe/Madrid",
-            scheduleConfigured: true,
-            chainStatus: "verified",
-            totalWorkedMinutes: 480,
-            totalOvertimeMinutes: 0,
-          },
-        ],
-      },
-    });
-  });
+  await mockJsonExport(page, exportRequests);
   const pickerRequests: URL[] = [];
   await mockPicker(
     page,

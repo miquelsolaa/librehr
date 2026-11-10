@@ -1100,7 +1100,7 @@ registry.registerPath({
   summary:
     "Employees the caller may export (TIM-006, TIM-008) for a period, for the export's employee picker",
   description:
-    "Requires time.record.read at any scope. Organization scope (admin, auditor) lists every employee of the organization employed during the period (the same set as an organization export); reports scope (manager) lists self and direct reports; self scope lists only the caller. Id and display name only, sorted by name.",
+    "Requires time.record.read at any scope. Organization scope (admin, auditor) lists every employee of the organization employed during the period (the same set as an organization export); reports scope (manager) lists self and direct reports; self scope lists only the caller. Id and display name only, sorted by name. A caller with organization-wide time access but no employee.read (an inspector) gets one inspector.export_picker_access audit entry per call (TIM-008). Limited to 60 requests per minute per user and client address.",
   request: { query: ExportEmployeesQuerySchema },
   responses: {
     200: {
@@ -1119,6 +1119,10 @@ registry.registerPath({
     },
     403: {
       description: "No time.record.read permission",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    429: {
+      description: "RATE_LIMIT_EXCEEDED, with a Retry-After header",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
   },
