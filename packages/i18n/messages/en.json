@@ -18,9 +18,7 @@
     "copied": "Copied!",
     "back": "Back",
     "or": "or",
-    "close": "Close",
-    "changeLanguage": "Change language",
-    "themeToggle": "Change theme (current: {theme})"
+    "close": "Close"
   },
   "auth": {
     "signInTitle": "Sign in to LibreHR",
@@ -51,7 +49,6 @@
     "skipToContent": "Skip to content",
     "inspectionRecords": "Inspection records",
     "inspectionRecordsShort": "Records",
-    "workspace": "Workspace",
     "home": "Home",
     "people": "People",
     "timeOff": "Time off",
@@ -61,7 +58,11 @@
     "documents": "Documents",
     "onboarding": "Onboarding",
     "reports": "Reports",
-    "settings": "Settings"
+    "settings": "Settings",
+    "groupMe": "Me",
+    "groupOrganization": "Organization",
+    "accountMenu": "Account menu",
+    "theme": "Theme"
   },
   "errors": {
     "generic": "An unexpected error occurred.",

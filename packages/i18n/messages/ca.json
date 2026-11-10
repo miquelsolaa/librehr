@@ -18,9 +18,7 @@
     "copied": "Copiat!",
     "back": "Enrere",
     "or": "o",
-    "close": "Tancar",
-    "changeLanguage": "Canviar l'idioma",
-    "themeToggle": "Canviar el tema (actual: {theme})"
+    "close": "Tancar"
   },
   "auth": {
     "signInTitle": "Iniciar sessió a LibreHR",
@@ -51,7 +49,6 @@
     "skipToContent": "Ves al contingut",
     "inspectionRecords": "Registres d'inspecció",
     "inspectionRecordsShort": "Registres",
-    "workspace": "Espai de treball",
     "home": "Inici",
     "people": "Equip",
     "timeOff": "Vacances",
@@ -61,7 +58,11 @@
     "documents": "Documents",
     "onboarding": "Acollida",
     "reports": "Informes",
-    "settings": "Configuració"
+    "settings": "Configuració",
+    "groupMe": "Jo",
+    "groupOrganization": "Organització",
+    "accountMenu": "Menú del compte",
+    "theme": "Tema"
   },
   "errors": {
     "generic": "S'ha produït un error inesperat.",

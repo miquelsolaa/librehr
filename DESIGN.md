@@ -63,8 +63,9 @@ Leave-type colors come from a fixed, color-blind-safe categorical palette (8 hue
 
 ## 3. Layout
 
-- **App shell (desktop):** left sidebar (collapsible, modules), top bar (global search, notifications, user menu, org switcher), content area with page header (title, breadcrumbs, primary action right-aligned).
-- **App shell (mobile):** top bar + bottom navigation (Home, Time off, Clock, Documents, Profile). Admin features are reachable but optimized for desktop.
+- **App shell (desktop):** left sidebar (modules grouped as **Me**: Home, Time off, Time tracking, Documents; and **Organization**: everything organization-wide; group labels only appear when a role sees both), top bar (global search, notifications, user menu, org switcher), content area with page header (title, breadcrumbs, primary action right-aligned).
+- **User menu:** the avatar button in the top bar, the same at every width. It holds who is signed in (name, translated role), language, theme and sign-out. Nothing else in the shell repeats these.
+- **App shell (mobile):** top bar (organization brand, notifications, user menu) + bottom navigation (Home, Time off, Clock, Documents, and "More" only when a role has further destinations). Admin features are reachable but optimized for desktop.
 - **Breakpoints:** 360, 640, 768, 1024, 1280. Test at 360 px.
 - **Home dashboards:** Employee: clock widget, balance cards, upcoming leave, tasks. Manager: approval inbox, who's away today, team alerts. HR: tasks needing attention, upcoming joiners/leavers, compliance warnings.
 
@@ -106,7 +107,7 @@ Build on shadcn primitives; every component supports light/dark, RTL-safe logica
 - **Inputs:** Text, Textarea, Select, Combobox (async), DatePicker (locale-aware, keyboard typing supported), DateRangePicker (with half-day toggles), TimePicker, Switch, Checkbox, RadioGroup, FileDropzone, SecretField (masked + reveal).
 - **Feedback:** Toast (non-critical), Alert (inline, persistent), Banner (org-level), Skeleton, Spinner, ProgressBar, EmptyState, ErrorState.
 - **Data display:** DataTable (server pagination/sort/filter, column visibility, density toggle, sticky header, bulk selection, row actions), StatCard, Badge/StatusPill, Avatar/AvatarGroup, Timeline, Calendar (month/week/timeline-by-person), OrgChart, DescriptionList, BalanceExplainer.
-- **Navigation:** PageHeader (breadcrumb, title, description, actions), Sidebar, Topbar, BottomNav, Tabs, Breadcrumbs, CommandPalette (Ctrl/Cmd+K).
+- **Navigation:** PageHeader (breadcrumb, title, description, actions), Sidebar (groups), Topbar (brand slot), DropdownMenu, BottomNav, Tabs, Breadcrumbs, CommandPalette (Ctrl/Cmd+K).
 - **Overlays:** Dialog, Sheet (mobile-friendly), Popover, Tooltip, ConfirmDialog (typed confirmation for destructive/irreversible).
 - **Domain components:** ClockWidget, LeaveRequestForm, ApprovalCard, TimesheetGrid, CorrectionDialog, ChecklistRunner, DocumentList, AuditLogTable.
 
