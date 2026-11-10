@@ -1,10 +1,11 @@
 import { z } from "zod";
+import { AccessUntilSchema } from "./auditor-access.js";
 
 /**
- * TIM-008: an auditor invitation must carry the instant the auditor's access
- * ends; other roles must not (their access has no end date). The API also
- * checks the date is in the future and within the organization's
- * `auditorAccessMaxDays`.
+ * TIM-008: an auditor invitation must carry the last day of access
+ * (`accessUntil`, in the organization's time zone); other roles must not
+ * (their access has no end date). The API also checks the day is today or
+ * later and at most `auditorAccessMaxDays` days ahead.
  */
 export const CreateInvitationRequestSchema = z
   .object({
@@ -13,20 +14,21 @@ export const CreateInvitationRequestSchema = z
       .enum(["admin", "manager", "employee", "auditor"])
       .default("employee"),
     departmentId: z.string().uuid().nullable().optional(),
-    accessExpiresAt: z.string().datetime({ offset: true }).optional(),
+    /** TIM-008: last day of access, in the organization's time zone. */
+    accessUntil: AccessUntilSchema.optional(),
   })
   .superRefine((value, ctx) => {
-    if (value.role === "auditor" && value.accessExpiresAt === undefined) {
+    if (value.role === "auditor" && value.accessUntil === undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["accessExpiresAt"],
+        path: ["accessUntil"],
         message: "An access end date is required for auditors",
       });
     }
-    if (value.role !== "auditor" && value.accessExpiresAt !== undefined) {
+    if (value.role !== "auditor" && value.accessUntil !== undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["accessExpiresAt"],
+        path: ["accessUntil"],
         message: "An access end date is only allowed for auditors",
       });
     }

@@ -352,6 +352,12 @@ export class LibreHrApiClient {
     });
   }
 
+  async cancelAuditorInvitation(id: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/v1/auditors/invitations/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Time off & Leave (M2)
   async listLeaveTypes(): Promise<LeaveType[]> {
     return this.request<LeaveType[]>('/v1/leave/types');

@@ -1201,9 +1201,9 @@
             ],
             "format": "uuid"
           },
-          "accessExpiresAt": {
+          "accessUntil": {
             "type": "string",
-            "format": "date-time"
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
           }
         },
         "required": [
@@ -7267,9 +7267,9 @@
                     ],
                     "format": "uuid"
                   },
-                  "accessExpiresAt": {
+                  "accessUntil": {
                     "type": "string",
-                    "format": "date-time"
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
                   }
                 },
                 "required": [
@@ -7368,6 +7368,62 @@
                     "role",
                     "orgName",
                     "expiresAt"
+                  ]
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Link expired (INVITATION_EXPIRED), already used (INVITATION_ALREADY_ACCEPTED) or the auditor access it grants has ended (INVITATION_ACCESS_EXPIRED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
                   ]
                 }
               }
@@ -7655,6 +7711,154 @@
         }
       }
     },
+    "/v1/auditors/invitations/{id}": {
+      "delete": {
+        "summary": "Cancel a pending auditor invitation (audit-logged)",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Invitation cancelled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not an organization admin",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No pending auditor invitation with this id",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/auditors": {
       "get": {
         "summary": "List the organization's auditors and their access end dates",
@@ -7683,24 +7887,78 @@
                             "format": "email"
                           },
                           "accessExpiresAt": {
-                            "type": [
-                              "string",
-                              "null"
-                            ],
+                            "type": "string",
                             "format": "date-time"
+                          },
+                          "accessUntil": {
+                            "type": "string"
                           }
                         },
                         "required": [
                           "userId",
                           "name",
                           "email",
-                          "accessExpiresAt"
+                          "accessExpiresAt",
+                          "accessUntil"
                         ]
                       }
+                    },
+                    "pendingInvitations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "email": {
+                            "type": "string",
+                            "format": "email"
+                          },
+                          "accessExpiresAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "accessUntil": {
+                            "type": "string"
+                          },
+                          "expiresAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "email",
+                          "accessExpiresAt",
+                          "accessUntil",
+                          "expiresAt"
+                        ]
+                      }
+                    },
+                    "timeZone": {
+                      "type": "string"
+                    },
+                    "today": {
+                      "type": "string"
+                    },
+                    "latestAccessUntil": {
+                      "type": "string"
+                    },
+                    "auditorAccessMaxDays": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 366
                     }
                   },
                   "required": [
-                    "items"
+                    "items",
+                    "pendingInvitations",
+                    "timeZone",
+                    "today",
+                    "latestAccessUntil",
+                    "auditorAccessMaxDays"
                   ]
                 }
               }
@@ -7787,13 +8045,13 @@
                   {
                     "type": "object",
                     "properties": {
-                      "accessExpiresAt": {
+                      "accessUntil": {
                         "type": "string",
-                        "format": "date-time"
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
                       }
                     },
                     "required": [
-                      "accessExpiresAt"
+                      "accessUntil"
                     ],
                     "additionalProperties": false
                   },
@@ -7837,18 +8095,19 @@
                       "format": "email"
                     },
                     "accessExpiresAt": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
+                      "type": "string",
                       "format": "date-time"
+                    },
+                    "accessUntil": {
+                      "type": "string"
                     }
                   },
                   "required": [
                     "userId",
                     "name",
                     "email",
-                    "accessExpiresAt"
+                    "accessExpiresAt",
+                    "accessUntil"
                   ]
                 }
               }

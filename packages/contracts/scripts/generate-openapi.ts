@@ -646,6 +646,11 @@ registry.registerPath({
       description: "Invitation details",
       content: { "application/json": { schema: InvitationDetailsSchema } },
     },
+    410: {
+      description:
+        "Link expired (INVITATION_EXPIRED), already used (INVITATION_ALREADY_ACCEPTED) or the auditor access it grants has ended (INVITATION_ACCESS_EXPIRED)",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
   },
 });
 
@@ -710,6 +715,29 @@ registry.registerPath({
 });
 
 // Inspector / auditor access (TIM-008)
+registry.registerPath({
+  method: "delete",
+  path: "/v1/auditors/invitations/{id}",
+  summary: "Cancel a pending auditor invitation (audit-logged)",
+  request: { params: z.object({ id: z.string().uuid() }) },
+  responses: {
+    200: {
+      description: "Invitation cancelled",
+      content: {
+        "application/json": { schema: z.object({ success: z.boolean() }) },
+      },
+    },
+    403: {
+      description: "Not an organization admin",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    404: {
+      description: "No pending auditor invitation with this id",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
 registry.registerPath({
   method: "get",
   path: "/v1/auditors",
@@ -2007,6 +2035,12 @@ export class LibreHrApiClient {
     return this.request<Auditor>(\`/v1/auditors/\${userId}/access\`, {
       method: 'PATCH',
       body: JSON.stringify(data),
+    });
+  }
+
+  async cancelAuditorInvitation(id: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(\`/v1/auditors/invitations/\${id}\`, {
+      method: 'DELETE',
     });
   }
 
