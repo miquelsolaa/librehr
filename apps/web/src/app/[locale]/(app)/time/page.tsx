@@ -154,9 +154,9 @@ export default function TimeTrackingPage() {
         }
       />
 
-      <div className="sm:hidden">
+      <section className="rounded-card border border-border bg-surface p-5">
         <ClockWidget onClockChange={() => void fetchTimesheet()} />
-      </div>
+      </section>
 
       {loadError && (
         <div
