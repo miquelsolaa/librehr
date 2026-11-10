@@ -19,6 +19,10 @@ export const organizations = pgTable(
     defaultLocale: text("default_locale").notNull().default("ca"),
     timezone: text("timezone").notNull().default("Europe/Madrid"),
     requireTwoFactor: boolean("require_two_factor").default(false).notNull(),
+    // TIM-008: cap on how far ahead an auditor's access end date may be (0029).
+    auditorAccessMaxDays: integer("auditor_access_max_days")
+      .default(90)
+      .notNull(),
     ...timestamps,
   },
   (table) => [index("organizations_slug_idx").on(table.slug)],

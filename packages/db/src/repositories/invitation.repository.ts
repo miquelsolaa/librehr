@@ -10,6 +10,8 @@ export interface InvitationRow {
   /** The raw token for the invitation link. Only its hash is stored. */
   token: string;
   expiresAt: Date;
+  /** TIM-008: access end date for the membership (auditors only). */
+  accessExpiresAt: Date | null;
   invitedById: string | null;
   acceptedAt: Date | null;
   createdAt: Date;
@@ -21,6 +23,11 @@ export interface CreateInvitationData {
   role?: string | undefined;
   invitedById?: string | null | undefined;
   expiresInDays?: number | undefined;
+  accessExpiresAt?: Date | null | undefined;
+}
+
+export interface AcceptedInvitation {
+  accessExpiresAt: Date | null;
 }
 
 export class InvitationRepository {
@@ -34,17 +41,19 @@ export class InvitationRepository {
 
     const rows = await tx<Omit<InvitationRow, "token">[]>`
       INSERT INTO invitations (
-        email, role, token, expires_at, invited_by_id
+        email, role, token, expires_at, invited_by_id, access_expires_at
       ) VALUES (
         ${data.email.toLowerCase().trim()},
         ${data.role ?? "employee"},
         ${hashBearerToken(token)},
         ${expiresAt},
-        ${data.invitedById ?? null}
+        ${data.invitedById ?? null},
+        ${data.accessExpiresAt ?? null}
       )
       RETURNING id, organization_id as "organizationId", email, role,
-                expires_at as "expiresAt", invited_by_id as "invitedById",
-                accepted_at as "acceptedAt", created_at as "createdAt", updated_at as "updatedAt"
+                expires_at as "expiresAt", access_expires_at as "accessExpiresAt",
+                invited_by_id as "invitedById", accepted_at as "acceptedAt",
+                created_at as "createdAt", updated_at as "updatedAt"
     `;
 
     // The raw token exists only here, for the email; the row keeps the hash.
@@ -54,13 +63,23 @@ export class InvitationRepository {
   // Token lookups happen before a tenant context exists: see
   // IdentityRepository.invitation.
 
-  async markAccepted(tx: TenantTx, id: string): Promise<boolean> {
-    const result = await tx`
+  /**
+   * Marks the invitation used and returns its access end date, or null when
+   * it was already used or its access end date (TIM-008) has passed: an
+   * auditor invitation whose access window is over cannot be accepted.
+   */
+  async markAccepted(
+    tx: TenantTx,
+    id: string,
+  ): Promise<AcceptedInvitation | null> {
+    const rows = await tx<AcceptedInvitation[]>`
       UPDATE invitations
       SET accepted_at = now(), updated_at = now()
       WHERE id = ${id}
         AND accepted_at IS NULL
+        AND (access_expires_at IS NULL OR access_expires_at > now())
+      RETURNING access_expires_at AS "accessExpiresAt"
     `;
-    return result.count > 0;
+    return rows[0] ?? null;
   }
 }
