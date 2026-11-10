@@ -5,6 +5,7 @@ import {
   createProblemDetails,
   CreateInvitationRequestSchema,
   AcceptInvitationRequestSchema,
+  AUDITOR_ACCESS_ERROR_CODES,
 } from "@librehr/contracts";
 import {
   withTenant,
@@ -14,13 +15,13 @@ import {
   AuditRepository,
   AuditorAccessRepository,
 } from "@librehr/db";
-import { UnauthorizedError } from "../errors/index.js";
+import { AppError, UnauthorizedError } from "../errors/index.js";
 import { requireAuth } from "../middleware/auth.js";
 import { can } from "../policies/can.js";
 import type { AuthPort } from "../ports/auth.js";
 import type { MailPort } from "../ports/mail.js";
 import { hashPassword, verifyPassword } from "../lib/password.js";
-import { assertAuditorAccessEnd } from "../lib/auditor-access.js";
+import { resolveAuditorAccessEnd } from "../lib/auditor-access.js";
 import {
   setSessionCookie,
   type SessionCookieOptions,
@@ -81,15 +82,16 @@ export function createInvitationRoutes(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        // TIM-008: the schema guarantees an end date for auditors (and none
-        // for other roles); it must also fit the organization's window.
+        // TIM-008: the schema guarantees a last day of access for auditors
+        // (and none for other roles); it must also fit the organization's
+        // window, and becomes the instant access ends in its time zone.
         const accessExpiresAt =
-          parse.data.accessExpiresAt === undefined
+          parse.data.accessUntil === undefined
             ? null
-            : new Date(parse.data.accessExpiresAt);
-        if (accessExpiresAt) {
-          assertAuditorAccessEnd(accessExpiresAt, await auditorRepo.window(tx));
-        }
+            : resolveAuditorAccessEnd(
+                parse.data.accessUntil,
+                await auditorRepo.window(tx),
+              );
 
         const invite = await invitationRepo.create(tx, {
           email: parse.data.email,
@@ -179,6 +181,26 @@ export function createInvitationRoutes(
         title: "Invitation Already Accepted",
         detail: "This invitation has already been used.",
         code: "INVITATION_ALREADY_ACCEPTED",
+      });
+      return c.json(problem, 410, {
+        "Content-Type": "application/problem+json",
+      });
+    }
+
+    // TIM-008: an auditor invitation whose access period has already ended
+    // cannot be accepted (see markAccepted); say so specifically.
+    const accessExpiresAt = await withTenant(
+      sql,
+      { organizationId: invite.organizationId },
+      (tx) => invitationRepo.accessExpiresAt(tx, invite.id),
+    );
+    if (accessExpiresAt && accessExpiresAt.getTime() <= Date.now()) {
+      const problem = createProblemDetails({
+        status: 410,
+        title: "Invitation Access Expired",
+        detail:
+          "The access period this invitation grants has ended. Please request a new invite.",
+        code: AUDITOR_ACCESS_ERROR_CODES.invitationAccessExpired,
       });
       return c.json(problem, 410, {
         "Content-Type": "application/problem+json",
@@ -291,7 +313,29 @@ export function createInvitationRoutes(
           user = account;
         }
 
-        // 3. Create Membership
+        // 3. TIM-008: an invitation older than the last access change of an
+        // existing auditor membership is stale. The admin has since revoked,
+        // shortened or extended that access, and accepting must not rewrite
+        // it. Revoking or shortening also expires pending invitations
+        // outright; this check covers every other order of events. Throwing
+        // rolls the acceptance back, so the invitation stays unused.
+        if (
+          await auditorRepo.auditorMembershipChangedAfter(
+            tx,
+            user.id,
+            accepted.createdAt,
+          )
+        ) {
+          throw new AppError({
+            status: 400,
+            title: "Invalid Invitation",
+            code: "INVALID_INVITATION",
+            detail: "This invitation is invalid, expired, or already used.",
+          });
+        }
+
+        // 4. Create Membership. The access end date follows the role: set
+        // for auditors, cleared for every other role (migration 0029 CHECK).
         await tx`
           INSERT INTO memberships (organization_id, user_id, role, access_expires_at)
           VALUES (${invite.organizationId}, ${user.id}, ${invite.role}, ${accepted.accessExpiresAt})
@@ -299,7 +343,7 @@ export function createInvitationRoutes(
           SET role = EXCLUDED.role, access_expires_at = EXCLUDED.access_expires_at
         `;
 
-        // 4. Create Employee record if not existing
+        // 5. Create Employee record if not existing
         const nameParts = name.trim().split(" ");
         const firstName = nameParts[0] ?? name;
         const lastName = nameParts.slice(1).join(" ") || "Employee";

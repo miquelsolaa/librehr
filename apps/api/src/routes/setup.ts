@@ -169,7 +169,8 @@ export function createSetupRoutes(
       await tx`
         INSERT INTO memberships (organization_id, user_id, role)
         VALUES (${orgId}, ${userId}, 'admin')
-        ON CONFLICT (organization_id, user_id) DO UPDATE SET role = 'admin'
+        ON CONFLICT (organization_id, user_id) DO UPDATE
+        SET role = 'admin', access_expires_at = NULL
       `;
 
       // 2f. Create First Employee Record

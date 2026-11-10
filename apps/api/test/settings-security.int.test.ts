@@ -81,5 +81,19 @@ describe("organization security settings API", () => {
       expect(await requireTwoFactor(a.orgId)).toBe(true);
       expect(await requireTwoFactor(b.orgId)).toBe(false);
     });
+
+    it("updates one setting without touching the other (TIM-008)", async () => {
+      expect((await patch(a.admin, { requireTwoFactor: true })).status).toBe(
+        200,
+      );
+      const res = await patch(a.admin, { auditorAccessMaxDays: 45 });
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({
+        requireTwoFactor: true,
+        auditorAccessMaxDays: 45,
+      });
+      expect(await requireTwoFactor(a.orgId)).toBe(true);
+      expect((await patch(a.admin, {})).status).toBe(400);
+    });
   });
 });

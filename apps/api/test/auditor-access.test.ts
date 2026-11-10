@@ -1,18 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { assertAuditorAccessEnd } from "../src/lib/auditor-access.js";
+import {
+  auditorAccessBounds,
+  resolveAuditorAccessEnd,
+} from "../src/lib/auditor-access.js";
 import { ValidationError } from "../src/errors/index.js";
 
-// TIM-008: an auditor's access end date must be in (now, now + maxDays].
-describe("assertAuditorAccessEnd", () => {
-  const now = new Date("2026-11-10T12:00:00Z");
+// TIM-008: the last day of access is read in the organization's time zone,
+// with "today" taken from the database clock.
+describe("resolveAuditorAccessEnd", () => {
+  // 23:30 UTC on 9 November is already 10 November in Madrid.
   const window = {
-    now,
-    latest: new Date("2027-02-08T12:00:00Z"),
+    now: new Date("2026-11-09T23:30:00Z"),
+    timeZone: "Europe/Madrid",
     maxDays: 90,
   };
-  const codeOf = (requested: Date): string | undefined => {
+  const codeOf = (accessUntil: string): string | undefined => {
     try {
-      assertAuditorAccessEnd(requested, window);
+      resolveAuditorAccessEnd(accessUntil, window);
       return undefined;
     } catch (err) {
       expect(err).toBeInstanceOf(ValidationError);
@@ -20,25 +24,23 @@ describe("assertAuditorAccessEnd", () => {
     }
   };
 
-  it("accepts dates up to and including the latest instant", () => {
-    expect(codeOf(new Date("2026-11-10T12:00:01Z"))).toBeUndefined();
-    expect(codeOf(window.latest)).toBeUndefined();
+  it("uses today in the organization's zone", () => {
+    expect(auditorAccessBounds(window)).toEqual({
+      today: "2026-11-10",
+      latestAccessUntil: "2027-02-08",
+    });
+    expect(codeOf("2026-11-09")).toBe("AUDITOR_ACCESS_END_IN_PAST");
+    expect(codeOf("2026-11-10")).toBeUndefined();
   });
 
-  it("rejects now and the past", () => {
-    expect(codeOf(now)).toBe("AUDITOR_ACCESS_END_IN_PAST");
-    expect(codeOf(new Date("2026-01-01T00:00:00Z"))).toBe(
-      "AUDITOR_ACCESS_END_IN_PAST",
+  it("ends access at the local midnight after the chosen day", () => {
+    expect(resolveAuditorAccessEnd("2026-11-10", window).toISOString()).toBe(
+      "2026-11-10T23:00:00.000Z",
     );
   });
 
-  it("rejects dates beyond the maximum", () => {
-    expect(codeOf(new Date("2027-02-08T12:00:01Z"))).toBe(
-      "AUDITOR_ACCESS_END_TOO_FAR",
-    );
-  });
-
-  it("rejects an invalid date", () => {
-    expect(codeOf(new Date("not a date"))).toBe("VALIDATION_ERROR");
+  it("rejects days beyond the maximum", () => {
+    expect(codeOf("2027-02-08")).toBeUndefined();
+    expect(codeOf("2027-02-09")).toBe("AUDITOR_ACCESS_END_TOO_FAR");
   });
 });

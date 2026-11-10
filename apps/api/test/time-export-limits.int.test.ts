@@ -55,7 +55,7 @@ describe("GET /v1/time/export limits (TIM-006)", () => {
     const id = randomUUID();
     const email = `outside-${id.slice(0, 8)}@fixture.invalid`;
     await db.sql`INSERT INTO users (id, email, name) VALUES (${id}, ${email}, 'Fixture outside')`;
-    await db.sql`INSERT INTO memberships (organization_id, user_id, role) VALUES (${a.orgId}, ${id}, 'auditor')`;
+    await db.sql`INSERT INTO memberships (organization_id, user_id, role, access_expires_at) VALUES (${a.orgId}, ${id}, 'auditor', now() + interval '30 days')`;
     auditorNoEmployee = {
       id,
       email,
