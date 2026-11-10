@@ -45,6 +45,7 @@ export function createSettingsSecurityRoutes(sql: Sql) {
 
     return c.json({
       requireTwoFactor: org.requireTwoFactor,
+      auditorAccessMaxDays: org.auditorAccessMaxDays,
     });
   });
 
@@ -90,26 +91,50 @@ export function createSettingsSecurityRoutes(sql: Sql) {
       );
     }
 
-    await withTenant(
+    const stored = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        await orgRepo.updateSecuritySettings(tx, user.organizationId, {
-          requireTwoFactor: parsed.data.requireTwoFactor,
-        });
+        const updated = await orgRepo.updateSecuritySettings(
+          tx,
+          user.organizationId,
+          {
+            requireTwoFactor: parsed.data.requireTwoFactor,
+            auditorAccessMaxDays: parsed.data.auditorAccessMaxDays,
+          },
+        );
+        // Only the settings sent are logged (TIM-008: the auditor access
+        // maximum is one of them).
+        const metadata: Record<string, unknown> = {};
+        if (parsed.data.requireTwoFactor !== undefined)
+          metadata["requireTwoFactor"] = parsed.data.requireTwoFactor;
+        if (parsed.data.auditorAccessMaxDays !== undefined)
+          metadata["auditorAccessMaxDays"] = parsed.data.auditorAccessMaxDays;
         await auditRepo.log(tx, {
           actorId: user.id,
           action: "organization.security_updated",
           resourceType: "organizations",
           resourceId: user.organizationId,
-          metadata: { requireTwoFactor: parsed.data.requireTwoFactor },
+          metadata,
         });
+        return updated;
       },
     );
 
-    return c.json({
-      requireTwoFactor: parsed.data.requireTwoFactor,
-    });
+    if (!stored) {
+      return c.json(
+        createProblemDetails({
+          status: 404,
+          title: "Not Found",
+          detail: "Organization not found",
+          code: "ORG_NOT_FOUND",
+        }),
+        404,
+        { "Content-Type": "application/problem+json" },
+      );
+    }
+
+    return c.json(stored);
   });
 
   return router;

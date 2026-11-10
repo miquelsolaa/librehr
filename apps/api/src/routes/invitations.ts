@@ -12,6 +12,7 @@ import {
   IdentityRepository,
   EmployeeRepository,
   AuditRepository,
+  AuditorAccessRepository,
 } from "@librehr/db";
 import { UnauthorizedError } from "../errors/index.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -19,6 +20,7 @@ import { can } from "../policies/can.js";
 import type { AuthPort } from "../ports/auth.js";
 import type { MailPort } from "../ports/mail.js";
 import { hashPassword, verifyPassword } from "../lib/password.js";
+import { assertAuditorAccessEnd } from "../lib/auditor-access.js";
 import {
   setSessionCookie,
   type SessionCookieOptions,
@@ -35,6 +37,7 @@ export function createInvitationRoutes(
   const identityRepo = new IdentityRepository();
   const employeeRepo = new EmployeeRepository();
   const auditRepo = new AuditRepository();
+  const auditorRepo = new AuditorAccessRepository();
 
   router.post("/invitations", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
@@ -78,18 +81,33 @@ export function createInvitationRoutes(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
+        // TIM-008: the schema guarantees an end date for auditors (and none
+        // for other roles); it must also fit the organization's window.
+        const accessExpiresAt =
+          parse.data.accessExpiresAt === undefined
+            ? null
+            : new Date(parse.data.accessExpiresAt);
+        if (accessExpiresAt) {
+          assertAuditorAccessEnd(accessExpiresAt, await auditorRepo.window(tx));
+        }
+
         const invite = await invitationRepo.create(tx, {
           email: parse.data.email,
           role: parse.data.role,
           invitedById: user.id,
+          accessExpiresAt,
         });
 
+        // No PII in audit metadata: the invitation id identifies the invitee.
         await auditRepo.log(tx, {
           actorId: user.id,
           action: "invitation.create",
           resourceType: "invitation",
           resourceId: invite.id,
-          metadata: { email: parse.data.email, role: parse.data.role },
+          metadata: {
+            role: parse.data.role,
+            accessExpiresAt: accessExpiresAt?.toISOString() ?? null,
+          },
         });
 
         return invite;
@@ -115,6 +133,9 @@ export function createInvitationRoutes(
         email: created.email,
         role: created.role,
         expiresAt: new Date(created.expiresAt).toISOString(),
+        accessExpiresAt: created.accessExpiresAt
+          ? new Date(created.accessExpiresAt).toISOString()
+          : null,
         acceptedAt: created.acceptedAt
           ? new Date(created.acceptedAt).toISOString()
           : null,
@@ -230,8 +251,10 @@ export function createInvitationRoutes(
       sql,
       { organizationId: invite.organizationId },
       async (tx) => {
-        // 1. Mark invitation accepted
-        if (!(await invitationRepo.markAccepted(tx, invite.id))) return null;
+        // 1. Mark invitation accepted. An auditor invitation whose access
+        // end date (TIM-008) has passed is refused like an expired link.
+        const accepted = await invitationRepo.markAccepted(tx, invite.id);
+        if (!accepted) return null;
 
         // 2. Create or find User
         const userRows = await tx<
@@ -270,9 +293,10 @@ export function createInvitationRoutes(
 
         // 3. Create Membership
         await tx`
-          INSERT INTO memberships (organization_id, user_id, role)
-          VALUES (${invite.organizationId}, ${user.id}, ${invite.role})
-          ON CONFLICT (organization_id, user_id) DO UPDATE SET role = EXCLUDED.role
+          INSERT INTO memberships (organization_id, user_id, role, access_expires_at)
+          VALUES (${invite.organizationId}, ${user.id}, ${invite.role}, ${accepted.accessExpiresAt})
+          ON CONFLICT (organization_id, user_id) DO UPDATE
+          SET role = EXCLUDED.role, access_expires_at = EXCLUDED.access_expires_at
         `;
 
         // 4. Create Employee record if not existing

@@ -50,7 +50,10 @@ describe("organization security settings API", () => {
         headers: as(a.report),
       });
       expect(res.status).toBe(200);
-      expect(await res.json()).toEqual({ requireTwoFactor: false });
+      expect(await res.json()).toEqual({
+        requireTwoFactor: false,
+        auditorAccessMaxDays: 90,
+      });
     });
   });
 

@@ -34,6 +34,8 @@ describe("personal access token scopes (ADM-006)", () => {
       "/v1/tokens",
       "/v1/auth/2fa/disable",
       "/v1/settings/security",
+      "/v1/auditors",
+      "/v1/auditors/x/access",
       "/v1/sso/config",
       "/v1/setup",
       "/v1/org/setup-wizard",

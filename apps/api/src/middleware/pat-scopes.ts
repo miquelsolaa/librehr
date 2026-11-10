@@ -19,6 +19,8 @@ export const PAT_SCOPES = ["read", "write", "admin"] as const;
 const INTERACTIVE_ONLY = [
   /^\/v1\/(auth|tokens|setup|sso)(\/|$)/,
   /^\/v1\/settings\/security(\/|$)/,
+  // TIM-008: granting or extending auditor access is access control too.
+  /^\/v1\/auditors(\/|$)/,
   /^\/v1\/org\/setup-wizard$/,
 ];
 
