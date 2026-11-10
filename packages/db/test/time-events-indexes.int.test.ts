@@ -48,6 +48,14 @@ describe("time_events export indexes (0027)", () => {
     ]);
   });
 
+  it("drops the single-column employee index the composite covers (0028)", async () => {
+    const rows = await db.sql<{ indexname: string }[]>`
+      SELECT indexname FROM pg_indexes
+      WHERE schemaname = 'public' AND tablename = 'time_events'
+        AND indexname = 'time_events_employee_idx'`;
+    expect(rows).toEqual([]);
+  });
+
   it("serves the export window (employee + occurred_at range) from the composite index", async () => {
     // With sequential scans disabled the planner must pick an index; among
     // the candidates only the composite one covers both predicates, so this

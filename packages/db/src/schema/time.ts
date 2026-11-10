@@ -50,9 +50,9 @@ export const timeEvents = pgTable(
   },
   (table) => [
     index("time_events_org_idx").on(table.organizationId),
-    index("time_events_employee_idx").on(table.employeeId),
     index("time_events_occurred_idx").on(table.occurredAt),
-    // TIM-006 export window reads and correction-link recursion (0027).
+    // TIM-006 export window reads and correction-link recursion (0027). The
+    // composite also covers employee_id-only lookups and the FK (0028).
     index("time_events_employee_occurred_idx").on(
       table.employeeId,
       table.occurredAt,
