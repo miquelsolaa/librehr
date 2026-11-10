@@ -62,6 +62,15 @@ invitation links keep working.
   (sessions after 7 days, invitations after 7 days), but protect and expire
   those backups under your retention policy.
 
+## Time-tracking export indexes (migration 0027)
+
+Migration `0027_time_events_export_indexes.sql` adds two indexes on
+`time_events` that speed up time-tracking exports (TIM-006). The migration
+runner applies each file in a transaction, so the indexes are built without
+`CONCURRENTLY`: while they build, clock-ins and corrections wait (reads are
+not affected). On small installs this takes moments; on large ones, run step 3
+in a quiet window, outside working hours.
+
 ## pg-boss queue policy
 
 The worker creates its queues with the `exclusive` policy so that a job sent

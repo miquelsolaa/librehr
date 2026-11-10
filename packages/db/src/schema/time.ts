@@ -52,6 +52,14 @@ export const timeEvents = pgTable(
     index("time_events_org_idx").on(table.organizationId),
     index("time_events_employee_idx").on(table.employeeId),
     index("time_events_occurred_idx").on(table.occurredAt),
+    // TIM-006 export window reads and correction-link recursion (0027).
+    index("time_events_employee_occurred_idx").on(
+      table.employeeId,
+      table.occurredAt,
+    ),
+    index("time_events_ref_event_idx")
+      .on(table.refEventId)
+      .where(sql`${table.refEventId} IS NOT NULL`),
     uniqueIndex("time_events_chain_seq_uidx")
       .on(table.organizationId, table.employeeId, table.seq)
       .where(sql`${table.seq} IS NOT NULL`),
