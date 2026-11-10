@@ -22,6 +22,12 @@ export interface ConfirmDialogProps {
   variant?: "danger" | "default";
   onConfirm: () => void | Promise<void>;
   isLoading?: boolean;
+  /**
+   * Called when the dialog closes, before focus returns to the opener. Call
+   * `event.preventDefault()` and move focus yourself when the opener may no
+   * longer exist (e.g. the confirmed action removed it).
+   */
+  onCloseAutoFocus?: (event: Event) => void;
 }
 
 export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
@@ -35,6 +41,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   variant = "danger",
   onConfirm,
   isLoading = false,
+  onCloseAutoFocus,
 }) => {
   const strings = useUiStrings();
   const [before = "", after = ""] = strings.typeToConfirm.split("{word}");
@@ -53,7 +60,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent {...(onCloseAutoFocus ? { onCloseAutoFocus } : {})}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>

@@ -458,7 +458,9 @@
     "errorTitle": "Invitation error",
     "invalidToken": "This invitation is invalid or has expired.",
     "acceptFailed": "The invitation could not be accepted. Try again.",
-    "emailPlaceholder": "colleague@company.com"
+    "emailPlaceholder": "colleague@company.com",
+    "roleAuditor": "Inspector (read-only)",
+    "accessExpired": "The access period of this invitation has ended. Ask for a new invitation."
   },
   "timeOff": {
     "coverageUnverifiable": "Coverage cannot be checked for a half day yet. Contact an administrator.",
@@ -1013,7 +1015,7 @@
     "inviteDescription": "The inspector receives an invitation link and gets read-only access until the end date.",
     "emailLabel": "Email",
     "endDateLabel": "Access ends on",
-    "endDateHint": "Up to {maxDays} days from today. Access ends at the end of that day.",
+    "endDateHint": "Today or up to {maxDays} days ahead. Access lasts until the end of that day ({timeZone} time).",
     "inviteSubmit": "Send invitation",
     "inviteSent": "Invitation sent.",
     "listTitle": "Inspectors",
@@ -1037,6 +1039,14 @@
     "errorRequired": "Choose an end date.",
     "errorEmail": "Enter a valid email address.",
     "loadError": "Could not load inspectors. Try again.",
-    "actionError": "Could not save this change. Try again."
+    "actionError": "Could not save this change. Try again.",
+    "extendHint": "Today or up to {maxDays} days ahead, in the organization's time zone.",
+    "loading": "Loading inspectors…",
+    "pendingTitle": "Pending invitations",
+    "noPending": "No pending invitations.",
+    "cancelInvitation": "Cancel invitation",
+    "cancelInvitationTitle": "Cancel this invitation?",
+    "cancelInvitationDescription": "The invitation link for {email} stops working. This is logged.",
+    "invitationCancelled": "Invitation cancelled."
   }
 }

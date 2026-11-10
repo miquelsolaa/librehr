@@ -17,61 +17,72 @@ import {
   Input,
 } from "@librehr/ui";
 import { getApiClient } from "@/lib/api-client";
-import { formatDate } from "@/lib/format";
 import {
   auditorAccessErrorKey,
   daysLeft,
-  endOfLocalDayIso,
-  latestEndDateInput,
-  localDateInput,
+  formatCalendarDay,
 } from "@/lib/auditor-access";
 
 interface AuditorAccessListProps {
   auditors: Auditor[];
+  /** Today and the latest allowed last day, in the organization's zone. */
+  today: string;
+  latestAccessUntil: string;
   maxDays: number;
   locale: string;
-  /** Called after a successful change with the message to announce. */
-  onChanged: (message: string) => void;
+  /** Focus target when the row's own control is gone (after a revoke). */
+  headingRef: React.RefObject<HTMLHeadingElement | null>;
+  /** Called with the updated auditor and the message to announce. */
+  onUpdated: (auditor: Auditor, message: string) => void;
 }
 
 /** TIM-008: the organization's auditors, with extend and revoke actions. */
 export function AuditorAccessList({
   auditors,
+  today,
+  latestAccessUntil,
   maxDays,
   locale,
-  onChanged,
+  headingRef,
+  onUpdated,
 }: AuditorAccessListProps) {
   const t = useTranslations("auditorAccess");
   const tCommon = useTranslations("common");
 
   const [extending, setExtending] = React.useState<Auditor | null>(null);
-  const [endDate, setEndDate] = React.useState("");
+  const [accessUntil, setAccessUntil] = React.useState("");
   const [extendError, setExtendError] = React.useState<string | null>(null);
   const [revoking, setRevoking] = React.useState<Auditor | null>(null);
   const [revokeError, setRevokeError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
+  // The button that opened a dialog. Rows stay mounted while the list
+  // refreshes, so focus returns to it; a revoke removes the revoke button
+  // with the access, and focus then goes to the list heading.
+  const opener = React.useRef<HTMLElement | null>(null);
 
-  const openExtend = (auditor: Auditor) => {
-    setExtending(auditor);
-    setEndDate(latestEndDateInput(maxDays));
-    setExtendError(null);
+  const restoreFocus = (event: Event) => {
+    event.preventDefault();
+    const target = opener.current;
+    if (target?.isConnected) target.focus();
+    else headingRef.current?.focus();
   };
 
   const handleExtend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!extending) return;
-    if (!endDate) {
+    if (!accessUntil) {
       setExtendError(t("errorRequired"));
       return;
     }
     setBusy(true);
     setExtendError(null);
     try {
-      await getApiClient().updateAuditorAccess(extending.userId, {
-        accessExpiresAt: endOfLocalDayIso(endDate),
-      });
+      const updated = await getApiClient().updateAuditorAccess(
+        extending.userId,
+        { accessUntil },
+      );
       setExtending(null);
-      onChanged(t("extended"));
+      onUpdated(updated, t("extended"));
     } catch (err) {
       setExtendError(t(auditorAccessErrorKey(err), { maxDays }));
     } finally {
@@ -84,10 +95,11 @@ export function AuditorAccessList({
     setBusy(true);
     setRevokeError(null);
     try {
-      await getApiClient().updateAuditorAccess(revoking.userId, {
-        revoke: true,
-      });
-      onChanged(t("revoked"));
+      const updated = await getApiClient().updateAuditorAccess(
+        revoking.userId,
+        { revoke: true },
+      );
+      onUpdated(updated, t("revoked"));
     } catch {
       setRevokeError(t("actionError"));
     } finally {
@@ -108,9 +120,8 @@ export function AuditorAccessList({
       )}
       <ul className="divide-y divide-border rounded-card border border-border">
         {auditors.map((auditor) => {
-          const left = auditor.accessExpiresAt
-            ? daysLeft(auditor.accessExpiresAt)
-            : null;
+          const left = daysLeft(auditor.accessUntil, today);
+          const active = new Date(auditor.accessExpiresAt) > new Date();
           return (
             <li
               key={auditor.userId}
@@ -124,28 +135,28 @@ export function AuditorAccessList({
                   {auditor.email}
                 </p>
                 <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  {auditor.accessExpiresAt ? (
-                    <span>
-                      {t("endsOn", {
-                        date: formatDate(auditor.accessExpiresAt, locale),
-                      })}
-                    </span>
+                  <span>
+                    {t("endsOn", {
+                      date: formatCalendarDay(auditor.accessUntil, locale),
+                    })}
+                  </span>
+                  {active && left > 0 ? (
+                    <Badge>{t("daysLeft", { count: left })}</Badge>
                   ) : (
-                    <span>{t("noEndDate")}</span>
+                    <Badge variant="danger">{t("expired")}</Badge>
                   )}
-                  {left !== null &&
-                    (left > 0 ? (
-                      <Badge>{t("daysLeft", { count: left })}</Badge>
-                    ) : (
-                      <Badge variant="danger">{t("expired")}</Badge>
-                    ))}
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => openExtend(auditor)}
+                  onClick={(e) => {
+                    opener.current = e.currentTarget;
+                    setExtending(auditor);
+                    setAccessUntil(active ? auditor.accessUntil : "");
+                    setExtendError(null);
+                  }}
                   aria-label={`${t("extend")}: ${auditor.name}`}
                 >
                   <CalendarClock
@@ -154,12 +165,13 @@ export function AuditorAccessList({
                   />
                   {t("extend")}
                 </Button>
-                {left !== 0 && (
+                {active && (
                   <Button
                     variant="outline"
                     size="sm"
                     className="text-danger border-danger/30 hover:bg-danger/10"
-                    onClick={() => {
+                    onClick={(e) => {
+                      opener.current = e.currentTarget;
                       setRevokeError(null);
                       setRevoking(auditor);
                     }}
@@ -181,7 +193,7 @@ export function AuditorAccessList({
           if (!open && !busy) setExtending(null);
         }}
       >
-        <DialogContent>
+        <DialogContent onCloseAutoFocus={restoreFocus}>
           <form onSubmit={handleExtend} className="space-y-4" noValidate>
             <DialogHeader>
               <DialogTitle>{t("extendTitle")}</DialogTitle>
@@ -200,10 +212,10 @@ export function AuditorAccessList({
                 id="extend-end-date"
                 type="date"
                 required
-                min={localDateInput(0)}
-                max={latestEndDateInput(maxDays)}
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                min={today}
+                max={latestAccessUntil}
+                value={accessUntil}
+                onChange={(e) => setAccessUntil(e.target.value)}
                 error={extendError !== null}
                 aria-invalid={extendError ? true : undefined}
                 aria-describedby={
@@ -216,7 +228,7 @@ export function AuditorAccessList({
                 id="extend-end-date-hint"
                 className="text-xs text-muted-foreground"
               >
-                {t("endDateHint", { maxDays })}
+                {t("extendHint", { maxDays })}
               </p>
               {extendError && (
                 <p
@@ -256,6 +268,7 @@ export function AuditorAccessList({
         cancelText={tCommon("cancel")}
         onConfirm={handleRevoke}
         isLoading={busy}
+        onCloseAutoFocus={restoreFocus}
       />
     </>
   );

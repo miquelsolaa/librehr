@@ -458,7 +458,9 @@
     "errorTitle": "Error en la invitación",
     "invalidToken": "Esta invitación no es válida o ha caducado.",
     "acceptFailed": "No se ha podido aceptar la invitación. Inténtalo de nuevo.",
-    "emailPlaceholder": "companera@empresa.es"
+    "emailPlaceholder": "companera@empresa.es",
+    "roleAuditor": "Inspector (solo lectura)",
+    "accessExpired": "El periodo de acceso de esta invitación ha terminado. Pide una nueva invitación."
   },
   "timeOff": {
     "coverageUnverifiable": "Todavía no se puede comprobar la cobertura de un medio día. Contacta con una persona administradora.",
@@ -1013,7 +1015,7 @@
     "inviteDescription": "El inspector recibe un enlace de invitación y obtiene acceso de solo lectura hasta la fecha de fin.",
     "emailLabel": "Correo electrónico",
     "endDateLabel": "El acceso termina el",
-    "endDateHint": "Hasta {maxDays} días desde hoy. El acceso termina al final de ese día.",
+    "endDateHint": "Hoy o hasta {maxDays} días más adelante. El acceso dura hasta el final de ese día (hora de {timeZone}).",
     "inviteSubmit": "Enviar invitación",
     "inviteSent": "Invitación enviada.",
     "listTitle": "Inspectores",
@@ -1037,6 +1039,14 @@
     "errorRequired": "Elige una fecha de fin.",
     "errorEmail": "Introduce un correo electrónico válido.",
     "loadError": "No se han podido cargar los inspectores. Inténtalo de nuevo.",
-    "actionError": "No se ha podido guardar este cambio. Inténtalo de nuevo."
+    "actionError": "No se ha podido guardar este cambio. Inténtalo de nuevo.",
+    "extendHint": "Hoy o hasta {maxDays} días más adelante, en la zona horaria de la organización.",
+    "loading": "Cargando inspectores…",
+    "pendingTitle": "Invitaciones pendientes",
+    "noPending": "No hay invitaciones pendientes.",
+    "cancelInvitation": "Cancelar invitación",
+    "cancelInvitationTitle": "¿Cancelar esta invitación?",
+    "cancelInvitationDescription": "El enlace de invitación para {email} deja de funcionar. Queda registrado.",
+    "invitationCancelled": "Invitación cancelada."
   }
 }

@@ -4,24 +4,18 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ArrowLeft, Clock, UserPlus, Users } from "lucide-react";
-import {
-  AUDITOR_ACCESS_MAX_DAYS_MAX,
-  AUDITOR_ACCESS_MAX_DAYS_MIN,
-  type Auditor,
-} from "@librehr/contracts";
-import { Button, Input } from "@librehr/ui";
+import { ArrowLeft, Mail, Users } from "lucide-react";
+import type { Auditor, AuditorListResponse } from "@librehr/contracts";
+import { Button } from "@librehr/ui";
 import { getApiClient } from "@/lib/api-client";
 import { getStoredSession } from "@/lib/auth";
-import {
-  auditorAccessErrorKey,
-  endOfLocalDayIso,
-  latestEndDateInput,
-  localDateInput,
-} from "@/lib/auditor-access";
 import { AuditorAccessList } from "@/components/auditor-access-list";
+import { AuditorInviteForm } from "@/components/auditor-invite-form";
+import { AuditorMaxDaysForm } from "@/components/auditor-max-days-form";
+import { AuditorPendingInvitations } from "@/components/auditor-pending-invitations";
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const CARD =
+  "rounded-card border border-border bg-surface p-4 shadow-sm space-y-4 sm:p-6";
 
 /** TIM-008: Settings -> Inspector access (admins only). */
 export default function AuditorAccessSettingsPage() {
@@ -31,37 +25,23 @@ export default function AuditorAccessSettingsPage() {
   const tSettings = useTranslations("settings");
 
   const [isAdmin, setIsAdmin] = React.useState<boolean | null>(null);
-  const [auditors, setAuditors] = React.useState<Auditor[]>([]);
-  const [maxDays, setMaxDays] = React.useState(90);
-  const [maxDaysInput, setMaxDaysInput] = React.useState("90");
-  const [loading, setLoading] = React.useState(true);
+  // Kept while refreshing, so rows (and the focus inside them) stay mounted.
+  const [data, setData] = React.useState<AuditorListResponse | null>(null);
+  const [refreshing, setRefreshing] = React.useState(false);
   const [loadError, setLoadError] = React.useState(false);
   const [status, setStatus] = React.useState<string | null>(null);
-
-  const [maxDaysError, setMaxDaysError] = React.useState<string | null>(null);
-  const [savingMax, setSavingMax] = React.useState(false);
-
-  const [email, setEmail] = React.useState("");
-  const [endDate, setEndDate] = React.useState("");
-  const [inviteError, setInviteError] = React.useState<string | null>(null);
-  const [inviting, setInviting] = React.useState(false);
+  const auditorsHeading = React.useRef<HTMLHeadingElement>(null);
+  const pendingHeading = React.useRef<HTMLHeadingElement>(null);
 
   const load = React.useCallback(async () => {
-    setLoading(true);
+    setRefreshing(true);
     setLoadError(false);
     try {
-      const client = getApiClient();
-      const [list, settings] = await Promise.all([
-        client.listAuditors(),
-        client.getSecuritySettings(),
-      ]);
-      setAuditors(list.items);
-      setMaxDays(settings.auditorAccessMaxDays);
-      setMaxDaysInput(String(settings.auditorAccessMaxDays));
+      setData(await getApiClient().listAuditors());
     } catch {
       setLoadError(true);
     } finally {
-      setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
@@ -69,75 +49,46 @@ export default function AuditorAccessSettingsPage() {
     const admin = getStoredSession()?.role === "admin";
     setIsAdmin(admin);
     if (admin) void load();
-    else setLoading(false);
   }, [load]);
 
-  const handleSaveMax = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const value = Number(maxDaysInput);
-    if (
-      !Number.isInteger(value) ||
-      value < AUDITOR_ACCESS_MAX_DAYS_MIN ||
-      value > AUDITOR_ACCESS_MAX_DAYS_MAX
-    ) {
-      setMaxDaysError(t("maxDaysInvalid"));
-      return;
-    }
-    setSavingMax(true);
-    setMaxDaysError(null);
-    setStatus(null);
-    try {
-      const saved = await getApiClient().updateSecuritySettings({
-        auditorAccessMaxDays: value,
-      });
-      setMaxDays(saved.auditorAccessMaxDays);
-      setStatus(t("maxDaysSaved"));
-    } catch {
-      setMaxDaysError(t("actionError"));
-    } finally {
-      setSavingMax(false);
-    }
-  };
-
-  const handleInvite = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setStatus(null);
-    if (!EMAIL_PATTERN.test(email.trim())) {
-      setInviteError(t("errorEmail"));
-      return;
-    }
-    if (!endDate) {
-      setInviteError(t("errorRequired"));
-      return;
-    }
-    setInviting(true);
-    setInviteError(null);
-    try {
-      await getApiClient().createInvitation({
-        email: email.trim(),
-        role: "auditor",
-        accessExpiresAt: endOfLocalDayIso(endDate),
-      });
-      setEmail("");
-      setEndDate("");
-      setStatus(t("inviteSent"));
-    } catch (err) {
-      setInviteError(t(auditorAccessErrorKey(err), { maxDays }));
-    } finally {
-      setInviting(false);
-    }
-  };
-
-  const handleChanged = (message: string) => {
+  const announce = (message: string) => {
     setStatus(message);
     void load();
   };
 
-  const cardClass =
-    "rounded-card border border-border bg-surface p-4 shadow-sm space-y-4 sm:p-6";
+  const handleUpdated = (auditor: Auditor, message: string) => {
+    // Show the API's answer at once; the refresh only reconciles.
+    setData((prev) =>
+      prev
+        ? {
+            ...prev,
+            items: prev.items.map((item) =>
+              item.userId === auditor.userId ? auditor : item,
+            ),
+          }
+        : prev,
+    );
+    announce(message);
+  };
+
+  const handleCancelled = (id: string, message: string) => {
+    setData((prev) =>
+      prev
+        ? {
+            ...prev,
+            pendingInvitations: prev.pendingInvitations.filter(
+              (invite) => invite.id !== id,
+            ),
+          }
+        : prev,
+    );
+    announce(message);
+  };
+
+  const initialLoading = isAdmin === true && data === null && !loadError;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" aria-busy={refreshing || undefined}>
       <div className="flex items-center gap-3">
         <Link
           href={`/${locale}/settings`}
@@ -169,6 +120,19 @@ export default function AuditorAccessSettingsPage() {
         </p>
       )}
 
+      {initialLoading && (
+        <div
+          role="status"
+          className="flex items-center gap-3 text-sm text-muted-foreground"
+        >
+          <span
+            className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"
+            aria-hidden="true"
+          />
+          {t("loading")}
+        </div>
+      )}
+
       {isAdmin && loadError && (
         <div role="alert" className="space-y-3 text-sm">
           <p className="text-danger">{t("loadError")}</p>
@@ -178,141 +142,60 @@ export default function AuditorAccessSettingsPage() {
         </div>
       )}
 
-      {isAdmin && !loadError && !loading && (
+      {isAdmin && data && (
         <>
           <div className="grid gap-6 md:grid-cols-2">
-            <form onSubmit={handleInvite} className={cardClass} noValidate>
-              <h2 className="flex items-center gap-2 text-base font-semibold text-foreground">
-                <UserPlus className="h-5 w-5 text-primary" aria-hidden="true" />
-                {t("inviteTitle")}
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                {t("inviteDescription")}
-              </p>
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="auditor-email"
-                  className="text-sm font-medium text-foreground"
-                >
-                  {t("emailLabel")}
-                </label>
-                <Input
-                  id="auditor-email"
-                  type="email"
-                  autoComplete="off"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="auditor-end-date"
-                  className="text-sm font-medium text-foreground"
-                >
-                  {t("endDateLabel")}
-                </label>
-                <Input
-                  id="auditor-end-date"
-                  type="date"
-                  required
-                  min={localDateInput(0)}
-                  max={latestEndDateInput(maxDays)}
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  error={inviteError !== null}
-                  aria-invalid={inviteError ? true : undefined}
-                  aria-describedby={
-                    inviteError
-                      ? "auditor-end-date-hint auditor-invite-error"
-                      : "auditor-end-date-hint"
-                  }
-                />
-                <p
-                  id="auditor-end-date-hint"
-                  className="text-xs text-muted-foreground"
-                >
-                  {t("endDateHint", { maxDays })}
-                </p>
-              </div>
-              {inviteError && (
-                <p
-                  id="auditor-invite-error"
-                  role="alert"
-                  className="text-sm text-danger"
-                >
-                  {inviteError}
-                </p>
-              )}
-              <Button type="submit" isLoading={inviting}>
-                {t("inviteSubmit")}
-              </Button>
-            </form>
-
-            <form onSubmit={handleSaveMax} className={cardClass} noValidate>
-              <h2 className="flex items-center gap-2 text-base font-semibold text-foreground">
-                <Clock className="h-5 w-5 text-primary" aria-hidden="true" />
-                {t("maxDaysTitle")}
-              </h2>
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="auditor-max-days"
-                  className="text-sm font-medium text-foreground"
-                >
-                  {t("maxDaysLabel")}
-                </label>
-                <Input
-                  id="auditor-max-days"
-                  type="number"
-                  inputMode="numeric"
-                  min={AUDITOR_ACCESS_MAX_DAYS_MIN}
-                  max={AUDITOR_ACCESS_MAX_DAYS_MAX}
-                  step={1}
-                  value={maxDaysInput}
-                  onChange={(e) => setMaxDaysInput(e.target.value)}
-                  error={maxDaysError !== null}
-                  aria-invalid={maxDaysError ? true : undefined}
-                  aria-describedby={
-                    maxDaysError
-                      ? "auditor-max-days-hint auditor-max-days-error"
-                      : "auditor-max-days-hint"
-                  }
-                />
-                <p
-                  id="auditor-max-days-hint"
-                  className="text-xs text-muted-foreground"
-                >
-                  {t("maxDaysHint")}
-                </p>
-                {maxDaysError && (
-                  <p
-                    id="auditor-max-days-error"
-                    role="alert"
-                    className="text-sm text-danger"
-                  >
-                    {maxDaysError}
-                  </p>
-                )}
-              </div>
-              <Button type="submit" variant="outline" isLoading={savingMax}>
-                {t("maxDaysSave")}
-              </Button>
-            </form>
+            <AuditorInviteForm
+              className={CARD}
+              today={data.today}
+              latestAccessUntil={data.latestAccessUntil}
+              maxDays={data.auditorAccessMaxDays}
+              timeZone={data.timeZone}
+              onInvited={announce}
+            />
+            <AuditorMaxDaysForm
+              className={CARD}
+              maxDays={data.auditorAccessMaxDays}
+              onSaved={(_days, message) => announce(message)}
+            />
           </div>
 
           <section className="space-y-3" aria-labelledby="auditors-heading">
             <h2
               id="auditors-heading"
-              className="flex items-center gap-2 text-base font-semibold text-foreground"
+              ref={auditorsHeading}
+              tabIndex={-1}
+              className="flex items-center gap-2 text-base font-semibold text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
             >
               <Users className="h-5 w-5 text-primary" aria-hidden="true" />
               {t("listTitle")}
             </h2>
             <AuditorAccessList
-              auditors={auditors}
-              maxDays={maxDays}
+              auditors={data.items}
+              today={data.today}
+              latestAccessUntil={data.latestAccessUntil}
+              maxDays={data.auditorAccessMaxDays}
               locale={locale}
-              onChanged={handleChanged}
+              headingRef={auditorsHeading}
+              onUpdated={handleUpdated}
+            />
+          </section>
+
+          <section className="space-y-3" aria-labelledby="pending-heading">
+            <h2
+              id="pending-heading"
+              ref={pendingHeading}
+              tabIndex={-1}
+              className="flex items-center gap-2 text-base font-semibold text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+            >
+              <Mail className="h-5 w-5 text-primary" aria-hidden="true" />
+              {t("pendingTitle")}
+            </h2>
+            <AuditorPendingInvitations
+              invitations={data.pendingInvitations}
+              locale={locale}
+              headingRef={pendingHeading}
+              onCancelled={handleCancelled}
             />
           </section>
         </>

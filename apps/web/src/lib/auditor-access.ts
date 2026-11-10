@@ -2,41 +2,27 @@ import { AUDITOR_ACCESS_ERROR_CODES } from "@librehr/contracts";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function pad(value: number): string {
-  return String(value).padStart(2, "0");
-}
-
-/** `YYYY-MM-DD` of the browser's local calendar day, `offsetDays` from today. */
-export function localDateInput(offsetDays = 0, now = new Date()): string {
-  const d = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate() + offsetDays,
-  );
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+/**
+ * Days of access left counting today, from two `YYYY-MM-DD` days in the
+ * organization's time zone (the API sends both): 1 on the last day, 0 once
+ * the last day is before today.
+ */
+export function daysLeft(accessUntil: string, today: string): number {
+  const diff =
+    Date.parse(`${accessUntil}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`);
+  return Math.max(0, Math.round(diff / DAY_MS) + 1);
 }
 
 /**
- * The instant an access chosen as "ends on `date`" ends: the last second of
- * that day in the browser's time zone, as an ISO string for the API.
+ * Formats a `YYYY-MM-DD` calendar day for display. The day is already in the
+ * organization's time zone, so it is formatted as a plain date (UTC), never
+ * shifted into the browser's zone.
  */
-export function endOfLocalDayIso(date: string): string {
-  return new Date(`${date}T23:59:59`).toISOString();
-}
-
-/**
- * Latest selectable end date: the API refuses an end later than
- * now + maxDays, and the end of the day `maxDays - 1` from today is always
- * within it.
- */
-export function latestEndDateInput(maxDays: number, now = new Date()): string {
-  return localDateInput(Math.max(0, maxDays - 1), now);
-}
-
-/** Whole days until `iso`, rounded up; 0 once it has passed. */
-export function daysLeft(iso: string, now = new Date()): number {
-  const ms = new Date(iso).getTime() - now.getTime();
-  return ms <= 0 ? 0 : Math.ceil(ms / DAY_MS);
+export function formatCalendarDay(day: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: "medium",
+    timeZone: "UTC",
+  }).format(new Date(`${day}T00:00:00Z`));
 }
 
 export type AuditorAccessErrorKey =
@@ -51,4 +37,9 @@ export function auditorAccessErrorKey(err: unknown): AuditorAccessErrorKey {
   if (code === AUDITOR_ACCESS_ERROR_CODES.tooFar) return "errorTooFar";
   if (code === AUDITOR_ACCESS_ERROR_CODES.inPast) return "errorInPast";
   return "actionError";
+}
+
+/** Whether the error concerns the end date field (vs. the form as a whole). */
+export function isAccessDateError(key: AuditorAccessErrorKey): boolean {
+  return key !== "actionError";
 }
