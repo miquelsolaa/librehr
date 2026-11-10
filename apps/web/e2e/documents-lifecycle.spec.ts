@@ -29,6 +29,28 @@ test.describe("Documents & Lifecycle Management E2E (M4)", () => {
     ).toBeVisible();
   });
 
+  // A11Y-001: the template dialog must trap focus, close on Esc and hand
+  // focus back to the button that opened it.
+  test("new template dialog is keyboard operable", async ({ page }) => {
+    await page.goto("/en/documents");
+    await page.getByRole("button", { name: "Templates & Generation" }).click();
+
+    const trigger = page.getByRole("button", { name: "New Template" }).first();
+    await trigger.click();
+
+    const dialog = page.getByRole("dialog", {
+      name: "Create New Document Template",
+    });
+    await expect(dialog).toBeVisible();
+
+    await page.keyboard.press("Tab");
+    await expect(dialog.locator(":focus")).toHaveCount(1);
+
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(trigger).toBeFocused();
+  });
+
   test("renders onboarding checklist and bulk employee import view", async ({
     page,
   }) => {

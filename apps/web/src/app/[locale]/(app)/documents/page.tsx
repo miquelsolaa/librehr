@@ -15,7 +15,14 @@ import {
   Plus,
   Wand2,
 } from "lucide-react";
-import { Button } from "@librehr/ui";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@librehr/ui";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
 import type {
@@ -207,6 +214,12 @@ export default function DocumentsPage() {
     } finally {
       setIsTemplateSubmitting(false);
     }
+  };
+
+  const closeGenerateDialog = () => {
+    setIsGeneratingOpen(false);
+    setSelectedTemplate(null);
+    setRenderedPreview(null);
   };
 
   const handleRenderPreview = async () => {
@@ -912,140 +925,147 @@ export default function DocumentsPage() {
             </div>
           )}
 
-          {/* New Template Modal */}
-          {isNewTemplateOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-              <div className="w-full max-w-2xl rounded-card border border-border bg-background p-6 shadow-xl space-y-5 animate-in fade-in zoom-in-95">
-                <div>
-                  <h3 className="text-lg font-bold text-foreground">
-                    {t("createNewTemplateTitle")}
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {t("createNewTemplateSubtitle")}
-                  </p>
-                </div>
+          <Dialog
+            open={isNewTemplateOpen}
+            onOpenChange={(open) => {
+              if (!open && !isTemplateSubmitting) setIsNewTemplateOpen(false);
+            }}
+          >
+            <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>{t("createNewTemplateTitle")}</DialogTitle>
+                <DialogDescription>
+                  {t("createNewTemplateSubtitle")}
+                </DialogDescription>
+              </DialogHeader>
 
-                <form onSubmit={handleCreateTemplate} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-foreground mb-1">
-                        {t("templateNameLabel")} *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={newTemplateName}
-                        onChange={(e) => setNewTemplateName(e.target.value)}
-                        placeholder={t("templateNamePlaceholder")}
-                        className="w-full rounded-input border border-border bg-surface px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-foreground mb-1">
-                        {t("category")} *
-                      </label>
-                      <select
-                        value={newTemplateCategory}
-                        onChange={(e) => setNewTemplateCategory(e.target.value)}
-                        className="w-full rounded-input border border-border bg-surface px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary"
-                      >
-                        <option value="contracts">
-                          {t("categoryContracts")}
-                        </option>
-                        <option value="certificates">
-                          {t("categoryCertificates")}
-                        </option>
-                        <option value="company_policies">
-                          {t("categoryPolicies")}
-                        </option>
-                        <option value="other">{t("categoryOther")}</option>
-                      </select>
-                    </div>
-                  </div>
-
+              <form onSubmit={handleCreateTemplate} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-medium text-foreground">
-                        {t("templateContentMarkdown")} *
-                      </label>
-                      <span className="text-[10px] text-muted-foreground">
-                        {t("markdownHint")}
-                      </span>
-                    </div>
-                    <textarea
+                    <label className="block text-xs font-medium text-foreground mb-1">
+                      {t("templateNameLabel")} *
+                    </label>
+                    <input
+                      type="text"
                       required
-                      rows={8}
-                      value={newTemplateContent}
-                      onChange={(e) => setNewTemplateContent(e.target.value)}
-                      placeholder={t("templateContentPlaceholder", {
-                        name: "{{employee.name}}",
-                        org: "{{organization.name}}",
-                      })}
-                      className="w-full rounded-input border border-border bg-surface p-3 font-mono text-xs text-foreground focus:ring-1 focus:ring-primary"
+                      value={newTemplateName}
+                      onChange={(e) => setNewTemplateName(e.target.value)}
+                      placeholder={t("templateNamePlaceholder")}
+                      className="w-full rounded-input border border-border bg-surface px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary"
                     />
                   </div>
-
-                  {/* Cheat sheet of merge fields */}
-                  <div className="rounded-input border border-border bg-surface p-3 text-xs space-y-1.5">
-                    <div className="font-semibold text-foreground text-[11px] uppercase tracking-wider">
-                      {t("availableMergeFields")}
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 font-mono text-[11px] text-primary">
-                      {[
-                        "{{employee.name}}",
-                        "{{employee.dni}}",
-                        "{{employee.job_title}}",
-                        "{{employee.department}}",
-                        "{{employee.hire_date}}",
-                        "{{employee.email}}",
-                        "{{organization.name}}",
-                        "{{current_date}}",
-                      ].map((tag) => (
-                        <button
-                          key={tag}
-                          type="button"
-                          onClick={() =>
-                            setNewTemplateContent((prev) => `${prev} ${tag}`)
-                          }
-                          className="rounded bg-background px-1.5 py-0.5 border border-border hover:border-primary/50 cursor-pointer"
-                        >
-                          {tag}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end gap-2 pt-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setIsNewTemplateOpen(false)}
-                      disabled={isTemplateSubmitting}
+                  <div>
+                    <label className="block text-xs font-medium text-foreground mb-1">
+                      {t("category")} *
+                    </label>
+                    <select
+                      value={newTemplateCategory}
+                      onChange={(e) => setNewTemplateCategory(e.target.value)}
+                      className="w-full rounded-input border border-border bg-surface px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary"
                     >
-                      {t("cancel")}
-                    </Button>
-                    <Button type="submit" isLoading={isTemplateSubmitting}>
-                      {t("saveTemplateButton")}
-                    </Button>
+                      <option value="contracts">
+                        {t("categoryContracts")}
+                      </option>
+                      <option value="certificates">
+                        {t("categoryCertificates")}
+                      </option>
+                      <option value="company_policies">
+                        {t("categoryPolicies")}
+                      </option>
+                      <option value="other">{t("categoryOther")}</option>
+                    </select>
                   </div>
-                </form>
-              </div>
-            </div>
-          )}
-
-          {/* Generate Document Modal */}
-          {isGeneratingOpen && selectedTemplate && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-              <div className="w-full max-w-2xl rounded-card border border-border bg-background p-6 shadow-xl space-y-5 animate-in fade-in zoom-in-95">
-                <div>
-                  <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-                    <Wand2 className="h-5 w-5 text-primary" />
-                    {t("generateModalTitle")}: {selectedTemplate.name}
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {t("generateModalSubtitle")}
-                  </p>
                 </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-medium text-foreground">
+                      {t("templateContentMarkdown")} *
+                    </label>
+                    <span className="text-[10px] text-muted-foreground">
+                      {t("markdownHint")}
+                    </span>
+                  </div>
+                  <textarea
+                    required
+                    rows={8}
+                    value={newTemplateContent}
+                    onChange={(e) => setNewTemplateContent(e.target.value)}
+                    placeholder={t("templateContentPlaceholder", {
+                      name: "{{employee.name}}",
+                      org: "{{organization.name}}",
+                    })}
+                    className="w-full rounded-input border border-border bg-surface p-3 font-mono text-xs text-foreground focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+
+                {/* Cheat sheet of merge fields */}
+                <div className="rounded-input border border-border bg-surface p-3 text-xs space-y-1.5">
+                  <div className="font-semibold text-foreground text-[11px] uppercase tracking-wider">
+                    {t("availableMergeFields")}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 font-mono text-[11px] text-primary">
+                    {[
+                      "{{employee.name}}",
+                      "{{employee.dni}}",
+                      "{{employee.job_title}}",
+                      "{{employee.department}}",
+                      "{{employee.hire_date}}",
+                      "{{employee.email}}",
+                      "{{organization.name}}",
+                      "{{current_date}}",
+                    ].map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() =>
+                          setNewTemplateContent((prev) => `${prev} ${tag}`)
+                        }
+                        className="rounded bg-background px-1.5 py-0.5 border border-border hover:border-primary/50 cursor-pointer"
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsNewTemplateOpen(false)}
+                    disabled={isTemplateSubmitting}
+                  >
+                    {t("cancel")}
+                  </Button>
+                  <Button type="submit" isLoading={isTemplateSubmitting}>
+                    {t("saveTemplateButton")}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog
+            open={isGeneratingOpen && selectedTemplate !== null}
+            onOpenChange={(open) => {
+              if (!open) closeGenerateDialog();
+            }}
+          >
+            {selectedTemplate && (
+              <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Wand2
+                      className="h-5 w-5 text-primary"
+                      aria-hidden="true"
+                    />
+                    {t("generateModalTitle")}: {selectedTemplate.name}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {t("generateModalSubtitle")}
+                  </DialogDescription>
+                </DialogHeader>
 
                 <div className="space-y-4">
                   <div>
@@ -1112,11 +1132,7 @@ export default function DocumentsPage() {
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => {
-                        setIsGeneratingOpen(false);
-                        setSelectedTemplate(null);
-                        setRenderedPreview(null);
-                      }}
+                      onClick={closeGenerateDialog}
                     >
                       {t("close")}
                     </Button>
@@ -1131,9 +1147,9 @@ export default function DocumentsPage() {
                     </Button>
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
+              </DialogContent>
+            )}
+          </Dialog>
         </div>
       )}
     </div>

@@ -407,17 +407,25 @@ export default function SecuritySettingsPage() {
       </Dialog>
 
       {/* Setup 2FA Modal */}
-      {isSetupOpen && setupData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-card border border-border bg-background p-6 shadow-xl space-y-5 animate-in fade-in zoom-in-95">
-            <div>
-              <h2 className="text-lg font-bold text-foreground">
-                {t("setupTwoFactorModalTitle")}
-              </h2>
-              <p className="text-xs text-muted-foreground mt-1">
+      <Dialog
+        open={isSetupOpen && setupData !== null}
+        onOpenChange={(open) => {
+          if (!open && !actionLoading) setIsSetupOpen(false);
+        }}
+      >
+        {setupData && (
+          <DialogContent
+            className="max-h-[90vh] overflow-y-auto"
+            // Recovery codes are on screen: a stray click outside must not
+            // dismiss them. Esc and the explicit buttons still close.
+            onInteractOutside={(event) => event.preventDefault()}
+          >
+            <DialogHeader>
+              <DialogTitle>{t("setupTwoFactorModalTitle")}</DialogTitle>
+              <DialogDescription>
                 {t("setupTwoFactorModalSubtitle")}
-              </p>
-            </div>
+              </DialogDescription>
+            </DialogHeader>
 
             <div className="space-y-4">
               <div>
@@ -503,9 +511,9 @@ export default function SecuritySettingsPage() {
                 </div>
               </form>
             </div>
-          </div>
-        </div>
-      )}
+          </DialogContent>
+        )}
+      </Dialog>
     </div>
   );
 }
