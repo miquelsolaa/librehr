@@ -82,7 +82,7 @@ export function NotificationBell() {
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="relative flex h-9 w-9 items-center justify-center rounded-md border border-input bg-background hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
+        className="relative flex h-9 w-9 items-center justify-center rounded-md border border-border bg-background hover:bg-surface focus:outline-none focus:ring-2 focus:ring-focus-ring"
       >
         <Bell className="h-4 w-4 text-foreground" aria-hidden="true" />
         <span className="sr-only">{t("title")}</span>
@@ -94,7 +94,7 @@ export function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-80 rounded-md border border-border bg-card p-4 shadow-lg z-50">
+        <div className="absolute right-0 mt-2 w-80 rounded-md border border-border bg-surface p-4 shadow-lg z-50">
           <div className="flex items-center justify-between pb-2 border-b border-border">
             <h4 className="text-sm font-semibold text-foreground">
               {t("title")}
@@ -147,7 +147,7 @@ export function NotificationBell() {
                   key={n.id}
                   className={`flex items-start justify-between p-2 rounded-md border text-xs ${
                     n.read
-                      ? "bg-muted/40 border-transparent text-muted-foreground"
+                      ? "bg-surface border-transparent text-muted-foreground"
                       : "bg-primary/5 border-primary/20 text-foreground"
                   }`}
                 >

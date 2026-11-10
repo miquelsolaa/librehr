@@ -204,7 +204,7 @@ export default function PeoplePage() {
         <div className="text-right">
           <Link
             href={`/${locale}/people/${item.id}`}
-            className="inline-flex items-center gap-1 rounded-btn px-2.5 py-1 text-xs font-medium text-primary hover:bg-surface-raised transition-colors"
+            className="inline-flex items-center gap-1 rounded-input px-2.5 py-1 text-xs font-medium text-primary hover:bg-surface-raised transition-colors"
           >
             <span>{t("view")}</span>
             <ChevronRight className="h-3.5 w-3.5" />
@@ -226,7 +226,7 @@ export default function PeoplePage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center rounded-btn border border-border bg-surface p-1">
+          <div className="flex items-center rounded-input border border-border bg-surface p-1">
             <span className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-sm">
               {t("directory")}
             </span>
@@ -260,7 +260,7 @@ export default function PeoplePage() {
               ) : (
                 <form onSubmit={handleSendInvite} className="space-y-4">
                   {inviteError && (
-                    <div className="rounded-card bg-destructive/10 p-3 text-sm text-destructive">
+                    <div className="rounded-card bg-danger/10 p-3 text-sm text-danger">
                       {inviteError}
                     </div>
                   )}

@@ -187,7 +187,7 @@ export default function OnboardingPage() {
                 )}
               </div>
             ) : instances.length === 0 ? (
-              <div className="rounded-lg border border-border p-6 text-center text-sm text-muted-foreground bg-card">
+              <div className="rounded-lg border border-border p-6 text-center text-sm text-muted-foreground bg-surface">
                 {t("emptyChecklists")}
               </div>
             ) : (
@@ -207,7 +207,7 @@ export default function OnboardingPage() {
                     className={`w-full cursor-pointer rounded-lg border p-4 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus-ring ${
                       isSelected
                         ? "border-primary bg-primary/5"
-                        : "border-border bg-card hover:bg-muted/30"
+                        : "border-border bg-surface hover:bg-accent"
                     }`}
                   >
                     <div className="flex items-start justify-between">
@@ -237,7 +237,7 @@ export default function OnboardingPage() {
                           {inst.completedTasks}/{inst.totalTasks} ({percent}%)
                         </span>
                       </div>
-                      <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                      <div className="h-1.5 w-full bg-border rounded-full overflow-hidden">
                         <div
                           className="h-full bg-primary rounded-full transition-all"
                           style={{ width: `${percent}%` }}
@@ -256,7 +256,7 @@ export default function OnboardingPage() {
               {t("tasksTitle")}
             </h2>
             {selectedInstance ? (
-              <div className="rounded-lg border border-border bg-card p-6 shadow-sm space-y-4">
+              <div className="rounded-lg border border-border bg-surface p-6 shadow-sm space-y-4">
                 <div>
                   <h3 className="text-lg font-semibold text-foreground">
                     {selectedInstance.title}
@@ -275,7 +275,7 @@ export default function OnboardingPage() {
                     selectedInstance.tasks?.map((task) => (
                       <div
                         key={task.id}
-                        className="flex items-start justify-between p-4 hover:bg-muted/20"
+                        className="flex items-start justify-between p-4 hover:bg-surface"
                       >
                         <div className="flex items-start gap-3">
                           <button
@@ -326,7 +326,7 @@ export default function OnboardingPage() {
                 </div>
               </div>
             ) : (
-              <div className="rounded-lg border border-border bg-card p-8 text-center text-sm text-muted-foreground">
+              <div className="rounded-lg border border-border bg-surface p-8 text-center text-sm text-muted-foreground">
                 {t("selectChecklist")}
               </div>
             )}
@@ -335,7 +335,7 @@ export default function OnboardingPage() {
       )}
 
       {activeTab === "import" && (
-        <div className="max-w-3xl rounded-lg border border-border bg-card p-6 shadow-sm space-y-6">
+        <div className="max-w-3xl rounded-lg border border-border bg-surface p-6 shadow-sm space-y-6">
           <div>
             <h2 className="text-lg font-semibold text-foreground">
               {t("importTitle")}
@@ -359,15 +359,15 @@ export default function OnboardingPage() {
               onChange={(e) => setCsvContent(e.target.value)}
               aria-label={t("csvLabel")}
               placeholder="first_name,last_name,email,tax_id,hire_date,job_title,department_name&#10;Maria,Garcia,maria@example.com,12345678Z,2026-03-01,Product Designer,Engineering"
-              className="w-full rounded-md border border-input bg-background p-3 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full rounded-md border border-border bg-background p-3 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <p className="text-xs text-muted-foreground">
               {t("csvRequiredHeaders")}{" "}
-              <code className="bg-muted px-1 py-0.5 rounded">
+              <code className="bg-surface px-1 py-0.5 rounded">
                 first_name, last_name, email
               </code>
               . {t("csvOptionalHeaders")}{" "}
-              <code className="bg-muted px-1 py-0.5 rounded">
+              <code className="bg-surface px-1 py-0.5 rounded">
                 tax_id, iban, hire_date, job_title, department_name
               </code>
               .

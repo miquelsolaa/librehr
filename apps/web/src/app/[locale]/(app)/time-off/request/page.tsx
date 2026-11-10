@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button, Input, Badge } from "@librehr/ui";
-import { Calendar, ArrowLeft, AlertTriangle } from "lucide-react";
+import { Calendar, ArrowLeft, AlertTriangle, Paperclip } from "lucide-react";
 import Link from "next/link";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
@@ -120,7 +120,7 @@ export default function RequestLeavePage() {
         </Link>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+      <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
         <div className="flex items-center gap-3 border-b border-border pb-4">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Calendar className="h-5 w-5" />
@@ -175,7 +175,7 @@ export default function RequestLeavePage() {
               id="leave-type"
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value)}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
               required
             >
               {leaveTypes.map((type) => (
@@ -200,8 +200,9 @@ export default function RequestLeavePage() {
                     </Badge>
                   )}
                   {currentType.requiresAttachment && (
-                    <Badge variant="warning" className="text-[11px]">
-                      <span aria-hidden="true">📎</span> {t("documentRequired")}
+                    <Badge variant="warning" className="gap-1 text-[11px]">
+                      <Paperclip className="h-3 w-3" aria-hidden="true" />
+                      {t("documentRequired")}
                     </Badge>
                   )}
                 </div>
@@ -235,7 +236,7 @@ export default function RequestLeavePage() {
                   id="halfDayStart"
                   checked={halfDayStart}
                   onChange={(e) => setHalfDayStart(e.target.checked)}
-                  className="rounded border-input text-primary focus:ring-ring"
+                  className="rounded border-border text-primary focus:ring-focus-ring"
                 />
                 <label
                   htmlFor="halfDayStart"
@@ -266,7 +267,7 @@ export default function RequestLeavePage() {
                   id="halfDayEnd"
                   checked={halfDayEnd}
                   onChange={(e) => setHalfDayEnd(e.target.checked)}
-                  className="rounded border-input text-primary focus:ring-ring"
+                  className="rounded border-border text-primary focus:ring-focus-ring"
                 />
                 <label
                   htmlFor="halfDayEnd"
@@ -290,7 +291,7 @@ export default function RequestLeavePage() {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
-              className="w-full rounded-md border border-input bg-background p-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full rounded-md border border-border bg-background p-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
               placeholder={t("notesPlaceholder")}
             />
           </div>

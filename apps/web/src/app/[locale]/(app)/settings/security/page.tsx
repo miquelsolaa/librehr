@@ -197,7 +197,7 @@ export default function SecuritySettingsPage() {
       <div className="flex items-center gap-3">
         <Link
           href={`/${locale}/settings`}
-          className="rounded-btn p-2 text-muted-foreground hover:bg-surface hover:text-foreground transition-colors"
+          className="rounded-input p-2 text-muted-foreground hover:bg-surface hover:text-foreground transition-colors"
           aria-label={t("backToSettings")}
         >
           <ArrowLeft className="h-5 w-5" aria-hidden="true" />
@@ -235,7 +235,7 @@ export default function SecuritySettingsPage() {
         <div className="rounded-card border border-border bg-surface p-6 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-btn bg-primary/10">
+              <div className="flex h-10 w-10 items-center justify-center rounded-input bg-primary/10">
                 <KeyRound className="h-5 w-5 text-primary" />
               </div>
               <div>
@@ -253,7 +253,7 @@ export default function SecuritySettingsPage() {
                 {t("enabled")}
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/20 px-2.5 py-1 text-xs font-medium text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-surface px-2.5 py-1 text-xs font-medium text-muted-foreground">
                 <ShieldAlert className="h-3.5 w-3.5" />
                 {t("disabled")}
               </span>
@@ -289,7 +289,7 @@ export default function SecuritySettingsPage() {
         {isAdmin && (
           <div className="rounded-card border border-border bg-surface p-6 shadow-sm space-y-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-btn bg-primary/10">
+              <div className="flex h-10 w-10 items-center justify-center rounded-input bg-primary/10">
                 <Shield className="h-5 w-5 text-primary" />
               </div>
               <div>

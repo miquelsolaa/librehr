@@ -133,7 +133,7 @@ export default function TeamCalendarPage() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-4">
+      <div className="rounded-xl border border-border bg-surface p-6 shadow-sm space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-border">
           <div className="flex items-center gap-2 text-sm font-medium text-foreground">
             <Users className="h-4 w-4 text-primary" aria-hidden="true" />
@@ -157,7 +157,7 @@ export default function TeamCalendarPage() {
             {absences.map((a) => (
               <div
                 key={a.requestId}
-                className="flex items-center justify-between py-3 hover:bg-muted/30 px-2 rounded-lg"
+                className="flex items-center justify-between py-3 hover:bg-surface px-2 rounded-lg"
               >
                 <div className="flex items-center gap-3">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
@@ -174,7 +174,7 @@ export default function TeamCalendarPage() {
                 </div>
 
                 <div className="flex items-center gap-4">
-                  <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                  <span className="rounded-full bg-surface px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
                     {a.leaveTypeName}
                   </span>
                   <div className="text-right text-xs text-muted-foreground">

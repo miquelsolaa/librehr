@@ -354,7 +354,7 @@ export default function CustomFieldsSettingsPage() {
           definitions.map((def) => (
             <div key={def.id} className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-btn bg-primary/10 text-primary">
+                <div className="flex h-9 w-9 items-center justify-center rounded-input bg-primary/10 text-primary">
                   <Sliders className="h-4 w-4" />
                 </div>
                 <div>
@@ -405,7 +405,7 @@ export default function CustomFieldsSettingsPage() {
               <Button
                 size="sm"
                 variant="outline"
-                className="text-destructive hover:bg-destructive/10 hover:text-destructive gap-1.5"
+                className="text-danger hover:bg-danger/10 hover:text-danger gap-1.5"
                 onClick={() => handleDelete(def.id)}
                 aria-label={t("customFieldDelete", { name: def.name })}
               >

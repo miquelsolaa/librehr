@@ -202,7 +202,7 @@ export default function WebhooksSettingsPage() {
       <div className="flex items-center gap-4">
         <Link
           href={`/${locale}/settings`}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-btn border border-border bg-surface hover:bg-surface-raised transition-colors"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-input border border-border bg-surface hover:bg-surface-raised transition-colors"
           aria-label={tSettings("backToSettings")}
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
@@ -279,7 +279,7 @@ export default function WebhooksSettingsPage() {
                 <div
                   role="group"
                   aria-labelledby="webhook-events-label"
-                  className="grid grid-cols-2 gap-2 border border-border rounded-btn p-3 max-h-48 overflow-y-auto"
+                  className="grid grid-cols-2 gap-2 border border-border rounded-input p-3 max-h-48 overflow-y-auto"
                 >
                   {AVAILABLE_EVENTS.map((ev) => {
                     const checked = selectedEvents.includes(ev);
@@ -415,7 +415,7 @@ export default function WebhooksSettingsPage() {
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="text-destructive hover:bg-destructive/10"
+                      className="text-danger hover:bg-danger/10"
                       onClick={() => handleDelete(hook.id)}
                       aria-label={t("deleteWebhook", { name: hook.name })}
                     >
@@ -427,10 +427,10 @@ export default function WebhooksSettingsPage() {
                 {/* Test Result Pill */}
                 {testInfo?.result && (
                   <div
-                    className={`flex items-center gap-2 p-3 rounded-btn text-xs ${
+                    className={`flex items-center gap-2 p-3 rounded-input text-xs ${
                       testInfo.result.success
                         ? "bg-success/10 text-success border border-success/20"
-                        : "bg-destructive/10 text-destructive border border-destructive/20"
+                        : "bg-danger/10 text-danger border border-danger/20"
                     }`}
                   >
                     {testInfo.result.success ? (

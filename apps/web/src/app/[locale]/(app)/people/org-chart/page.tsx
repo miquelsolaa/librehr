@@ -229,7 +229,7 @@ export default function OrgChartPage() {
         </div>
 
         {/* Tab switch between directory and org-chart */}
-        <div className="flex items-center rounded-btn border border-border bg-surface p-1">
+        <div className="flex items-center rounded-input border border-border bg-surface p-1">
           <Link
             href={`/${locale}/people`}
             className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"

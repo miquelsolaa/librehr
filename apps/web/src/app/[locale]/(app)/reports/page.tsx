@@ -147,7 +147,7 @@ export default function ReportsPage() {
               </button>
             </form>
             {headcountError && (
-              <p role="alert" className="text-sm text-destructive">
+              <p role="alert" className="text-sm text-danger">
                 {t("headcountError")}
               </p>
             )}
@@ -190,7 +190,7 @@ export default function ReportsPage() {
                   {exporting ? t("loading") : t("headcountDownload")}
                 </button>
                 {exportError && (
-                  <p role="alert" className="text-sm text-destructive">
+                  <p role="alert" className="text-sm text-danger">
                     {t("headcountDownloadError")}
                   </p>
                 )}

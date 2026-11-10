@@ -166,7 +166,7 @@ export default function TimeExportPage() {
         </div>
       )}
 
-      <div className="space-y-6 rounded-xl border border-border bg-card p-4 shadow-sm sm:p-6">
+      <div className="space-y-6 rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-6">
         <div className="flex items-start gap-3 border-b border-border pb-4">
           <FileText
             className="mt-1 h-6 w-6 shrink-0 text-primary"

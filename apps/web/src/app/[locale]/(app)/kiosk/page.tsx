@@ -145,7 +145,7 @@ export default function KioskModePage() {
       </div>
 
       {/* Main Terminal Card */}
-      <div className="w-full max-w-lg rounded-2xl border bg-card p-6 shadow-xl sm:p-8">
+      <div className="w-full max-w-lg rounded-2xl border bg-surface p-6 shadow-xl sm:p-8">
         {successEvent ? (
           /* Success Screen with Auto-reset Countdown */
           <div className="flex flex-col items-center justify-center py-8 text-center animate-in fade-in zoom-in-95 duration-200">
@@ -162,7 +162,7 @@ export default function KioskModePage() {
                 second: "2-digit",
               })}
             </p>
-            <div className="mt-6 rounded-lg bg-muted px-4 py-2 text-xs font-medium text-muted-foreground">
+            <div className="mt-6 rounded-lg bg-surface px-4 py-2 text-xs font-medium text-muted-foreground">
               {t("kioskResetting", { seconds: countdown })}
             </div>
           </div>
@@ -204,7 +204,7 @@ export default function KioskModePage() {
               <label className="mb-1.5 block text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 {t("kioskPin")}
               </label>
-              <div className="flex h-12 items-center justify-center gap-3 rounded-xl border bg-muted/40 px-4">
+              <div className="flex h-12 items-center justify-center gap-3 rounded-xl border bg-surface px-4">
                 {Array.from({ length: 4 }).map((_, i) => (
                   <div
                     key={i}
@@ -226,7 +226,7 @@ export default function KioskModePage() {
                   type="button"
                   onClick={() => handleKeypadPress(digit)}
                   disabled={loading}
-                  className="flex h-14 items-center justify-center rounded-xl border bg-background text-2xl font-bold shadow-sm transition active:scale-95 active:bg-muted hover:bg-accent"
+                  className="flex h-14 items-center justify-center rounded-xl border bg-background text-2xl font-bold shadow-sm transition active:scale-95 active:bg-surface hover:bg-accent"
                 >
                   {digit}
                 </button>
@@ -235,7 +235,7 @@ export default function KioskModePage() {
                 type="button"
                 onClick={handleClear}
                 disabled={loading || pin.length === 0}
-                className="flex h-14 items-center justify-center rounded-xl border bg-muted/60 text-sm font-semibold transition active:scale-95 disabled:opacity-40"
+                className="flex h-14 items-center justify-center rounded-xl border bg-surface text-sm font-semibold transition active:scale-95 disabled:opacity-40"
               >
                 {t("kioskClear")}
               </button>
@@ -243,7 +243,7 @@ export default function KioskModePage() {
                 type="button"
                 onClick={() => handleKeypadPress("0")}
                 disabled={loading}
-                className="flex h-14 items-center justify-center rounded-xl border bg-background text-2xl font-bold shadow-sm transition active:scale-95 active:bg-muted hover:bg-accent"
+                className="flex h-14 items-center justify-center rounded-xl border bg-background text-2xl font-bold shadow-sm transition active:scale-95 active:bg-surface hover:bg-accent"
               >
                 0
               </button>
@@ -252,7 +252,7 @@ export default function KioskModePage() {
                 onClick={handleBackspace}
                 aria-label={t("kioskBackspace")}
                 disabled={loading || pin.length === 0}
-                className="flex h-14 items-center justify-center rounded-xl border bg-muted/60 text-muted-foreground transition active:scale-95 disabled:opacity-40 hover:text-foreground"
+                className="flex h-14 items-center justify-center rounded-xl border bg-surface text-muted-foreground transition active:scale-95 disabled:opacity-40 hover:text-foreground"
               >
                 <Delete className="h-6 w-6" aria-hidden="true" />
               </button>

@@ -139,7 +139,7 @@ export default function SetupWizardPage() {
     <div className="mx-auto max-w-xl space-y-8 py-8">
       {/* Header */}
       <div className="text-center space-y-2">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-btn bg-primary/10 text-primary">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-input bg-primary/10 text-primary">
           <Building2 className="h-6 w-6" />
         </div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">
@@ -204,7 +204,7 @@ export default function SetupWizardPage() {
       {error && (
         <div
           role="alert"
-          className="rounded-card bg-destructive/10 p-3 text-sm text-destructive"
+          className="rounded-card bg-danger/10 p-3 text-sm text-danger"
         >
           {error}
         </div>

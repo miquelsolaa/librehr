@@ -114,7 +114,7 @@ export default function HomePage() {
             </Link>
           </section>
           <Link
-            className="flex min-h-14 items-center gap-3 rounded-card border border-border bg-surface px-6 font-medium hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring md:col-span-2"
+            className="flex min-h-14 items-center gap-3 rounded-card border border-border bg-surface px-6 font-medium hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring md:col-span-2"
             href={`/${locale}/documents`}
           >
             <FileText className="h-5 w-5 text-primary" aria-hidden="true" />

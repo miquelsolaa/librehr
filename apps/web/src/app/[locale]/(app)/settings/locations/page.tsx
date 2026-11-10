@@ -354,7 +354,7 @@ export default function LocationsSettingsPage() {
                   value={legalEntityId}
                   onChange={(e) => setLegalEntityId(e.target.value)}
                   disabled={legalEntitiesLoading || legalEntitiesError}
-                  className="min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  className="min-h-11 w-full rounded-md border border-border bg-background px-3 text-sm"
                 >
                   <option value="">{t("legalEntityPlaceholder")}</option>
                   {legalEntities.map((entity) => (
@@ -477,7 +477,7 @@ export default function LocationsSettingsPage() {
               className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-btn bg-primary/10 text-primary">
+                <div className="flex h-9 w-9 items-center justify-center rounded-input bg-primary/10 text-primary">
                   <MapPin className="h-4 w-4" />
                 </div>
                 <div>
@@ -523,7 +523,7 @@ export default function LocationsSettingsPage() {
 
           <div className="space-y-4 pt-2">
             {/* Year selector & Auto-seed action */}
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/40 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-surface p-3">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold text-muted-foreground">
                   {t("holidayYear")}:
@@ -537,7 +537,7 @@ export default function LocationsSettingsPage() {
                     className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
                       selectedYear === y
                         ? "bg-primary text-primary-foreground font-semibold"
-                        : "bg-surface text-muted-foreground hover:bg-muted"
+                        : "bg-surface text-muted-foreground hover:bg-accent"
                     }`}
                   >
                     {y}
@@ -565,7 +565,7 @@ export default function LocationsSettingsPage() {
               </p>
             )}
             {/* List of holidays */}
-            <div className="rounded-card border border-border bg-card divide-y divide-border">
+            <div className="rounded-card border border-border bg-surface divide-y divide-border">
               {holidaysLoading ? (
                 <div className="p-6 text-center text-xs text-muted-foreground">
                   {tCommon("loading")}

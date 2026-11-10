@@ -73,7 +73,7 @@ export function EmploymentHistory({ employeeId }: { employeeId: string }) {
         {t("historyTitle")}
       </h2>
       {loadError ? (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="text-sm text-danger">
           {t("historyLoadError")}
         </p>
       ) : periods === null ? (
@@ -135,7 +135,7 @@ export function EmploymentHistory({ employeeId }: { employeeId: string }) {
             </label>
           </div>
           {saveError && (
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="text-sm text-danger">
               {t("historySaveError")}
             </p>
           )}

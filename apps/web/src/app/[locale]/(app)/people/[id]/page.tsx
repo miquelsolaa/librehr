@@ -358,7 +358,7 @@ export default function EmployeeDetailPage() {
           <ArrowLeft className="h-4 w-4" />
           <span>{t("title")}</span>
         </Link>
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="text-sm text-danger">
           {tProfile("loadError")}
         </p>
       </div>
@@ -412,7 +412,7 @@ export default function EmployeeDetailPage() {
             <DialogTrigger asChild>
               <Button
                 variant="outline"
-                className="gap-2 border-destructive/40 text-destructive hover:bg-destructive/10"
+                className="gap-2 border-danger/40 text-danger hover:bg-danger/10"
               >
                 <UserMinus className="h-4 w-4" />
                 <span>{tProfile("terminateButton")}</span>
@@ -698,8 +698,8 @@ export default function EmployeeDetailPage() {
             </div>
 
             {isTerminated && (
-              <div className="rounded-card bg-destructive/10 p-3 border border-destructive/20 text-xs">
-                <span className="font-semibold text-destructive block">
+              <div className="rounded-card bg-danger/10 p-3 border border-danger/20 text-xs">
+                <span className="font-semibold text-danger block">
                   {tProfile("terminateTitle")}: {employee.terminationDate}
                 </span>
                 <span className="text-muted-foreground">
@@ -904,7 +904,7 @@ export default function EmployeeDetailPage() {
 
           <div className="space-y-3">
             {contactsError && (
-              <p role="alert" className="text-sm text-destructive">
+              <p role="alert" className="text-sm text-danger">
                 {tProfile("contactsLoadError")}
               </p>
             )}
@@ -946,7 +946,7 @@ export default function EmployeeDetailPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    className="h-8 w-8 p-0 text-danger hover:bg-danger/10 hover:text-danger"
                     onClick={() => handleDeleteEmergencyContact(c.id)}
                     aria-label={tProfile("deleteContact", { name: c.fullName })}
                   >
@@ -1083,7 +1083,7 @@ export default function EmployeeDetailPage() {
         </div>
 
         {/* Kiosk PIN & Badge Access (TIM-010) */}
-        <div className="rounded-lg border border-border bg-card p-6 space-y-4">
+        <div className="rounded-lg border border-border bg-surface p-6 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <KeyRound className="h-4 w-4 text-primary" />
