@@ -4,7 +4,8 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { BarChart3, FileSpreadsheet } from "lucide-react";
+import { FileSpreadsheet } from "lucide-react";
+import { PageHeader } from "@librehr/ui";
 import { getStoredSession } from "@/lib/auth";
 import { apiClient } from "@/lib/api-client";
 import {
@@ -75,13 +76,7 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-foreground">
-          <BarChart3 className="h-7 w-7 text-primary" aria-hidden="true" />
-          {t("title")}
-        </h1>
-        <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
-      </header>
+      <PageHeader title={t("title")} description={t("subtitle")} />
       {state === "loading" && (
         <p role="status" className="text-sm text-muted-foreground">
           {t("loading")}
@@ -101,7 +96,9 @@ export default function ReportsPage() {
       {state === "ready" && (
         <>
           <section className="space-y-4 rounded-card border border-border bg-surface p-6">
-            <h2 className="text-lg font-semibold">{t("headcountTitle")}</h2>
+            <h2 className="text-base font-semibold text-foreground">
+              {t("headcountTitle")}
+            </h2>
             <p className="text-sm text-muted-foreground">
               {t("headcountDescription")}
             </p>
@@ -205,7 +202,7 @@ export default function ReportsPage() {
           </p>
           <section className="space-y-4 rounded-card border border-border bg-surface p-6">
             <div>
-              <h2 className="flex items-center gap-2 text-lg font-semibold">
+              <h2 className="flex items-center gap-2 text-base font-semibold text-foreground">
                 <FileSpreadsheet
                   className="h-5 w-5 text-primary"
                   aria-hidden="true"

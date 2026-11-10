@@ -87,7 +87,7 @@ export function NotificationBell() {
         <Bell className="h-4 w-4 text-foreground" aria-hidden="true" />
         <span className="sr-only">{t("title")}</span>
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white">
+          <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-xs font-semibold leading-none text-white tabular-nums">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
@@ -107,7 +107,7 @@ export function NotificationBell() {
                 <button
                   type="button"
                   onClick={markAllRead}
-                  className="text-[11px] text-primary hover:underline font-medium"
+                  className="text-xs font-medium text-primary hover:underline"
                 >
                   {t("markAllRead")}
                 </button>

@@ -7,13 +7,13 @@ import { useTranslations } from "next-intl";
 import {
   KeyRound,
   Plus,
-  ArrowLeft,
   Copy,
   Check,
   Trash2,
   AlertCircle,
   Clock,
   Shield,
+  ChevronLeft,
 } from "lucide-react";
 import {
   Button,
@@ -26,6 +26,7 @@ import {
   DialogDescription,
   DialogFooter,
   Badge,
+  PageHeader,
 } from "@librehr/ui";
 import { apiClient } from "../../../../../lib/api-client.js";
 import type {
@@ -142,119 +143,118 @@ export default function TokensSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1">
+      <PageHeader
+        breadcrumb={
           <Link
             href={`/${locale}/settings`}
-            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
           >
-            <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>{tNav("settings")}</span>
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+            {tNav("settings")}
           </Link>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            {t("title")}
-          </h1>
-          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
-        </div>
+        }
+        title={t("title")}
+        description={t("subtitle")}
+        actions={
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                <span>{t("createToken")}</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{t("createToken")}</DialogTitle>
+                <DialogDescription>{t("createDescription")}</DialogDescription>
+              </DialogHeader>
 
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              <span>{t("createToken")}</span>
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{t("createToken")}</DialogTitle>
-              <DialogDescription>{t("createDescription")}</DialogDescription>
-            </DialogHeader>
-
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="token-name"
-                  className="text-xs font-medium text-foreground"
-                >
-                  {t("tokenName")}
-                </label>
-                <Input
-                  id="token-name"
-                  required
-                  placeholder={t("namePlaceholder")}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <span className="text-xs font-medium text-foreground">
-                  {t("tokenScopes")}
-                </span>
-                <div className="grid grid-cols-3 gap-2 pt-1">
-                  {(["read", "write", "admin"] as const).map((sc) => (
-                    <button
-                      key={sc}
-                      type="button"
-                      onClick={() => toggleScope(sc)}
-                      aria-pressed={scopes.includes(sc)}
-                      className={`flex items-center justify-between rounded-md border p-2 text-xs font-medium transition-colors ${
-                        scopes.includes(sc)
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border bg-background text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      <span>{scopeLabel(sc)}</span>
-                      {scopes.includes(sc) && (
-                        <Check className="h-3.5 w-3.5" aria-hidden="true" />
-                      )}
-                    </button>
-                  ))}
+              <form onSubmit={handleCreate} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="token-name"
+                    className="text-xs font-medium text-foreground"
+                  >
+                    {t("tokenName")}
+                  </label>
+                  <Input
+                    id="token-name"
+                    required
+                    placeholder={t("namePlaceholder")}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
                 </div>
-              </div>
 
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="token-expires"
-                  className="text-xs font-medium text-foreground"
-                >
-                  {t("expiresIn")}
-                </label>
-                <select
-                  id="token-expires"
-                  className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-                  value={expiresInDays}
-                  onChange={(e) => setExpiresInDays(Number(e.target.value))}
-                >
-                  {[30, 60, 90].map((days) => (
-                    <option key={days} value={days}>
-                      {t("expiresDays", { days })}
-                    </option>
-                  ))}
-                  <option value={365}>{t("expiresYear")}</option>
-                  <option value={0}>{t("expiresNever")}</option>
-                </select>
-              </div>
+                <div className="space-y-1.5">
+                  <span className="text-xs font-medium text-foreground">
+                    {t("tokenScopes")}
+                  </span>
+                  <div className="grid grid-cols-3 gap-2 pt-1">
+                    {(["read", "write", "admin"] as const).map((sc) => (
+                      <button
+                        key={sc}
+                        type="button"
+                        onClick={() => toggleScope(sc)}
+                        aria-pressed={scopes.includes(sc)}
+                        className={`flex items-center justify-between rounded-md border p-2 text-xs font-medium transition-colors ${
+                          scopes.includes(sc)
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border bg-background text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <span>{scopeLabel(sc)}</span>
+                        {scopes.includes(sc) && (
+                          <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setCreateOpen(false)}
-                >
-                  {tCommon("cancel")}
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={submitting || scopes.length === 0}
-                >
-                  {submitting ? tCommon("loading") : t("generate")}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="token-expires"
+                    className="text-xs font-medium text-foreground"
+                  >
+                    {t("expiresIn")}
+                  </label>
+                  <select
+                    id="token-expires"
+                    className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                    value={expiresInDays}
+                    onChange={(e) => setExpiresInDays(Number(e.target.value))}
+                  >
+                    {[30, 60, 90].map((days) => (
+                      <option key={days} value={days}>
+                        {t("expiresDays", { days })}
+                      </option>
+                    ))}
+                    <option value={365}>{t("expiresYear")}</option>
+                    <option value={0}>{t("expiresNever")}</option>
+                  </select>
+                </div>
+
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setCreateOpen(false)}
+                  >
+                    {tCommon("cancel")}
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={submitting || scopes.length === 0}
+                  >
+                    {submitting ? tCommon("loading") : t("generate")}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        }
+      />
 
       {/* One-time Reveal Dialog */}
       <Dialog open={revealOpen} onOpenChange={setRevealOpen}>
@@ -354,7 +354,7 @@ export default function TokensSettingsPage() {
                         <Badge
                           key={s}
                           variant="outline"
-                          className="text-[10px] px-1.5 py-0"
+                          className="text-xs px-1.5 py-0"
                         >
                           {scopeLabel(s)}
                         </Badge>

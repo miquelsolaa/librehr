@@ -4,8 +4,8 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Button, Input } from "@librehr/ui";
-import { ArrowLeft, Download, Eye, FileText, ShieldCheck } from "lucide-react";
+import { Button, Input, PageHeader } from "@librehr/ui";
+import { ChevronLeft, Download, Eye, ShieldCheck } from "lucide-react";
 import type {
   EmployeeListItem,
   OfficialExportResponse,
@@ -146,13 +146,19 @@ export default function TimeExportPage() {
 
   return (
     <div className="space-y-6">
-      <Link
-        href={`/${locale}/time`}
-        className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="mr-1 h-4 w-4" aria-hidden="true" />
-        {t("backToTime")}
-      </Link>
+      <PageHeader
+        breadcrumb={
+          <Link
+            href={`/${locale}/time`}
+            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+            {t("backToTime")}
+          </Link>
+        }
+        title={t("exportTitle")}
+        description={t("exportIntro")}
+      />
 
       {role === "auditor" && (
         <div className="rounded-xl border border-border bg-surface p-4 text-sm text-foreground shadow-sm">
@@ -167,21 +173,9 @@ export default function TimeExportPage() {
       )}
 
       <div className="space-y-6 rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-6">
-        <div className="flex items-start gap-3 border-b border-border pb-4">
-          <FileText
-            className="mt-1 h-6 w-6 shrink-0 text-primary"
-            aria-hidden="true"
-          />
-          <div className="space-y-1">
-            <h1 className="text-xl font-bold text-foreground">
-              {t("exportTitle")}
-            </h1>
-            <p className="text-sm text-muted-foreground">{t("exportIntro")}</p>
-            <p className="text-xs text-muted-foreground">
-              {t("exportLegalNotice")}
-            </p>
-          </div>
-        </div>
+        <p className="border-b border-border pb-4 text-xs text-muted-foreground">
+          {t("exportLegalNotice")}
+        </p>
 
         <form
           onSubmit={onSubmit}

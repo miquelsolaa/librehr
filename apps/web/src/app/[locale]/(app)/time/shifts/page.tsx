@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
-  ArrowLeft,
   Calendar,
   Moon,
   Repeat,
@@ -27,6 +26,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
+  PageHeader,
 } from "@librehr/ui";
 import { calendarDateInZone, daysInMonth, isoDate } from "@librehr/i18n";
 import { apiClient } from "@/lib/api-client";
@@ -271,7 +271,7 @@ export default function ShiftRosterPage() {
   const getShiftBadge = (assign?: ShiftAssignment) => {
     if (!assign || !assign.shiftCode || assign.shiftCode === "OFF") {
       return (
-        <span className="inline-block w-full py-1 text-center font-mono text-[10px] text-muted-foreground/50 rounded bg-surface">
+        <span className="inline-block w-full py-1 text-center font-mono text-xs text-muted-foreground/50 rounded bg-surface">
           -
         </span>
       );
@@ -280,7 +280,7 @@ export default function ShiftRosterPage() {
     if (assign.shiftCode === "M") {
       return (
         <span
-          className="inline-block w-full py-1 text-center font-mono font-bold text-[10px] rounded text-amber-900 bg-amber-100 dark:bg-amber-950/70 dark:text-amber-300"
+          className="inline-block w-full py-1 text-center font-mono font-bold text-xs rounded text-amber-900 bg-amber-100 dark:bg-amber-950/70 dark:text-amber-300"
           title={t("shiftMorning")}
         >
           M
@@ -291,7 +291,7 @@ export default function ShiftRosterPage() {
     if (assign.shiftCode === "T") {
       return (
         <span
-          className="inline-block w-full py-1 text-center font-mono font-bold text-[10px] rounded text-blue-900 bg-blue-100 dark:bg-blue-950/70 dark:text-blue-300"
+          className="inline-block w-full py-1 text-center font-mono font-bold text-xs rounded text-blue-900 bg-blue-100 dark:bg-blue-950/70 dark:text-blue-300"
           title={t("shiftAfternoon")}
         >
           T
@@ -302,7 +302,7 @@ export default function ShiftRosterPage() {
     if (assign.shiftCode === "N") {
       return (
         <span
-          className="inline-flex items-center justify-center gap-0.5 w-full py-1 text-center font-mono font-bold text-[10px] rounded text-indigo-900 bg-indigo-100 dark:bg-indigo-950/70 dark:text-indigo-300"
+          className="inline-flex items-center justify-center gap-0.5 w-full py-1 text-center font-mono font-bold text-xs rounded text-indigo-900 bg-indigo-100 dark:bg-indigo-950/70 dark:text-indigo-300"
           title={t("shiftNight")}
         >
           <Moon className="h-2.5 w-2.5" aria-hidden="true" />N
@@ -311,7 +311,7 @@ export default function ShiftRosterPage() {
     }
 
     return (
-      <span className="inline-block w-full py-1 text-center font-mono font-bold text-[10px] rounded text-primary-foreground bg-primary/80">
+      <span className="inline-block w-full py-1 text-center font-mono font-bold text-xs rounded text-primary-foreground bg-primary/80">
         {assign.shiftCode}
       </span>
     );
@@ -331,284 +331,283 @@ export default function ShiftRosterPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1">
+      <PageHeader
+        breadcrumb={
           <Link
             href={`/${locale}/time`}
-            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
           >
-            <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>{tNav("time")}</span>
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+            {tNav("time")}
           </Link>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            {t("shiftsTitle")}
-          </h1>
-          <p className="text-sm text-muted-foreground">{t("shiftsSubtitle")}</p>
-        </div>
+        }
+        title={t("shiftsTitle")}
+        description={t("shiftsSubtitle")}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Swap request button */}
+            <Dialog open={swapOpen} onOpenChange={setSwapOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <ArrowLeftRight className="h-4 w-4 text-primary" />
+                  <span>{t("requestSwapButton")}</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{t("requestSwapButton")}</DialogTitle>
+                  <DialogDescription>
+                    {t("swapDialogDescription")}
+                  </DialogDescription>
+                </DialogHeader>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Swap request button */}
-          <Dialog open={swapOpen} onOpenChange={setSwapOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="gap-2">
-                <ArrowLeftRight className="h-4 w-4 text-primary" />
-                <span>{t("requestSwapButton")}</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{t("requestSwapButton")}</DialogTitle>
-                <DialogDescription>
-                  {t("swapDialogDescription")}
-                </DialogDescription>
-              </DialogHeader>
-
-              <form onSubmit={handleCreateSwap} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor="swap-target"
-                    className="text-xs font-medium text-foreground"
-                  >
-                    {t("targetColleague")}
-                  </label>
-                  <select
-                    id="swap-target"
-                    className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-                    value={targetEmpId}
-                    onChange={(e) => setTargetEmpId(e.target.value)}
-                    required
-                  >
-                    {employees.map((e) => (
-                      <option key={e.id} value={e.id}>
-                        {e.firstName} {e.lastName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
+                <form onSubmit={handleCreateSwap} className="space-y-4">
                   <div className="space-y-1.5">
                     <label
-                      htmlFor="swap-my-date"
+                      htmlFor="swap-target"
                       className="text-xs font-medium text-foreground"
                     >
-                      {t("myShiftDate")}
+                      {t("targetColleague")}
                     </label>
-                    <Input
-                      id="swap-my-date"
-                      type="date"
+                    <select
+                      id="swap-target"
+                      className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                      value={targetEmpId}
+                      onChange={(e) => setTargetEmpId(e.target.value)}
                       required
-                      value={myShiftDate}
-                      onChange={(e) => setMyShiftDate(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label
-                      htmlFor="swap-target-date"
-                      className="text-xs font-medium text-foreground"
                     >
-                      {t("targetShiftDate")}
-                    </label>
-                    <Input
-                      id="swap-target-date"
-                      type="date"
-                      required
-                      value={targetShiftDate}
-                      onChange={(e) => setTargetShiftDate(e.target.value)}
-                    />
+                      {employees.map((e) => (
+                        <option key={e.id} value={e.id}>
+                          {e.firstName} {e.lastName}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                </div>
 
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor="swap-reason"
-                    className="text-xs font-medium text-foreground"
-                  >
-                    {t("swapReason")}
-                  </label>
-                  <Input
-                    id="swap-reason"
-                    placeholder={t("swapReasonPlaceholder")}
-                    value={swapReason}
-                    onChange={(e) => setSwapReason(e.target.value)}
-                  />
-                </div>
-
-                {swapError && (
-                  <p role="alert" className="text-sm text-danger">
-                    {t("shiftSwapError")}
-                  </p>
-                )}
-                <DialogFooter>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setSwapOpen(false)}
-                  >
-                    {tCommon("cancel")}
-                  </Button>
-                  <Button type="submit" disabled={requestingSwap}>
-                    {requestingSwap ? tCommon("loading") : tCommon("confirm")}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-
-          {/* Generate continuous rotation button */}
-          <Dialog open={genOpen} onOpenChange={setGenOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Repeat className="h-4 w-4" />
-                <span>{t("generateRosterButton")}</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle>{t("generateRosterButton")}</DialogTitle>
-                <DialogDescription>
-                  {t("generateDialogDescription")}
-                </DialogDescription>
-              </DialogHeader>
-
-              <form onSubmit={handleGenerateRoster} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor="gen-pattern"
-                    className="text-xs font-medium text-foreground"
-                  >
-                    {t("selectPattern")}
-                  </label>
-                  <select
-                    id="gen-pattern"
-                    className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-                    value={selectedPatternId}
-                    onChange={(e) => setSelectedPatternId(e.target.value)}
-                    required
-                  >
-                    {patterns.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {t("patternOption", {
-                          name: p.name,
-                          days: p.cycleDays,
-                        })}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor="gen-anchor"
-                    className="text-xs font-medium text-foreground"
-                  >
-                    {t("anchorDate")}
-                  </label>
-                  <Input
-                    id="gen-anchor"
-                    type="date"
-                    required
-                    value={anchorDate}
-                    onChange={(e) => setAnchorDate(e.target.value)}
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    {t("anchorDateHint")}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label
-                      htmlFor="gen-start"
-                      className="text-xs font-medium text-foreground"
-                    >
-                      {t("startDate")}
-                    </label>
-                    <Input
-                      id="gen-start"
-                      type="date"
-                      required
-                      value={genStartDate}
-                      onChange={(e) => setGenStartDate(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label
-                      htmlFor="gen-end"
-                      className="text-xs font-medium text-foreground"
-                    >
-                      {t("endDate")}
-                    </label>
-                    <Input
-                      id="gen-end"
-                      type="date"
-                      required
-                      value={genEndDate}
-                      onChange={(e) => setGenEndDate(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <span
-                    id="gen-employees-label"
-                    className="text-xs font-medium text-foreground"
-                  >
-                    {t("selectEmployees")} ({selectedEmpIds.length})
-                  </span>
-                  <div
-                    role="group"
-                    aria-labelledby="gen-employees-label"
-                    className="max-h-32 overflow-y-auto rounded border border-border p-2 space-y-1 text-xs"
-                  >
-                    {employees.map((emp) => (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
                       <label
-                        key={emp.id}
-                        className="flex items-center gap-2 hover:bg-surface p-1 rounded cursor-pointer"
+                        htmlFor="swap-my-date"
+                        className="text-xs font-medium text-foreground"
                       >
-                        <input
-                          type="checkbox"
-                          checked={selectedEmpIds.includes(emp.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedEmpIds((prev) => [...prev, emp.id]);
-                            } else {
-                              setSelectedEmpIds((prev) =>
-                                prev.filter((id) => id !== emp.id),
-                              );
-                            }
-                          }}
-                        />
-                        <span>
-                          {emp.firstName} {emp.lastName}
-                        </span>
+                        {t("myShiftDate")}
                       </label>
-                    ))}
+                      <Input
+                        id="swap-my-date"
+                        type="date"
+                        required
+                        value={myShiftDate}
+                        onChange={(e) => setMyShiftDate(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="swap-target-date"
+                        className="text-xs font-medium text-foreground"
+                      >
+                        {t("targetShiftDate")}
+                      </label>
+                      <Input
+                        id="swap-target-date"
+                        type="date"
+                        required
+                        value={targetShiftDate}
+                        onChange={(e) => setTargetShiftDate(e.target.value)}
+                      />
+                    </div>
                   </div>
-                </div>
 
-                {generateError && (
-                  <p role="alert" className="text-sm text-danger">
-                    {t("shiftGenerateError")}
-                  </p>
-                )}
-                <DialogFooter>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setGenOpen(false)}
-                  >
-                    {tCommon("cancel")}
-                  </Button>
-                  <Button type="submit" disabled={generating}>
-                    {generating ? tCommon("loading") : tCommon("confirm")}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="swap-reason"
+                      className="text-xs font-medium text-foreground"
+                    >
+                      {t("swapReason")}
+                    </label>
+                    <Input
+                      id="swap-reason"
+                      placeholder={t("swapReasonPlaceholder")}
+                      value={swapReason}
+                      onChange={(e) => setSwapReason(e.target.value)}
+                    />
+                  </div>
+
+                  {swapError && (
+                    <p role="alert" className="text-sm text-danger">
+                      {t("shiftSwapError")}
+                    </p>
+                  )}
+                  <DialogFooter>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setSwapOpen(false)}
+                    >
+                      {tCommon("cancel")}
+                    </Button>
+                    <Button type="submit" disabled={requestingSwap}>
+                      {requestingSwap ? tCommon("loading") : tCommon("confirm")}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+
+            {/* Generate continuous rotation button */}
+            <Dialog open={genOpen} onOpenChange={setGenOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2">
+                  <Repeat className="h-4 w-4" />
+                  <span>{t("generateRosterButton")}</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>{t("generateRosterButton")}</DialogTitle>
+                  <DialogDescription>
+                    {t("generateDialogDescription")}
+                  </DialogDescription>
+                </DialogHeader>
+
+                <form onSubmit={handleGenerateRoster} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="gen-pattern"
+                      className="text-xs font-medium text-foreground"
+                    >
+                      {t("selectPattern")}
+                    </label>
+                    <select
+                      id="gen-pattern"
+                      className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                      value={selectedPatternId}
+                      onChange={(e) => setSelectedPatternId(e.target.value)}
+                      required
+                    >
+                      {patterns.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {t("patternOption", {
+                            name: p.name,
+                            days: p.cycleDays,
+                          })}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="gen-anchor"
+                      className="text-xs font-medium text-foreground"
+                    >
+                      {t("anchorDate")}
+                    </label>
+                    <Input
+                      id="gen-anchor"
+                      type="date"
+                      required
+                      value={anchorDate}
+                      onChange={(e) => setAnchorDate(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {t("anchorDateHint")}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="gen-start"
+                        className="text-xs font-medium text-foreground"
+                      >
+                        {t("startDate")}
+                      </label>
+                      <Input
+                        id="gen-start"
+                        type="date"
+                        required
+                        value={genStartDate}
+                        onChange={(e) => setGenStartDate(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="gen-end"
+                        className="text-xs font-medium text-foreground"
+                      >
+                        {t("endDate")}
+                      </label>
+                      <Input
+                        id="gen-end"
+                        type="date"
+                        required
+                        value={genEndDate}
+                        onChange={(e) => setGenEndDate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <span
+                      id="gen-employees-label"
+                      className="text-xs font-medium text-foreground"
+                    >
+                      {t("selectEmployees")} ({selectedEmpIds.length})
+                    </span>
+                    <div
+                      role="group"
+                      aria-labelledby="gen-employees-label"
+                      className="max-h-32 overflow-y-auto rounded border border-border p-2 space-y-1 text-xs"
+                    >
+                      {employees.map((emp) => (
+                        <label
+                          key={emp.id}
+                          className="flex items-center gap-2 hover:bg-surface p-1 rounded cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedEmpIds.includes(emp.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedEmpIds((prev) => [...prev, emp.id]);
+                              } else {
+                                setSelectedEmpIds((prev) =>
+                                  prev.filter((id) => id !== emp.id),
+                                );
+                              }
+                            }}
+                          />
+                          <span>
+                            {emp.firstName} {emp.lastName}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {generateError && (
+                    <p role="alert" className="text-sm text-danger">
+                      {t("shiftGenerateError")}
+                    </p>
+                  )}
+                  <DialogFooter>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setGenOpen(false)}
+                    >
+                      {tCommon("cancel")}
+                    </Button>
+                    <Button type="submit" disabled={generating}>
+                      {generating ? tCommon("loading") : tCommon("confirm")}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
+        }
+      />
 
       {/* KPI Cards Row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -630,7 +629,7 @@ export default function ShiftRosterPage() {
           <div className="mt-2 text-2xl font-bold text-indigo-600 dark:text-indigo-400">
             {loading ? "..." : `${totalNightHours}h`}
           </div>
-          <span className="text-[11px] text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             {t("nightShiftsCount", { count: nightShiftsCount })}
           </span>
         </div>
@@ -644,7 +643,7 @@ export default function ShiftRosterPage() {
             {patterns[0]?.name ?? t("noActivePattern")}
           </div>
           {patterns[0] && (
-            <span className="text-[11px] text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {t("patternCycle", { days: patterns[0].cycleDays })}
             </span>
           )}
@@ -660,7 +659,7 @@ export default function ShiftRosterPage() {
           <div className="mt-2 text-2xl font-bold text-foreground">
             {loading ? "..." : pendingSwaps}
           </div>
-          <span className="text-[11px] text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             {t("restValidation")}
           </span>
         </div>
@@ -690,7 +689,7 @@ export default function ShiftRosterPage() {
         >
           <span>{t("tabSwaps")}</span>
           {pendingSwaps > 0 && (
-            <span className="rounded-full bg-primary/20 px-1.5 py-0.2 text-[10px] font-bold text-primary">
+            <span className="rounded-full bg-primary/20 px-1.5 py-0.2 text-xs font-bold text-primary">
               {pendingSwaps}
             </span>
           )}

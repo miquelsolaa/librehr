@@ -11,7 +11,7 @@ import {
   KeyRound,
   Copy,
   Check,
-  ArrowLeft,
+  ChevronLeft,
 } from "lucide-react";
 import {
   Button,
@@ -22,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  PageHeader,
 } from "@librehr/ui";
 import { getApiClient } from "@/lib/api-client";
 import { getStoredSession } from "@/lib/auth";
@@ -50,6 +51,8 @@ export default function SecuritySettingsPage() {
   const locale = (params?.["locale"] as string | undefined) ?? "ca";
 
   const t = useTranslations("settings");
+
+  const tNav = useTranslations("nav");
   const tCommon = useTranslations("common");
 
   const [session, setSession] = React.useState(getStoredSession());
@@ -194,23 +197,19 @@ export default function SecuritySettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Link
-          href={`/${locale}/settings`}
-          className="rounded-input p-2 text-muted-foreground hover:bg-surface hover:text-foreground transition-colors"
-          aria-label={t("backToSettings")}
-        >
-          <ArrowLeft className="h-5 w-5" aria-hidden="true" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            {t("securityTitle")}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {t("securityDescription")}
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        breadcrumb={
+          <Link
+            href={`/${locale}/settings`}
+            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+            {tNav("settings")}
+          </Link>
+        }
+        title={t("securityTitle")}
+        description={t("securityDescription")}
+      />
 
       {successMessage && (
         <div

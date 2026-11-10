@@ -10,9 +10,9 @@ import {
   AlertCircle,
   Copy,
   Check,
-  ArrowLeft,
+  ChevronLeft,
 } from "lucide-react";
-import { Button, Input } from "@librehr/ui";
+import { Button, Input, PageHeader } from "@librehr/ui";
 import { getApiClient } from "@/lib/api-client";
 import type {
   ProblemDetails,
@@ -25,6 +25,8 @@ export default function SsoSettingsPage() {
   const locale = (params?.["locale"] as string | undefined) ?? "ca";
 
   const t = useTranslations("settings");
+
+  const tNav = useTranslations("nav");
   const tCommon = useTranslations("common");
 
   const [config, setConfig] = React.useState<SsoConfig | null>(null);
@@ -141,21 +143,19 @@ export default function SsoSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Link
-          href={`/${locale}/settings`}
-          className="rounded-input p-2 text-muted-foreground hover:bg-surface hover:text-foreground transition-colors"
-          aria-label={t("backToSettings")}
-        >
-          <ArrowLeft className="h-5 w-5" aria-hidden="true" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            {t("ssoTitle")}
-          </h1>
-          <p className="text-sm text-muted-foreground">{t("ssoDescription")}</p>
-        </div>
-      </div>
+      <PageHeader
+        breadcrumb={
+          <Link
+            href={`/${locale}/settings`}
+            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+            {tNav("settings")}
+          </Link>
+        }
+        title={t("ssoTitle")}
+        description={t("ssoDescription")}
+      />
 
       {successMessage && (
         <div

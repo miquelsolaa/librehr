@@ -10,7 +10,7 @@ import {
   Calendar,
   AlertTriangle,
 } from "lucide-react";
-import { Button } from "@librehr/ui";
+import { Button, PageHeader } from "@librehr/ui";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
 import type {
@@ -122,34 +122,30 @@ export default function OnboardingPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <UserCheck className="h-7 w-7 text-primary" />
-            {t("title")}
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">{t("subtitle")}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant={activeTab === "checklists" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setActiveTab("checklists")}
-          >
-            <UserCheck className="h-4 w-4 mr-1.5" />
-            {t("tabChecklists")}
-          </Button>
-          <Button
-            variant={activeTab === "import" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setActiveTab("import")}
-          >
-            <FileSpreadsheet className="h-4 w-4 mr-1.5" />
-            {t("tabImport")}
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title={t("title")}
+        description={t("subtitle")}
+        actions={
+          <>
+            <Button
+              variant={activeTab === "checklists" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setActiveTab("checklists")}
+            >
+              <UserCheck className="h-4 w-4 mr-1.5" />
+              {t("tabChecklists")}
+            </Button>
+            <Button
+              variant={activeTab === "import" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setActiveTab("import")}
+            >
+              <FileSpreadsheet className="h-4 w-4 mr-1.5" />
+              {t("tabImport")}
+            </Button>
+          </>
+        }
+      />
 
       {actionError && (
         <p
@@ -164,7 +160,7 @@ export default function OnboardingPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Checklists List */}
           <div className="space-y-3 md:col-span-1">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            <h2 className="text-base font-semibold text-foreground">
               {t("tabChecklists")}
             </h2>
             {loading ? (
@@ -215,7 +211,7 @@ export default function OnboardingPage() {
                         {inst.title}
                       </h3>
                       <span
-                        className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                        className={`text-xs px-1.5 py-0.5 rounded font-medium ${
                           inst.status === "completed"
                             ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
                             : "bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300"
@@ -252,7 +248,7 @@ export default function OnboardingPage() {
 
           {/* Checklist Tasks Detail View */}
           <div className="md:col-span-2 space-y-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            <h2 className="text-base font-semibold text-foreground">
               {t("tasksTitle")}
             </h2>
             {selectedInstance ? (
@@ -309,7 +305,7 @@ export default function OnboardingPage() {
                                 {task.description}
                               </div>
                             )}
-                            <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
+                            <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                               <span className="capitalize font-medium text-foreground">
                                 {t("roleLabel", { role: task.assignedRole })}
                               </span>
@@ -337,7 +333,7 @@ export default function OnboardingPage() {
       {activeTab === "import" && (
         <div className="max-w-3xl rounded-lg border border-border bg-surface p-6 shadow-sm space-y-6">
           <div>
-            <h2 className="text-lg font-semibold text-foreground">
+            <h2 className="text-base font-semibold text-foreground">
               {t("importTitle")}
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
