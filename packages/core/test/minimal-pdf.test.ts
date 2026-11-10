@@ -165,6 +165,41 @@ describe("renderTextPdf", () => {
     expect(pdf).not.toContain("A".repeat(200));
   });
 
+  it("wraps cells of a maxLines column and never splits a row across pages", () => {
+    const input = pdfInput(0);
+    const wrapped: TextPdfInput = {
+      ...input,
+      table: {
+        columns: [
+          { label: "Persona", width: 40, maxLines: 3 },
+          { label: "Data", width: 60 },
+        ],
+        rows: Array.from({ length: 120 }, (_, i) => [
+          "Alfabet Betacism Gammaray",
+          `Row${i}`,
+        ]),
+      },
+    };
+    const pdf = latin1(renderTextPdf(wrapped));
+    // Three lines per row take more pages than one line per row.
+    expect(pageCount(pdf)).toBeGreaterThan(
+      pageCount(latin1(renderTextPdf(pdfInput(120)))),
+    );
+    expect(pdf).not.toContain("\u0085");
+    const count = (text: string, word: string) =>
+      text.split(`(${word}) Tj`).length - 1;
+    let rows = 0;
+    for (const stream of pdf.split("endstream")) {
+      const here = (stream.match(/\(Row\d+\) Tj/g) ?? []).length;
+      rows += here;
+      // Every row on this page has all three of its lines on it.
+      for (const word of ["Alfabet", "Betacism", "Gammaray"]) {
+        expect(count(stream, word)).toBe(here);
+      }
+    }
+    expect(rows).toBe(120);
+  });
+
   it("is deterministic", () => {
     expect(renderTextPdf(pdfInput(150))).toEqual(renderTextPdf(pdfInput(150)));
   });

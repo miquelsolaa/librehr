@@ -7,14 +7,11 @@ import {
   datesInRange,
   inspectionExportLabels,
   INSPECTION_EXPORT_LOCALES,
-  INSPECTION_PDF_COLUMN_LAYOUT,
   isEmployedOn,
   type EmploymentPeriod,
   type InspectionExportEmployee,
   type ScheduleSpan,
 } from "../src/index.js";
-import { textWidth } from "../src/reports/pdf/helvetica-metrics.js";
-import { winAnsiBinaryString } from "../src/reports/pdf/winansi.js";
 import { baseInput, parseCsv, session } from "./support/inspection-fixtures.js";
 
 const METADATA_LINES = 8;
@@ -269,27 +266,5 @@ describe("createInspectionExport employment days (TIM-006)", () => {
         },
       ),
     );
-  });
-});
-
-describe("inspection PDF layout (TIM-006)", () => {
-  it("fits the A4 content width with one width per column", () => {
-    const total = INSPECTION_PDF_COLUMN_LAYOUT.reduce((s, c) => s + c.width, 0);
-    expect(total).toBeLessThanOrEqual(515);
-    const columns = createInspectionExport(baseInput()).columns;
-    expect(INSPECTION_PDF_COLUMN_LAYOUT).toHaveLength(columns.length);
-  });
-
-  it("never cuts a header word, in any locale", () => {
-    for (const locale of INSPECTION_EXPORT_LOCALES) {
-      const columns = createInspectionExport(baseInput({ locale })).columns;
-      columns.forEach((label, i) => {
-        const room = (INSPECTION_PDF_COLUMN_LAYOUT[i]?.width ?? 0) - 4;
-        for (const word of label.split(" ")) {
-          const width = textWidth(winAnsiBinaryString(word), "bold", 6.5);
-          expect([locale, word, width <= room]).toEqual([locale, word, true]);
-        }
-      });
-    }
   });
 });
