@@ -78,7 +78,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {sections.map((group, index) => {
           const labelId = `${groupId}-${index}`;
           return (
-            <div key={group.label || index}>
+            <div key={index}>
               {showLabels && (
                 <p
                   id={labelId}
@@ -99,9 +99,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         href={item.href}
                         aria-current={active ? "page" : undefined}
                         className={cn(
-                          "flex items-center gap-3 rounded-input px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
+                          "relative flex items-center gap-3 rounded-input px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
                           active
-                            ? "bg-accent text-primary"
+                            ? // A bar on the leading edge marks the page without relying on colour alone.
+                              "bg-accent text-primary before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-primary"
                             : "text-muted-foreground hover:bg-surface-raised hover:text-foreground",
                         )}
                       >

@@ -401,7 +401,6 @@
     "cityPlaceholder": "e.g. Barcelona",
     "locationsEmpty": "No work centers configured yet.",
     "holidayYear": "Year",
-    "backToSettings": "Back to settings",
     "ssoGenericOidc": "Generic OIDC",
     "disableTwoFactorDialogDescription": "To turn off two-factor authentication, enter a current code from your authenticator app or one of your recovery codes.",
     "disableTwoFactorCodeLabel": "Authentication or recovery code",

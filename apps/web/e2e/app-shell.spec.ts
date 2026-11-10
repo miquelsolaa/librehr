@@ -53,6 +53,59 @@ test("employees see one unlabelled list", async ({ page, isMobile }) => {
   await expect(nav.getByText("Me", { exact: true })).toHaveCount(0);
 });
 
+test("managers see their own pages under Me and team pages under Organization", async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, "The sidebar is desktop-only");
+  await seedProfile(page, { role: "manager", name: "Sample Person" });
+  await page.goto("/en/home");
+  const nav = page.getByRole("navigation", { name: "Main navigation" });
+  await expect(
+    nav.getByRole("list", { name: "Me" }).getByRole("link"),
+  ).toHaveText(["Home", "Time off", "Time tracking", "Documents"]);
+  await expect(
+    nav.getByRole("list", { name: "Organization" }).getByRole("link"),
+  ).toHaveText(["People", "Onboarding", "Reports"]);
+});
+
+test("auditors see one unlabelled read-only list", async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, "The sidebar is desktop-only");
+  await seedProfile(page, { role: "auditor", name: "Sample Person" });
+  await page.goto("/en/home");
+  const nav = page.getByRole("navigation", { name: "Main navigation" });
+  await expect(nav.getByRole("link")).toHaveText([
+    "Home",
+    "Time tracking",
+    "Inspection records",
+    "Reports",
+  ]);
+  await expect(nav.getByText("Me", { exact: true })).toHaveCount(0);
+});
+
+test("on a short screen the menu scrolls so sign-out stays reachable", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 640, height: 360 });
+  await seedProfile(page, { role: "employee", name: "Sample Person" });
+  await page.goto("/en/home");
+  await page.getByRole("button", { name: "Account menu" }).click();
+  const menu = page.getByRole("menu");
+  await expect(menu).toBeVisible();
+  // The menu fits the viewport and scrolls, instead of running off-screen.
+  const box = await menu.boundingBox();
+  expect(box && box.y + box.height).toBeLessThanOrEqual(360);
+  expect(await menu.evaluate((el) => getComputedStyle(el).overflowY)).toBe(
+    "auto",
+  );
+  const signOut = page.getByRole("menuitem", { name: "Sign out" });
+  await signOut.scrollIntoViewIfNeeded();
+  await expect(signOut).toBeInViewport();
+});
+
 test("the account menu shows the translated role and closes with Escape", async ({
   page,
 }) => {
@@ -62,9 +115,15 @@ test("the account menu shows the translated role and closes with Escape", async 
   await trigger.focus();
   await page.keyboard.press("Enter");
   const menu = page.getByRole("menu");
-  await expect(menu).toContainText("Sample Person");
-  await expect(menu).toContainText("Administrador");
-  await expect(menu).not.toContainText("admin");
+  await expect(menu).toHaveAccessibleDescription("Sample Person Administrador");
+  await expect(menu.getByText("Administrador", { exact: true })).toBeVisible();
+  await expect(menu.getByText("admin", { exact: true })).toHaveCount(0);
+  await expect(
+    menu.getByRole("group", { name: "Idioma" }).getByRole("menuitemradio"),
+  ).toHaveCount(3);
+  await expect(
+    menu.getByRole("group", { name: "Tema" }).getByRole("menuitemradio"),
+  ).toHaveCount(3);
   // While the menu is open Radix hides the rest of the page (modal menu), so
   // scan the menu itself; the page is covered by a11y.spec.ts.
   const results = await new AxeBuilder({ page })

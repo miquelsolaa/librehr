@@ -52,6 +52,7 @@ export function UserMenu({ name, role }: UserMenuProps) {
   const tRoles = useTranslations("invitations");
   const { theme, setTheme } = useTheme();
   const [signingOut, setSigningOut] = React.useState(false);
+  const id = React.useId();
 
   const currentLocale =
     locales.find(
@@ -77,7 +78,7 @@ export function UserMenu({ name, role }: UserMenuProps) {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+      <DropdownMenuTrigger className="inline-flex h-11 w-11 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
         {/* Named by its text, not aria-label: the initials are decorative and
             would otherwise be visible text missing from the name (WCAG 2.5.3). */}
         <Avatar
@@ -88,8 +89,9 @@ export function UserMenu({ name, role }: UserMenuProps) {
         />
         <span className="sr-only">{tNav("accountMenu")}</span>
       </DropdownMenuTrigger>
-      <DropdownMenuContent>
-        <div className="px-3 py-2">
+      {/* The identity block is not a menu item, so describe the menu with it. */}
+      <DropdownMenuContent aria-describedby={`${id}-who`}>
+        <div id={`${id}-who`} className="px-3 py-2">
           <p className="truncate text-sm font-semibold text-foreground">
             {name}
           </p>
@@ -100,8 +102,11 @@ export function UserMenu({ name, role }: UserMenuProps) {
           )}
         </div>
         <DropdownMenuSeparator />
-        <DropdownMenuLabel>{tCommon("language")}</DropdownMenuLabel>
+        <DropdownMenuLabel id={`${id}-language`}>
+          {tCommon("language")}
+        </DropdownMenuLabel>
         <DropdownMenuRadioGroup
+          aria-labelledby={`${id}-language`}
           value={currentLocale}
           onValueChange={changeLocale}
         >
@@ -112,8 +117,11 @@ export function UserMenu({ name, role }: UserMenuProps) {
           ))}
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuLabel>{tNav("theme")}</DropdownMenuLabel>
+        <DropdownMenuLabel id={`${id}-theme`}>
+          {tNav("theme")}
+        </DropdownMenuLabel>
         <DropdownMenuRadioGroup
+          aria-labelledby={`${id}-theme`}
           value={theme ?? "system"}
           onValueChange={setTheme}
         >

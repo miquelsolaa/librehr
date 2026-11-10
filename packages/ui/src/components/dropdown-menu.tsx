@@ -19,7 +19,7 @@ export const DropdownMenuContent = React.forwardRef<
       align={align}
       collisionPadding={8}
       className={cn(
-        "z-50 min-w-56 max-w-[calc(100vw-1rem)] overflow-hidden rounded-card border border-border bg-surface-raised p-1 text-foreground shadow-lg",
+        "z-50 max-h-[var(--radix-dropdown-menu-content-available-height)] min-w-56 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-card border border-border bg-surface-raised p-1 text-foreground shadow-lg",
         "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
         className,
       )}

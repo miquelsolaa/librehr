@@ -401,7 +401,6 @@
     "cityPlaceholder": "p. ex., Barcelona",
     "locationsEmpty": "Encara no hi ha centres de treball configurats.",
     "holidayYear": "Any",
-    "backToSettings": "Tornar a la configuració",
     "ssoGenericOidc": "OIDC genèric",
     "disableTwoFactorDialogDescription": "Per desactivar l'autenticació en dos passos, introdueix un codi actual de la teva aplicació autenticadora o un dels teus codis de recuperació.",
     "disableTwoFactorCodeLabel": "Codi d'autenticació o de recuperació",

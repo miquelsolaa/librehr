@@ -26,7 +26,10 @@ import { UserMenu } from "../../../components/user-menu";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
 
-/** Destinations about the signed-in person; the rest are organization-wide. */
+/**
+ * Destinations about the signed-in person: everything an employee sees, and
+ * the "Me" group for everyone else. The rest are organization-wide.
+ */
 const PERSONAL_PATHS = new Set(["home", "time-off", "time", "documents"]);
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -134,7 +137,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     },
   ];
 
-  const employeePaths = new Set(["home", "time-off", "time", "documents"]);
   const managerPaths = new Set([
     "home",
     "people",
@@ -153,7 +155,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             const path = item.href.slice(`/${locale}/`.length);
             return userRole === "manager"
               ? managerPaths.has(path)
-              : employeePaths.has(path);
+              : PERSONAL_PATHS.has(path);
           });
 
   const mobilePrimaryPaths =
@@ -173,7 +175,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // hides the labels when only one group is left.
   const navGroups: NavGroup[] =
     userRole === "auditor"
-      ? [{ label: tNav("groupMe"), items: navItems }]
+      ? [{ label: "", items: navItems }]
       : [
           { label: tNav("groupMe"), items: navItems.filter(isPersonal) },
           {
