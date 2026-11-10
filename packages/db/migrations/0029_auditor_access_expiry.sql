@@ -48,11 +48,36 @@ COMMENT ON COLUMN "organizations"."auditor_access_max_days" IS
 -- see no rows. The owner lifts FORCE for this one statement and restores it
 -- in the same transaction (the runner wraps each migration in one), the same
 -- way as 0026_hash_bearer_tokens.sql.
+-- Auditor invitations created before this release get the same 90 days, so
+-- accepting one later still yields an auditor membership with an end date.
+-- Both ALTERs take an ACCESS EXCLUSIVE lock until the migration commits,
+-- which also pauses sign-in and session lookups for that moment.
 ALTER TABLE "memberships" NO FORCE ROW LEVEL SECURITY;
 UPDATE "memberships"
 SET "access_expires_at" = now() + interval '90 days'
 WHERE "role" = 'auditor' AND "access_expires_at" IS NULL;
 ALTER TABLE "memberships" FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE "invitations" NO FORCE ROW LEVEL SECURITY;
+UPDATE "invitations"
+SET "access_expires_at" = now() + interval '90 days'
+WHERE "role" = 'auditor' AND "access_expires_at" IS NULL;
+ALTER TABLE "invitations" FORCE ROW LEVEL SECURITY;
+
+-- 2b. The invariant, enforced by the database: an auditor membership (or
+-- auditor invitation) always has an access end date. Every API path that
+-- writes memberships sets or clears the column with the role. Dropped first
+-- so the file can be re-applied by tests.
+ALTER TABLE "memberships"
+  DROP CONSTRAINT IF EXISTS "memberships_auditor_access_expiry_check";
+ALTER TABLE "memberships"
+  ADD CONSTRAINT "memberships_auditor_access_expiry_check"
+  CHECK ("role" <> 'auditor' OR "access_expires_at" IS NOT NULL);
+ALTER TABLE "invitations"
+  DROP CONSTRAINT IF EXISTS "invitations_auditor_access_expiry_check";
+ALTER TABLE "invitations"
+  ADD CONSTRAINT "invitations_auditor_access_expiry_check"
+  CHECK ("role" <> 'auditor' OR "access_expires_at" IS NOT NULL);
 
 -- 3. The membership lookup also skips memberships whose access has ended.
 -- Body copied from 0021_terminated_access.sql; only the expiry line is new.

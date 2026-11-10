@@ -66,7 +66,7 @@ describe("auditor access expiry (0029)", () => {
     await db.adminSql`INSERT INTO memberships (organization_id, user_id, role, access_expires_at) VALUES
       (${org}, ${auditor}, 'auditor', now() + interval '1 day'),
       (${org}, ${employee}, 'employee', NULL),
-      (${org}, ${legacyAuditor}, 'auditor', NULL),
+      (${org}, ${legacyAuditor}, 'auditor', now() + interval '2 days'),
       (${org}, ${datedAuditor}, 'auditor', now() + interval '5 days')`;
   }, 60000);
 
@@ -106,8 +106,25 @@ describe("auditor access expiry (0029)", () => {
     expect((await identity.session(db.appSql, token))?.role).toBe("employee");
   });
 
-  it("backfills 90 days for pre-existing auditors only, as the owner role", async () => {
+  it("refuses an auditor membership or invitation without an end date", async () => {
+    await expect(setExpiry(auditor, null)).rejects.toThrow(
+      /memberships_auditor_access_expiry_check/,
+    );
+    await expect(
+      db.adminSql`INSERT INTO invitations (organization_id, email, role, token, expires_at)
+        VALUES (${org}, 'no-date@example.invalid', 'auditor', 'no-date-token', now() + interval '1 day')`,
+    ).rejects.toThrow(/invitations_auditor_access_expiry_check/);
+    // Other roles keep NULL.
+    expect(await expiryOf(employee)).toBeNull();
+  });
+
+  it("backfills 90 days for pre-existing auditors and their invitations, as the owner role", async () => {
+    // Recreate the pre-0029 state: no constraints and auditors without a date.
+    await db.adminSql`ALTER TABLE memberships DROP CONSTRAINT memberships_auditor_access_expiry_check`;
+    await db.adminSql`ALTER TABLE invitations DROP CONSTRAINT invitations_auditor_access_expiry_check`;
     await setExpiry(legacyAuditor, null);
+    await db.adminSql`INSERT INTO invitations (organization_id, email, role, token, expires_at)
+      VALUES (${org}, 'legacy-invite@example.invalid', 'auditor', 'legacy-invite-token', now() + interval '1 day')`;
     const before = await expiryOf(datedAuditor);
 
     // The runner wraps each migration in a transaction; do the same.
@@ -121,10 +138,19 @@ describe("auditor access expiry (0029)", () => {
     // Auditors that already had a date and other roles are untouched.
     expect(await expiryOf(datedAuditor)).toEqual(before);
     expect(await expiryOf(employee)).toBeNull();
+    const [invite] = await db.adminSql<{ set: boolean }[]>`
+      SELECT access_expires_at IS NOT NULL AS set FROM invitations
+      WHERE email = 'legacy-invite@example.invalid'`;
+    expect(invite?.set).toBe(true);
+    // The constraints are back.
+    await expect(setExpiry(legacyAuditor, null)).rejects.toThrow(
+      /memberships_auditor_access_expiry_check/,
+    );
 
     // FORCE ROW LEVEL SECURITY is back on for the owner.
     const [rls] = await db.adminSql<{ forced: boolean }[]>`
-      SELECT relforcerowsecurity AS forced FROM pg_class WHERE relname = 'memberships'`;
+      SELECT bool_and(relforcerowsecurity) AS forced FROM pg_class
+      WHERE relname IN ('memberships', 'invitations')`;
     expect(rls?.forced).toBe(true);
   });
 

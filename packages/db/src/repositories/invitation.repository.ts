@@ -28,6 +28,7 @@ export interface CreateInvitationData {
 
 export interface AcceptedInvitation {
   accessExpiresAt: Date | null;
+  createdAt: Date;
 }
 
 export class InvitationRepository {
@@ -78,8 +79,19 @@ export class InvitationRepository {
       WHERE id = ${id}
         AND accepted_at IS NULL
         AND (access_expires_at IS NULL OR access_expires_at > now())
-      RETURNING access_expires_at AS "accessExpiresAt"
+      RETURNING access_expires_at AS "accessExpiresAt", created_at AS "createdAt"
     `;
     return rows[0] ?? null;
+  }
+
+  /** TIM-008: the auditor access end date an invitation grants, if any. */
+  async accessExpiresAt(tx: TenantTx, id: string): Promise<Date | null> {
+    const rows = await tx<{ accessExpiresAt: Date | null }[]>`
+      SELECT access_expires_at AS "accessExpiresAt"
+      FROM invitations
+      WHERE id = ${id}
+        AND organization_id = ${tx.__tenantContext.organizationId}
+    `;
+    return rows[0]?.accessExpiresAt ?? null;
   }
 }
