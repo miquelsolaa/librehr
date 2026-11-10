@@ -4,12 +4,8 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Button, Input } from "@librehr/ui";
-import { ArrowLeft, Download, Eye, FileText, ShieldCheck } from "lucide-react";
-import type {
-  ExportEmployeesResponse,
-  OfficialExportResponse,
-} from "@librehr/contracts";
+import { ArrowLeft, FileText, ShieldCheck } from "lucide-react";
+import type { OfficialExportResponse } from "@librehr/contracts";
 import { getStoredSession } from "@/lib/auth";
 import { downloadTimeExport, getApiClient } from "@/lib/api-client";
 import {
@@ -23,16 +19,13 @@ import {
   type ExportLocale,
   type ExportScope,
 } from "@/lib/time-export";
+import { useExportEmployees } from "@/lib/use-export-employees";
+import {
+  TimeExportForm,
+  type ExportAction,
+} from "@/components/time-export-form";
 import { TimeExportPreview } from "@/components/time-export-preview";
 import { TimeExportReceipt } from "@/components/time-export-receipt";
-
-type Action = "json" | "csv" | "pdf";
-
-const LABEL = "mb-1.5 block text-sm font-medium text-foreground";
-const SELECT =
-  "h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-50";
-
-type PickerEmployee = ExportEmployeesResponse["items"][number];
 
 export default function TimeExportPage() {
   const params = useParams();
@@ -46,7 +39,6 @@ export default function TimeExportPage() {
     locale === "es" || locale === "en" ? locale : "ca",
   );
   const [scope, setScope] = React.useState<ExportScope>("employee");
-  const [employeeId, setEmployeeId] = React.useState("");
 
   // The cached profile lives in localStorage: read it after mount so the
   // server render and the first client render agree.
@@ -55,55 +47,17 @@ export default function TimeExportPage() {
   const allowOrganization = canExportOrganization(role);
   const allowOthers = canExportOthers(role);
 
-  // Whom the caller may export for the period (time.record.read scope), not
-  // the employee directory: an auditor has no employee.read.
-  const [directory, setDirectory] = React.useState<PickerEmployee[]>([]);
-  const [directoryFailed, setDirectoryFailed] = React.useState(false);
-  const [directoryLoading, setDirectoryLoading] = React.useState(false);
-  const [selectionReset, setSelectionReset] = React.useState(false);
-  // Read when a reload lands, without reloading on every selection.
-  const employeeIdRef = React.useRef(employeeId);
-  employeeIdRef.current = employeeId;
-  const periodValid = isValidExportPeriod(startDate, endDate);
-  React.useEffect(() => {
-    if (!allowOthers || !periodValid) {
-      setDirectoryLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setDirectoryLoading(true);
-    getApiClient()
-      .listExportEmployees({ startDate, endDate })
-      .then(({ items }) => {
-        if (cancelled) return;
-        setDirectory(items);
-        setDirectoryFailed(false);
-        // Drop a choice the new period no longer lists: the select would show
-        // "Myself" while the export still targeted the hidden employee.
-        const id = employeeIdRef.current;
-        if (id && !items.some((e) => e.id === id)) {
-          setEmployeeId("");
-          setSelectionReset(true);
-        }
-      })
-      .catch(() => {
-        if (cancelled) return;
-        // Only the caller's own record is left, as the hint says.
-        setDirectory([]);
-        setEmployeeId("");
-        setDirectoryFailed(true);
-      })
-      .finally(() => {
-        if (!cancelled) setDirectoryLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [allowOthers, periodValid, startDate, endDate]);
+  const picker = useExportEmployees({
+    enabled: allowOthers,
+    startDate,
+    endDate,
+  });
+  const { employeeId } = picker;
   // An export started while the list reloads could target a stale choice.
-  const pickerLoading = allowOthers && scope === "employee" && directoryLoading;
+  const pickerLoading =
+    allowOthers && scope === "employee" && picker.directoryLoading;
 
-  const [busy, setBusy] = React.useState<Action | null>(null);
+  const [busy, setBusy] = React.useState<ExportAction | null>(null);
   const [error, setError] = React.useState<ExportErrorKey | null>(null);
   const [doc, setDoc] = React.useState<OfficialExportResponse | null>(null);
   const [receipt, setReceipt] = React.useState<{
@@ -112,7 +66,7 @@ export default function TimeExportPage() {
   } | null>(null);
   const [downloaded, setDownloaded] = React.useState<string | null>(null);
 
-  const run = async (action: Action) => {
+  const run = async (action: ExportAction) => {
     if (!isValidExportPeriod(startDate, endDate)) {
       setError("exportErrorInvalidPeriod");
       return;
@@ -129,7 +83,7 @@ export default function TimeExportPage() {
 
     setError(null);
     setDownloaded(null);
-    setSelectionReset(false);
+    picker.clearSelectionReset();
     setReceipt(null);
     // A preview left on screen would show another export's id and hash.
     setDoc(null);
@@ -155,11 +109,6 @@ export default function TimeExportPage() {
     } finally {
       setBusy(null);
     }
-  };
-
-  const onSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    void run("json");
   };
 
   return (
@@ -201,161 +150,33 @@ export default function TimeExportPage() {
           </div>
         </div>
 
-        <form
-          onSubmit={onSubmit}
-          aria-busy={busy !== null}
-          className="space-y-4"
-        >
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <label htmlFor="export-start" className={LABEL}>
-                {t("startDate")}
-              </label>
-              <Input
-                id="export-start"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                required
-              />
-            </div>
-            <div>
-              <label htmlFor="export-end" className={LABEL}>
-                {t("endDate")}
-              </label>
-              <Input
-                id="export-end"
-                type="date"
-                value={endDate}
-                min={startDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                required
-              />
-            </div>
-            <div>
-              <label htmlFor="export-locale" className={LABEL}>
-                {t("exportLanguage")}
-              </label>
-              <select
-                id="export-locale"
-                value={docLocale}
-                onChange={(e) => setDocLocale(e.target.value as ExportLocale)}
-                className={SELECT}
-              >
-                {/* Endonyms, as in the language switcher. */}
-                <option value="ca" lang="ca">
-                  Català
-                </option>
-                <option value="es" lang="es">
-                  Español
-                </option>
-                <option value="en" lang="en">
-                  English
-                </option>
-              </select>
-            </div>
-            {allowOrganization && (
-              <div>
-                <label htmlFor="export-scope" className={LABEL}>
-                  {t("exportScope")}
-                </label>
-                <select
-                  id="export-scope"
-                  value={scope}
-                  onChange={(e) => setScope(e.target.value as ExportScope)}
-                  className={SELECT}
-                >
-                  <option value="employee">{t("exportScopeEmployee")}</option>
-                  <option value="organization">
-                    {t("exportScopeOrganization")}
-                  </option>
-                </select>
-              </div>
-            )}
-            {allowOthers && scope === "employee" && (
-              <div className="sm:col-span-2 lg:col-span-1">
-                <label htmlFor="export-employee" className={LABEL}>
-                  {t("exportEmployeeLabel")}
-                </label>
-                <select
-                  id="export-employee"
-                  value={employeeId}
-                  onChange={(e) => {
-                    setEmployeeId(e.target.value);
-                    setSelectionReset(false);
-                  }}
-                  disabled={directoryLoading}
-                  aria-describedby={
-                    directoryFailed ? "export-directory-hint" : undefined
-                  }
-                  className={SELECT}
-                >
-                  <option value="">{t("exportEmployeeSelf")}</option>
-                  {directory.map((e) => (
-                    <option key={e.id} value={e.id}>
-                      {e.name}
-                    </option>
-                  ))}
-                </select>
-                {directoryFailed && (
-                  <p
-                    id="export-directory-hint"
-                    className="mt-1.5 text-xs text-muted-foreground"
-                  >
-                    {t("exportDirectoryUnavailable")}
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-            <Button
-              type="submit"
-              disabled={busy !== null || pickerLoading}
-              isLoading={busy === "json"}
-              className="gap-2"
-            >
-              {busy !== "json" && (
-                <Eye className="h-4 w-4" aria-hidden="true" />
-              )}
-              {t("exportPreview")}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={busy !== null || pickerLoading}
-              isLoading={busy === "csv"}
-              onClick={() => void run("csv")}
-              className="gap-2"
-            >
-              {busy !== "csv" && (
-                <Download className="h-4 w-4" aria-hidden="true" />
-              )}
-              {t("exportDownloadCsv")}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={busy !== null || pickerLoading}
-              isLoading={busy === "pdf"}
-              onClick={() => void run("pdf")}
-              className="gap-2"
-            >
-              {busy !== "pdf" && (
-                <Download className="h-4 w-4" aria-hidden="true" />
-              )}
-              {t("exportDownloadPdf")}
-            </Button>
-          </div>
-        </form>
+        <TimeExportForm
+          startDate={startDate}
+          endDate={endDate}
+          docLocale={docLocale}
+          scope={scope}
+          employeeId={employeeId}
+          onStartDateChange={setStartDate}
+          onEndDateChange={setEndDate}
+          onDocLocaleChange={setDocLocale}
+          onScopeChange={setScope}
+          onEmployeeChange={picker.selectEmployee}
+          allowOrganization={allowOrganization}
+          allowOthers={allowOthers}
+          directory={picker.directory}
+          directoryFailed={picker.directoryFailed}
+          directoryLoading={picker.directoryLoading}
+          pickerLoading={pickerLoading}
+          busy={busy}
+          onRun={(action) => void run(action)}
+        />
 
         <p role="status" className="text-sm text-muted-foreground empty:hidden">
           {busy
             ? t("generating")
             : downloaded
               ? t("exportDownloaded", { filename: downloaded })
-              : selectionReset
+              : picker.selectionReset
                 ? t("exportEmployeeReset")
                 : ""}
         </p>
