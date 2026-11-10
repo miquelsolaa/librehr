@@ -22,22 +22,30 @@ Labour inspectors and external auditors use the read-only `auditor` role.
 Their access is time-limited:
 
 - An admin invites them from **Settings -> Inspector access**
-  (`/settings/auditors`) with an email address and the date their access
-  ends. The API (`POST /v1/invitations` with `role: "auditor"`) requires
-  `accessExpiresAt`, in the future and at most the organization's maximum
-  access period ahead (default 90 days, configurable there from 1 to 366).
-  Out-of-range dates give `400` with code `AUDITOR_ACCESS_END_IN_PAST` or
+  (`/settings/auditors`) with an email address and the last day of access.
+  Days are read in the organization's time zone: access lasts until the end
+  of that day there. The API (`POST /v1/invitations` with `role: "auditor"`)
+  requires `accessUntil` (`YYYY-MM-DD`), from today up to the organization's
+  maximum access period ahead (default 90 days, configurable there from 1 to
+  366). Other days give `400` with code `AUDITOR_ACCESS_END_IN_PAST` or
   `AUDITOR_ACCESS_END_TOO_FAR`.
-- When the end date passes, the auditor's sessions and API tokens stop
-  working and they can no longer sign in. Nothing else is deleted.
-- On the same page an admin can move the end date (within the maximum) or
-  revoke access at once, which also signs the auditor out
-  (`GET /v1/auditors`, `PATCH /v1/auditors/{userId}/access` with
-  `{ "accessExpiresAt": "..." }` or `{ "revoke": true }`; admins only, and not
-  available to personal access tokens).
+- When the last day ends, the auditor's sessions and API tokens stop
+  working and they can no longer sign in. Nothing else is deleted. An
+  invitation link whose access period has already ended answers `410`
+  `INVITATION_ACCESS_EXPIRED`.
+- On the same page an admin can move the last day (within the maximum),
+  revoke access at once (which also signs the auditor out), and see and
+  cancel pending auditor invitations (`GET /v1/auditors`,
+  `PATCH /v1/auditors/{userId}/access` with `{ "accessUntil": "..." }` or
+  `{ "revoke": true }`, `DELETE /v1/auditors/invitations/{id}`; admins only,
+  and not available to personal access tokens).
+- A pending invitation cannot hand back access: revoking or shortening
+  access expires the person's pending invitations to the organization, and
+  an invitation older than the last access change is refused on acceptance.
 - Every change is in the audit log as `membership.access_update` with the
-  previous and new end date (no names or emails); the auditor's exports and
-  record views are logged as described below.
+  previous and new end date (no names or emails), and cancelled invitations
+  as `invitation.cancel`; the auditor's exports and record views are logged
+  as described below.
 
 ## Request
 

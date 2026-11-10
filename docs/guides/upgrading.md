@@ -87,12 +87,27 @@ invitations and a per-organization maximum access period
   **Settings -> Inspector access** (`/settings/auditors`), up to the
   organization's maximum, which is also set there. To end access now, use
   **Revoke access** on the same page.
-- Inviting an auditor now requires an access end date (`accessExpiresAt` in
-  `POST /v1/invitations`); API clients that invite auditors must send it.
-  Sending it for any other role is rejected with `400`.
-- The migration is additive. It briefly lifts `FORCE ROW LEVEL SECURITY` on
-  `memberships` inside its own transaction to run the backfill, like
-  migration 0026; nothing else observes the table without it.
+- Pending auditor invitations created before the upgrade get the same 90
+  days.
+- Inviting an auditor now requires the last day of access (`accessUntil`,
+  `YYYY-MM-DD` in the organization's time zone, in `POST /v1/invitations`);
+  API clients that invite auditors must send it. Sending it for any other
+  role is rejected with `400`.
+- The database now refuses an auditor membership or invitation without an
+  end date (`CHECK` constraints). Scripts that insert auditors directly must
+  set `access_expires_at`.
+- **Locks.** The migration lifts `FORCE ROW LEVEL SECURITY` on `memberships`
+  and `invitations` inside its own transaction to run the backfill (like
+  migration 0026) and adds the constraints. These statements take an
+  `ACCESS EXCLUSIVE` lock on both tables until the migration commits. Every
+  sign-in, session and token lookup reads `memberships`, so authenticated
+  requests wait for that moment. It is short on typical installs; on large
+  ones run the upgrade in a quiet window.
+- **Rollback.** Migrations are forward-only. If 0029 must be undone, stop
+  the API and restore the database from the backup taken in step 1 of the
+  standard workflow. Recreating `librehr_auth_membership` from
+  `0021_terminated_access.sql` alone is not a rollback: it removes the
+  expiry check, so expired auditors would regain access.
 
 ## pg-boss queue policy
 
