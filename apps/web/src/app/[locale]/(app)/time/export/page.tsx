@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { Button, Input } from "@librehr/ui";
 import { ArrowLeft, Download, Eye, FileText, ShieldCheck } from "lucide-react";
 import type {
-  EmployeeListItem,
+  ExportEmployeesResponse,
   OfficialExportResponse,
 } from "@librehr/contracts";
 import { getStoredSession } from "@/lib/auth";
@@ -32,21 +32,7 @@ const LABEL = "mb-1.5 block text-sm font-medium text-foreground";
 const SELECT =
   "h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-50";
 
-/** Every page of the directory the API lets the caller see. */
-async function loadDirectory(): Promise<EmployeeListItem[]> {
-  const client = getApiClient();
-  const items: EmployeeListItem[] = [];
-  for (let page = 1; page <= 50; page++) {
-    const res = await client.listEmployees({ page, pageSize: 100 });
-    items.push(...res.items);
-    if (res.items.length === 0 || items.length >= res.total) break;
-  }
-  return items;
-}
-
-function employeeName(e: EmployeeListItem): string {
-  return `${e.preferredName ?? e.firstName} ${e.lastName}`;
-}
+type PickerEmployee = ExportEmployeesResponse["items"][number];
 
 export default function TimeExportPage() {
   const params = useParams();
@@ -69,14 +55,25 @@ export default function TimeExportPage() {
   const allowOrganization = canExportOrganization(role);
   const allowOthers = canExportOthers(role);
 
-  const [directory, setDirectory] = React.useState<EmployeeListItem[]>([]);
+  // Whom the caller may export for the period (time.record.read scope), not
+  // the employee directory: an auditor has no employee.read.
+  const [directory, setDirectory] = React.useState<PickerEmployee[]>([]);
   const [directoryFailed, setDirectoryFailed] = React.useState(false);
+  const periodValid = isValidExportPeriod(startDate, endDate);
   React.useEffect(() => {
-    if (!allowOthers) return;
+    if (!allowOthers || !periodValid) return;
     let cancelled = false;
-    loadDirectory()
-      .then((items) => {
-        if (!cancelled) setDirectory(items);
+    getApiClient()
+      .listExportEmployees({ startDate, endDate })
+      .then(({ items }) => {
+        if (cancelled) return;
+        setDirectory(items);
+        setDirectoryFailed(false);
+        // Drop a choice the new period no longer lists: the select would show
+        // "Myself" while the export still targeted the hidden employee.
+        setEmployeeId((id) =>
+          id && !items.some((e) => e.id === id) ? "" : id,
+        );
       })
       .catch(() => {
         if (!cancelled) setDirectoryFailed(true);
@@ -84,7 +81,7 @@ export default function TimeExportPage() {
     return () => {
       cancelled = true;
     };
-  }, [allowOthers]);
+  }, [allowOthers, periodValid, startDate, endDate]);
 
   const [busy, setBusy] = React.useState<Action | null>(null);
   const [error, setError] = React.useState<ExportErrorKey | null>(null);
@@ -271,7 +268,7 @@ export default function TimeExportPage() {
                   <option value="">{t("exportEmployeeSelf")}</option>
                   {directory.map((e) => (
                     <option key={e.id} value={e.id}>
-                      {employeeName(e)}
+                      {e.name}
                     </option>
                   ))}
                 </select>

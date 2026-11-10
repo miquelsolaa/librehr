@@ -195,6 +195,28 @@ function inclusiveDays(startDate: string, endDate: string): number {
   return (Date.parse(endDate) - Date.parse(startDate)) / DAY_MS + 1;
 }
 
+/** Export period rule: end on or after start, at most 366 days. */
+function refineExportPeriod(
+  value: { startDate: string; endDate: string },
+  ctx: z.RefinementCtx,
+): void {
+  if (value.endDate < value.startDate) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["endDate"],
+      message: "endDate must be on or after startDate",
+    });
+  } else if (
+    inclusiveDays(value.startDate, value.endDate) > OFFICIAL_EXPORT_MAX_DAYS
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["endDate"],
+      message: `The period cannot exceed ${OFFICIAL_EXPORT_MAX_DAYS} days`,
+    });
+  }
+}
+
 /**
  * TIM-006 Labour Inspectorate export query. `employeeId` only applies to the
  * employee scope (default: the caller's own employee record).
@@ -216,23 +238,37 @@ export const OfficialExportQuerySchema = z
         message: "employeeId is only allowed with scope=employee",
       });
     }
-    if (value.endDate < value.startDate) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["endDate"],
-        message: "endDate must be on or after startDate",
-      });
-    } else if (
-      inclusiveDays(value.startDate, value.endDate) > OFFICIAL_EXPORT_MAX_DAYS
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["endDate"],
-        message: `The period cannot exceed ${OFFICIAL_EXPORT_MAX_DAYS} days`,
-      });
-    }
+    refineExportPeriod(value, ctx);
   });
 export type OfficialExportQuery = z.input<typeof OfficialExportQuerySchema>;
+
+/**
+ * TIM-006/TIM-008 employee picker of the export: the period whose employees
+ * may be exported, with the same rule as the export itself.
+ */
+export const ExportEmployeesQuerySchema = z
+  .object({
+    startDate: z.string().date(),
+    endDate: z.string().date(),
+  })
+  .superRefine(refineExportPeriod);
+export type ExportEmployeesQuery = z.input<typeof ExportEmployeesQuerySchema>;
+
+/**
+ * Employees the caller may export for the period, sorted by name. Id and
+ * display name only (data minimisation).
+ */
+export const ExportEmployeesResponseSchema = z.object({
+  items: z.array(
+    z.object({
+      id: z.string().uuid(),
+      name: z.string(),
+    }),
+  ),
+});
+export type ExportEmployeesResponse = z.infer<
+  typeof ExportEmployeesResponseSchema
+>;
 
 /** TIM-002 chain verification result of one employee's records. */
 export const ChainStatusSchema = z.enum([

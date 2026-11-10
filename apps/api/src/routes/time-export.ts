@@ -3,7 +3,9 @@ import { Hono } from "hono";
 import type { Sql } from "postgres";
 import {
   type AuthUser,
+  type ExportEmployeesResponse,
   type OfficialExportResponse,
+  ExportEmployeesQuerySchema,
   OFFICIAL_EXPORT_MAX_EMPLOYEE_DAYS,
   OfficialExportQuerySchema,
 } from "@librehr/contracts";
@@ -22,7 +24,7 @@ import {
 } from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
 import { createRateLimiter } from "../middleware/rate-limit.js";
-import { can } from "../policies/can.js";
+import { can, employeeIdsInScope, permissionScope } from "../policies/can.js";
 import { canOnEmployee, resolvePolicyContext } from "../policies/context.js";
 import {
   AppError,
@@ -34,6 +36,7 @@ import { resolveBusinessTimeZone } from "../lib/business-date.js";
 import { parseQuery } from "../lib/validate.js";
 import {
   collectExportEmployee,
+  exportEmployeeName,
   type CollectedEmployee,
   type ExportSubject,
 } from "../lib/time-export.js";
@@ -86,6 +89,44 @@ export function createTimeExportRoutes(
   const employeeRepo = new EmployeeRepository();
   const orgRepo = new OrganizationRepository();
   const auditRepo = new AuditRepository();
+
+  /**
+   * Employee picker of the export: whom the caller may export for the period.
+   * Not gated on employee.read (an auditor has none) nor rate limited like
+   * the export (it is reloaded on every date change and reads no records).
+   */
+  router.get("/time/export/employees", requireAuth, async (c) => {
+    const user = currentUser(c);
+    const { startDate, endDate } = parseQuery(c, ExportEmployeesQuerySchema);
+
+    const body = await withTenant(
+      sql,
+      { organizationId: user.organizationId, userId: user.id },
+      async (tx): Promise<ExportEmployeesResponse> => {
+        const ctx = await resolvePolicyContext(c, tx);
+        if (!permissionScope(ctx, "time.record.read")) {
+          throw new ForbiddenError({
+            detail: "You do not have permission to export time records",
+          });
+        }
+        // Same set as an organization export, narrowed to the caller's scope.
+        const inScope = employeeIdsInScope(ctx, "time.record.read");
+        const allowed = inScope === "all" ? null : new Set(inScope);
+        const employed = await employeeRepo.listEmployedDuring(
+          tx,
+          startDate,
+          endDate,
+        );
+        const collator = new Intl.Collator("es", { sensitivity: "base" });
+        const items = employed
+          .filter((e) => allowed === null || allowed.has(e.id))
+          .map((e) => ({ id: e.id, name: exportEmployeeName(e) }))
+          .sort((x, y) => collator.compare(x.name, y.name));
+        return { items };
+      },
+    );
+    return c.json(body, 200, { "Cache-Control": "no-store" });
+  });
 
   router.get("/time/export", requireAuth, exportLimit, async (c) => {
     const user = currentUser(c);

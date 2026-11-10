@@ -80,6 +80,8 @@ import {
   TimeCorrectionItemSchema,
   OfficialExportQuerySchema,
   OfficialExportResponseSchema,
+  ExportEmployeesQuerySchema,
+  ExportEmployeesResponseSchema,
   KioskClockRequestSchema,
   KioskClockResponseSchema,
   SetEmployeePinSchema,
@@ -193,6 +195,7 @@ registry.register("CreateTimeCorrection", CreateTimeCorrectionSchema);
 registry.register("DecideTimeCorrection", DecideTimeCorrectionSchema);
 registry.register("TimeCorrectionItem", TimeCorrectionItemSchema);
 registry.register("OfficialExportResponse", OfficialExportResponseSchema);
+registry.register("ExportEmployeesResponse", ExportEmployeesResponseSchema);
 registry.register("KioskClockRequest", KioskClockRequestSchema);
 registry.register("KioskClockResponse", KioskClockResponseSchema);
 registry.register("SetEmployeePin", SetEmployeePinSchema);
@@ -1092,6 +1095,36 @@ registry.registerPath({
 });
 
 registry.registerPath({
+  method: "get",
+  path: "/v1/time/export/employees",
+  summary:
+    "Employees the caller may export (TIM-006, TIM-008) for a period, for the export's employee picker",
+  description:
+    "Requires time.record.read at any scope. Organization scope (admin, auditor) lists every employee of the organization employed during the period (the same set as an organization export); reports scope (manager) lists self and direct reports; self scope lists only the caller. Id and display name only, sorted by name.",
+  request: { query: ExportEmployeesQuerySchema },
+  responses: {
+    200: {
+      description: "Employees in the caller's scope",
+      content: {
+        "application/json": { schema: ExportEmployeesResponseSchema },
+      },
+    },
+    400: {
+      description: "Invalid dates or period over 366 days",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    401: {
+      description: "Not authenticated",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    403: {
+      description: "No time.record.read permission",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
   method: "post",
   path: "/v1/schedules/assignments",
   summary: "Assign an explicit weekly schedule to an employee",
@@ -1611,6 +1644,7 @@ import type {
   DecideTimeCorrection,
   TimeCorrectionItem,
   OfficialExportResponse,
+  ExportEmployeesResponse,
   KioskClockRequest,
   KioskClockResponse,
   SetEmployeePin,
@@ -2095,6 +2129,14 @@ export class LibreHrApiClient {
     if (params.scope) searchParams.set('scope', params.scope);
     if (params.locale) searchParams.set('locale', params.locale);
     return this.request<OfficialExportResponse>(\`/v1/time/export?\${searchParams.toString()}\`);
+  }
+
+  async listExportEmployees(params: { startDate: string; endDate: string }): Promise<ExportEmployeesResponse> {
+    const searchParams = new URLSearchParams({
+      startDate: params.startDate,
+      endDate: params.endDate,
+    });
+    return this.request<ExportEmployeesResponse>(\`/v1/time/export/employees?\${searchParams.toString()}\`);
   }
 
   async listTimeCorrections(params?: { employeeId?: string; status?: string }): Promise<TimeCorrectionItem[]> {

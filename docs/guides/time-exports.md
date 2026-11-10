@@ -57,6 +57,29 @@ A period covers at most 366 days.
   address, behind `TRUST_PROXY` hops). Beyond that the API answers
   `429 RATE_LIMIT_EXCEEDED` with a `Retry-After` header.
 
+## Employee picker
+
+`GET /v1/time/export/employees?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD` lists
+whom the caller may export for that period, as `{ items: [{ id, name }] }`
+sorted by name. The web export page fills its employee picker from it and
+reloads it when the dates change.
+
+| Role     | Listed                                                         |
+| -------- | -------------------------------------------------------------- |
+| Employee | themselves                                                     |
+| Manager  | themselves and their direct reports                            |
+| Auditor  | every employee an organization export of the period would list |
+| Admin    | every employee an organization export of the period would list |
+
+The list starts from the same employees as an organization export of the
+period (see above) and keeps those inside the caller's `time.record.read`
+scope. It needs `time.record.read` only, not `employee.read`, so an auditor
+can pick one employee without seeing the employee directory. It returns ids
+and display names only (no email, department or other directory fields), is
+not rate limited like the export and writes nothing to the audit log. Period
+rules are the export's: `400` for an invalid date, an end before the start or
+more than 366 days; `401` without a session; `403` without `time.record.read`.
+
 ## What the document contains
 
 - A header with the organization, period, scope, the organization's time
