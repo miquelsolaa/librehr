@@ -13,6 +13,7 @@ import {
   Webhook,
   ChevronRight,
   Clock,
+  ClipboardCheck,
 } from "lucide-react";
 
 export default function SettingsPage() {
@@ -21,6 +22,7 @@ export default function SettingsPage() {
   const tNav = useTranslations("nav");
   const t = useTranslations("settings");
   const tSchedule = useTranslations("scheduleSettings");
+  const tAuditors = useTranslations("auditorAccess");
 
   const settingsCards = [
     {
@@ -58,6 +60,12 @@ export default function SettingsPage() {
       description: t("securityCardDescription"),
       href: `/${locale}/settings/security`,
       icon: <ShieldCheck className="h-5 w-5 text-primary" />,
+    },
+    {
+      title: tAuditors("title"),
+      description: tAuditors("linkDescription"),
+      href: `/${locale}/settings/auditors`,
+      icon: <ClipboardCheck className="h-5 w-5 text-primary" />,
     },
     {
       title: t("ssoCardTitle"),
