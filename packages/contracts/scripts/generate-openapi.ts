@@ -14,6 +14,8 @@ import {
   SignInRequestSchema,
   SessionResponseSchema,
   MeResponseSchema,
+  OrgSecuritySettingsSchema,
+  UpdateOrgSecuritySettingsSchema,
 } from "../src/auth.js";
 import {
   OrganizationResponseSchema,
@@ -47,6 +49,11 @@ import {
   AcceptInvitationRequestSchema,
   InvitationDetailsSchema,
 } from "../src/invitations.js";
+import {
+  AuditorListResponseSchema,
+  UpdateAuditorAccessRequestSchema,
+  AuditorSchema,
+} from "../src/auditor-access.js";
 import {
   LeaveTypeSchema,
   CreateLeaveTypeRequestSchema,
@@ -657,6 +664,98 @@ registry.registerPath({
     200: {
       description: "Invitation accepted and session created",
       content: { "application/json": { schema: SessionResponseSchema } },
+    },
+  },
+});
+
+// Organization security settings (AUTH-003, TIM-008)
+registry.registerPath({
+  method: "get",
+  path: "/v1/settings/security",
+  summary: "Read the organization's security settings",
+  responses: {
+    200: {
+      description: "Organization security settings",
+      content: { "application/json": { schema: OrgSecuritySettingsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "patch",
+  path: "/v1/settings/security",
+  summary:
+    "Update the organization's security settings (admin only, audit-logged)",
+  request: {
+    body: {
+      content: {
+        "application/json": { schema: UpdateOrgSecuritySettingsSchema },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Settings as stored",
+      content: { "application/json": { schema: OrgSecuritySettingsSchema } },
+    },
+    400: {
+      description: "Invalid settings",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    403: {
+      description: "Not an organization admin",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+// Inspector / auditor access (TIM-008)
+registry.registerPath({
+  method: "get",
+  path: "/v1/auditors",
+  summary: "List the organization's auditors and their access end dates",
+  responses: {
+    200: {
+      description: "Auditors of the organization",
+      content: { "application/json": { schema: AuditorListResponseSchema } },
+    },
+    403: {
+      description: "Not an organization admin",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "patch",
+  path: "/v1/auditors/{userId}/access",
+  summary:
+    "Move an auditor's access end date or revoke access now (audit-logged)",
+  request: {
+    params: z.object({ userId: z.string().uuid() }),
+    body: {
+      content: {
+        "application/json": { schema: UpdateAuditorAccessRequestSchema },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "The auditor with the new access end date",
+      content: { "application/json": { schema: AuditorSchema } },
+    },
+    400: {
+      description:
+        "End date in the past or beyond the organization's maximum (AUDITOR_ACCESS_END_IN_PAST, AUDITOR_ACCESS_END_TOO_FAR)",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    403: {
+      description: "Not an organization admin",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    404: {
+      description: "No auditor with this user id in the organization",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
   },
 });
@@ -1606,6 +1705,11 @@ import type {
   AcceptInvitationRequest,
 } from '../src/invitations.js';
 import type {
+  Auditor,
+  AuditorListResponse,
+  UpdateAuditorAccessRequest,
+} from '../src/auditor-access.js';
+import type {
   LeaveType,
   CreateLeaveTypeRequest,
   LeaveBalanceSummary,
@@ -1890,6 +1994,18 @@ export class LibreHrApiClient {
   async acceptInvitation(data: AcceptInvitationRequest): Promise<SessionResponse> {
     return this.request<SessionResponse>('/v1/invitations/accept', {
       method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Inspector / auditor access (TIM-008)
+  async listAuditors(): Promise<AuditorListResponse> {
+    return this.request<AuditorListResponse>('/v1/auditors');
+  }
+
+  async updateAuditorAccess(userId: string, data: UpdateAuditorAccessRequest): Promise<Auditor> {
+    return this.request<Auditor>(\`/v1/auditors/\${userId}/access\`, {
+      method: 'PATCH',
       body: JSON.stringify(data),
     });
   }
