@@ -42,5 +42,5 @@ Options considered: (A) permissive core plus proprietary modules, (B) AGPL core 
 - Anyone may still host the Community edition commercially under AGPL terms, provided they publish their modifications and do not use the trademark. This is accepted.
 - Moving existing features into `ee/` is a product decision that needs maintainer approval (`AGENTS.md` section 8).
 - Business code is visible in the public repository. The licence and key, not secrecy, are what protect it.
-- `CLA.md`, `ee/LICENSE` and `TRADEMARKS.md` are drafts. They must be reviewed by a lawyer before the first paid licence is sold.
+- `CLA.md`, `ee/LICENSE` and `TRADEMARKS.md` are in force as version 1.0. Changes to them follow the "Ask first" rule in `AGENTS.md` section 8.
 - The production signing key is generated and stored offline by the steward. Until its public key replaces the placeholder in `ee/`, every instance runs as Community.

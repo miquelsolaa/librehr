@@ -66,7 +66,8 @@ Business model decided in `docs/adr/0004-open-core-licensing.md`; editions in `d
 - [x] Governance: CLA (`CLA.md`), LibreHR Enterprise License (`ee/LICENSE`), trademark policy (`TRADEMARKS.md`), editions page.
 - [x] **`LIC-001`/`LIC-002`:** `ee/` workspace package, API extension point, offline Ed25519 licence keys, `GET /v1/edition`.
 - [x] **`LIC-003` + `AUTH-004`:** move OIDC SSO into `ee/`, `LICENSE_REQUIRED` gating and UI notice.
-- [ ] Legal review of CLA, Enterprise License and trademark policy; trademark registration (OEPM/EUIPO).
+- [x] CLA, Enterprise License and trademark policy adopted as v1.0.
+- [ ] Trademark registration (OEPM/EUIPO).
 - [ ] Production licence signing keypair generated offline; public key replaces the placeholder.
 - [ ] **LibreHR Cloud:** EU-hosted managed offering (provisioning, billing, backups, status page).
 - [ ] **Partner programme** for gestorías, integrators and hosting providers.
