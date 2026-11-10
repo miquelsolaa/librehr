@@ -271,7 +271,7 @@ export default function ShiftRosterPage() {
   const getShiftBadge = (assign?: ShiftAssignment) => {
     if (!assign || !assign.shiftCode || assign.shiftCode === "OFF") {
       return (
-        <span className="inline-block w-full py-1 text-center font-mono text-[10px] text-muted-foreground/50 rounded bg-muted/20">
+        <span className="inline-block w-full py-1 text-center font-mono text-[10px] text-muted-foreground/50 rounded bg-surface">
           -
         </span>
       );
@@ -564,7 +564,7 @@ export default function ShiftRosterPage() {
                     {employees.map((emp) => (
                       <label
                         key={emp.id}
-                        className="flex items-center gap-2 hover:bg-muted/30 p-1 rounded cursor-pointer"
+                        className="flex items-center gap-2 hover:bg-surface p-1 rounded cursor-pointer"
                       >
                         <input
                           type="checkbox"
@@ -612,7 +612,7 @@ export default function ShiftRosterPage() {
 
       {/* KPI Cards Row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+        <div className="rounded-xl border border-border bg-surface p-4 shadow-sm">
           <div className="flex items-center justify-between text-muted-foreground">
             <span className="text-xs font-medium">{t("shiftsTotal")}</span>
             <Calendar className="h-4 w-4 text-primary" />
@@ -622,7 +622,7 @@ export default function ShiftRosterPage() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+        <div className="rounded-xl border border-border bg-surface p-4 shadow-sm">
           <div className="flex items-center justify-between text-muted-foreground">
             <span className="text-xs font-medium">{t("shiftsNightHours")}</span>
             <Moon className="h-4 w-4 text-indigo-500" />
@@ -635,7 +635,7 @@ export default function ShiftRosterPage() {
           </span>
         </div>
 
-        <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+        <div className="rounded-xl border border-border bg-surface p-4 shadow-sm">
           <div className="flex items-center justify-between text-muted-foreground">
             <span className="text-xs font-medium">{t("shiftsRotations")}</span>
             <Repeat className="h-4 w-4 text-amber-500" />
@@ -650,7 +650,7 @@ export default function ShiftRosterPage() {
           )}
         </div>
 
-        <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+        <div className="rounded-xl border border-border bg-surface p-4 shadow-sm">
           <div className="flex items-center justify-between text-muted-foreground">
             <span className="text-xs font-medium">
               {t("shiftsPendingSwaps")}
@@ -704,8 +704,8 @@ export default function ShiftRosterPage() {
       )}
       {activeTab === "grid" ? (
         /* Shift Roster Grid Matrix */
-        <div className="rounded-card border border-border bg-card overflow-hidden shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border-b border-border bg-muted/20 gap-3">
+        <div className="rounded-card border border-border bg-surface overflow-hidden shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border-b border-border bg-surface gap-3">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1">
                 <Button
@@ -792,8 +792,8 @@ export default function ShiftRosterPage() {
           >
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-border bg-muted/40 font-semibold text-muted-foreground">
-                  <th className="sticky left-0 bg-muted/90 backdrop-blur z-10 px-3 py-2 w-48 border-r border-border">
+                <tr className="border-b border-border bg-surface font-semibold text-muted-foreground">
+                  <th className="sticky left-0 bg-surface backdrop-blur z-10 px-3 py-2 w-48 border-r border-border">
                     {t("colEmployee")}
                   </th>
                   {daysArray.map((day) => (
@@ -820,9 +820,9 @@ export default function ShiftRosterPage() {
                   rosterEmployees.map((emp) => (
                     <tr
                       key={emp.id}
-                      className="hover:bg-muted/10 transition-colors"
+                      className="hover:bg-surface transition-colors"
                     >
-                      <td className="sticky left-0 bg-card z-10 px-3 py-2 font-medium text-foreground truncate border-r border-border">
+                      <td className="sticky left-0 bg-surface z-10 px-3 py-2 font-medium text-foreground truncate border-r border-border">
                         {emp.firstName} {emp.lastName}
                       </td>
                       {daysArray.map((day) => {
@@ -848,7 +848,7 @@ export default function ShiftRosterPage() {
         </div>
       ) : (
         /* Shift Swaps List */
-        <div className="rounded-card border border-border bg-card divide-y divide-border">
+        <div className="rounded-card border border-border bg-surface divide-y divide-border">
           {swaps.length === 0 ? (
             <div className="p-8 text-center text-sm text-muted-foreground">
               {t("swapsEmpty")}

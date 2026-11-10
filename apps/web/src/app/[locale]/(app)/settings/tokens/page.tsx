@@ -324,7 +324,7 @@ export default function TokensSettingsPage() {
               className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 gap-4"
             >
               <div className="flex items-start sm:items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-btn bg-primary/10 text-primary shrink-0 mt-0.5 sm:mt-0">
+                <div className="flex h-9 w-9 items-center justify-center rounded-input bg-primary/10 text-primary shrink-0 mt-0.5 sm:mt-0">
                   <KeyRound className="h-4 w-4" />
                 </div>
                 <div>
@@ -395,7 +395,7 @@ export default function TokensSettingsPage() {
                 <Button
                   size="sm"
                   variant="outline"
-                  className="text-destructive hover:bg-destructive/10 hover:text-destructive gap-1.5"
+                  className="text-danger hover:bg-danger/10 hover:text-danger gap-1.5"
                   onClick={() => handleRevoke(token.id)}
                 >
                   <Trash2 className="h-3.5 w-3.5" />

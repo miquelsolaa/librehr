@@ -485,7 +485,7 @@ export default function DocumentsPage() {
               aria-label={t("selectCategory")}
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="h-9 rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="all">{t("filterAll")}</option>
               <option value="contracts">{t("categoryContracts")}</option>
@@ -497,7 +497,7 @@ export default function DocumentsPage() {
           </div>
 
           {/* Documents Table */}
-          <div className="overflow-hidden rounded-lg border border-border bg-card">
+          <div className="overflow-hidden rounded-lg border border-border bg-surface">
             {loading ? (
               <div className="p-8 text-center text-sm text-muted-foreground">
                 {t("loading")}
@@ -521,7 +521,7 @@ export default function DocumentsPage() {
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
-                  <thead className="border-b border-border bg-muted/50 text-xs font-medium text-muted-foreground uppercase">
+                  <thead className="border-b border-border bg-surface text-xs font-medium text-muted-foreground uppercase">
                     <tr>
                       <th className="px-4 py-3">{t("colTitle")}</th>
                       <th className="px-4 py-3">{t("colCategory")}</th>
@@ -535,7 +535,7 @@ export default function DocumentsPage() {
                   </thead>
                   <tbody className="divide-y divide-border">
                     {documents.map((doc) => (
-                      <tr key={doc.id} className="hover:bg-muted/30">
+                      <tr key={doc.id} className="hover:bg-surface">
                         <td className="px-4 py-3 font-medium text-foreground">
                           <div className="flex items-center gap-2">
                             <FileText className="h-4 w-4 text-primary shrink-0" />
@@ -612,7 +612,7 @@ export default function DocumentsPage() {
       )}
 
       {activeTab === "upload" && (
-        <div className="max-w-xl rounded-lg border border-border bg-card p-6 shadow-sm">
+        <div className="max-w-xl rounded-lg border border-border bg-surface p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-foreground mb-4">
             {t("uploadTitle")}
           </h2>
@@ -627,7 +627,7 @@ export default function DocumentsPage() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder={t("documentTitlePlaceholder")}
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
 
@@ -640,7 +640,7 @@ export default function DocumentsPage() {
                 onChange={(e) =>
                   setCategory(e.target.value as DocumentCategory)
                 }
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="contracts">{t("categoryContracts")}</option>
                 <option value="payslips">{t("categoryPayslips")}</option>
@@ -663,7 +663,7 @@ export default function DocumentsPage() {
                 onChange={(e) =>
                   setAudienceType(e.target.value as "individual" | "company")
                 }
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="individual">{t("individual")}</option>
                 <option value="company">{t("companyWide")}</option>
@@ -697,7 +697,7 @@ export default function DocumentsPage() {
       )}
 
       {activeTab === "bulk" && (
-        <div className="max-w-3xl rounded-lg border border-border bg-card p-6 shadow-sm space-y-6">
+        <div className="max-w-3xl rounded-lg border border-border bg-surface p-6 shadow-sm space-y-6">
           <div>
             <h2 className="text-lg font-semibold text-foreground">
               {t("bulkUploadTitle")}
@@ -753,7 +753,7 @@ export default function DocumentsPage() {
 
               <div className="overflow-x-auto rounded border border-border">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-muted/50 font-medium text-muted-foreground uppercase border-b border-border">
+                  <thead className="bg-surface font-medium text-muted-foreground uppercase border-b border-border">
                     <tr>
                       <th className="px-3 py-2">{t("colFilename")}</th>
                       <th className="px-3 py-2">{t("colMatchedEmployee")}</th>
@@ -763,7 +763,7 @@ export default function DocumentsPage() {
                   </thead>
                   <tbody className="divide-y divide-border">
                     {bulkReport.matches.map((m, idx) => (
-                      <tr key={idx} className="hover:bg-muted/30">
+                      <tr key={idx} className="hover:bg-surface">
                         <td className="px-3 py-2 font-mono">{m.filename}</td>
                         <td className="px-3 py-2">{m.employeeName ?? "—"}</td>
                         <td className="px-3 py-2">

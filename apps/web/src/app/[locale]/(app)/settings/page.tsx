@@ -92,7 +92,7 @@ export default function SettingsPage() {
             className="group flex items-center justify-between rounded-card border border-border bg-surface p-5 hover:border-primary/50 hover:bg-surface-raised transition-all"
           >
             <div className="flex items-center gap-4">
-              <div className="flex h-11 w-11 items-center justify-center rounded-btn bg-primary/10">
+              <div className="flex h-11 w-11 items-center justify-center rounded-input bg-primary/10">
                 {card.icon}
               </div>
               <div>

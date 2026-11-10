@@ -192,7 +192,7 @@ export default function DepartmentsSettingsPage() {
             <div key={d.id} className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-btn bg-primary/10 text-primary">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-input bg-primary/10 text-primary">
                     <Building2 className="h-4 w-4" />
                   </div>
                   <div>
