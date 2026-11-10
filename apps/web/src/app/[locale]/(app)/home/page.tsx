@@ -22,14 +22,19 @@ export default function HomePage() {
   const [balance, setBalance] = React.useState<number | null>(null);
   const [balanceError, setBalanceError] = React.useState(false);
 
+  // Only the latest request may update the page, and none after unmount.
+  const requestRef = React.useRef(0);
+  React.useEffect(() => () => void (requestRef.current += 1), []);
+
   const loadBalance = React.useCallback(async () => {
+    const request = ++requestRef.current;
     setBalanceError(false);
     setBalance(null);
     try {
       const result = await getApiClient().getLeaveBalance();
-      setBalance(result.currentBalance);
+      if (request === requestRef.current) setBalance(result.currentBalance);
     } catch {
-      setBalanceError(true);
+      if (request === requestRef.current) setBalanceError(true);
     }
   }, []);
 
