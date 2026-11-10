@@ -1,6 +1,7 @@
 import type { Hono, MiddlewareHandler } from "hono";
 import type { Sql } from "postgres";
 import type { BusinessFeature, LicenseState } from "@librehr/contracts";
+import type { AppErrorInit } from "../errors/index.js";
 
 /**
  * What the API hands a Business extension when mounting it (ADR 0004).
@@ -15,6 +16,8 @@ export interface ExtensionContext {
   publicApiUrl: string;
   /** SSO_ENABLED. */
   ssoEnabled: boolean;
+  /** Builds an AppError, so problems thrown by extensions map to problem+json. */
+  createError: (init: AppErrorInit) => Error;
 }
 
 /** Routes of one Business feature, mounted under `/v1`. */

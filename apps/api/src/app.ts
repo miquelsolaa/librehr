@@ -55,7 +55,6 @@ import { createDsrRoutes } from "./routes/dsr.js";
 import { createReportRoutes } from "./routes/reports.js";
 import { createTokenRoutes } from "./routes/tokens.js";
 import { createCustomFieldRoutes } from "./routes/custom-fields.js";
-import { createSsoRoutes } from "./routes/sso.js";
 import { createSettingsSecurityRoutes } from "./routes/settings-security.js";
 import { createAuditorAccessRoutes } from "./routes/auditor-access.js";
 import { createWebhookRoutes } from "./routes/webhooks.js";
@@ -65,6 +64,7 @@ import { mountBusinessRoutes } from "./extensions/business-routes.js";
 import { communityLicense } from "./extensions/community.js";
 import type { ApiExtension } from "./extensions/types.js";
 import { requireAuth } from "./middleware/auth.js";
+import { AppError } from "./errors/index.js";
 import type { LicenseState } from "@librehr/contracts";
 import { createCorsOriginMatcher } from "./lib/cors-origin.js";
 import type { HostResolver } from "./lib/outbound-url.js";
@@ -309,13 +309,6 @@ export function createApp(deps: AppDependencies) {
   app.route("/v1", createReportRoutes(deps.sql));
   app.route("/v1", createTokenRoutes(deps.sql));
   app.route("/v1", createCustomFieldRoutes(deps.sql));
-  app.route(
-    "/v1",
-    createSsoRoutes(deps.sql, {
-      enabled: config.ssoEnabled,
-      publicApiUrl: config.publicApiUrl,
-    }),
-  );
   app.route("/v1", createSettingsSecurityRoutes(deps.sql));
   app.route("/v1", createAuditorAccessRoutes(deps.sql));
   app.route(
@@ -334,6 +327,7 @@ export function createApp(deps: AppDependencies) {
     requireAuth,
     publicApiUrl: config.publicApiUrl,
     ssoEnabled: config.ssoEnabled,
+    createError: (init) => new AppError(init),
   });
 
   // 5. RFC 9457 Problem Details Error Handler

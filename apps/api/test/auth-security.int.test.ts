@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Sql } from "postgres";
 import { createApp } from "../src/app.js";
+import { businessEdition } from "./support/business-edition.js";
 import type { AuthPort, AuthSession } from "../src/ports/auth.js";
 import type { AuthUser, ProblemDetails } from "@librehr/contracts";
 import { generateTotpSecret } from "@librehr/core";
@@ -75,6 +76,8 @@ describe("Enterprise Auth & Security Hardening API (AUTH-003, AUTH-004, DOC-007)
   const app = createApp({
     sql: fakeSql,
     authPort,
+    // SSO (AUTH-004) is a Business feature (LIC-003).
+    ...businessEdition(),
     config: { ssoEnabled: true },
   });
 

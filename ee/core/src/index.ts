@@ -1,6 +1,8 @@
-import type { BusinessFeature, LicenseState } from "@librehr/contracts";
+import type { LicenseState } from "@librehr/contracts";
+import type { EeApiExtension } from "./extension.js";
 import { verifyLicenseKey } from "./licensing/license-key.js";
 import { LIBREHR_LICENSE_PUBLIC_KEY_PEM } from "./licensing/public-key.js";
+import { ssoExtension } from "./sso/routes.js";
 
 export {
   communityState,
@@ -10,6 +12,11 @@ export {
   type LicensePayload,
 } from "./licensing/license-key.js";
 export { LIBREHR_LICENSE_PUBLIC_KEY_PEM } from "./licensing/public-key.js";
+export type {
+  EeApiExtension,
+  EeExtensionContext,
+  ProblemInit,
+} from "./extension.js";
 
 export interface EeOptions {
   /** LIBREHR_LICENSE_KEY. */
@@ -22,16 +29,6 @@ export interface EeOptions {
   now?: Date | undefined;
 }
 
-/**
- * A Business feature's API routes. Structurally identical to the API's
- * `ApiExtension` (apps/api/src/extensions/types.ts); `ee/` cannot import the
- * API, so the shape is kept in sync by the API's type check.
- */
-export interface EeApiExtension<Router = unknown, Context = unknown> {
-  feature: BusinessFeature;
-  register: (router: Router, context: Context) => void;
-}
-
 export interface EeBundle {
   license: LicenseState;
   /** Only extensions whose feature the licence grants. */
@@ -39,7 +36,7 @@ export interface EeBundle {
 }
 
 /** All Business API extensions shipped in this version. */
-const ALL_EXTENSIONS: EeApiExtension[] = [];
+const ALL_EXTENSIONS: EeApiExtension[] = [ssoExtension];
 
 /**
  * Entry point used by the API extension loader (LIC-001/002): verifies the

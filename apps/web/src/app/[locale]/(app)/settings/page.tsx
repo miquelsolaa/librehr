@@ -15,6 +15,7 @@ import {
   Clock,
   ClipboardCheck,
 } from "lucide-react";
+import { Badge } from "@librehr/ui";
 
 export default function SettingsPage() {
   const params = useParams();
@@ -72,6 +73,8 @@ export default function SettingsPage() {
       description: t("ssoCardDescription"),
       href: `/${locale}/settings/sso`,
       icon: <Globe className="h-5 w-5 text-primary" />,
+      // LIC-003: Business edition feature (docs/editions.md).
+      badge: t("businessBadge"),
     },
     {
       title: t("webhooksCardTitle"),
@@ -104,9 +107,14 @@ export default function SettingsPage() {
                 {card.icon}
               </div>
               <div>
-                <h2 className="text-base font-semibold text-foreground group-hover:text-primary transition-colors">
-                  {card.title}
-                </h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-semibold text-foreground group-hover:text-primary transition-colors">
+                    {card.title}
+                  </h2>
+                  {"badge" in card && card.badge ? (
+                    <Badge variant="outline">{card.badge}</Badge>
+                  ) : null}
+                </div>
                 <p className="text-xs text-muted-foreground line-clamp-2">
                   {card.description}
                 </p>

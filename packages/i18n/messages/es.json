@@ -334,6 +334,8 @@
     "enabled": "Activo",
     "disabled": "Inactivo",
     "ssoTitle": "Inicio de Sesión Único (SSO / OIDC)",
+    "ssoLicenseRequired": "El inicio de sesión único forma parte de LibreHR Business. Pide a tu administrador que añada una clave de licencia Business o usa LibreHR Cloud.",
+    "businessBadge": "Business",
     "ssoUnavailable": "El inicio de sesión único todavía no está disponible en esta instancia.",
     "ssoDescription": "Configura la integración de identidad corporativa con Google Workspace, Microsoft Entra ID u OIDC genérico.",
     "ssoCardTitle": "Inicio de sesión único (SSO)",

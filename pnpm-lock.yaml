@@ -406,6 +406,15 @@ importers:
       '@librehr/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@librehr/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      hono:
+        specifier: ^4.7.2
+        version: 4.13.16
+      postgres:
+        specifier: ^3.4.5
+        version: 3.4.9
       zod:
         specifier: ^3.24.2
         version: 3.25.76

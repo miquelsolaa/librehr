@@ -46,6 +46,8 @@ export default function SsoSettingsPage() {
   );
   const [copiedCallback, setCopiedCallback] = React.useState(false);
   const [unavailable, setUnavailable] = React.useState(false);
+  // LIC-003: SSO is a LibreHR Business feature.
+  const [licenseRequired, setLicenseRequired] = React.useState(false);
 
   const callbackUrl =
     typeof window !== "undefined"
@@ -69,7 +71,9 @@ export default function SsoSettingsPage() {
       }
     } catch (err) {
       const problem = err as Partial<ProblemDetails> | null;
-      if (problem?.code === "SSO_DISABLED") {
+      if (problem?.code === "LICENSE_REQUIRED") {
+        setLicenseRequired(true);
+      } else if (problem?.code === "SSO_DISABLED") {
         setUnavailable(true);
       } else {
         setErrorMessage(t("loadError"));
@@ -164,6 +168,16 @@ export default function SsoSettingsPage() {
         >
           <CheckCircle2 className="h-4 w-4" />
           {successMessage}
+        </div>
+      )}
+
+      {licenseRequired && (
+        <div
+          role="status"
+          className="rounded-card border border-info/30 bg-info/10 p-4 text-sm text-foreground flex items-center gap-2"
+        >
+          <AlertCircle className="h-4 w-4 text-info" aria-hidden="true" />
+          {t("ssoLicenseRequired")}
         </div>
       )}
 

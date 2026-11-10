@@ -8,8 +8,9 @@ import type { ApiExtension, ExtensionContext } from "./types.js";
  * feature is not licensed answers 403 LICENSE_REQUIRED (LIC-003), also in a
  * Community build without `ee/`.
  */
-export const BUSINESS_ROUTE_PREFIXES: Partial<Record<BusinessFeature, string>> =
-  {};
+export const BUSINESS_ROUTE_PREFIXES: Record<BusinessFeature, string> = {
+  sso: "/sso",
+};
 
 /**
  * Mounts licensed extensions and a LICENSE_REQUIRED guard on every other

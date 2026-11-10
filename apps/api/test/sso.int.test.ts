@@ -10,6 +10,7 @@ import { decryptEnvelope, SsoRepository, withTenant } from "@librehr/db";
 import { runMigrations } from "@librehr/db/migrate";
 import type { AuthUser, ProblemDetails } from "@librehr/contracts";
 import { createApp } from "../src/app.js";
+import { businessEdition } from "./support/business-edition.js";
 import type { AuthPort, AuthSession } from "../src/ports/auth.js";
 
 class MockAuthPort implements AuthPort {
@@ -34,30 +35,74 @@ class MockAuthPort implements AuthPort {
   }
 }
 
-describe("SSO is unavailable unless SSO_ENABLED (AUTH-004)", () => {
+const SSO_ROUTES = [
+  ["GET", "/v1/sso/config"],
+  ["POST", "/v1/sso/config"],
+  ["POST", "/v1/sso/authorize"],
+  ["GET", "/v1/sso/callback"],
+] as const;
+
+async function requestSso(
+  app: ReturnType<typeof createApp>,
+  method: string,
+  path: string,
+) {
+  const res = await app.request(path, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    ...(method === "POST" ? { body: "{}" } : {}),
+  });
+  return { status: res.status, body: (await res.json()) as ProblemDetails };
+}
+
+describe("SSO needs a Business licence (LIC-003, AUTH-004)", () => {
+  it.each(SSO_ROUTES)(
+    "%s %s returns 403 LICENSE_REQUIRED in Community",
+    async (method, path) => {
+      const app = createApp({
+        sql: {} as unknown as Sql,
+        authPort: new MockAuthPort(),
+        config: { nodeEnv: "production", ssoEnabled: true },
+      });
+      const { status, body } = await requestSso(app, method, path);
+      expect(status).toBe(403);
+      expect(body.code).toBe("LICENSE_REQUIRED");
+    },
+  );
+
+  it("stays LICENSE_REQUIRED with a licence that does not grant sso", async () => {
+    const edition = businessEdition(["something-else"]);
+    const app = createApp({
+      sql: {} as unknown as Sql,
+      authPort: new MockAuthPort(),
+      config: { nodeEnv: "production", ssoEnabled: true },
+      license: edition.license,
+      extensions: edition.extensions,
+    });
+    const { status, body } = await requestSso(app, "GET", "/v1/sso/config");
+    expect(status).toBe(403);
+    expect(body.code).toBe("LICENSE_REQUIRED");
+  });
+});
+
+describe("Licensed SSO is unavailable unless SSO_ENABLED (AUTH-004)", () => {
+  const edition = businessEdition();
   const app = createApp({
     sql: {} as unknown as Sql,
     authPort: new MockAuthPort(),
     config: { nodeEnv: "production" },
+    license: edition.license,
+    extensions: edition.extensions,
   });
 
-  it.each([
-    ["GET", "/v1/sso/config"],
-    ["POST", "/v1/sso/config"],
-    ["POST", "/v1/sso/authorize"],
-    ["GET", "/v1/sso/callback"],
-  ])("%s %s returns 404", async (method, path) => {
-    const res = await app.request(path, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      ...(method === "POST" ? { body: "{}" } : {}),
-    });
-    expect(res.status).toBe(404);
-    expect(((await res.json()) as ProblemDetails).code).toBe("SSO_DISABLED");
+  it.each(SSO_ROUTES)("%s %s returns 404", async (method, path) => {
+    const { status, body } = await requestSso(app, method, path);
+    expect(status).toBe(404);
+    expect(body.code).toBe("SSO_DISABLED");
   });
 });
 
-describe("SSO configuration when enabled (AUTH-004)", () => {
+describe("Licensed SSO configuration when enabled (AUTH-004)", () => {
   let base: TestDatabase;
   let db: RoleSeparatedDatabase;
   let app: ReturnType<typeof createApp>;
@@ -108,9 +153,12 @@ describe("SSO configuration when enabled (AUTH-004)", () => {
       VALUES (${admin.id}, ${admin.email}, ${admin.name})`;
     await authPort.createSession(admin);
 
+    const edition = businessEdition();
     app = createApp({
       sql: db.appSql,
       authPort,
+      license: edition.license,
+      extensions: edition.extensions,
       config: {
         nodeEnv: "production",
         ssoEnabled: true,
