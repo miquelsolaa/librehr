@@ -18,6 +18,7 @@ import type {
   SsoAuthorizeRequest,
   SsoAuthorizeResponse,
 } from '../src/auth.js';
+import type { EditionResponse } from '../src/edition.js';
 import type {
   OrganizationResponse,
   Department,
@@ -219,6 +220,11 @@ export class LibreHrApiClient {
 
   async getMe(): Promise<MeResponse> {
     return this.request<MeResponse>('/v1/me');
+  }
+
+  // Editions (LIC-001)
+  async getEdition(): Promise<EditionResponse> {
+    return this.request<EditionResponse>('/v1/edition');
   }
 
   async getOrganization(): Promise<OrganizationResponse> {

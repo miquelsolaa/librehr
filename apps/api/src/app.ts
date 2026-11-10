@@ -60,6 +60,12 @@ import { createSettingsSecurityRoutes } from "./routes/settings-security.js";
 import { createAuditorAccessRoutes } from "./routes/auditor-access.js";
 import { createWebhookRoutes } from "./routes/webhooks.js";
 import { createShiftRoutes } from "./routes/shifts.js";
+import { createEditionRoutes } from "./routes/edition.js";
+import { mountBusinessRoutes } from "./extensions/business-routes.js";
+import { communityLicense } from "./extensions/community.js";
+import type { ApiExtension } from "./extensions/types.js";
+import { requireAuth } from "./middleware/auth.js";
+import type { LicenseState } from "@librehr/contracts";
 import { createCorsOriginMatcher } from "./lib/cors-origin.js";
 import type { HostResolver } from "./lib/outbound-url.js";
 
@@ -68,6 +74,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export interface AppDependencies {
   sql: Sql;
   authPort: AuthPort;
+  /**
+   * Edition resolved at boot by `loadEdition` (LIC-001/002). Defaults to
+   * Community with no Business extensions.
+   */
+  license?: LicenseState | undefined;
+  /** Business extensions unlocked by `license` (ADR 0004). */
+  extensions?: readonly ApiExtension[] | undefined;
   mailPort?: MailPort | undefined;
   storagePort?: StoragePort | undefined;
   /** From the validated env; 2FA challenges are refused without it. */
@@ -313,6 +326,15 @@ export function createApp(deps: AppDependencies) {
     }),
   );
   app.route("/v1", createShiftRoutes(deps.sql));
+
+  // 4b. Edition and Business extensions (ADR 0004, LIC-001..003)
+  app.route("/v1", createEditionRoutes(deps.license ?? communityLicense()));
+  mountBusinessRoutes(app, deps.extensions ?? [], {
+    sql: deps.sql,
+    requireAuth,
+    publicApiUrl: config.publicApiUrl,
+    ssoEnabled: config.ssoEnabled,
+  });
 
   // 5. RFC 9457 Problem Details Error Handler
   app.onError(errorHandler);

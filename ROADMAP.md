@@ -64,7 +64,7 @@ RPT-001/002, AUTH-003/004, LEA-007..009, TIM-002, ADM-006, performance audits, d
 Business model decided in `docs/adr/0004-open-core-licensing.md`; editions in `docs/editions.md`.
 
 - [x] Governance: CLA (`CLA.md`), LibreHR Enterprise License (`ee/LICENSE`), trademark policy (`TRADEMARKS.md`), editions page.
-- [ ] **`LIC-001`/`LIC-002`:** `ee/` workspace package, API extension point, offline Ed25519 licence keys, `GET /v1/edition`.
+- [x] **`LIC-001`/`LIC-002`:** `ee/` workspace package, API extension point, offline Ed25519 licence keys, `GET /v1/edition`.
 - [ ] **`LIC-003` + `AUTH-004`:** move OIDC SSO into `ee/`, `LICENSE_REQUIRED` gating and UI notice.
 - [ ] Legal review of CLA, Enterprise License and trademark policy; trademark registration (OEPM/EUIPO).
 - [ ] Production licence signing keypair generated offline; public key replaces the placeholder.

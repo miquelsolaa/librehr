@@ -10,6 +10,7 @@ import {
 
 extendZodWithOpenApi(z);
 import { ProblemDetailsSchema } from "../src/errors.js";
+import { EditionResponseSchema } from "../src/edition.js";
 import {
   SignInRequestSchema,
   SessionResponseSchema,
@@ -152,6 +153,7 @@ registry.register("ProblemDetails", ProblemDetailsSchema);
 registry.register("SignInRequest", SignInRequestSchema);
 registry.register("SessionResponse", SessionResponseSchema);
 registry.register("MeResponse", MeResponseSchema);
+registry.register("EditionResponse", EditionResponseSchema);
 registry.register("OrganizationResponse", OrganizationResponseSchema);
 registry.register("UpdateOrganization", UpdateOrganizationSchema);
 registry.register("Department", DepartmentSchema);
@@ -280,6 +282,23 @@ registry.registerPath({
     },
     401: {
       description: "Invalid credentials",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/v1/edition",
+  summary:
+    "Get the instance edition and licensed Business features (LIC-001); licensee and expiry for admins only",
+  responses: {
+    200: {
+      description: "Edition and licence status",
+      content: { "application/json": { schema: EditionResponseSchema } },
+    },
+    401: {
+      description: "Unauthorized",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
   },
@@ -1705,6 +1724,7 @@ import type {
   SsoAuthorizeRequest,
   SsoAuthorizeResponse,
 } from '../src/auth.js';
+import type { EditionResponse } from '../src/edition.js';
 import type {
   OrganizationResponse,
   Department,
@@ -1906,6 +1926,11 @@ export class LibreHrApiClient {
 
   async getMe(): Promise<MeResponse> {
     return this.request<MeResponse>('/v1/me');
+  }
+
+  // Editions (LIC-001)
+  async getEdition(): Promise<EditionResponse> {
+    return this.request<EditionResponse>('/v1/edition');
   }
 
   async getOrganization(): Promise<OrganizationResponse> {

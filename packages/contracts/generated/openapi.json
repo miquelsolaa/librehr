@@ -207,6 +207,48 @@
           "permissions"
         ]
       },
+      "EditionResponse": {
+        "type": "object",
+        "properties": {
+          "edition": {
+            "type": "string",
+            "enum": [
+              "community",
+              "business"
+            ]
+          },
+          "licenseStatus": {
+            "type": "string",
+            "enum": [
+              "absent",
+              "valid",
+              "expired",
+              "invalid"
+            ]
+          },
+          "features": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "sso"
+              ]
+            }
+          },
+          "licensee": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "edition",
+          "licenseStatus",
+          "features"
+        ]
+      },
       "OrganizationResponse": {
         "type": "object",
         "properties": {
@@ -4599,6 +4641,118 @@
           },
           "401": {
             "description": "Invalid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/edition": {
+      "get": {
+        "summary": "Get the instance edition and licensed Business features (LIC-001); licensee and expiry for admins only",
+        "responses": {
+          "200": {
+            "description": "Edition and licence status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "edition": {
+                      "type": "string",
+                      "enum": [
+                        "community",
+                        "business"
+                      ]
+                    },
+                    "licenseStatus": {
+                      "type": "string",
+                      "enum": [
+                        "absent",
+                        "valid",
+                        "expired",
+                        "invalid"
+                      ]
+                    },
+                    "features": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "sso"
+                        ]
+                      }
+                    },
+                    "licensee": {
+                      "type": "string"
+                    },
+                    "expiresAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "edition",
+                    "licenseStatus",
+                    "features"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
             "content": {
               "application/problem+json": {
                 "schema": {

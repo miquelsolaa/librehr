@@ -11,6 +11,7 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 - **Contributor License Agreement:** contributions now require agreeing to `CLA.md` (pull request checkbox) in addition to the DCO sign-off.
 - **Trademark policy:** `TRADEMARKS.md` describes how the LibreHR name and logo may be used.
 - **PRD:** new `LIC-001`..`LIC-003` requirements; `AUTH-004` (SSO) becomes a Business feature.
+- **Editions and licence keys (`LIC-001`, `LIC-002`):** new `@librehr/ee` workspace package with offline Ed25519 licence key verification (no phone-home); API extension point (`apps/api/src/extensions/`) that mounts licensed Business routes and answers `403 LICENSE_REQUIRED` otherwise; `GET /v1/edition`; `LIBREHR_LICENSE_KEY` setting (self-hosting guide, compose, env examples). Lint keeps Community code from importing `ee/`. The production public key is a placeholder until generated, so every instance runs as Community for now.
 
 ## [1.2.0] - 2026-11-02
 

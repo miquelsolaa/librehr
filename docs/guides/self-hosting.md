@@ -179,6 +179,21 @@ There is no `/api` prefix: the proxy forwards `/v1/*` to the API unchanged.
 - [ ] Setup daily automated backups using `infra/scripts/backup.sh`.
 - [ ] Configure outbound SMTP settings to deliver transactional invites and password resets.
 
+## 2a. Editions and licence key
+
+LibreHR runs as the **Community** edition (AGPL) by default, and every core and legal-compliance feature works without a key. To unlock **Business** features (see [`docs/editions.md`](../editions.md)), set the licence key you received:
+
+```bash
+LIBREHR_LICENSE_KEY=eyJ2IjoxLC...signature
+```
+
+- The key is verified **offline** against a public key built into LibreHR. The instance never contacts a licence server.
+- `GET /v1/edition` shows the active edition. Admins also see the licensee and expiry date.
+- If the key is missing, invalid or expired, the API logs a warning (without the key) and runs as Community. Data stored by Business features is kept and comes back when a valid key is set again.
+- `LIBREHR_LICENSE_PUBLIC_KEY` exists only for development and testing and is refused when `NODE_ENV=production`.
+
+For development, create a throwaway keypair and key with `pnpm --filter @librehr/ee issue-license -- --generate-keypair <dir>` and then `-- --private-key <dir>/license-private.pem --licensee "Dev" --features sso --expires 2030-01-01T00:00:00Z`. Keep that directory outside the repository.
+
 ## 3. Background job data retention
 
 The worker queues jobs in the `pgboss` schema. Job payloads are stored in those

@@ -140,6 +140,24 @@ describe("loadEnv (DOC-004, AUTH-001)", () => {
     ).toBe(true);
   });
 
+  it("reads the licence key and refuses a public-key override in production (LIC-002)", () => {
+    expect(loadEnv(strongProdEnv).LIBREHR_LICENSE_KEY).toBeUndefined();
+    expect(
+      loadEnv({ ...strongProdEnv, LIBREHR_LICENSE_KEY: "abc.def" })
+        .LIBREHR_LICENSE_KEY,
+    ).toBe("abc.def");
+    const pem = "-----BEGIN PUBLIC KEY-----dev-----END PUBLIC KEY-----";
+    const msg = errorMessage(() =>
+      loadEnv({ ...strongProdEnv, LIBREHR_LICENSE_PUBLIC_KEY: pem }),
+    );
+    expect(msg).toContain("LIBREHR_LICENSE_PUBLIC_KEY");
+    expect(msg).not.toContain(pem);
+    expect(
+      loadEnv({ NODE_ENV: "development", LIBREHR_LICENSE_PUBLIC_KEY: pem })
+        .LIBREHR_LICENSE_PUBLIC_KEY,
+    ).toBe(pem);
+  });
+
   it("rejects a DATABASE_URL that connects as the owner role in production", () => {
     const msg = errorMessage(() =>
       loadEnv({

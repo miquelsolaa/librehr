@@ -8,6 +8,7 @@ FROM base AS builder
 WORKDIR /app
 COPY pnpm-lock.yaml package.json pnpm-workspace.yaml turbo.json ./
 COPY packages ./packages
+COPY ee ./ee
 COPY apps/api ./apps/api
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @librehr/api build
@@ -20,6 +21,7 @@ USER librehr
 
 COPY --from=builder --chown=librehr:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=librehr:nodejs /app/packages ./packages
+COPY --from=builder --chown=librehr:nodejs /app/ee ./ee
 COPY --from=builder --chown=librehr:nodejs /app/apps/api ./apps/api
 
 EXPOSE 3001

@@ -56,6 +56,24 @@ export class SelfApprovalForbiddenError extends AppError {
   }
 }
 
+/**
+ * LIC-003: a Business edition feature without a valid licence. Distinct from
+ * a plain 403 so the UI can explain that the feature needs LibreHR Business.
+ */
+export class LicenseRequiredError extends AppError {
+  constructor(options: AppErrorOptions = {}) {
+    super({
+      status: 403,
+      type: "urn:librehr:problem:license-required",
+      title: "Forbidden",
+      code: options.code ?? "LICENSE_REQUIRED",
+      detail:
+        options.detail ??
+        "This feature is part of LibreHR Business and needs a valid licence",
+    });
+  }
+}
+
 export class ConflictError extends AppError {
   constructor(options: AppErrorOptions = {}) {
     super({

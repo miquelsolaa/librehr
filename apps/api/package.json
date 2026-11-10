@@ -11,6 +11,7 @@
     "@librehr/contracts": "workspace:*",
     "@librehr/core": "workspace:*",
     "@librehr/db": "workspace:*",
+    "@librehr/ee": "workspace:*",
     "better-auth": "^1.1.21",
     "hono": "^4.7.2",
     "nodemailer": "^10.3.1",
