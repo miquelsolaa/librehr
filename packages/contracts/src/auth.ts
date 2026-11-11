@@ -9,11 +9,11 @@ export const SignInRequestSchema = z.object({
 export type SignInRequest = z.infer<typeof SignInRequestSchema>;
 
 export const AuthUserSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   email: z.string().email(),
   name: z.string(),
   role: z.string(),
-  organizationId: z.string().uuid(),
+  organizationId: z.guid(),
   twoFactorEnabled: z.boolean().optional(),
 });
 export type AuthUser = z.infer<typeof AuthUserSchema>;
@@ -36,7 +36,7 @@ export type SignInResult = z.infer<typeof SignInResultSchema>;
 export const MeResponseSchema = z.object({
   user: AuthUserSchema,
   organization: z.object({
-    id: z.string().uuid(),
+    id: z.guid(),
     name: z.string(),
     slug: z.string(),
     defaultLocale: z.string(),
@@ -122,8 +122,8 @@ export const SsoProviderSchema = z.enum([
 export type SsoProvider = z.infer<typeof SsoProviderSchema>;
 
 export const SsoConfigSchema = z.object({
-  id: z.string().uuid(),
-  organizationId: z.string().uuid(),
+  id: z.guid(),
+  organizationId: z.guid(),
   provider: SsoProviderSchema,
   clientId: z.string(),
   issuerUrl: z.string(),

@@ -18,8 +18,8 @@ export const CustomFieldVisibilitySchema = z.enum([
 export type CustomFieldVisibility = z.infer<typeof CustomFieldVisibilitySchema>;
 
 export const CustomFieldDefinitionSchema = z.object({
-  id: z.string().uuid(),
-  organizationId: z.string().uuid(),
+  id: z.guid(),
+  organizationId: z.guid(),
   name: z.string().min(1, "Name is required"),
   code: z.string().min(1, "Code is required"),
   fieldType: CustomFieldTypeSchema,
@@ -44,10 +44,10 @@ export type CreateCustomFieldDefinition = z.infer<
 >;
 
 export const CustomFieldValueSchema = z.object({
-  id: z.string().uuid(),
-  organizationId: z.string().uuid(),
-  fieldDefinitionId: z.string().uuid(),
-  employeeId: z.string().uuid(),
+  id: z.guid(),
+  organizationId: z.guid(),
+  fieldDefinitionId: z.guid(),
+  employeeId: z.guid(),
   value: z.string().nullable(),
   fieldName: z.string().optional(),
   fieldCode: z.string().optional(),
@@ -60,7 +60,7 @@ export const CustomFieldValueSchema = z.object({
 export type CustomFieldValue = z.infer<typeof CustomFieldValueSchema>;
 
 export const SetCustomFieldValueSchema = z.object({
-  fieldDefinitionId: z.string().uuid(),
+  fieldDefinitionId: z.guid(),
   value: z.string().nullable(),
 });
 export type SetCustomFieldValue = z.infer<typeof SetCustomFieldValueSchema>;

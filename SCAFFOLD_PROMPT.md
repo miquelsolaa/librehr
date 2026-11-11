@@ -68,7 +68,7 @@ openhr/
 │   │   ├── src/app/api/healthz/route.ts
 │   │   ├── src/features/              # one folder per module, each with index.ts
 │   │   ├── src/lib/{api-client.ts,auth.ts,format.ts}
-│   │   ├── src/middleware.ts          # locale routing + CSP nonce + security headers
+│   │   ├── src/proxy.ts               # locale routing + CSP nonce + security headers
 │   │   ├── public/{manifest.webmanifest,icons/}               # own placeholder icons
 │   │   ├── next.config.ts, tailwind.config.ts, postcss.config.mjs, tsconfig.json, package.json
 │   │   └── e2e/{smoke.spec.ts,a11y.spec.ts,playwright.config.ts}

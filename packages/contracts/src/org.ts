@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const OrganizationResponseSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   name: z.string(),
   slug: z.string(),
   defaultLocale: z.enum(["ca", "es", "en"]),
@@ -19,11 +19,11 @@ export const UpdateOrganizationSchema = z.object({
 export type UpdateOrganization = z.infer<typeof UpdateOrganizationSchema>;
 
 export const DepartmentSchema = z.object({
-  id: z.string().uuid(),
-  organizationId: z.string().uuid(),
+  id: z.guid(),
+  organizationId: z.guid(),
   name: z.string(),
-  parentId: z.string().uuid().nullable(),
-  leadEmployeeId: z.string().uuid().nullable(),
+  parentId: z.guid().nullable(),
+  leadEmployeeId: z.guid().nullable(),
   minPresencePercent: z.number().int().min(0).max(100).nullable(),
   parentName: z.string().nullable().optional(),
   leadName: z.string().nullable().optional(),
@@ -39,17 +39,17 @@ export type DepartmentCoverage = z.infer<typeof DepartmentCoverageSchema>;
 
 export const CreateDepartmentRequestSchema = z.object({
   name: z.string().min(1, "Department name is required"),
-  parentId: z.string().uuid().nullable().optional(),
-  leadEmployeeId: z.string().uuid().nullable().optional(),
+  parentId: z.guid().nullable().optional(),
+  leadEmployeeId: z.guid().nullable().optional(),
 });
 export type CreateDepartmentRequest = z.infer<
   typeof CreateDepartmentRequestSchema
 >;
 
 export const LocationSchema = z.object({
-  id: z.string().uuid(),
-  organizationId: z.string().uuid(),
-  legalEntityId: z.string().uuid(),
+  id: z.guid(),
+  organizationId: z.guid(),
+  legalEntityId: z.guid(),
   name: z.string(),
   country: z.string(),
   region: z.string(),
@@ -61,7 +61,7 @@ export const LocationSchema = z.object({
 export type Location = z.infer<typeof LocationSchema>;
 
 export const CreateLocationRequestSchema = z.object({
-  legalEntityId: z.string().uuid(),
+  legalEntityId: z.guid(),
   name: z.string().min(1, "Location name is required"),
   country: z.string().default("ES"),
   region: z.string().min(1, "Region / Autonomous community is required"),
@@ -71,14 +71,14 @@ export const CreateLocationRequestSchema = z.object({
 export type CreateLocationRequest = z.infer<typeof CreateLocationRequestSchema>;
 
 export const LegalEntityOptionSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   name: z.string(),
 });
 export type LegalEntityOption = z.infer<typeof LegalEntityOptionSchema>;
 
 export const LegalEntitySchema = z.object({
-  id: z.string().uuid(),
-  organizationId: z.string().uuid(),
+  id: z.guid(),
+  organizationId: z.guid(),
   name: z.string(),
   cif: z.string(),
   country: z.string(),

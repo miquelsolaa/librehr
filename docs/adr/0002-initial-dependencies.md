@@ -23,16 +23,16 @@ We adopt the following core dependencies:
 | `turbo`                | 2.11.x        | Monorepo build orchestrator       | Apache-2.0 | High performance caching and dependency graph pipeline                |
 | `typescript`           | 5.7.x         | Static typing                     | Apache-2.0 | Strict type safety, exact optional property checking                  |
 | `hono`                 | 4.7.x         | API Framework                     | MIT        | Ultra-fast, lightweight, web-standard compliant, zero-runtime bloat   |
-| `@hono/zod-openapi`    | 0.18.x        | OpenAPI contract generation       | MIT        | Type-safe schema validation and documentation generation              |
+| `@hono/zod-openapi`    | 1.x           | OpenAPI contract generation       | MIT        | Type-safe schema validation and documentation generation              |
 | `drizzle-orm`          | 0.39.x        | Database ORM                      | Apache-2.0 | SQL-first, zero-overhead TypeScript ORM with full RLS policy support  |
 | `postgres`             | 3.4.x         | PostgreSQL driver                 | MIT        | Fastest modern pure JS/TS driver, pipeline support                    |
 | `pg-boss`              | 10.1.x        | Background job queue              | MIT        | Reliable job queues directly backed by PostgreSQL                     |
-| `next`                 | 15.1.x        | Frontend framework                | MIT        | Server components, App Router, asset self-hosting                     |
+| `next`                 | 16.4.x        | Frontend framework                | MIT        | Server components, App Router, asset self-hosting                     |
 | `react`                | 19.0.x        | UI library                        | MIT        | Standard component model, actions, compiler integration               |
 | `tailwindcss`          | 3.4.x         | Utility-first CSS                 | MIT        | Token-based theming via CSS variables without runtime overhead        |
 | `radix-ui`             | 1.1.x / 2.1.x | Headless accessible UI primitives | MIT        | Unstyled, WCAG 2.2 AA compliant accessible foundations                |
 | `lucide-react`         | 0.475.x       | Iconography                       | ISC        | Clean, consistent, tree-shakeable icons                               |
-| `next-intl`            | 3.26.x        | Internationalization              | MIT        | App Router native ICU messaging, routing, locale detection            |
+| `next-intl`            | 4.14.x        | Internationalization              | MIT        | App Router native ICU messaging, routing, locale detection            |
 | `next-themes`          | 0.4.x         | Theme switching                   | MIT        | Zero-FOUC light, dark, and system preference support                  |
 | `@react-email/*`       | 3.0.x         | Transactional email templates     | MIT        | React-based email authoring with text fallback                        |
 | `nodemailer`           | 6.10.x        | SMTP email transport              | MIT-0      | Dependable SMTP transport for self-hosted mail gateways               |
@@ -48,4 +48,4 @@ We adopt the following core dependencies:
 
 - Every direct and transitive dependency is compatible with the AGPL-3.0 license.
 - No third-party network calls, external fonts, or analytics libraries are loaded at runtime.
-- Upgrades will be tracked and kept current via Renovate / Dependabot.
+- Upgrades are tracked by Renovate (`renovate.json`), the only dependency update bot. It waits three days after a release before proposing it, so the lockfile passes pnpm's release-age check.

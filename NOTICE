@@ -8,6 +8,7 @@ trademarks; see TRADEMARKS.md.
 
 Third-party software libraries and components:
 - Better Auth (Apache-2.0)
+- Bricolage Grotesque typeface, via @fontsource-variable/bricolage-grotesque (SIL OFL-1.1; package MIT)
 - Drizzle ORM (Apache-2.0)
 - fast-check (MIT)
 - Hono & @hono/zod-openapi (MIT)

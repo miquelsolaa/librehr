@@ -91,11 +91,13 @@ Reporting and gestoria exports are currently unavailable while their calculation
 
 ### Screenshots
 
-These screenshots show the current application with **fictional mock data** supplied locally for the captures. They are illustrations of the interface, not evidence that all workflows or integrations are complete. Reports show their current unavailable state. See the [functionality inventory](docs/functionality.md) for limitations and planned screens.
+![Home screen](docs/images/screens/home.png)
+
+These screenshots show the current application signed in as the administrator of the **fictional organization** created by the development seed (`pnpm db:seed`). No real person's data appears. They are illustrations of the interface, not evidence that all workflows or integrations are complete. Reports show their current unavailable state. See the [functionality inventory](docs/functionality.md) for limitations and planned screens.
 
 Some captured time and reports screens contain existing compliance and official-export wording that has not been verified; it should not be read as a compliance claim.
 
-To regenerate the gallery, run the web app locally on port 3109, then run `node scripts/capture-readme.cjs` from the repository root. Set `SCREENSHOT_BASE_URL` to use another local URL. The capture script intercepts API requests with fictional responses; it does not require production data.
+To regenerate the gallery, start a local development stack with seeded data (`pnpm infra:up && pnpm db:migrate && pnpm db:seed && pnpm dev`), then run `node scripts/capture-readme.cjs` from the repository root. The script signs in with the development credentials, refuses any address that is not local, and accepts `SCREENSHOT_BASE_URL` for another local port.
 
 <details>
 <summary>Getting started</summary>
@@ -104,18 +106,10 @@ To regenerate the gallery, run the web app locally on port 3109, then run `node 
 
 [![Sign in screen](docs/images/screens/sign-in.png)](docs/images/screens/sign-in.png)
 
-**Setup**
-
-[![Setup screen](docs/images/screens/setup.png)](docs/images/screens/setup.png)
-
-**Invitation**
-
-[![Invitation screen](docs/images/screens/invitation.png)](docs/images/screens/invitation.png)
-
 </details>
 
 <details>
-<summary>People and organization</summary>
+<summary>Home, people and organization</summary>
 
 **Home**
 
@@ -227,6 +221,85 @@ To regenerate the gallery, run the web app locally on port 3109, then run `node 
 **Webhooks**
 
 [![Webhooks screen](docs/images/screens/settings-webhooks.png)](docs/images/screens/settings-webhooks.png)
+
+**Auditor access**
+
+[![Auditor access screen](docs/images/screens/settings-auditors.png)](docs/images/screens/settings-auditors.png)
+
+</details>
+
+<details>
+<summary>Dialogs and panels</summary>
+
+**Invite a person (dialog)**
+
+[![Invite a person (dialog) screen](docs/images/screens/dialog-invite.png)](docs/images/screens/dialog-invite.png)
+
+**Add a department (dialog)**
+
+[![Add a department (dialog) screen](docs/images/screens/dialog-department.png)](docs/images/screens/dialog-department.png)
+
+**Add a work center (dialog)**
+
+[![Add a work center (dialog) screen](docs/images/screens/dialog-location.png)](docs/images/screens/dialog-location.png)
+
+**Holiday calendar (side panel)**
+
+[![Holiday calendar (side panel) screen](docs/images/screens/panel-holidays.png)](docs/images/screens/panel-holidays.png)
+
+</details>
+
+<details>
+<summary>Dark theme</summary>
+
+**Sign in**
+
+[![Sign in screen](docs/images/screens/sign-in-dark.png)](docs/images/screens/sign-in-dark.png)
+
+**Home**
+
+[![Home screen](docs/images/screens/home-dark.png)](docs/images/screens/home-dark.png)
+
+**People directory**
+
+[![People directory screen](docs/images/screens/people-dark.png)](docs/images/screens/people-dark.png)
+
+**Time off**
+
+[![Time off screen](docs/images/screens/time-off-dark.png)](docs/images/screens/time-off-dark.png)
+
+**Time tracking**
+
+[![Time tracking screen](docs/images/screens/time-dark.png)](docs/images/screens/time-dark.png)
+
+**Invite a person**
+
+[![Invite a person screen](docs/images/screens/dialog-invite-dark.png)](docs/images/screens/dialog-invite-dark.png)
+
+</details>
+
+<details>
+<summary>On a phone</summary>
+
+**Home**
+
+[![Home screen](docs/images/screens/home-phone.png)](docs/images/screens/home-phone.png)
+
+**Time off**
+
+[![Time off screen](docs/images/screens/time-off-phone.png)](docs/images/screens/time-off-phone.png)
+
+**Time tracking**
+
+[![Time tracking screen](docs/images/screens/time-phone.png)](docs/images/screens/time-phone.png)
+
+**Invite a person (docked dialog)**
+
+[![Invite a person (docked dialog) screen](docs/images/screens/dialog-invite-phone.png)](docs/images/screens/dialog-invite-phone.png)
+
+**Holiday calendar (full screen)**
+
+[![Holiday calendar (full screen) screen](docs/images/screens/panel-holidays-phone.png)](docs/images/screens/panel-holidays-phone.png)
 
 </details>
 

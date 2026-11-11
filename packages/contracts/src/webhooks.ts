@@ -44,8 +44,8 @@ export function parseWebhookEvents(value: unknown): WebhookSubscribableEvent[] {
 }
 
 export const WebhookItemSchema = z.object({
-  id: z.string().uuid(),
-  organizationId: z.string().uuid(),
+  id: z.guid(),
+  organizationId: z.guid(),
   name: z.string().min(1).max(100),
   url: z.string().url(),
   /**

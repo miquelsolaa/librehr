@@ -3,6 +3,8 @@ packages:
   - 'packages/*'
   - 'ee/*'
 allowBuilds:
+  "@parcel/watcher": false
+  "@swc/core": false
   cpu-features: false
   esbuild: true
   protobufjs: true

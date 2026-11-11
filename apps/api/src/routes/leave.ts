@@ -15,6 +15,7 @@ import {
   calculateWorkingDays,
   checkBlackoutDate,
   evaluateTeamCoverage,
+  runningBalances,
 } from "@librehr/core";
 import {
   withTenant,
@@ -87,7 +88,7 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
       const problem = createProblemDetails({
         status: 400,
         title: "Bad Request",
-        detail: parsed.error.errors.map((e) => e.message).join(", "),
+        detail: parsed.error.issues.map((e) => e.message).join(", "),
         code: "VALIDATION_ERROR",
         errors: parsed.error.issues.map((i) => ({
           field: i.path.join("."),
@@ -150,6 +151,7 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
 
         const balance = await leaveRepo.calculateBalance(tx, targetEmployeeId);
         const entries = await leaveRepo.getLedgerEntries(tx, targetEmployeeId);
+        const balances = runningBalances(entries);
 
         return {
           currentBalance: balance.currentBalance,
@@ -157,7 +159,8 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
           totalUsed: balance.totalUsed,
           totalCarryover: balance.totalCarryover,
           totalAdjustments: balance.totalAdjustments,
-          entries: entries.map((e) => ({
+          entries: entries.map((e, index) => ({
+            balanceAfter: balances[index],
             id: e.id,
             employeeId: e.employeeId,
             entryType: e.entryType,
@@ -261,7 +264,7 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
       const problem = createProblemDetails({
         status: 400,
         title: "Bad Request",
-        detail: parsed.error.errors.map((e) => e.message).join(", "),
+        detail: parsed.error.issues.map((e) => e.message).join(", "),
         code: "VALIDATION_ERROR",
         errors: parsed.error.issues.map((i) => ({
           field: i.path.join("."),
@@ -606,7 +609,7 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
       const problem = createProblemDetails({
         status: 400,
         title: "Bad Request",
-        detail: parsed.error.errors.map((e) => e.message).join(", "),
+        detail: parsed.error.issues.map((e) => e.message).join(", "),
         code: "VALIDATION_ERROR",
         errors: parsed.error.issues.map((i) => ({
           field: i.path.join("."),
@@ -901,7 +904,7 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
       const problem = createProblemDetails({
         status: 400,
         title: "Bad Request",
-        detail: parsed.error.errors.map((e) => e.message).join(", "),
+        detail: parsed.error.issues.map((e) => e.message).join(", "),
         code: "VALIDATION_ERROR",
         errors: parsed.error.issues.map((i) => ({
           field: i.path.join("."),
@@ -1006,7 +1009,7 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
       const problem = createProblemDetails({
         status: 400,
         title: "Validation Error",
-        detail: parsed.error.errors.map((e) => e.message).join(", "),
+        detail: parsed.error.issues.map((e) => e.message).join(", "),
         code: "VALIDATION_ERROR",
       });
       return c.json(problem, 400, {
@@ -1119,7 +1122,7 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
       const problem = createProblemDetails({
         status: 400,
         title: "Validation Error",
-        detail: parsed.error.errors.map((e) => e.message).join(", "),
+        detail: parsed.error.issues.map((e) => e.message).join(", "),
         code: "VALIDATION_ERROR",
       });
       return c.json(problem, 400, {

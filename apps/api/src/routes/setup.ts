@@ -55,7 +55,7 @@ export function createSetupRoutes(
       const problem = createProblemDetails({
         status: 400,
         title: "Validation Failed",
-        detail: parse.error.errors.map((e) => e.message).join(", "),
+        detail: parse.error.issues.map((e) => e.message).join(", "),
         code: "VALIDATION_FAILED",
       });
       return c.json(problem, 400, {

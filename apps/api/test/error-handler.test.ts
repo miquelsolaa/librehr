@@ -81,7 +81,7 @@ describe("errorHandler", () => {
     );
     expect(res.status).toBe(400);
     expect(body["errors"]).toEqual([
-      { field: "email", message: "Invalid email" },
+      { field: "email", message: "Invalid email address" },
     ]);
     expect(JSON.stringify(body)).not.toContain("secret-value");
   });

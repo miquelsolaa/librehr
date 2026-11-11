@@ -19,8 +19,8 @@ export type TerminationReason = z.infer<typeof TerminationReasonSchema>;
 
 export const ListEmployeesQuerySchema = z.object({
   search: z.string().optional(),
-  departmentId: z.string().uuid().optional(),
-  locationId: z.string().uuid().optional(),
+  departmentId: z.guid().optional(),
+  locationId: z.guid().optional(),
   status: EmployeeStatusSchema.optional(),
   page: z.coerce.number().int().min(1).optional(),
   pageSize: z.coerce.number().int().min(1).max(100).optional(),
@@ -28,7 +28,7 @@ export const ListEmployeesQuerySchema = z.object({
 export type ListEmployeesQuery = z.infer<typeof ListEmployeesQuerySchema>;
 
 export const EmployeeListItemSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   firstName: z.string(),
   lastName: z.string(),
   preferredName: z.string().nullable(),
@@ -50,12 +50,12 @@ export const ListEmployeesResponseSchema = z.object({
 export type ListEmployeesResponse = z.infer<typeof ListEmployeesResponseSchema>;
 
 export const EmployeeProfileSchema = z.object({
-  id: z.string().uuid(),
-  organizationId: z.string().uuid(),
-  userId: z.string().uuid().nullable(),
-  departmentId: z.string().uuid().nullable(),
-  managerId: z.string().uuid().nullable(),
-  locationId: z.string().uuid().nullable(),
+  id: z.guid(),
+  organizationId: z.guid(),
+  userId: z.guid().nullable(),
+  departmentId: z.guid().nullable(),
+  managerId: z.guid().nullable(),
+  locationId: z.guid().nullable(),
   firstName: z.string(),
   lastName: z.string(),
   preferredName: z.string().nullable(),
@@ -91,9 +91,9 @@ export const CreateEmployeeRequestSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Format must be YYYY-MM-DD")
     .nullable()
     .optional(),
-  departmentId: z.string().uuid().nullable().optional(),
-  managerId: z.string().uuid().nullable().optional(),
-  locationId: z.string().uuid().nullable().optional(),
+  departmentId: z.guid().nullable().optional(),
+  managerId: z.guid().nullable().optional(),
+  locationId: z.guid().nullable().optional(),
   jobTitle: z.string().optional(),
   employmentType: z.string().optional(),
   startDate: z
@@ -117,9 +117,9 @@ export const UpdateEmployeeRequestSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .nullable()
     .optional(),
-  departmentId: z.string().uuid().nullable().optional(),
-  managerId: z.string().uuid().nullable().optional(),
-  locationId: z.string().uuid().nullable().optional(),
+  departmentId: z.guid().nullable().optional(),
+  managerId: z.guid().nullable().optional(),
+  locationId: z.guid().nullable().optional(),
   status: EmployeeStatusSchema.optional(),
   nationalId: z.string().optional(),
   iban: z.string().optional(),

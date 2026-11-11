@@ -205,7 +205,7 @@ export default function SsoSettingsPage() {
         <div className="lg:col-span-2 space-y-6">
           <form
             onSubmit={handleSave}
-            className="rounded-card border border-border bg-surface p-6 shadow-sm space-y-5"
+            className="rounded-card border border-border bg-surface p-6 space-y-5"
           >
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">
@@ -386,7 +386,7 @@ export default function SsoSettingsPage() {
 
         {/* Callback URI Info Card */}
         <div className="space-y-4">
-          <div className="rounded-card border border-border bg-surface p-6 shadow-sm space-y-4">
+          <div className="rounded-card border border-border bg-surface p-6 space-y-4">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-input bg-primary/10">
                 <Globe className="h-5 w-5 text-primary" />

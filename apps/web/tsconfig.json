@@ -2,7 +2,6 @@
   "extends": "@librehr/config/tsconfig/next.json",
   "compilerOptions": {
     "rootDir": ".",
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     },

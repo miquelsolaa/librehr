@@ -173,7 +173,7 @@ Feature code imports from `packages/ui`, `packages/contracts`, `packages/i18n`. 
 
 ## 12. Security architecture (summary)
 
-Defense in depth: validation at edges, RLS in DB, least-privilege DB roles, encrypted sensitive columns, signed/hashed audit and time records, strict CSP, dependency scanning (OSV/`pnpm audit`, Dependabot/Renovate), secret scanning, SAST (CodeQL), container scanning, SBOM (CycloneDX), reproducible builds, security.txt, coordinated disclosure policy.
+Defense in depth: validation at edges, RLS in DB, least-privilege DB roles, encrypted sensitive columns, signed/hashed audit and time records, strict CSP, dependency scanning (OSV/`pnpm audit`, Renovate), secret scanning, SAST (CodeQL), container scanning, SBOM (CycloneDX), reproducible builds, security.txt, coordinated disclosure policy.
 
 ## 13. Testing strategy
 

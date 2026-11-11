@@ -125,19 +125,19 @@ export default function RequestLeavePage() {
         description={t("requestFormSubtitle")}
       />
 
-      <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+      <div className="rounded-card border border-border bg-surface p-6">
         {error && (
           <div
             role="alert"
-            className="mt-4 rounded-md bg-red-50 p-3 first:mt-0 text-sm text-red-700 dark:bg-red-950/50 dark:text-red-400"
+            className="mt-4 rounded-md bg-danger/10 p-3 first:mt-0 text-sm text-danger"
           >
             {error}
           </div>
         )}
 
         {activeBlackoutConflict && (
-          <div className="mt-4 flex items-start gap-3 rounded-lg border border-amber-200 first:mt-0 bg-amber-50/80 p-3.5 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
-            <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="mt-4 flex items-start gap-3 rounded-lg border border-warning/30 first:mt-0 bg-warning/10 p-3.5 text-sm text-warning">
+            <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
             <div>
               <p className="font-semibold text-xs uppercase tracking-wider">
                 {t("blackoutTitle")}

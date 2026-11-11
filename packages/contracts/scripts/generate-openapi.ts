@@ -1,3 +1,4 @@
+import "./extend-zod.js";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -5,10 +6,7 @@ import { z } from "zod";
 import {
   OpenAPIRegistry,
   OpenApiGeneratorV31,
-  extendZodWithOpenApi,
 } from "@asteasolutions/zod-to-openapi";
-
-extendZodWithOpenApi(z);
 import { ProblemDetailsSchema } from "../src/errors.js";
 import { EditionResponseSchema } from "../src/edition.js";
 import {
@@ -341,7 +339,7 @@ registry.registerPath({
   method: "get",
   path: "/v1/employees/{id}/employment-history",
   summary: "List employment periods in scope",
-  request: { params: z.object({ id: z.string().uuid() }) },
+  request: { params: z.object({ id: z.guid() }) },
   responses: {
     200: {
       description: "Employment periods",
@@ -358,7 +356,7 @@ registry.registerPath({
   path: "/v1/employees/{id}/employment-history",
   summary: "Append a non-overlapping employment period",
   request: {
-    params: z.object({ id: z.string().uuid() }),
+    params: z.object({ id: z.guid() }),
     body: {
       content: { "application/json": { schema: CreateEmploymentPeriodSchema } },
     },
@@ -509,7 +507,7 @@ registry.registerPath({
   path: "/v1/org/departments/{id}/coverage",
   summary: "Set department minimum presence percentage",
   request: {
-    params: z.object({ id: z.string().uuid() }),
+    params: z.object({ id: z.guid() }),
     body: {
       content: { "application/json": { schema: DepartmentCoverageSchema } },
     },
@@ -628,7 +626,7 @@ registry.registerPath({
         "application/json": {
           schema: z.object({
             success: z.boolean(),
-            organizationId: z.string().uuid(),
+            organizationId: z.guid(),
           }),
         },
       },
@@ -738,7 +736,7 @@ registry.registerPath({
   method: "delete",
   path: "/v1/auditors/invitations/{id}",
   summary: "Cancel a pending auditor invitation (audit-logged)",
-  request: { params: z.object({ id: z.string().uuid() }) },
+  request: { params: z.object({ id: z.guid() }) },
   responses: {
     200: {
       description: "Invitation cancelled",
@@ -779,7 +777,7 @@ registry.registerPath({
   summary:
     "Move an auditor's access end date or revoke access now (audit-logged)",
   request: {
-    params: z.object({ userId: z.string().uuid() }),
+    params: z.object({ userId: z.guid() }),
     body: {
       content: {
         "application/json": { schema: UpdateAuditorAccessRequestSchema },
@@ -1124,7 +1122,9 @@ registry.registerPath({
   responses: {
     200: {
       description: "Task updated",
-      content: { "application/json": { schema: z.record(z.unknown()) } },
+      content: {
+        "application/json": { schema: z.record(z.string(), z.unknown()) },
+      },
     },
   },
 });
@@ -1290,7 +1290,7 @@ registry.registerPath({
     201: {
       description: "Schedule assigned",
       content: {
-        "application/json": { schema: z.object({ id: z.string().uuid() }) },
+        "application/json": { schema: z.object({ id: z.guid() }) },
       },
     },
     400: {

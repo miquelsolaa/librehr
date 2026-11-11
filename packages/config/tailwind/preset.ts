@@ -28,6 +28,8 @@ export const librehrTailwindPreset = {
         danger: "hsl(var(--danger) / <alpha-value>)",
         info: "hsl(var(--info) / <alpha-value>)",
         "focus-ring": "hsl(var(--focus-ring) / <alpha-value>)",
+        // The veil behind dialogs and panels: pine-dark in both themes.
+        scrim: "hsl(var(--scrim) / <alpha-value>)",
       },
       borderRadius: {
         input: "6px",
@@ -43,6 +45,14 @@ export const librehrTailwindPreset = {
           "BlinkMacSystemFont",
           '"Segoe UI"',
           "Roboto",
+          "sans-serif",
+        ],
+        // Page titles and large figures only (DESIGN.md §2.3). Self-hosted via
+        // @fontsource-variable/bricolage-grotesque (imported by apps/web).
+        display: [
+          '"Bricolage Grotesque Variable"',
+          '"Inter Variable"',
+          "Inter",
           "sans-serif",
         ],
       },
