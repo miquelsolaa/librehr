@@ -10,17 +10,23 @@ import {
   AlertCircle,
   Copy,
   Check,
-  ArrowLeft,
+  ChevronLeft,
 } from "lucide-react";
-import { Button, Input } from "@librehr/ui";
+import { Button, Input, PageHeader } from "@librehr/ui";
 import { getApiClient } from "@/lib/api-client";
-import type { SsoConfig, SsoProvider } from "@librehr/contracts";
+import type {
+  ProblemDetails,
+  SsoConfig,
+  SsoProvider,
+} from "@librehr/contracts";
 
 export default function SsoSettingsPage() {
   const params = useParams();
   const locale = (params?.["locale"] as string | undefined) ?? "ca";
 
   const t = useTranslations("settings");
+
+  const tNav = useTranslations("nav");
   const tCommon = useTranslations("common");
 
   const [config, setConfig] = React.useState<SsoConfig | null>(null);
@@ -41,14 +47,16 @@ export default function SsoSettingsPage() {
     null,
   );
   const [copiedCallback, setCopiedCallback] = React.useState(false);
+  const [unavailable, setUnavailable] = React.useState(false);
 
   const callbackUrl =
     typeof window !== "undefined"
-      ? `${window.location.origin}/api/v1/sso/callback`
-      : "https://your-domain.com/api/v1/sso/callback";
+      ? `${window.location.origin}/v1/sso/callback`
+      : "https://your-domain.com/v1/sso/callback";
 
   const loadConfig = React.useCallback(async () => {
     setIsLoading(true);
+    setErrorMessage(null);
     try {
       const client = getApiClient();
       const current = await client.getSsoConfig();
@@ -62,11 +70,16 @@ export default function SsoSettingsPage() {
         setEnforceSso(current.enforceSso);
       }
     } catch (err) {
-      console.error("Failed to load SSO configuration", err);
+      const problem = err as Partial<ProblemDetails> | null;
+      if (problem?.code === "SSO_DISABLED") {
+        setUnavailable(true);
+      } else {
+        setErrorMessage(t("loadError"));
+      }
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   React.useEffect(() => {
     loadConfig();
@@ -105,7 +118,8 @@ export default function SsoSettingsPage() {
       const saved = await client.saveSsoConfig({
         provider,
         clientId: clientId.trim(),
-        clientSecret: clientSecret.trim() || "unchanged_existing_secret",
+        // Omitted when blank: the API keeps the stored (encrypted) secret.
+        ...(clientSecret.trim() ? { clientSecret: clientSecret.trim() } : {}),
         issuerUrl: issuerUrl.trim(),
         allowedDomains: domains,
         enabled,
@@ -129,20 +143,19 @@ export default function SsoSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Link
-          href={`/${locale}/settings`}
-          className="rounded-btn p-2 text-muted-foreground hover:bg-surface hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            {t("ssoTitle")}
-          </h1>
-          <p className="text-sm text-muted-foreground">{t("ssoDescription")}</p>
-        </div>
-      </div>
+      <PageHeader
+        breadcrumb={
+          <Link
+            href={`/${locale}/settings`}
+            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+            {tNav("settings")}
+          </Link>
+        }
+        title={t("ssoTitle")}
+        description={t("ssoDescription")}
+      />
 
       {successMessage && (
         <div
@@ -151,6 +164,16 @@ export default function SsoSettingsPage() {
         >
           <CheckCircle2 className="h-4 w-4" />
           {successMessage}
+        </div>
+      )}
+
+      {unavailable && (
+        <div
+          role="status"
+          className="rounded-card border border-border bg-surface p-4 text-sm text-muted-foreground flex items-center gap-2"
+        >
+          <AlertCircle className="h-4 w-4" />
+          {t("ssoUnavailable")}
         </div>
       )}
 
@@ -178,12 +201,13 @@ export default function SsoSettingsPage() {
                 {[
                   { id: "google", label: "Google Workspace" },
                   { id: "microsoft", label: "Microsoft Entra ID" },
-                  { id: "generic_oidc", label: "Generic OIDC" },
+                  { id: "generic_oidc", label: t("ssoGenericOidc") },
                 ].map((item) => (
                   <button
                     key={item.id}
                     type="button"
                     onClick={() => handleProviderChange(item.id as SsoProvider)}
+                    aria-pressed={provider === item.id}
                     className={`rounded-card border p-3 text-center text-sm font-medium transition-all cursor-pointer ${
                       provider === item.id
                         ? "border-primary bg-primary/10 text-primary font-bold shadow-xs"
@@ -289,15 +313,23 @@ export default function SsoSettingsPage() {
             <div className="pt-2 border-t border-border space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-sm font-medium text-foreground">
+                  <div
+                    id="sso-enabled-label"
+                    className="text-sm font-medium text-foreground"
+                  >
                     {t("ssoEnabledLabel")}
                   </div>
-                  <div className="text-xs text-muted-foreground">
+                  <div
+                    id="sso-enabled-hint"
+                    className="text-xs text-muted-foreground"
+                  >
                     {t("ssoEnabledHint")}
                   </div>
                 </div>
                 <input
                   type="checkbox"
+                  aria-labelledby="sso-enabled-label"
+                  aria-describedby="sso-enabled-hint"
                   checked={enabled}
                   onChange={(e) => setEnabled(e.target.checked)}
                   className="h-5 w-5 rounded border-border text-primary focus:ring-primary cursor-pointer"
@@ -306,15 +338,23 @@ export default function SsoSettingsPage() {
 
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-sm font-medium text-foreground">
+                  <div
+                    id="sso-enforce-label"
+                    className="text-sm font-medium text-foreground"
+                  >
                     {t("ssoEnforceLabel")}
                   </div>
-                  <div className="text-xs text-muted-foreground">
+                  <div
+                    id="sso-enforce-hint"
+                    className="text-xs text-muted-foreground"
+                  >
                     {t("ssoEnforceHint")}
                   </div>
                 </div>
                 <input
                   type="checkbox"
+                  aria-labelledby="sso-enforce-label"
+                  aria-describedby="sso-enforce-hint"
                   checked={enforceSso}
                   onChange={(e) => setEnforceSso(e.target.checked)}
                   className="h-5 w-5 rounded border-border text-primary focus:ring-primary cursor-pointer"
@@ -334,7 +374,7 @@ export default function SsoSettingsPage() {
         <div className="space-y-4">
           <div className="rounded-card border border-border bg-surface p-6 shadow-sm space-y-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-btn bg-primary/10">
+              <div className="flex h-10 w-10 items-center justify-center rounded-input bg-primary/10">
                 <Globe className="h-5 w-5 text-primary" />
               </div>
               <div>

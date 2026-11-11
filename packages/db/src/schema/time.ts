@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   pgTable,
   text,
@@ -8,6 +9,9 @@ import {
   numeric,
   boolean,
   date,
+  smallint,
+  bigint,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { primaryId, organizationIdCol, timestamps } from "./common.js";
 import { organizations } from "./platform.js";
@@ -35,16 +39,58 @@ export const timeEvents = pgTable(
     actorId: uuid("actor_id").notNull(),
     refEventId: uuid("ref_event_id"), // For corrections, references the original event
     reason: text("reason"), // Required for corrections
-    prevHash: text("prev_hash"), // SHA-256 hash of previous event in chain
-    hash: text("hash").notNull(), // SHA-256(prev_hash || canonical_json(event))
+    prevHash: text("prev_hash"), // hash of the previous event in the employee's chain
+    hash: text("hash").notNull(), // v1: SHA-256 (legacy); v2: HMAC-SHA256 over the canonical payload
+    // 1 = legacy (existing rows only; 0025 rejects new v1 rows), 2 = keyed chain
+    hashVersion: smallint("hash_version").notNull().default(2),
+    seq: bigint("seq", { mode: "number" }), // per-employee chain position (v2 only)
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .defaultNow()
       .notNull(),
   },
   (table) => [
     index("time_events_org_idx").on(table.organizationId),
-    index("time_events_employee_idx").on(table.employeeId),
     index("time_events_occurred_idx").on(table.occurredAt),
+    // TIM-006 export window reads and correction-link recursion (0027). The
+    // composite also covers employee_id-only lookups and the FK (0028).
+    index("time_events_employee_occurred_idx").on(
+      table.employeeId,
+      table.occurredAt,
+    ),
+    index("time_events_ref_event_idx")
+      .on(table.refEventId)
+      .where(sql`${table.refEventId} IS NOT NULL`),
+    uniqueIndex("time_events_chain_seq_uidx")
+      .on(table.organizationId, table.employeeId, table.seq)
+      .where(sql`${table.seq} IS NOT NULL`),
+  ],
+);
+
+/**
+ * TIM-002: the newest link of each employee's v2 chain, written by
+ * `TimeRepository.appendEvent` in the same transaction as the event. The
+ * verifier compares it with the stored chain to detect a truncated tail.
+ */
+export const timeEventChainHeads = pgTable(
+  "time_event_chain_heads",
+  {
+    organizationId: organizationIdCol().references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    lastSeq: bigint("last_seq", { mode: "number" }).notNull(),
+    lastHash: text("last_hash").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("time_event_chain_heads_org_employee_uidx").on(
+      table.organizationId,
+      table.employeeId,
+    ),
   ],
 );
 
@@ -326,15 +372,3 @@ export const shiftSwaps = pgTable(
     index("shift_swaps_target_idx").on(table.targetEmployeeId),
   ],
 );
-
-// TODO(TIM-006): Time export reports for Labour Inspectorate
-export const timeExportsStub = {
-  table: "time_exports",
-  requirementId: "TIM-006",
-};
-
-// TODO(TIM-004): Closed period monthly timesheet snapshots
-export const timesheetClosuresStub = {
-  table: "timesheet_closures",
-  requirementId: "TIM-004",
-};

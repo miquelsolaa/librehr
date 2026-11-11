@@ -12,7 +12,9 @@ import { requestIdMiddleware } from "./middleware/request-id.js";
 import { loggerMiddleware } from "./middleware/logger.js";
 import { securityHeadersMiddleware } from "./middleware/security-headers.js";
 import { createAuthMiddleware } from "./middleware/auth.js";
+import { createCsrfMiddleware } from "./middleware/csrf.js";
 import { tenantContextMiddleware } from "./middleware/tenant-context.js";
+import { patScopeMiddleware } from "./middleware/pat-scopes.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { createHealthRoutes } from "./routes/health.js";
 import { createAuthRoutes } from "./routes/auth.js";
@@ -29,7 +31,22 @@ import { createLeaveRoutes } from "./routes/leave.js";
 import { createCalendarRoutes } from "./routes/calendar.js";
 import { createNotificationRoutes } from "./routes/notifications.js";
 import { createTimeRoutes } from "./routes/time.js";
+import {
+  createTimeExportRoutes,
+  TIME_EXPORT_EXPOSED_HEADERS,
+} from "./routes/time-export.js";
+import { createTimeExportEmployeesRoutes } from "./routes/time-export-employees.js";
 import { createTimeCorrectionRoutes } from "./routes/time-corrections.js";
+import { createTimeKioskRoutes } from "./routes/time-kiosk.js";
+import {
+  createTimeChainSigner,
+  resolveTimeChainKey,
+} from "./lib/time-chain.js";
+import {
+  resolveTimeTrackingConfig,
+  type TimeTrackingConfigInput,
+} from "./lib/time-tracking-config.js";
+import type { TwoFactorConfigInput } from "./lib/two-factor-config.js";
 import { createScheduleRoutes } from "./routes/schedules.js";
 import { createDocumentRoutes } from "./routes/documents.js";
 import { createChecklistRoutes } from "./routes/checklists.js";
@@ -40,8 +57,11 @@ import { createTokenRoutes } from "./routes/tokens.js";
 import { createCustomFieldRoutes } from "./routes/custom-fields.js";
 import { createSsoRoutes } from "./routes/sso.js";
 import { createSettingsSecurityRoutes } from "./routes/settings-security.js";
+import { createAuditorAccessRoutes } from "./routes/auditor-access.js";
 import { createWebhookRoutes } from "./routes/webhooks.js";
 import { createShiftRoutes } from "./routes/shifts.js";
+import { createCorsOriginMatcher } from "./lib/cors-origin.js";
+import type { HostResolver } from "./lib/outbound-url.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -50,29 +70,98 @@ export interface AppDependencies {
   authPort: AuthPort;
   mailPort?: MailPort | undefined;
   storagePort?: StoragePort | undefined;
+  /** From the validated env; 2FA challenges are refused without it. */
+  sessionSecret?: string | undefined;
+  /**
+   * HMAC key of the time-event chain (TIM-002), from the validated env.
+   * Required in production; tests and local runs fall back to the dev key.
+   */
+  timeChainKey?: string | undefined;
+  /** Overrides of the time-tracking policy defaults (clock window, kiosk lockout). */
+  timeTracking?: TimeTrackingConfigInput | undefined;
+  /**
+   * Overrides of the TIM-006 export limits (tests): the employee-days cap
+   * (default OFFICIAL_EXPORT_MAX_EMPLOYEE_DAYS) and the rate limit (default
+   * 10 per minute per user), and the employee picker's rate limit (default
+   * 60 per minute per user).
+   */
+  timeExport?:
+    | {
+        maxEmployeeDays?: number | undefined;
+        rateLimit?: { windowMs: number; max: number } | undefined;
+        pickerRateLimit?: { windowMs: number; max: number } | undefined;
+      }
+    | undefined;
+  /** Overrides of the 2FA defaults (AUTH-003); see lib/two-factor-config.ts. */
+  twoFactor?: TwoFactorConfigInput | undefined;
+  /** NODE_ENV from the validated env: production always sets Secure cookies. */
+  nodeEnv?: "development" | "test" | "production" | undefined;
+  /** TRUST_PROXY from the validated env (trusted reverse-proxy hops). */
+  trustProxy?: number | undefined;
+  /** Edge settings from the validated env; see `resolveAppConfig`. */
+  config?: Partial<AppConfig> | undefined;
+}
+
+export interface AppConfig {
+  nodeEnv: "development" | "test" | "production";
+  /** Public web app URL (APP_URL); always an allowed CORS origin. */
+  appUrl: string | undefined;
+  /** CORS_ORIGINS. */
+  corsOrigins: string[];
+  /** Public API base URL (BETTER_AUTH_URL), used for the SSO redirect URI. */
+  publicApiUrl: string;
+  /** SSO_ENABLED. */
+  ssoEnabled: boolean;
+  /** WEBHOOKS_ALLOW_PRIVATE (never true in production; env.ts refuses it). */
+  webhooksAllowPrivate: boolean;
+  /** DNS resolver for outbound URL checks; tests inject a fake. */
+  resolveHost: HostResolver | undefined;
+}
+
+/**
+ * Fills unset settings with closed defaults: an unknown NODE_ENV is treated
+ * as production, SSO is off and webhooks must target public https URLs.
+ * `fallbackNodeEnv` is the top-level `nodeEnv` dependency, when given.
+ */
+export function resolveAppConfig(
+  config: Partial<AppConfig> = {},
+  fallbackNodeEnv?: AppConfig["nodeEnv"],
+): AppConfig {
+  const envNode = process.env["NODE_ENV"];
+  const nodeEnv =
+    config.nodeEnv ??
+    fallbackNodeEnv ??
+    (envNode === "development" || envNode === "test" ? envNode : "production");
+  return {
+    nodeEnv,
+    appUrl: config.appUrl,
+    corsOrigins: config.corsOrigins ?? [],
+    publicApiUrl: config.publicApiUrl ?? "http://localhost:3001",
+    ssoEnabled: config.ssoEnabled ?? false,
+    webhooksAllowPrivate:
+      nodeEnv !== "production" && (config.webhooksAllowPrivate ?? false),
+    resolveHost: config.resolveHost,
+  };
 }
 
 export function createApp(deps: AppDependencies) {
   const app = new Hono();
+  const timeChainKey = resolveTimeChainKey(deps.timeChainKey);
+  const signTimeEvent = createTimeChainSigner(timeChainKey);
+  const timeTracking = resolveTimeTrackingConfig(deps.timeTracking);
+  const config = resolveAppConfig(deps.config, deps.nodeEnv);
 
   // 1. Global Middleware Pipeline (per ARCHITECTURE.md 3.2)
   app.use(
     "*",
     cors({
-      origin: (origin) => {
-        if (!origin) return "http://localhost:3000";
-        const appUrl = process.env["APP_URL"] ?? "http://localhost:3000";
-        if (
-          origin === "http://localhost:3000" ||
-          origin === "http://127.0.0.1:3000" ||
-          origin === appUrl ||
-          origin.startsWith("http://localhost:") ||
-          origin.startsWith("http://127.0.0.1:")
-        ) {
-          return origin;
-        }
-        return null;
-      },
+      origin: createCorsOriginMatcher({
+        nodeEnv: config.nodeEnv,
+        allowedOrigins: [
+          ...(config.appUrl ? [config.appUrl] : []),
+          ...config.corsOrigins,
+        ],
+      }),
       allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowHeaders: [
         "Content-Type",
@@ -80,7 +169,11 @@ export function createApp(deps: AppDependencies) {
         "X-Request-ID",
         "X-Tenant-ID",
       ],
-      exposeHeaders: ["Content-Length", "X-Request-ID"],
+      exposeHeaders: [
+        "Content-Length",
+        "X-Request-ID",
+        ...TIME_EXPORT_EXPOSED_HEADERS,
+      ],
       maxAge: 600,
       credentials: true,
     }),
@@ -89,7 +182,18 @@ export function createApp(deps: AppDependencies) {
   app.use("*", loggerMiddleware);
   app.use("*", securityHeadersMiddleware);
   app.use("*", createAuthMiddleware(deps.authPort, deps.sql));
+  app.use(
+    "*",
+    // The resolved config: an unset NODE_ENV is production (closed), and the
+    // CORS_ORIGINS cookie clients are trusted by CORS and CSRF alike.
+    createCsrfMiddleware({
+      appUrl: config.appUrl,
+      allowedOrigins: config.corsOrigins,
+      nodeEnv: config.nodeEnv,
+    }),
+  );
   app.use("*", tenantContextMiddleware);
+  app.use("*", patScopeMiddleware);
 
   // 2. Health & Readiness
   const healthRoutes = createHealthRoutes(deps.sql);
@@ -116,24 +220,71 @@ export function createApp(deps: AppDependencies) {
   });
 
   // 4. API v1 Modules
-  app.route("/v1/auth", createAuthRoutes(deps.authPort, deps.sql));
+  app.route(
+    "/v1/auth",
+    createAuthRoutes(deps.authPort, deps.sql, {
+      sessionSecret: deps.sessionSecret,
+      nodeEnv: deps.nodeEnv,
+      trustProxy: deps.trustProxy,
+      twoFactor: deps.twoFactor,
+    }),
+  );
   app.route("/v1", createMeRoutes(deps.sql));
   app.route("/v1", createOrgRoutes(deps.sql));
-  app.route("/v1", createEmployeeRoutes(deps.sql));
+  app.route(
+    "/v1",
+    createEmployeeRoutes(deps.sql, { trustProxy: deps.trustProxy }),
+  );
   app.route("/v1", createEmploymentHistoryRoutes(deps.sql));
   app.route("/v1", createDepartmentRoutes(deps.sql));
   app.route("/v1", createLocationRoutes(deps.sql));
   app.route(
     "/v1",
-    createInvitationRoutes(deps.sql, deps.authPort, deps.mailPort),
+    createInvitationRoutes(deps.sql, deps.authPort, deps.mailPort, {
+      nodeEnv: deps.nodeEnv,
+      trustProxy: deps.trustProxy,
+    }),
   );
-  app.route("/v1", createSetupRoutes(deps.sql));
+  app.route(
+    "/v1",
+    createSetupRoutes(deps.sql, { trustProxy: deps.trustProxy }),
+  );
   app.route("/v1", createAuditRoutes(deps.sql));
   app.route("/v1", createLeaveRoutes(deps.sql, deps.mailPort));
   app.route("/v1", createCalendarRoutes(deps.sql));
   app.route("/v1", createNotificationRoutes(deps.sql));
-  app.route("/v1", createTimeRoutes(deps.sql));
-  app.route("/v1", createTimeCorrectionRoutes(deps.sql));
+  app.route(
+    "/v1",
+    createTimeRoutes(deps.sql, { sign: signTimeEvent, config: timeTracking }),
+  );
+  app.route(
+    "/v1",
+    createTimeExportRoutes(deps.sql, {
+      timeChainKey,
+      trustProxy: deps.trustProxy,
+      maxEmployeeDays: deps.timeExport?.maxEmployeeDays,
+      rateLimit: deps.timeExport?.rateLimit,
+    }),
+  );
+  app.route(
+    "/v1",
+    createTimeExportEmployeesRoutes(deps.sql, {
+      trustProxy: deps.trustProxy,
+      rateLimit: deps.timeExport?.pickerRateLimit,
+    }),
+  );
+  app.route(
+    "/v1",
+    createTimeKioskRoutes(deps.sql, {
+      sign: signTimeEvent,
+      config: timeTracking,
+      trustProxy: deps.trustProxy,
+    }),
+  );
+  app.route(
+    "/v1",
+    createTimeCorrectionRoutes(deps.sql, { sign: signTimeEvent }),
+  );
   app.route("/v1", createScheduleRoutes(deps.sql));
 
   // M4 & M5 Modules
@@ -145,9 +296,22 @@ export function createApp(deps: AppDependencies) {
   app.route("/v1", createReportRoutes(deps.sql));
   app.route("/v1", createTokenRoutes(deps.sql));
   app.route("/v1", createCustomFieldRoutes(deps.sql));
-  app.route("/v1", createSsoRoutes(deps.sql));
+  app.route(
+    "/v1",
+    createSsoRoutes(deps.sql, {
+      enabled: config.ssoEnabled,
+      publicApiUrl: config.publicApiUrl,
+    }),
+  );
   app.route("/v1", createSettingsSecurityRoutes(deps.sql));
-  app.route("/v1", createWebhookRoutes(deps.sql));
+  app.route("/v1", createAuditorAccessRoutes(deps.sql));
+  app.route(
+    "/v1",
+    createWebhookRoutes(deps.sql, {
+      allowPrivate: config.webhooksAllowPrivate,
+      resolve: config.resolveHost,
+    }),
+  );
   app.route("/v1", createShiftRoutes(deps.sql));
 
   // 5. RFC 9457 Problem Details Error Handler

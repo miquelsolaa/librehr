@@ -11,6 +11,7 @@ import {
   EmployeeRepository,
   AuditRepository,
 } from "@librehr/db";
+import { businessToday } from "../lib/business-date.js";
 import { requireAuth } from "../middleware/auth.js";
 import { can } from "../policies/can.js";
 
@@ -45,7 +46,11 @@ export function createScheduleRoutes(sql: Sql) {
       async (tx) => {
         const emp = await employeeRepo.findByUserId(tx, user.id);
         if (!emp) return null;
-        return scheduleRepo.getForEmployee(tx, emp.id);
+        return scheduleRepo.getForEmployee(
+          tx,
+          emp.id,
+          await businessToday(c, tx, emp.locationId),
+        );
       },
     );
 

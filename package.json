@@ -2,6 +2,7 @@
   "name": "librehr-monorepo",
   "version": "0.1.0",
   "private": true,
+  "license": "AGPL-3.0-or-later",
   "type": "module",
   "packageManager": "pnpm@12.18.0",
   "engines": {

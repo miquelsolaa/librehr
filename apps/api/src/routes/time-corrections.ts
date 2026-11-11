@@ -6,7 +6,6 @@ import {
   CreateTimeCorrectionSchema,
   DecideTimeCorrectionSchema,
 } from "@librehr/contracts";
-import { computeEventHash } from "@librehr/core";
 import {
   withTenant,
   TimeCorrectionRepository,
@@ -14,11 +13,22 @@ import {
   EmployeeRepository,
   AuditRepository,
   NotificationRepository,
+  type TimeChainSigner,
 } from "@librehr/db";
+import { IdParamSchema, parseParams } from "../lib/validate.js";
 import { requireAuth } from "../middleware/auth.js";
-import { can } from "../policies/can.js";
+import { assertNotSelfApproval } from "../policies/approvals.js";
+import {
+  canOnEmployee,
+  inEmployeeFilter,
+  resolvePolicyContext,
+  scopedEmployeeFilter,
+} from "../policies/context.js";
 
-export function createTimeCorrectionRoutes(sql: Sql) {
+export function createTimeCorrectionRoutes(
+  sql: Sql,
+  options: { sign: TimeChainSigner },
+) {
   const router = new Hono();
   const correctionRepo = new TimeCorrectionRepository();
   const timeRepo = new TimeRepository();
@@ -36,20 +46,17 @@ export function createTimeCorrectionRoutes(sql: Sql) {
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        const isAdmin = user.role === "admin";
-        const isManager = user.role === "manager";
-        const currentEmp = await employeeRepo.findByUserId(tx, user.id);
-
-        let filterEmpId = requestedEmpId;
-        if (!isAdmin && !isManager) {
-          if (!currentEmp) return [];
-          filterEmpId = currentEmp.id;
-        }
-
-        return correctionRepo.list(tx, {
-          employeeId: filterEmpId,
+        // Managers see their own and their direct reports' corrections only.
+        const filter = scopedEmployeeFilter(
+          await resolvePolicyContext(c, tx),
+          "time.record.read",
+          requestedEmpId,
+        );
+        const rows = await correctionRepo.list(tx, {
+          employeeId: filter.employeeId,
           status,
         });
+        return rows.filter((r) => inEmployeeFilter(filter, r.employeeId));
       },
     );
 
@@ -162,7 +169,9 @@ export function createTimeCorrectionRoutes(sql: Sql) {
   // 3. POST /time/corrections/:id/decide - Approve or Reject correction
   router.post("/time/corrections/:id/decide", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const correctionId = c.req.param("id");
+    const { id: correctionId } = parseParams(c, IdParamSchema, {
+      detail: "Correction not found",
+    });
     const body = await c.req.json().catch(() => null);
     const parsed = DecideTimeCorrectionSchema.safeParse(body);
 
@@ -188,19 +197,13 @@ export function createTimeCorrectionRoutes(sql: Sql) {
         const targetEmp = await employeeRepo.findById(tx, corr.employeeId);
         if (!targetEmp) return { error: "NOT_FOUND" as const };
 
-        const allowed = can(
-          {
-            userId: user.id,
-            organizationId: user.organizationId,
-            role: user.role,
-          },
-          "time.record.correct",
-          {
-            organizationId: user.organizationId,
-            employeeId: targetEmp.id,
-            managerId: targetEmp.managerId ?? undefined,
-          },
-        );
+        const ctx = await resolvePolicyContext(c, tx);
+        // TIM-003: nobody decides their own correction, admins included.
+        assertNotSelfApproval(ctx, {
+          employeeId: targetEmp.id,
+          userId: targetEmp.userId,
+        });
+        const allowed = canOnEmployee(ctx, "time.record.correct", targetEmp);
 
         if (!allowed) {
           return { error: "FORBIDDEN" as const };
@@ -212,22 +215,10 @@ export function createTimeCorrectionRoutes(sql: Sql) {
         let createdEventId: string | null = null;
 
         if (parsed.data.decision === "approve") {
-          const latest = await timeRepo.getLatestEvent(tx, corr.employeeId);
-          const prevHash = latest?.hash ?? null;
-
-          const hash = computeEventHash(prevHash, {
+          // The correction is a new event that references the original; the
+          // original stays in the chain untouched (TIM-003).
+          const createdEv = await timeRepo.appendEvent(tx, options.sign, {
             organizationId: user.organizationId,
-            employeeId: corr.employeeId,
-            eventType: corr.proposedEventType,
-            occurredAt: corr.proposedOccurredAt.toISOString(),
-            recordedAt: new Date().toISOString(),
-            source: "manual",
-            actorId: user.id,
-            refEventId: corr.refEventId ?? undefined,
-            reason: `Approved correction: ${corr.reason}`,
-          });
-
-          const createdEv = await timeRepo.appendEvent(tx, {
             employeeId: corr.employeeId,
             eventType: corr.proposedEventType as
               | "clock_in"
@@ -240,8 +231,6 @@ export function createTimeCorrectionRoutes(sql: Sql) {
             actorId: user.id,
             refEventId: corr.refEventId,
             reason: `Approved correction: ${corr.reason}`,
-            prevHash,
-            hash,
           });
 
           createdEventId = createdEv.id;

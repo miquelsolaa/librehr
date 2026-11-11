@@ -3,8 +3,8 @@
 import * as React from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Button, Input, Badge } from "@librehr/ui";
-import { Calendar, ArrowLeft, AlertTriangle } from "lucide-react";
+import { Button, Input, Badge, PageHeader } from "@librehr/ui";
+import { AlertTriangle, ChevronLeft, Paperclip } from "lucide-react";
 import Link from "next/link";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
@@ -16,6 +16,8 @@ export default function RequestLeavePage() {
   const locale = (params?.["locale"] as string | undefined) ?? "ca";
 
   const t = useTranslations("timeOff");
+  const tNav = useTranslations("nav");
+  const tCommon = useTranslations("common");
 
   const [leaveTypes, setLeaveTypes] = React.useState<LeaveType[]>([]);
   const [blackouts, setBlackouts] = React.useState<BlackoutPeriod[]>([]);
@@ -30,9 +32,9 @@ export default function RequestLeavePage() {
 
   React.useEffect(() => {
     const session = getStoredSession();
-    if (!session?.token) return;
+    if (!session) return;
 
-    const client = getApiClient(session.token);
+    const client = getApiClient();
     Promise.all([
       client.listLeaveTypes().catch(() => []),
       client.listBlackoutPeriods().catch(() => []),
@@ -68,16 +70,16 @@ export default function RequestLeavePage() {
     setError(null);
 
     const session = getStoredSession();
-    if (!session?.token) return;
+    if (!session) return;
 
     if (!startDate || !endDate) {
-      setError("Please select both start and end dates.");
+      setError(t("validationDates"));
       return;
     }
 
     setSubmitting(true);
     try {
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       await client.createLeaveRequest({
         leaveTypeId: selectedType,
         startDate,
@@ -109,42 +111,32 @@ export default function RequestLeavePage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <div className="flex items-center gap-2">
-        <Link
-          href={`/${locale}/time-off`}
-          className="flex items-center text-sm font-medium text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="mr-1 h-4 w-4" />
-          Back to Time Off
-        </Link>
-      </div>
+      <PageHeader
+        breadcrumb={
+          <Link
+            href={`/${locale}/time-off`}
+            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+            {tNav("timeOff")}
+          </Link>
+        }
+        title={t("requestFormTitle")}
+        description={t("requestFormSubtitle")}
+      />
 
-      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-        <div className="flex items-center gap-3 border-b border-border pb-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Calendar className="h-5 w-5" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-foreground">
-              {t("requestFormTitle")}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Submit your dates for manager approval.
-            </p>
-          </div>
-        </div>
-
+      <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
         {error && (
           <div
             role="alert"
-            className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/50 dark:text-red-400"
+            className="mt-4 rounded-md bg-red-50 p-3 first:mt-0 text-sm text-red-700 dark:bg-red-950/50 dark:text-red-400"
           >
             {error}
           </div>
         )}
 
         {activeBlackoutConflict && (
-          <div className="mt-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50/80 p-3.5 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+          <div className="mt-4 flex items-start gap-3 rounded-lg border border-amber-200 first:mt-0 bg-amber-50/80 p-3.5 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
             <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div>
               <p className="font-semibold text-xs uppercase tracking-wider">
@@ -152,22 +144,32 @@ export default function RequestLeavePage() {
               </p>
               <p className="mt-0.5 text-xs">
                 {activeBlackoutConflict.reason} (
-                {activeBlackoutConflict.startDate} to{" "}
-                {activeBlackoutConflict.endDate})
+                {t("dateRange", {
+                  start: activeBlackoutConflict.startDate,
+                  end: activeBlackoutConflict.endDate,
+                })}
+                )
               </p>
             </div>
           </div>
         )}
 
-        <form onSubmit={(e) => void handleSubmit(e)} className="mt-6 space-y-4">
+        <form
+          onSubmit={(e) => void handleSubmit(e)}
+          className="mt-6 space-y-4 first:mt-0"
+        >
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
+            <label
+              htmlFor="leave-type"
+              className="block text-sm font-medium text-foreground mb-1.5"
+            >
               {t("leaveType")}
             </label>
             <select
+              id="leave-type"
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value)}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
               required
             >
               {leaveTypes.map((type) => (
@@ -187,18 +189,19 @@ export default function RequestLeavePage() {
                     {currentType.isPaid ? t("paidLeave") : t("unpaidLeave")}
                   </Badge>
                   {currentType.legalReference && (
-                    <Badge variant="outline" className="font-mono text-[11px]">
+                    <Badge variant="outline" className="font-mono text-xs">
                       {currentType.legalReference}
                     </Badge>
                   )}
                   {currentType.requiresAttachment && (
-                    <Badge variant="warning" className="text-[11px]">
-                      📎 Document Required
+                    <Badge variant="warning" className="gap-1 text-xs">
+                      <Paperclip className="h-3 w-3" aria-hidden="true" />
+                      {t("documentRequired")}
                     </Badge>
                   )}
                 </div>
                 {currentType.description && (
-                  <p className="text-muted-foreground mt-1 text-[11px] leading-relaxed">
+                  <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
                     {currentType.description}
                   </p>
                 )}
@@ -208,10 +211,14 @@ export default function RequestLeavePage() {
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">
+              <label
+                htmlFor="leave-start"
+                className="block text-sm font-medium text-foreground mb-1.5"
+              >
                 {t("startDate")}
               </label>
               <Input
+                id="leave-start"
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
@@ -223,7 +230,7 @@ export default function RequestLeavePage() {
                   id="halfDayStart"
                   checked={halfDayStart}
                   onChange={(e) => setHalfDayStart(e.target.checked)}
-                  className="rounded border-input text-primary focus:ring-ring"
+                  className="rounded border-border text-primary focus:ring-focus-ring"
                 />
                 <label
                   htmlFor="halfDayStart"
@@ -235,10 +242,14 @@ export default function RequestLeavePage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">
+              <label
+                htmlFor="leave-end"
+                className="block text-sm font-medium text-foreground mb-1.5"
+              >
                 {t("endDate")}
               </label>
               <Input
+                id="leave-end"
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
@@ -250,7 +261,7 @@ export default function RequestLeavePage() {
                   id="halfDayEnd"
                   checked={halfDayEnd}
                   onChange={(e) => setHalfDayEnd(e.target.checked)}
-                  className="rounded border-input text-primary focus:ring-ring"
+                  className="rounded border-border text-primary focus:ring-focus-ring"
                 />
                 <label
                   htmlFor="halfDayEnd"
@@ -263,26 +274,28 @@ export default function RequestLeavePage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
+            <label
+              htmlFor="leave-notes"
+              className="block text-sm font-medium text-foreground mb-1.5"
+            >
               {t("notes")}
             </label>
             <textarea
+              id="leave-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
-              className="w-full rounded-md border border-input bg-background p-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              placeholder="Provide context or coverage arrangements..."
+              className="w-full rounded-md border border-border bg-background p-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              placeholder={t("notesPlaceholder")}
             />
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-border">
-            <Link href={`/${locale}/time-off`}>
-              <Button type="button" variant="outline">
-                Cancel
-              </Button>
-            </Link>
+            <Button asChild variant="outline">
+              <Link href={`/${locale}/time-off`}>{tCommon("cancel")}</Link>
+            </Button>
             <Button type="submit" variant="default" disabled={submitting}>
-              {submitting ? "Submitting..." : t("submitRequest")}
+              {submitting ? t("submitting") : t("submitRequest")}
             </Button>
           </div>
         </form>

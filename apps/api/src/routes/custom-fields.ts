@@ -10,12 +10,22 @@ import {
   withTenant,
   CustomFieldRepository,
   AuditRepository,
+  EmployeeRepository,
 } from "@librehr/db";
+import { ForbiddenError, NotFoundError } from "../errors/index.js";
+import { IdParamSchema, parseJsonBody, parseParams } from "../lib/validate.js";
 import { requireAuth } from "../middleware/auth.js";
+import { resolvePolicyContext } from "../policies/context.js";
+import {
+  canSeeCustomField,
+  canWriteCustomFields,
+  customFieldViewer,
+} from "../policies/custom-fields.js";
 
 export function createCustomFieldRoutes(sql: Sql) {
   const router = new Hono();
   const cfRepo = new CustomFieldRepository();
+  const employeeRepo = new EmployeeRepository();
   const auditRepo = new AuditRepository();
 
   // List custom field definitions
@@ -121,13 +131,29 @@ export function createCustomFieldRoutes(sql: Sql) {
   // Get custom field values for employee
   router.get("/people/:id/custom-fields", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const employeeId = c.req.param("id");
+    const { id: employeeId } = parseParams(c, IdParamSchema, {
+      detail: "Employee not found",
+    });
 
     const values = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        return cfRepo.findValuesByEmployee(tx, employeeId);
+        const employee = await employeeRepo.findById(tx, employeeId);
+        if (!employee)
+          throw new NotFoundError({ detail: "Employee not found" });
+        const viewer = customFieldViewer(
+          await resolvePolicyContext(c, tx),
+          employee,
+        );
+        if (!viewer) {
+          throw new ForbiddenError({
+            detail: "This employee is outside your access scope",
+          });
+        }
+        const all = await cfRepo.findValuesByEmployee(tx, employeeId);
+        // ORG-005: each definition's visibility rule decides per field.
+        return all.filter((v) => canSeeCustomField(viewer, v.visibility));
       },
     );
 
@@ -137,31 +163,39 @@ export function createCustomFieldRoutes(sql: Sql) {
   // Set custom field value for employee
   router.post("/people/:id/custom-fields", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const employeeId = c.req.param("id");
-
-    const body = await c.req.json();
-    const parse = SetCustomFieldValueSchema.safeParse(body);
-    if (!parse.success) {
-      const problem = createProblemDetails({
-        status: 400,
-        title: "Validation Failed",
-        detail: parse.error.errors.map((e) => e.message).join(", "),
-        code: "VALIDATION_FAILED",
-      });
-      return c.json(problem, 400, {
-        "Content-Type": "application/problem+json",
-      });
-    }
+    const { id: employeeId } = parseParams(c, IdParamSchema, {
+      detail: "Employee not found",
+    });
+    const data = await parseJsonBody(c, SetCustomFieldValueSchema, {
+      code: "VALIDATION_FAILED",
+    });
 
     const value = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
+        const employee = await employeeRepo.findById(tx, employeeId);
+        if (!employee)
+          throw new NotFoundError({ detail: "Employee not found" });
+        if (
+          !canWriteCustomFields(await resolvePolicyContext(c, tx), employee)
+        ) {
+          throw new ForbiddenError({
+            detail: "Only HR and administrators can edit custom field values",
+          });
+        }
+        const definition = await cfRepo.findDefinitionById(
+          tx,
+          data.fieldDefinitionId,
+        );
+        if (!definition) {
+          throw new NotFoundError({ detail: "Custom field not found" });
+        }
         const updated = await cfRepo.upsertValue(
           tx,
-          parse.data.fieldDefinitionId,
+          data.fieldDefinitionId,
           employeeId,
-          parse.data.value,
+          data.value,
         );
 
         await auditRepo.log(tx, {
@@ -171,7 +205,7 @@ export function createCustomFieldRoutes(sql: Sql) {
           resourceId: updated.id,
           metadata: {
             employeeId,
-            fieldDefinitionId: parse.data.fieldDefinitionId,
+            fieldDefinitionId: data.fieldDefinitionId,
           },
         });
 

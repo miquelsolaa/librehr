@@ -1,47 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
-  generatePinSalt,
-  hashKioskPin,
-  verifyKioskPin,
   calculateTimeBankBalance,
   type TimeBankEntry,
 } from "../src/time/index.js";
 
-describe("Kiosk PIN and Time Bank (TIM-010, TIM-012)", () => {
-  describe("Kiosk PIN hashing & verification (TIM-010)", () => {
-    it("generates 32-char hex salt", () => {
-      const salt = generatePinSalt();
-      expect(salt).toHaveLength(32);
-    });
-
-    it("hashes pin deterministically with same salt", () => {
-      const salt = "0123456789abcdef0123456789abcdef";
-      const hash1 = hashKioskPin("1234", salt);
-      const hash2 = hashKioskPin("1234", salt);
-      expect(hash1).toBe(hash2);
-      expect(hash1).toHaveLength(64);
-    });
-
-    it("produces different hashes for different pins or salts", () => {
-      const salt1 = "0123456789abcdef0123456789abcdef";
-      const salt2 = "fedcba9876543210fedcba9876543210";
-      const hash1 = hashKioskPin("1234", salt1);
-      const hash2 = hashKioskPin("1234", salt2);
-      const hash3 = hashKioskPin("4321", salt1);
-
-      expect(hash1).not.toBe(hash2);
-      expect(hash1).not.toBe(hash3);
-    });
-
-    it("verifies matching pin successfully", () => {
-      const salt = generatePinSalt();
-      const hash = hashKioskPin("9876", salt);
-      expect(verifyKioskPin("9876", hash, salt)).toBe(true);
-      expect(verifyKioskPin("0000", hash, salt)).toBe(false);
-      expect(verifyKioskPin("", hash, salt)).toBe(false);
-    });
-  });
-
+describe("Time Bank (TIM-012)", () => {
   describe("Time Bank calculation (TIM-012)", () => {
     it("returns zero balance when no entries exist", () => {
       const res = calculateTimeBankBalance([]);

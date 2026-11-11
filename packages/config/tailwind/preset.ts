@@ -1,5 +1,9 @@
+import tailwindcssAnimate from "tailwindcss-animate";
+
 export const librehrTailwindPreset = {
   darkMode: ["class"],
+  // Provides the animate-in / fade-* / zoom-* utilities the UI components use.
+  plugins: [tailwindcssAnimate],
 
   theme: {
     extend: {
@@ -15,6 +19,10 @@ export const librehrTailwindPreset = {
           foreground: "hsl(var(--primary-foreground) / <alpha-value>)",
         },
         accent: "hsl(var(--accent) / <alpha-value>)",
+        "brand-accent": {
+          DEFAULT: "hsl(var(--brand-accent) / <alpha-value>)",
+          foreground: "hsl(var(--brand-accent-foreground) / <alpha-value>)",
+        },
         success: "hsl(var(--success) / <alpha-value>)",
         warning: "hsl(var(--warning) / <alpha-value>)",
         danger: "hsl(var(--danger) / <alpha-value>)",
@@ -28,6 +36,8 @@ export const librehrTailwindPreset = {
       },
       fontFamily: {
         sans: [
+          // Self-hosted via @fontsource-variable/inter (imported by apps/web).
+          '"Inter Variable"',
           "Inter",
           "-apple-system",
           "BlinkMacSystemFont",

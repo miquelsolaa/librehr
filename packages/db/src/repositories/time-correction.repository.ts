@@ -74,6 +74,7 @@ export class TimeCorrectionRepository {
       LEFT JOIN employees a ON a.id = c.approver_id
       WHERE (${filters.employeeId ?? null}::uuid IS NULL OR c.employee_id = ${filters.employeeId ?? null})
         AND (${filters.status ?? null}::text IS NULL OR c.status = ${filters.status ?? null})
+        AND c.organization_id = ${tx.__tenantContext.organizationId}
       ORDER BY c.created_at DESC
     `;
   }
@@ -92,7 +93,7 @@ export class TimeCorrectionRepository {
       FROM time_corrections c
       JOIN employees e ON e.id = c.employee_id
       LEFT JOIN employees a ON a.id = c.approver_id
-      WHERE c.id = ${id}
+      WHERE c.id = ${id} AND c.organization_id = ${tx.__tenantContext.organizationId}
       LIMIT 1
     `;
     return rows[0] ?? null;

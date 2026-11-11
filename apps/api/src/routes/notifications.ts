@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { Sql } from "postgres";
 import { type AuthUser, createProblemDetails } from "@librehr/contracts";
 import { withTenant, NotificationRepository } from "@librehr/db";
+import { IdParamSchema, parseParams } from "../lib/validate.js";
 import { requireAuth } from "../middleware/auth.js";
 
 export function createNotificationRoutes(sql: Sql) {
@@ -39,13 +40,17 @@ export function createNotificationRoutes(sql: Sql) {
   // 2. PATCH /notifications/:id/read - Mark notification as read
   router.patch("/notifications/:id/read", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const notificationId = c.req.param("id");
+    const { id: notificationId } = parseParams(c, IdParamSchema, {
+      detail: "Notification not found",
+      code: "NOTIFICATION_NOT_FOUND",
+    });
 
+    // Only the recipient can mark a notification; anyone else's id is a 404.
     const updated = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        return notificationRepo.markAsRead(tx, notificationId);
+        return notificationRepo.markAsRead(tx, notificationId, user.id);
       },
     );
 

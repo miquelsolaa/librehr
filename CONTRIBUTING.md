@@ -16,10 +16,10 @@ pnpm install
 cp infra/env/.env.example .env
 pnpm infra:up      # Postgres, Mailpit, MinIO
 pnpm db:migrate && pnpm db:seed
-pnpm dev           # web http://localhost:3000, api http://localhost:4000, mail http://localhost:8025
+pnpm dev           # web http://localhost:3000, api http://localhost:3001, mail http://localhost:8025
 ```
 
-Seed users (dev only): `admin@example.test`, `manager@example.test`, `employee@example.test` (password in `infra/env/.env.example`).
+Seed users (dev only): `admin@librehr.local`, `manager@librehr.local`, `hr@librehr.local`, `employee@librehr.local` and more (see `packages/db/seeds/dev.ts`). Password: `Password123!`. Kiosk PIN: `1234` (override with `SEED_DEV_KIOSK_PIN`). These are public values; the seed refuses to run with `NODE_ENV=production`.
 
 ## Workflow
 

@@ -120,9 +120,6 @@
           "expiresAt": {
             "type": "string",
             "format": "date-time"
-          },
-          "token": {
-            "type": "string"
           }
         },
         "required": [
@@ -1203,6 +1200,10 @@
               "null"
             ],
             "format": "uuid"
+          },
+          "accessUntil": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
           }
         },
         "required": [
@@ -1227,6 +1228,13 @@
             "type": "string",
             "format": "date-time"
           },
+          "accessExpiresAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
           "acceptedAt": {
             "type": [
               "string",
@@ -1244,6 +1252,7 @@
           "email",
           "role",
           "expiresAt",
+          "accessExpiresAt",
           "acceptedAt",
           "createdAt"
         ]
@@ -2218,22 +2227,15 @@
             "type": "string",
             "format": "date-time"
           },
-          "source": {
-            "type": "string",
-            "enum": [
-              "web",
-              "mobile",
-              "kiosk"
-            ],
-            "default": "web"
-          },
           "notes": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 500
           }
         },
         "required": [
           "eventType"
-        ]
+        ],
+        "additionalProperties": false
       },
       "ClockStatusResponse": {
         "type": "object",
@@ -2593,160 +2595,190 @@
       "OfficialExportResponse": {
         "type": "object",
         "properties": {
-          "metadata": {
+          "exportId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contentHash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "employee",
+              "organization"
+            ]
+          },
+          "locale": {
+            "type": "string",
+            "enum": [
+              "ca",
+              "es",
+              "en"
+            ]
+          },
+          "periodStart": {
+            "type": "string",
+            "format": "date"
+          },
+          "periodEnd": {
+            "type": "string",
+            "format": "date"
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "organizationName": {
+            "type": "string"
+          },
+          "generatedBy": {
             "type": "object",
             "properties": {
-              "organizationId": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "organizationName": {
+              "name": {
                 "type": "string"
               },
-              "employeeId": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "employeeName": {
-                "type": "string"
-              },
-              "periodStart": {
-                "type": "string"
-              },
-              "periodEnd": {
-                "type": "string"
-              },
-              "generatedAt": {
-                "type": "string"
-              },
-              "generatorActorId": {
+              "role": {
                 "type": "string"
               }
             },
             "required": [
-              "organizationId",
-              "organizationName",
-              "employeeId",
-              "employeeName",
-              "periodStart",
-              "periodEnd",
-              "generatedAt",
-              "generatorActorId"
+              "name",
+              "role"
             ]
           },
-          "days": {
+          "metadataLines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "rowsEmployed": {
+            "type": "array",
+            "items": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "employees": {
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
-                "date": {
+                "employeeId": {
                   "type": "string",
-                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  "format": "uuid"
                 },
-                "dayOfWeek": {
-                  "type": "integer",
-                  "minimum": 1,
-                  "maximum": 7
+                "name": {
+                  "type": "string"
                 },
-                "sessions": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "clockIn": {
-                        "type": "string"
-                      },
-                      "clockOut": {
-                        "type": "string"
-                      },
-                      "isOpen": {
-                        "type": "boolean"
-                      },
-                      "breaks": {
-                        "type": "array",
-                        "items": {
-                          "type": "object",
-                          "properties": {
-                            "breakStart": {
-                              "type": "string"
-                            },
-                            "breakEnd": {
-                              "type": "string"
-                            },
-                            "durationMinutes": {
-                              "type": "number"
-                            }
-                          },
-                          "required": [
-                            "breakStart",
-                            "durationMinutes"
-                          ]
-                        }
-                      },
-                      "grossDurationMinutes": {
-                        "type": "number"
-                      },
-                      "totalBreakMinutes": {
-                        "type": "number"
-                      },
-                      "netWorkedDurationMinutes": {
-                        "type": "number"
-                      }
-                    },
-                    "required": [
-                      "clockIn",
-                      "isOpen",
-                      "breaks",
-                      "grossDurationMinutes",
-                      "totalBreakMinutes",
-                      "netWorkedDurationMinutes"
-                    ]
-                  }
+                "timeZone": {
+                  "type": "string"
+                },
+                "scheduleConfigured": {
+                  "type": "boolean"
+                },
+                "chainStatus": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "verified",
+                    "tampered",
+                    "legacy_only",
+                    "empty"
+                  ]
                 },
                 "totalWorkedMinutes": {
-                  "type": "number"
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
-                "totalBreakMinutes": {
-                  "type": "number"
-                },
-                "expectedHours": {
-                  "type": "number"
-                },
-                "overtimeMinutes": {
-                  "type": "number"
-                },
-                "hasAnomaly": {
-                  "type": "boolean"
+                "totalOvertimeMinutes": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 }
               },
               "required": [
-                "date",
-                "dayOfWeek",
-                "sessions",
+                "employeeId",
+                "name",
+                "timeZone",
+                "scheduleConfigured",
+                "chainStatus",
                 "totalWorkedMinutes",
-                "totalBreakMinutes",
-                "expectedHours",
-                "overtimeMinutes",
-                "hasAnomaly"
+                "totalOvertimeMinutes"
               ]
             }
-          },
-          "totalWorkedMinutes": {
-            "type": "number"
-          },
-          "totalOvertimeMinutes": {
-            "type": "number"
-          },
-          "documentContentHash": {
-            "type": "string"
           }
         },
         "required": [
-          "metadata",
-          "days",
-          "totalWorkedMinutes",
-          "totalOvertimeMinutes",
-          "documentContentHash"
+          "exportId",
+          "contentHash",
+          "scope",
+          "locale",
+          "periodStart",
+          "periodEnd",
+          "timeZone",
+          "generatedAt",
+          "organizationName",
+          "generatedBy",
+          "metadataLines",
+          "columns",
+          "rows",
+          "rowsEmployed",
+          "employees"
+        ]
+      },
+      "ExportEmployeesResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name"
+              ]
+            }
+          }
+        },
+        "required": [
+          "items"
         ]
       },
       "KioskClockRequest": {
@@ -3724,7 +3756,12 @@
           "scopes": {
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "read",
+                "write",
+                "admin"
+              ]
             }
           },
           "expiresAt": {
@@ -3766,7 +3803,12 @@
           "scopes": {
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "read",
+                "write",
+                "admin"
+              ]
             },
             "minItems": 1
           },
@@ -3800,7 +3842,12 @@
               "scopes": {
                 "type": "array",
                 "items": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "read",
+                    "write",
+                    "admin"
+                  ]
                 }
               },
               "expiresAt": {
@@ -4230,7 +4277,17 @@
           "events": {
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "employee.created",
+                "employee.updated",
+                "employee.terminated",
+                "leave.requested",
+                "leave.approved",
+                "leave.rejected",
+                "time.clocked",
+                "document.uploaded"
+              ]
             }
           },
           "enabled": {
@@ -4266,7 +4323,6 @@
           "organizationId",
           "name",
           "url",
-          "secret",
           "events",
           "enabled",
           "createdAt",
@@ -4288,7 +4344,17 @@
           "events": {
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "employee.created",
+                "employee.updated",
+                "employee.terminated",
+                "leave.requested",
+                "leave.approved",
+                "leave.rejected",
+                "time.clocked",
+                "document.uploaded"
+              ]
             },
             "minItems": 1
           },
@@ -4318,7 +4384,17 @@
           "events": {
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "employee.created",
+                "employee.updated",
+                "employee.terminated",
+                "leave.requested",
+                "leave.approved",
+                "leave.rejected",
+                "time.clocked",
+                "document.uploaded"
+              ]
             },
             "minItems": 1
           },
@@ -4455,9 +4531,6 @@
                     "expiresAt": {
                       "type": "string",
                       "format": "date-time"
-                    },
-                    "token": {
-                      "type": "string"
                     }
                   },
                   "required": [
@@ -7203,6 +7276,10 @@
                       "null"
                     ],
                     "format": "uuid"
+                  },
+                  "accessUntil": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
                   }
                 },
                 "required": [
@@ -7235,6 +7312,13 @@
                       "type": "string",
                       "format": "date-time"
                     },
+                    "accessExpiresAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
                     "acceptedAt": {
                       "type": [
                         "string",
@@ -7252,6 +7336,7 @@
                     "email",
                     "role",
                     "expiresAt",
+                    "accessExpiresAt",
                     "acceptedAt",
                     "createdAt"
                   ]
@@ -7293,6 +7378,62 @@
                     "role",
                     "orgName",
                     "expiresAt"
+                  ]
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Link expired (INVITATION_EXPIRED), already used (INVITATION_ALREADY_ACCEPTED) or the auditor access it grants has ended (INVITATION_ACCESS_EXPIRED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
                   ]
                 }
               }
@@ -7376,14 +7517,775 @@
                     "expiresAt": {
                       "type": "string",
                       "format": "date-time"
-                    },
-                    "token": {
-                      "type": "string"
                     }
                   },
                   "required": [
                     "user",
                     "expiresAt"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/settings/security": {
+      "get": {
+        "summary": "Read the organization's security settings",
+        "responses": {
+          "200": {
+            "description": "Organization security settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "requireTwoFactor": {
+                      "type": "boolean"
+                    },
+                    "auditorAccessMaxDays": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 366
+                    }
+                  },
+                  "required": [
+                    "requireTwoFactor",
+                    "auditorAccessMaxDays"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update the organization's security settings (admin only, audit-logged)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "requireTwoFactor": {
+                    "type": "boolean"
+                  },
+                  "auditorAccessMaxDays": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 366
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Settings as stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "requireTwoFactor": {
+                      "type": "boolean"
+                    },
+                    "auditorAccessMaxDays": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 366
+                    }
+                  },
+                  "required": [
+                    "requireTwoFactor",
+                    "auditorAccessMaxDays"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid settings",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not an organization admin",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auditors/invitations/{id}": {
+      "delete": {
+        "summary": "Cancel a pending auditor invitation (audit-logged)",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Invitation cancelled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not an organization admin",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No pending auditor invitation with this id",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auditors": {
+      "get": {
+        "summary": "List the organization's auditors and their access end dates",
+        "responses": {
+          "200": {
+            "description": "Auditors of the organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "userId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "email": {
+                            "type": "string",
+                            "format": "email"
+                          },
+                          "accessExpiresAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "accessUntil": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "userId",
+                          "name",
+                          "email",
+                          "accessExpiresAt",
+                          "accessUntil"
+                        ]
+                      }
+                    },
+                    "pendingInvitations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "email": {
+                            "type": "string",
+                            "format": "email"
+                          },
+                          "accessExpiresAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "accessUntil": {
+                            "type": "string"
+                          },
+                          "expiresAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "email",
+                          "accessExpiresAt",
+                          "accessUntil",
+                          "expiresAt"
+                        ]
+                      }
+                    },
+                    "timeZone": {
+                      "type": "string"
+                    },
+                    "today": {
+                      "type": "string"
+                    },
+                    "latestAccessUntil": {
+                      "type": "string"
+                    },
+                    "auditorAccessMaxDays": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 366
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "pendingInvitations",
+                    "timeZone",
+                    "today",
+                    "latestAccessUntil",
+                    "auditorAccessMaxDays"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not an organization admin",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auditors/{userId}/access": {
+      "patch": {
+        "summary": "Move an auditor's access end date or revoke access now (audit-logged)",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "userId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "accessUntil": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                      }
+                    },
+                    "required": [
+                      "accessUntil"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "revoke": {
+                        "type": "boolean",
+                        "enum": [
+                          true
+                        ]
+                      }
+                    },
+                    "required": [
+                      "revoke"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The auditor with the new access end date",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "userId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "email": {
+                      "type": "string",
+                      "format": "email"
+                    },
+                    "accessExpiresAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "accessUntil": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "userId",
+                    "name",
+                    "email",
+                    "accessExpiresAt",
+                    "accessUntil"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "End date in the past or beyond the organization's maximum (AUDITOR_ACCESS_END_IN_PAST, AUDITOR_ACCESS_END_TOO_FAR)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not an organization admin",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No auditor with this user id in the organization",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
                   ]
                 }
               }
@@ -10026,8 +10928,36 @@
     },
     "/v1/time/export": {
       "get": {
-        "summary": "Export a configured employee timesheet",
+        "summary": "Labour Inspectorate working-time record (TIM-006) for one employee or the organization, as JSON, CSV or PDF",
+        "description": "Every format carries the same export id and content hash (SHA-256 of the CSV body, every line before the final `# sha256=` line, without the BOM), also sent as the X-Export-Id and X-Content-SHA256 headers. Each employee's days and clock times are in that employee's time zone (location, else organization), named on every row; the header zone is the organization's. The last column (and `rowsEmployed` in JSON) flags whether the day falls inside one of the employee's employment periods: a day outside them expects 0 minutes, so its difference equals the recorded work, which is still listed. Each successful export is written to the audit log (ADM-002). Limited to 10 requests per minute per user and client address.",
         "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "csv",
+                "pdf"
+              ],
+              "default": "json"
+            },
+            "required": false,
+            "name": "format",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "employee",
+                "organization"
+              ],
+              "default": "employee"
+            },
+            "required": false,
+            "name": "scope",
+            "in": "query"
+          },
           {
             "schema": {
               "type": "string",
@@ -10040,7 +10970,7 @@
           {
             "schema": {
               "type": "string",
-              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              "format": "date"
             },
             "required": true,
             "name": "startDate",
@@ -10049,7 +10979,621 @@
           {
             "schema": {
               "type": "string",
-              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              "format": "date"
+            },
+            "required": true,
+            "name": "endDate",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ca",
+                "es",
+                "en"
+              ],
+              "default": "es"
+            },
+            "required": false,
+            "name": "locale",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Inspection export. Headers: X-Export-Id, X-Content-SHA256, Cache-Control: no-store; csv and pdf are sent as attachments.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "exportId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "contentHash": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "scope": {
+                      "type": "string",
+                      "enum": [
+                        "employee",
+                        "organization"
+                      ]
+                    },
+                    "locale": {
+                      "type": "string",
+                      "enum": [
+                        "ca",
+                        "es",
+                        "en"
+                      ]
+                    },
+                    "periodStart": {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    "periodEnd": {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    "timeZone": {
+                      "type": "string"
+                    },
+                    "generatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "organizationName": {
+                      "type": "string"
+                    },
+                    "generatedBy": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "role"
+                      ]
+                    },
+                    "metadataLines": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "columns": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "rowsEmployed": {
+                      "type": "array",
+                      "items": {
+                        "type": [
+                          "boolean",
+                          "null"
+                        ]
+                      }
+                    },
+                    "employees": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "employeeId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "timeZone": {
+                            "type": "string"
+                          },
+                          "scheduleConfigured": {
+                            "type": "boolean"
+                          },
+                          "chainStatus": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "enum": [
+                              "verified",
+                              "tampered",
+                              "legacy_only",
+                              "empty"
+                            ]
+                          },
+                          "totalWorkedMinutes": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "totalOvertimeMinutes": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "employeeId",
+                          "name",
+                          "timeZone",
+                          "scheduleConfigured",
+                          "chainStatus",
+                          "totalWorkedMinutes",
+                          "totalOvertimeMinutes"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "exportId",
+                    "contentHash",
+                    "scope",
+                    "locale",
+                    "periodStart",
+                    "periodEnd",
+                    "timeZone",
+                    "generatedAt",
+                    "organizationName",
+                    "generatedBy",
+                    "metadataLines",
+                    "columns",
+                    "rows",
+                    "rowsEmployed",
+                    "employees"
+                  ]
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query (dates, period over 366 days, format or locale)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Employee or organization outside the caller's scope",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Employee not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Schedule rule not configured for a day the employee is employed (employee scope)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "EXPORT_TOO_LARGE: organization export over OFFICIAL_EXPORT_MAX_EMPLOYEE_DAYS (employees × days); request a shorter period",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMIT_EXCEEDED, with a Retry-After header",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/time/export/employees": {
+      "get": {
+        "summary": "Employees the caller may export (TIM-006, TIM-008) for a period, for the export's employee picker",
+        "description": "Requires time.record.read at any scope. Organization scope (admin, auditor) lists every employee of the organization employed during the period (the same set as an organization export); reports scope (manager) lists self and direct reports; self scope lists only the caller. Id and display name only, sorted by name. A caller with organization-wide time access but no employee.read (an inspector) gets one inspector.export_picker_access audit entry per call (TIM-008). Limited to 60 requests per minute per user and client address.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "required": true,
+            "name": "startDate",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date"
             },
             "required": true,
             "name": "endDate",
@@ -10058,173 +11602,209 @@
         ],
         "responses": {
           "200": {
-            "description": "Inspection export",
+            "description": "Employees in the caller's scope",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "metadata": {
-                      "type": "object",
-                      "properties": {
-                        "organizationId": {
-                          "type": "string",
-                          "format": "uuid"
-                        },
-                        "organizationName": {
-                          "type": "string"
-                        },
-                        "employeeId": {
-                          "type": "string",
-                          "format": "uuid"
-                        },
-                        "employeeName": {
-                          "type": "string"
-                        },
-                        "periodStart": {
-                          "type": "string"
-                        },
-                        "periodEnd": {
-                          "type": "string"
-                        },
-                        "generatedAt": {
-                          "type": "string"
-                        },
-                        "generatorActorId": {
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "organizationId",
-                        "organizationName",
-                        "employeeId",
-                        "employeeName",
-                        "periodStart",
-                        "periodEnd",
-                        "generatedAt",
-                        "generatorActorId"
-                      ]
-                    },
-                    "days": {
+                    "items": {
                       "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
-                          "date": {
+                          "id": {
                             "type": "string",
-                            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                            "format": "uuid"
                           },
-                          "dayOfWeek": {
-                            "type": "integer",
-                            "minimum": 1,
-                            "maximum": 7
-                          },
-                          "sessions": {
-                            "type": "array",
-                            "items": {
-                              "type": "object",
-                              "properties": {
-                                "clockIn": {
-                                  "type": "string"
-                                },
-                                "clockOut": {
-                                  "type": "string"
-                                },
-                                "isOpen": {
-                                  "type": "boolean"
-                                },
-                                "breaks": {
-                                  "type": "array",
-                                  "items": {
-                                    "type": "object",
-                                    "properties": {
-                                      "breakStart": {
-                                        "type": "string"
-                                      },
-                                      "breakEnd": {
-                                        "type": "string"
-                                      },
-                                      "durationMinutes": {
-                                        "type": "number"
-                                      }
-                                    },
-                                    "required": [
-                                      "breakStart",
-                                      "durationMinutes"
-                                    ]
-                                  }
-                                },
-                                "grossDurationMinutes": {
-                                  "type": "number"
-                                },
-                                "totalBreakMinutes": {
-                                  "type": "number"
-                                },
-                                "netWorkedDurationMinutes": {
-                                  "type": "number"
-                                }
-                              },
-                              "required": [
-                                "clockIn",
-                                "isOpen",
-                                "breaks",
-                                "grossDurationMinutes",
-                                "totalBreakMinutes",
-                                "netWorkedDurationMinutes"
-                              ]
-                            }
-                          },
-                          "totalWorkedMinutes": {
-                            "type": "number"
-                          },
-                          "totalBreakMinutes": {
-                            "type": "number"
-                          },
-                          "expectedHours": {
-                            "type": "number"
-                          },
-                          "overtimeMinutes": {
-                            "type": "number"
-                          },
-                          "hasAnomaly": {
-                            "type": "boolean"
+                          "name": {
+                            "type": "string"
                           }
                         },
                         "required": [
-                          "date",
-                          "dayOfWeek",
-                          "sessions",
-                          "totalWorkedMinutes",
-                          "totalBreakMinutes",
-                          "expectedHours",
-                          "overtimeMinutes",
-                          "hasAnomaly"
+                          "id",
+                          "name"
                         ]
                       }
-                    },
-                    "totalWorkedMinutes": {
-                      "type": "number"
-                    },
-                    "totalOvertimeMinutes": {
-                      "type": "number"
-                    },
-                    "documentContentHash": {
-                      "type": "string"
                     }
                   },
                   "required": [
-                    "metadata",
-                    "days",
-                    "totalWorkedMinutes",
-                    "totalOvertimeMinutes",
-                    "documentContentHash"
+                    "items"
                   ]
                 }
               }
             }
           },
-          "409": {
-            "description": "Schedule rule not configured",
+          "400": {
+            "description": "Invalid dates or period over 366 days",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No time.record.read permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMIT_EXCEEDED, with a Retry-After header",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -11298,7 +12878,12 @@
                       "scopes": {
                         "type": "array",
                         "items": {
-                          "type": "string"
+                          "type": "string",
+                          "enum": [
+                            "read",
+                            "write",
+                            "admin"
+                          ]
                         }
                       },
                       "expiresAt": {
@@ -11351,7 +12936,12 @@
                   "scopes": {
                     "type": "array",
                     "items": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "read",
+                        "write",
+                        "admin"
+                      ]
                     },
                     "minItems": 1
                   },
@@ -11393,7 +12983,12 @@
                         "scopes": {
                           "type": "array",
                           "items": {
-                            "type": "string"
+                            "type": "string",
+                            "enum": [
+                              "read",
+                              "write",
+                              "admin"
+                            ]
                           }
                         },
                         "expiresAt": {
@@ -12386,7 +13981,17 @@
                       "events": {
                         "type": "array",
                         "items": {
-                          "type": "string"
+                          "type": "string",
+                          "enum": [
+                            "employee.created",
+                            "employee.updated",
+                            "employee.terminated",
+                            "leave.requested",
+                            "leave.approved",
+                            "leave.rejected",
+                            "time.clocked",
+                            "document.uploaded"
+                          ]
                         }
                       },
                       "enabled": {
@@ -12422,7 +14027,6 @@
                       "organizationId",
                       "name",
                       "url",
-                      "secret",
                       "events",
                       "enabled",
                       "createdAt",
@@ -12455,7 +14059,17 @@
                   "events": {
                     "type": "array",
                     "items": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "employee.created",
+                        "employee.updated",
+                        "employee.terminated",
+                        "leave.requested",
+                        "leave.approved",
+                        "leave.rejected",
+                        "time.clocked",
+                        "document.uploaded"
+                      ]
                     },
                     "minItems": 1
                   },
@@ -12504,7 +14118,17 @@
                     "events": {
                       "type": "array",
                       "items": {
-                        "type": "string"
+                        "type": "string",
+                        "enum": [
+                          "employee.created",
+                          "employee.updated",
+                          "employee.terminated",
+                          "leave.requested",
+                          "leave.approved",
+                          "leave.rejected",
+                          "time.clocked",
+                          "document.uploaded"
+                        ]
                       }
                     },
                     "enabled": {
@@ -12540,7 +14164,6 @@
                     "organizationId",
                     "name",
                     "url",
-                    "secret",
                     "events",
                     "enabled",
                     "createdAt",
@@ -12574,7 +14197,17 @@
                   "events": {
                     "type": "array",
                     "items": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "employee.created",
+                        "employee.updated",
+                        "employee.terminated",
+                        "leave.requested",
+                        "leave.approved",
+                        "leave.rejected",
+                        "time.clocked",
+                        "document.uploaded"
+                      ]
                     },
                     "minItems": 1
                   },
@@ -12620,7 +14253,17 @@
                     "events": {
                       "type": "array",
                       "items": {
-                        "type": "string"
+                        "type": "string",
+                        "enum": [
+                          "employee.created",
+                          "employee.updated",
+                          "employee.terminated",
+                          "leave.requested",
+                          "leave.approved",
+                          "leave.rejected",
+                          "time.clocked",
+                          "document.uploaded"
+                        ]
                       }
                     },
                     "enabled": {
@@ -12656,7 +14299,6 @@
                     "organizationId",
                     "name",
                     "url",
-                    "secret",
                     "events",
                     "enabled",
                     "createdAt",

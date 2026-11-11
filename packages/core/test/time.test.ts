@@ -1,12 +1,6 @@
 import { describe, it, expect } from "vitest";
 import * as fc from "fast-check";
 import { foldSessions } from "../src/time/fold-sessions.js";
-import {
-  computeEventHash,
-  verifyEventChain,
-  canonicalJson,
-  type CanonicalTimeEventData,
-} from "../src/time/hash-chain.js";
 import type { TimeEvent } from "../src/time/events.js";
 
 describe("Time Domain Logic", () => {
@@ -223,85 +217,6 @@ describe("Time Domain Logic", () => {
             }
           },
         ),
-      );
-    });
-  });
-
-  describe("Hash Chain and Tamper Detection", () => {
-    it("exercises canonicalJson with arrays and primitives", () => {
-      expect(canonicalJson(null)).toBe("null");
-      expect(canonicalJson(123)).toBe("123");
-      expect(canonicalJson([1, 2])).toBe("[1,2]");
-    });
-
-    function createEventChain(count: number): TimeEvent[] {
-      const events: TimeEvent[] = [];
-      let prevHash: string | null = null;
-
-      for (let i = 0; i < count; i++) {
-        const canonical: CanonicalTimeEventData = {
-          organizationId: "org-test",
-          employeeId: "emp-test",
-          eventType: i % 2 === 0 ? "clock_in" : "clock_out",
-          occurredAt: new Date(1700000000000 + i * 3600000).toISOString(),
-          recordedAt: new Date(1700000000000 + i * 3600000).toISOString(),
-          source: "web",
-          actorId: "emp-test",
-        };
-
-        const hash = computeEventHash(prevHash, canonical);
-        const event: TimeEvent = {
-          id: `evt-${i}`,
-          organizationId: canonical.organizationId,
-          employeeId: canonical.employeeId,
-          eventType: canonical.eventType as TimeEvent["eventType"],
-          occurredAt: canonical.occurredAt,
-          recordedAt: canonical.recordedAt,
-          source: canonical.source as TimeEvent["source"],
-          actorId: canonical.actorId,
-          prevHash,
-          hash,
-        };
-
-        events.push(event);
-        prevHash = hash;
-      }
-
-      return events;
-    }
-
-    it("validates pristine event chain", () => {
-      const chain = createEventChain(5);
-      const result = verifyEventChain(chain);
-      expect(result.valid).toBe(true);
-    });
-
-    it("detects tampering when payload content is modified", () => {
-      const chain = createEventChain(5);
-      // Tamper event at index 2 (alter occurredAt)
-      chain[2]!.occurredAt = "2099-01-01T00:00:00.000Z";
-
-      const result = verifyEventChain(chain);
-      expect(result.valid).toBe(false);
-      expect(result.tamperedIndex).toBe(2);
-    });
-
-    it("detects tampering when prevHash pointer is altered", () => {
-      const chain = createEventChain(5);
-      chain[3]!.prevHash = "corrupted_prev_hash";
-
-      const result = verifyEventChain(chain);
-      expect(result.valid).toBe(false);
-      expect(result.tamperedIndex).toBe(3);
-    });
-
-    it("property-based test: every correctly generated chain passes verification", () => {
-      fc.assert(
-        fc.property(fc.integer({ min: 1, max: 20 }), (length) => {
-          const chain = createEventChain(length);
-          const result = verifyEventChain(chain);
-          expect(result.valid).toBe(true);
-        }),
       );
     });
   });

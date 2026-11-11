@@ -73,6 +73,25 @@ export class AuditRepository {
     };
   }
 
+  /** Newest entry of the current tenant with this action, if any. */
+  async latestByAction(
+    tx: TenantTx,
+    action: string,
+  ): Promise<AuditLogRow | null> {
+    const rows = await tx<AuditLogRow[]>`
+      SELECT id, organization_id as "organizationId", actor_id as "actorId",
+             action, resource_type as "resourceType", resource_id as "resourceId",
+             metadata, created_at as "createdAt"
+      FROM audit_log
+      WHERE organization_id = ${tx.__tenantContext.organizationId}
+        AND action = ${action}
+      ORDER BY created_at DESC, id DESC
+      LIMIT 1
+    `;
+    const row = rows[0];
+    return row ? { ...row, metadata: parseMetadata(row.metadata) } : null;
+  }
+
   async list(
     tx: TenantTx,
     filters: ListAuditLogFilters = {},
@@ -84,7 +103,8 @@ export class AuditRepository {
              action, resource_type as "resourceType", resource_id as "resourceId",
              metadata, created_at as "createdAt"
       FROM audit_log
-      WHERE (${filters.resourceType ?? null}::text IS NULL OR resource_type = ${filters.resourceType ?? null})
+      WHERE organization_id = ${tx.__tenantContext.organizationId}
+        AND (${filters.resourceType ?? null}::text IS NULL OR resource_type = ${filters.resourceType ?? null})
         AND (${filters.resourceId ?? null}::text IS NULL OR resource_id = ${filters.resourceId ?? null})
         AND (${filters.actorId ?? null}::uuid IS NULL OR actor_id = ${filters.actorId ?? null})
       ORDER BY created_at DESC

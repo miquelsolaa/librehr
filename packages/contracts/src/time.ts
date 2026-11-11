@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { storableText } from "./common.js";
 
 export const TimeEventTypeSchema = z.enum([
   "clock_in",
@@ -47,12 +48,20 @@ export type CreateScheduleAssignment = z.infer<
   typeof CreateScheduleAssignmentSchema
 >;
 
-export const ClockRequestSchema = z.object({
-  eventType: z.enum(["clock_in", "clock_out", "break_start", "break_end"]),
-  occurredAt: z.string().datetime().optional(),
-  source: z.enum(["web", "mobile", "kiosk"]).default("web"),
-  notes: z.string().optional(),
-});
+/**
+ * Direct clock request. The event source is set by the server from the route,
+ * never from the body, and `occurredAt`, when given, must be within the
+ * server's clock tolerance; older punches go through a correction (TIM-003).
+ * Strict, so a client that sends `source` is told so instead of being
+ * silently ignored.
+ */
+export const ClockRequestSchema = z
+  .object({
+    eventType: z.enum(["clock_in", "clock_out", "break_start", "break_end"]),
+    occurredAt: z.string().datetime().optional(),
+    notes: storableText(z.string().max(500)).optional(),
+  })
+  .strict();
 export type ClockRequest = z.infer<typeof ClockRequestSchema>;
 
 export const KioskClockRequestSchema = z.object({
@@ -138,13 +147,15 @@ export const CreateTimeCorrectionSchema = z.object({
   refEventId: z.string().uuid().optional(),
   proposedEventType: TimeEventTypeSchema,
   proposedOccurredAt: z.string().datetime(),
-  reason: z.string().min(5, "Reason is mandatory for audit trail"),
+  reason: storableText(
+    z.string().min(5, "Reason is mandatory for audit trail"),
+  ),
 });
 export type CreateTimeCorrection = z.infer<typeof CreateTimeCorrectionSchema>;
 
 export const DecideTimeCorrectionSchema = z.object({
   decision: z.enum(["approve", "reject"]),
-  reason: z.string().optional(),
+  reason: storableText(z.string()).optional(),
 });
 export type DecideTimeCorrection = z.infer<typeof DecideTimeCorrectionSchema>;
 
@@ -166,21 +177,147 @@ export const TimeCorrectionItemSchema = z.object({
 });
 export type TimeCorrectionItem = z.infer<typeof TimeCorrectionItemSchema>;
 
+/** Longest period one Labour Inspectorate export may cover (a leap year). */
+export const OFFICIAL_EXPORT_MAX_DAYS = 366;
+
+/**
+ * Largest organization export, in employees × days of the period. A bigger
+ * request is answered with 422 `EXPORT_TOO_LARGE` instead of being computed
+ * in one request (about 136 employees for a full year, or 1,600 for a month).
+ */
+export const OFFICIAL_EXPORT_MAX_EMPLOYEE_DAYS = 50_000;
+
+const DAY_MS = 86_400_000;
+
+/** Inclusive number of calendar days between two valid `YYYY-MM-DD` dates. */
+function inclusiveDays(startDate: string, endDate: string): number {
+  // Both are plain calendar dates, so UTC midnights differ by whole days.
+  return (Date.parse(endDate) - Date.parse(startDate)) / DAY_MS + 1;
+}
+
+/** Export period rule: end on or after start, at most 366 days. */
+function refineExportPeriod(
+  value: { startDate: string; endDate: string },
+  ctx: z.RefinementCtx,
+): void {
+  if (value.endDate < value.startDate) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["endDate"],
+      message: "endDate must be on or after startDate",
+    });
+  } else if (
+    inclusiveDays(value.startDate, value.endDate) > OFFICIAL_EXPORT_MAX_DAYS
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["endDate"],
+      message: `The period cannot exceed ${OFFICIAL_EXPORT_MAX_DAYS} days`,
+    });
+  }
+}
+
+/**
+ * TIM-006 Labour Inspectorate export query. `employeeId` only applies to the
+ * employee scope (default: the caller's own employee record).
+ */
+export const OfficialExportQuerySchema = z
+  .object({
+    format: z.enum(["json", "csv", "pdf"]).default("json"),
+    scope: z.enum(["employee", "organization"]).default("employee"),
+    employeeId: z.string().uuid().optional(),
+    startDate: z.string().date(),
+    endDate: z.string().date(),
+    locale: z.enum(["ca", "es", "en"]).default("es"),
+  })
+  .superRefine((value, ctx) => {
+    if (value.scope === "organization" && value.employeeId !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["employeeId"],
+        message: "employeeId is only allowed with scope=employee",
+      });
+    }
+    refineExportPeriod(value, ctx);
+  });
+export type OfficialExportQuery = z.input<typeof OfficialExportQuerySchema>;
+
+/**
+ * TIM-006/TIM-008 employee picker of the export: the period whose employees
+ * may be exported, with the same rule as the export itself.
+ */
+export const ExportEmployeesQuerySchema = z
+  .object({
+    startDate: z.string().date(),
+    endDate: z.string().date(),
+  })
+  .superRefine(refineExportPeriod);
+export type ExportEmployeesQuery = z.input<typeof ExportEmployeesQuerySchema>;
+
+/**
+ * Employees the caller may export for the period, sorted by name. Id and
+ * display name only (data minimisation).
+ */
+export const ExportEmployeesResponseSchema = z.object({
+  items: z.array(
+    z.object({
+      id: z.string().uuid(),
+      name: z.string(),
+    }),
+  ),
+});
+export type ExportEmployeesResponse = z.infer<
+  typeof ExportEmployeesResponseSchema
+>;
+
+/** TIM-002 chain verification result of one employee's records. */
+export const ChainStatusSchema = z.enum([
+  "verified",
+  "tampered",
+  "legacy_only",
+  "empty",
+]);
+export type ChainStatus = z.infer<typeof ChainStatusSchema>;
+
+/**
+ * JSON form of the TIM-006 export. `rows` holds the same display cells as the
+ * CSV (in `columns` order); `contentHash` is the SHA-256 of the CSV body.
+ */
 export const OfficialExportResponseSchema = z.object({
-  metadata: z.object({
-    organizationId: z.string().uuid(),
-    organizationName: z.string(),
-    employeeId: z.string().uuid(),
-    employeeName: z.string(),
-    periodStart: z.string(),
-    periodEnd: z.string(),
-    generatedAt: z.string(),
-    generatorActorId: z.string(),
-  }),
-  days: z.array(DayTimesheetSummarySchema),
-  totalWorkedMinutes: z.number(),
-  totalOvertimeMinutes: z.number(),
-  documentContentHash: z.string(),
+  exportId: z.string().uuid(),
+  contentHash: z.string().regex(/^[0-9a-f]{64}$/),
+  scope: z.enum(["employee", "organization"]),
+  locale: z.enum(["ca", "es", "en"]),
+  periodStart: z.string().date(),
+  periodEnd: z.string().date(),
+  /** The organization's zone (header). Each employee has their own below. */
+  timeZone: z.string(),
+  generatedAt: z.string().datetime(),
+  organizationName: z.string(),
+  generatedBy: z.object({ name: z.string(), role: z.string() }),
+  metadataLines: z.array(z.string()),
+  columns: z.array(z.string()),
+  rows: z.array(z.array(z.string())),
+  /**
+   * One entry per row of `rows`, same order: whether that day falls inside
+   * one of the employee's employment periods (null on a "schedule not
+   * configured" row). The same flag is the last display cell of each row; a
+   * day outside employment expects 0 minutes but still lists recorded work.
+   */
+  rowsEmployed: z.array(z.boolean().nullable()),
+  employees: z.array(
+    z.object({
+      employeeId: z.string().uuid(),
+      name: z.string(),
+      /** IANA zone of this employee's days and times (location, else organization). */
+      timeZone: z.string(),
+      scheduleConfigured: z.boolean(),
+      chainStatus: ChainStatusSchema.nullable(),
+      /** Null when the schedule is not configured (no days computed). */
+      totalWorkedMinutes: z.number().nullable(),
+      totalOvertimeMinutes: z.number().nullable(),
+    }),
+  ),
 });
 export type OfficialExportResponse = z.infer<
   typeof OfficialExportResponseSchema

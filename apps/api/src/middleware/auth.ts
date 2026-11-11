@@ -1,84 +1,63 @@
 import type { MiddlewareHandler } from "hono";
 import type { Sql } from "postgres";
 import { createProblemDetails, type AuthUser } from "@librehr/contracts";
-import { TokenRepository, withTenant } from "@librehr/db";
+import { IdentityRepository, TokenRepository, withTenant } from "@librehr/db";
 import type { AuthPort } from "../ports/auth.js";
+import { readSessionCookie } from "../lib/session-cookie.js";
 
 export function createAuthMiddleware(
   authPort: AuthPort,
   sql?: Sql,
 ): MiddlewareHandler {
   const tokenRepo = new TokenRepository();
+  const identityRepo = new IdentityRepository();
 
   return async (c, next) => {
+    // Personal access tokens (lhr_...) and, for non-browser clients, session
+    // tokens arrive as `Authorization: Bearer`. Browsers use the httpOnly
+    // session cookie, which only ever carries a session token. When a Bearer
+    // header is present the cookie is ignored, even if the header is invalid.
     let token: string | undefined;
+    let fromCookie = false;
 
     const authHeader = c.req.header("authorization");
     if (authHeader?.startsWith("Bearer ")) {
       token = authHeader.substring(7);
-    } else {
-      // Cookie fallback
-      const cookieHeader = c.req.header("cookie");
-      if (cookieHeader) {
-        const match = cookieHeader.match(/librehr_session=([^;]+)/);
-        if (match) {
-          token = match[1];
-        }
-      }
+    } else if (!authHeader) {
+      token = readSessionCookie(c);
+      fromCookie = token !== undefined;
     }
 
     if (token) {
       // Check if this is a personal access token (starts with lhr_)
-      if (token.startsWith("lhr_") && sql) {
-        const tokenHash = TokenRepository.hashToken(token);
-        try {
-          // Lookup token across all tenants safely using raw sql or admin lookup
-          const patRows = await sql<
-            {
-              id: string;
-              organization_id: string;
-              user_id: string;
-              name: string;
-              scopes: string[];
-              email: string;
-              user_name: string;
-              role: string;
-            }[]
-          >`
-            SELECT pat.id, pat.organization_id, pat.user_id, pat.name, pat.scopes,
-                   u.email, u.name as user_name, m.role
-            FROM personal_access_tokens pat
-            JOIN users u ON u.id = pat.user_id
-            JOIN memberships m ON m.user_id = pat.user_id AND m.organization_id = pat.organization_id
-            WHERE pat.token_hash = ${tokenHash}
-              AND (pat.expires_at IS NULL OR pat.expires_at > now())
-            LIMIT 1
-          `;
+      if (token.startsWith("lhr_") && !fromCookie && sql) {
+        // Lookup errors propagate (500); an unknown or expired token simply
+        // leaves the request unauthenticated (401 from requireAuth).
+        const pat = await identityRepo.personalAccessToken(
+          sql,
+          TokenRepository.hashToken(token),
+        );
+        if (pat) {
+          const user: AuthUser = {
+            id: pat.userId,
+            email: pat.email,
+            name: pat.userName,
+            role: pat.role,
+            organizationId: pat.organizationId,
+          };
+          c.set("user", user);
+          c.set("patId", pat.id);
+          c.set("patScopes", pat.scopes);
 
-          if (patRows[0]) {
-            const pat = patRows[0];
-            const user: AuthUser = {
-              id: pat.user_id,
-              email: pat.email,
-              name: pat.user_name,
-              role: pat.role,
-              organizationId: pat.organization_id,
-            };
-            c.set("user", user);
-            c.set("patId", pat.id);
-            c.set("patScopes", pat.scopes);
-
-            // Record async usage without blocking
-            void withTenant(
-              sql,
-              { organizationId: pat.organization_id, userId: pat.user_id },
-              (tx) => tokenRepo.recordUsage(tx, pat.id),
-            ).catch(() => {});
-          }
-        } catch {
-          // Ignore lookup errors in test/disconnected environment
+          // Record usage without blocking; a failed timestamp update must not
+          // fail an otherwise authenticated request.
+          void withTenant(
+            sql,
+            { organizationId: pat.organizationId, userId: pat.userId },
+            (tx) => tokenRepo.recordUsage(tx, pat.id),
+          ).catch(() => {});
         }
-      } else {
+      } else if (!token.startsWith("lhr_")) {
         const session = await authPort.getSession(token);
         if (session) {
           c.set("user", session.user);

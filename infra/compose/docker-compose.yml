@@ -1,3 +1,6 @@
+# Production-style compose. Every secret is required (`${VAR:?}`): compose
+# refuses to start instead of falling back to a well-known default.
+# See docs/guides/self-hosting.md for how to generate the values.
 services:
   postgres:
     image: postgres:16-alpine
@@ -5,7 +8,10 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-librehr}
       POSTGRES_USER: ${POSTGRES_USER:-librehr}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_in_production}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD (bootstrap superuser; openssl rand -hex 32)}
+      # Read by infra/postgres/init/00-roles.sh on first start of the volume.
+      LIBREHR_OWNER_PASSWORD: ${LIBREHR_OWNER_PASSWORD:?set LIBREHR_OWNER_PASSWORD (migration/owner role; openssl rand -hex 32)}
+      LIBREHR_APP_PASSWORD: ${LIBREHR_APP_PASSWORD:?set LIBREHR_APP_PASSWORD (runtime app role; openssl rand -hex 32)}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ../postgres/init:/docker-entrypoint-initdb.d:ro
@@ -30,10 +36,29 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
-      DATABASE_URL: postgres://${POSTGRES_USER:-librehr}:${POSTGRES_PASSWORD:-change_me_in_production}@postgres:5432/${POSTGRES_DB:-librehr}
-      DATABASE_APP_URL: postgres://librehr_app:${APP_PASSWORD:-change_me_app_pass}@postgres:5432/${POSTGRES_DB:-librehr}
-      AUTH_SECRET: ${AUTH_SECRET}
-      SESSION_SECRET: ${SESSION_SECRET:-}
+      # Requests run as the restricted runtime role (NOBYPASSRLS), so row-level
+      # security isolates tenants; the owner role only runs migrations.
+      DATABASE_URL: postgres://librehr_app:${LIBREHR_APP_PASSWORD:?set LIBREHR_APP_PASSWORD}@postgres:5432/${POSTGRES_DB:-librehr}
+      DATABASE_MIGRATION_URL: postgres://librehr_owner:${LIBREHR_OWNER_PASSWORD:?set LIBREHR_OWNER_PASSWORD}@postgres:5432/${POSTGRES_DB:-librehr}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET (openssl rand -base64 32)}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:?set BETTER_AUTH_URL (public API URL)}
+      ENVELOPE_MASTER_KEY: ${ENVELOPE_MASTER_KEY:?set ENVELOPE_MASTER_KEY (openssl rand -base64 32)}
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET (openssl rand -base64 32)}
+      TIME_CHAIN_KEY: ${TIME_CHAIN_KEY:?set TIME_CHAIN_KEY (openssl rand -base64 32)}
+      APP_URL: ${APP_URL:?set APP_URL (public web URL)}
+      # Extra browser origins allowed to call the API with credentials,
+      # comma-separated (APP_URL is always allowed).
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      # OIDC SSO (AUTH-004) is incomplete; keep it off until it ships.
+      SSO_ENABLED: ${SSO_ENABLED:-false}
+      # Caddy is the one reverse proxy in front of the API: trust exactly one
+      # X-Forwarded-For hop when rate-limiting by client IP.
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+      SMTP_HOST: ${SMTP_HOST:?set SMTP_HOST (your SMTP relay)}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-LibreHR <noreply@librehr.local>}
       STORAGE_LOCAL_DIR: /data/storage
       STORAGE_DRIVER: local
     volumes:
@@ -49,14 +74,31 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgres://${POSTGRES_USER:-librehr}:${POSTGRES_PASSWORD:-change_me_in_production}@postgres:5432/${POSTGRES_DB:-librehr}
-      SMTP_HOST: mailpit
-      SMTP_PORT: 1025
+      # The worker connects as the owner role because it creates and owns
+      # pg-boss's schema. The owner has no BYPASSRLS: any tenant data a job
+      # touches still goes through withTenant and RLS.
+      DATABASE_MIGRATION_URL: postgres://librehr_owner:${LIBREHR_OWNER_PASSWORD:?set LIBREHR_OWNER_PASSWORD}@postgres:5432/${POSTGRES_DB:-librehr}
+      # Same key as the api: audit.verify-chain recomputes the time-event
+      # HMACs (TIM-002). The worker does not decrypt fields, so it gets no
+      # ENVELOPE_MASTER_KEY.
+      TIME_CHAIN_KEY: ${TIME_CHAIN_KEY:?set TIME_CHAIN_KEY (openssl rand -base64 32)}
+      # Optional: the email queue only needs these once a real mailer is wired.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-LibreHR <noreply@librehr.local>}
+    # Healthcheck is defined in infra/docker/worker.Dockerfile.
 
   web:
     build:
       context: ../..
       dockerfile: infra/docker/web.Dockerfile
+      args:
+        # Browser-facing API base URL, baked in at build time. Empty = same
+        # origin as the web app (Caddy routes /v1/* to the API), which the
+        # httpOnly session cookie needs. Changing it requires a rebuild.
+        NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:-}
     restart: unless-stopped
     depends_on:
       api:
@@ -64,11 +106,14 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      NEXT_PUBLIC_API_URL: http://api:3001
+      APP_URL: ${APP_URL:?set APP_URL (public web URL)}
 
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    environment:
+      # Host name Caddyfile.example serves (and gets a certificate for).
+      DOMAIN: ${DOMAIN:?set DOMAIN (host name of APP_URL, e.g. hr.example.com)}
     ports:
       - "80:80"
       - "443:443"

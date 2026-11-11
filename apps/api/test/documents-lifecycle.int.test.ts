@@ -67,7 +67,7 @@ describe("Documents & Lifecycle API Integration Tests (DOC-001 - DOC-005, ONB-00
     db = await getTestDatabase();
     if (db) {
       await runMigrations(db.connectionString);
-      app = createApp({ sql: db.sql, authPort });
+      app = createApp({ sql: await db.appSql(), authPort });
     }
   });
 
@@ -281,6 +281,7 @@ describe("Documents & Lifecycle API Integration Tests (DOC-001 - DOC-005, ONB-00
         },
       },
     );
-    expect([200, 500]).toContain(listAckRes.status);
+    // Unknown documents are 404 now that receipts are scoped to the document.
+    expect([200, 404, 500]).toContain(listAckRes.status);
   });
 });

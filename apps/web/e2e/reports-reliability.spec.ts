@@ -1,10 +1,6 @@
 import { expect, test } from "@playwright/test";
+import { mockRoute } from "./support/mock-api";
 
-const cors = {
-  "access-control-allow-origin": "*",
-  "access-control-allow-headers": "*",
-  "access-control-allow-methods": "GET, OPTIONS",
-};
 const summary = {
   periodStart: "2026-11-01",
   periodEnd: "2026-11-30",
@@ -43,8 +39,8 @@ test("unreliable report figures are not shown", async ({ page }) => {
       }),
     ),
   );
-  await page.route("**/v1/reports/summary", (route) =>
-    route.fulfill({ headers: cors, json: summary }),
+  await mockRoute(page, "**/v1/reports/summary", (route) =>
+    route.fulfill({ json: summary }),
   );
   await page.goto("/en/reports");
   await expect(
@@ -95,9 +91,8 @@ test("administrators can request a scoped headcount report", async ({
       }),
     ),
   );
-  await page.route("**/v1/reports/headcount?**", (route) =>
+  await mockRoute(page, "**/v1/reports/headcount?**", (route) =>
     route.fulfill({
-      headers: cors,
       json: {
         periodStart: "2026-01-01",
         periodEnd: "2026-12-31",
@@ -128,8 +123,8 @@ test("headcount errors are visible and do not display figures", async ({
       }),
     ),
   );
-  await page.route("**/v1/reports/headcount?**", (route) =>
-    route.fulfill({ status: 409, headers: cors }),
+  await mockRoute(page, "**/v1/reports/headcount?**", (route) =>
+    route.fulfill({ status: 409 }),
   );
   await page.goto("/en/reports");
   await page.getByLabel("Start date").fill("2026-01-01");
@@ -156,9 +151,8 @@ test("headcount CSV download reports an export failure without hiding the report
       }),
     ),
   );
-  await page.route("**/v1/reports/headcount?**", (route) =>
+  await mockRoute(page, "**/v1/reports/headcount?**", (route) =>
     route.fulfill({
-      headers: cors,
       json: {
         periodStart: "2026-01-01",
         periodEnd: "2026-12-31",
@@ -166,8 +160,8 @@ test("headcount CSV download reports an export failure without hiding the report
       },
     }),
   );
-  await page.route("**/v1/reports/headcount/export?**", (route) =>
-    route.fulfill({ status: 503, headers: cors }),
+  await mockRoute(page, "**/v1/reports/headcount/export?**", (route) =>
+    route.fulfill({ status: 503 }),
   );
   await page.goto("/en/reports");
   await page.getByLabel("Start date").fill("2026-01-01");
@@ -193,9 +187,8 @@ test("headcount CSV can be downloaded", async ({ page }) => {
       }),
     ),
   );
-  await page.route("**/v1/reports/headcount?**", (route) =>
+  await mockRoute(page, "**/v1/reports/headcount?**", (route) =>
     route.fulfill({
-      headers: cors,
       json: {
         periodStart: "2026-01-01",
         periodEnd: "2026-12-31",
@@ -203,9 +196,8 @@ test("headcount CSV can be downloaded", async ({ page }) => {
       },
     }),
   );
-  await page.route("**/v1/reports/headcount/export?**", (route) =>
+  await mockRoute(page, "**/v1/reports/headcount/export?**", (route) =>
     route.fulfill({
-      headers: cors,
       contentType: "text/csv",
       body: "headcount\r\n3\r\n",
     }),

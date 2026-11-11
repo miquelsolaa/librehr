@@ -6,7 +6,6 @@ import {
   FileText,
   Upload,
   Trash2,
-  FolderOpen,
   Users,
   CheckCircle2,
   AlertCircle,
@@ -15,7 +14,15 @@ import {
   Plus,
   Wand2,
 } from "lucide-react";
-import { Button } from "@librehr/ui";
+import {
+  Button,
+  PageHeader,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@librehr/ui";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
 import type {
@@ -28,6 +35,23 @@ import type {
 
 export default function DocumentsPage() {
   const t = useTranslations("documents");
+
+  const categoryLabel = (value: string): string => {
+    switch (value) {
+      case "contracts":
+        return t("categoryContracts");
+      case "payslips":
+        return t("categoryPayslips");
+      case "certificates":
+        return t("categoryCertificates");
+      case "company_policies":
+        return t("categoryPolicies");
+      case "other":
+        return t("categoryOther");
+      default:
+        return value;
+    }
+  };
 
   const [documents, setDocuments] = React.useState<DocumentItem[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -86,12 +110,12 @@ export default function DocumentsPage() {
 
   const handleAcknowledge = async (docId: string) => {
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setErrorMsg(t("signInRequired"));
       return;
     }
     try {
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       await client.acknowledgeDocument(docId);
       setAcknowledgedDocs((prev) => new Set([...prev, docId]));
     } catch {
@@ -101,7 +125,7 @@ export default function DocumentsPage() {
 
   const fetchDocuments = React.useCallback(async () => {
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setDocuments([]);
       setLoadError("signInRequired");
       setLoading(false);
@@ -111,7 +135,7 @@ export default function DocumentsPage() {
     try {
       setLoading(true);
       setLoadError(null);
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       const params =
         categoryFilter !== "all" ? { category: categoryFilter } : undefined;
       const res = await client.listDocuments(params);
@@ -126,14 +150,14 @@ export default function DocumentsPage() {
 
   const fetchTemplates = React.useCallback(async () => {
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setErrorMsg(t("signInRequired"));
       return;
     }
     try {
       setTemplatesLoading(true);
       setTemplateLoadError(false);
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       const [tList, empRes] = await Promise.all([
         client.listDocumentTemplates(),
         client.listEmployees({ pageSize: 100 }),
@@ -165,7 +189,7 @@ export default function DocumentsPage() {
   const handleCreateTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setErrorMsg(t("signInRequired"));
       return;
     }
@@ -173,7 +197,7 @@ export default function DocumentsPage() {
 
     try {
       setIsTemplateSubmitting(true);
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       await client.createDocumentTemplate({
         name: newTemplateName.trim(),
         category: newTemplateCategory,
@@ -192,17 +216,23 @@ export default function DocumentsPage() {
     }
   };
 
+  const closeGenerateDialog = () => {
+    setIsGeneratingOpen(false);
+    setSelectedTemplate(null);
+    setRenderedPreview(null);
+  };
+
   const handleRenderPreview = async () => {
     if (!selectedTemplate || !selectedEmployeeId) return;
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setErrorMsg(t("signInRequired"));
       return;
     }
 
     try {
       setIsTemplateSubmitting(true);
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       const res = await client.renderDocumentTemplate(selectedTemplate.id, {
         employeeId: selectedEmployeeId,
         saveAsDocument: saveAsDoc,
@@ -223,13 +253,13 @@ export default function DocumentsPage() {
   const handleDeleteTemplate = async (templateId: string) => {
     if (!window.confirm(t("deleteTemplateConfirm"))) return;
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setErrorMsg(t("signInRequired"));
       return;
     }
 
     try {
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       await client.deleteDocumentTemplate(templateId);
       void fetchTemplates();
       setSuccessMsg(t("templateDeletedSuccess"));
@@ -243,7 +273,7 @@ export default function DocumentsPage() {
     if (!uploadFile || !title) return;
 
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setErrorMsg(t("signInRequired"));
       return;
     }
@@ -259,7 +289,7 @@ export default function DocumentsPage() {
           const base64 = (reader.result as string).split(",")[1];
           if (!base64) throw new Error("Could not read file data");
 
-          const client = getApiClient(session.token);
+          const client = getApiClient();
           await client.uploadDocument({
             title,
             category,
@@ -293,7 +323,7 @@ export default function DocumentsPage() {
 
   const handleDelete = async (id: string) => {
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setErrorMsg(t("signInRequired"));
       return;
     }
@@ -301,7 +331,7 @@ export default function DocumentsPage() {
     if (!confirm(t("deleteConfirm"))) return;
 
     try {
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       await client.deleteDocument(id);
       void fetchDocuments();
     } catch {
@@ -312,7 +342,7 @@ export default function DocumentsPage() {
   const handleBulkDryRun = async () => {
     if (bulkFiles.length === 0) return;
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setErrorMsg(t("signInRequired"));
       return;
     }
@@ -341,7 +371,7 @@ export default function DocumentsPage() {
       );
 
       const files = await Promise.all(fileDataPromises);
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       const report = await client.uploadBulkPayslips({ files, dryRun: true });
       setBulkReport(report);
     } catch {
@@ -354,7 +384,7 @@ export default function DocumentsPage() {
   const handleBulkCommit = async () => {
     if (bulkFiles.length === 0) return;
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setErrorMsg(t("signInRequired"));
       return;
     }
@@ -383,7 +413,7 @@ export default function DocumentsPage() {
       );
 
       const files = await Promise.all(fileDataPromises);
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       const report = await client.uploadBulkPayslips({ files, dryRun: false });
       setBulkReport(report);
       setSuccessMsg(t("bulkSuccess", { count: report.matchedCount }));
@@ -398,50 +428,46 @@ export default function DocumentsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <FolderOpen className="h-7 w-7 text-primary" />
-            {t("title")}
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">{t("subtitle")}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant={activeTab === "list" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setActiveTab("list")}
-          >
-            <FileText className="h-4 w-4 mr-1.5" />
-            {t("title")}
-          </Button>
-          <Button
-            variant={activeTab === "upload" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setActiveTab("upload")}
-          >
-            <Upload className="h-4 w-4 mr-1.5" />
-            {t("upload")}
-          </Button>
-          <Button
-            variant={activeTab === "bulk" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setActiveTab("bulk")}
-          >
-            <FileSpreadsheet className="h-4 w-4 mr-1.5" />
-            {t("bulkPayslips")}
-          </Button>
-          <Button
-            variant={activeTab === "templates" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setActiveTab("templates")}
-          >
-            <FileSignature className="h-4 w-4 mr-1.5" />
-            {t("templatesTab")}
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title={t("title")}
+        description={t("subtitle")}
+        actions={
+          <>
+            <Button
+              variant={activeTab === "list" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setActiveTab("list")}
+            >
+              <FileText className="h-4 w-4 mr-1.5" />
+              {t("title")}
+            </Button>
+            <Button
+              variant={activeTab === "upload" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setActiveTab("upload")}
+            >
+              <Upload className="h-4 w-4 mr-1.5" />
+              {t("upload")}
+            </Button>
+            <Button
+              variant={activeTab === "bulk" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setActiveTab("bulk")}
+            >
+              <FileSpreadsheet className="h-4 w-4 mr-1.5" />
+              {t("bulkPayslips")}
+            </Button>
+            <Button
+              variant={activeTab === "templates" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setActiveTab("templates")}
+            >
+              <FileSignature className="h-4 w-4 mr-1.5" />
+              {t("templatesTab")}
+            </Button>
+          </>
+        }
+      />
 
       {successMsg && (
         <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-4 text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
@@ -468,7 +494,7 @@ export default function DocumentsPage() {
               aria-label={t("selectCategory")}
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="h-9 rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="all">{t("filterAll")}</option>
               <option value="contracts">{t("categoryContracts")}</option>
@@ -480,7 +506,7 @@ export default function DocumentsPage() {
           </div>
 
           {/* Documents Table */}
-          <div className="overflow-hidden rounded-lg border border-border bg-card">
+          <div className="overflow-hidden rounded-lg border border-border bg-surface">
             {loading ? (
               <div className="p-8 text-center text-sm text-muted-foreground">
                 {t("loading")}
@@ -504,7 +530,7 @@ export default function DocumentsPage() {
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
-                  <thead className="border-b border-border bg-muted/50 text-xs font-medium text-muted-foreground uppercase">
+                  <thead className="border-b border-border bg-surface text-xs font-medium text-muted-foreground uppercase">
                     <tr>
                       <th className="px-4 py-3">{t("colTitle")}</th>
                       <th className="px-4 py-3">{t("colCategory")}</th>
@@ -518,7 +544,7 @@ export default function DocumentsPage() {
                   </thead>
                   <tbody className="divide-y divide-border">
                     {documents.map((doc) => (
-                      <tr key={doc.id} className="hover:bg-muted/30">
+                      <tr key={doc.id} className="hover:bg-surface">
                         <td className="px-4 py-3 font-medium text-foreground">
                           <div className="flex items-center gap-2">
                             <FileText className="h-4 w-4 text-primary shrink-0" />
@@ -530,8 +556,8 @@ export default function DocumentsPage() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 capitalize text-muted-foreground">
-                          {doc.category.replace("_", " ")}
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {categoryLabel(doc.category)}
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">
                           {doc.employeeName ? (
@@ -556,9 +582,9 @@ export default function DocumentsPage() {
                             {(doc.category === "company_policies" ||
                               !doc.employeeName) &&
                               (acknowledgedDocs.has(doc.id) ? (
-                                <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 bg-emerald-500/10 px-2 py-1 rounded font-medium">
+                                <span className="inline-flex items-center gap-1 text-xs text-emerald-600 bg-emerald-500/10 px-2 py-1 rounded font-medium">
                                   <CheckCircle2 className="h-3.5 w-3.5" />
-                                  <span>Acknowledged</span>
+                                  <span>{t("acknowledged")}</span>
                                 </span>
                               ) : (
                                 <Button
@@ -568,7 +594,7 @@ export default function DocumentsPage() {
                                   onClick={() => handleAcknowledge(doc.id)}
                                 >
                                   <CheckCircle2 className="h-3.5 w-3.5" />
-                                  <span>Acknowledge</span>
+                                  <span>{t("acknowledge")}</span>
                                 </Button>
                               ))}
                             <Button
@@ -595,8 +621,8 @@ export default function DocumentsPage() {
       )}
 
       {activeTab === "upload" && (
-        <div className="max-w-xl rounded-lg border border-border bg-card p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-foreground mb-4">
+        <div className="max-w-xl rounded-lg border border-border bg-surface p-6 shadow-sm">
+          <h2 className="mb-4 text-base font-semibold text-foreground">
             {t("uploadTitle")}
           </h2>
           <form onSubmit={handleFileUpload} className="space-y-4">
@@ -609,8 +635,8 @@ export default function DocumentsPage() {
                 required
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Employment Contract 2026"
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder={t("documentTitlePlaceholder")}
+                className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
 
@@ -623,7 +649,7 @@ export default function DocumentsPage() {
                 onChange={(e) =>
                   setCategory(e.target.value as DocumentCategory)
                 }
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="contracts">{t("categoryContracts")}</option>
                 <option value="payslips">{t("categoryPayslips")}</option>
@@ -639,14 +665,14 @@ export default function DocumentsPage() {
 
             <div>
               <label className="block text-sm font-medium text-foreground mb-1">
-                Audience Scope
+                {t("audienceScope")}
               </label>
               <select
                 value={audienceType}
                 onChange={(e) =>
                   setAudienceType(e.target.value as "individual" | "company")
                 }
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="individual">{t("individual")}</option>
                 <option value="company">{t("companyWide")}</option>
@@ -664,7 +690,7 @@ export default function DocumentsPage() {
                 className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Max 15MB. Supported: PDF, PNG, JPEG, TIFF, DOCX, XLSX.
+                {t("fileHint")}
               </p>
             </div>
 
@@ -680,9 +706,9 @@ export default function DocumentsPage() {
       )}
 
       {activeTab === "bulk" && (
-        <div className="max-w-3xl rounded-lg border border-border bg-card p-6 shadow-sm space-y-6">
+        <div className="max-w-3xl rounded-lg border border-border bg-surface p-6 shadow-sm space-y-6">
           <div>
-            <h2 className="text-lg font-semibold text-foreground">
+            <h2 className="text-base font-semibold text-foreground">
               {t("bulkUploadTitle")}
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
@@ -699,8 +725,7 @@ export default function DocumentsPage() {
               className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              {bulkFiles.length} files selected. Filenames can include DNI/NIE
-              (e.g. 12345678Z-2026-03.pdf) or employee names.
+              {t("bulkFilesSelected", { count: bulkFiles.length })}
             </p>
           </div>
 
@@ -710,7 +735,7 @@ export default function DocumentsPage() {
               onClick={handleBulkDryRun}
               disabled={bulkProcessing || bulkFiles.length === 0}
             >
-              Test Match (Dry Run)
+              {t("bulkDryRun")}
             </Button>
             <Button
               onClick={handleBulkCommit}
@@ -724,30 +749,30 @@ export default function DocumentsPage() {
             <div className="space-y-4 pt-4 border-t border-border">
               <div className="flex items-center gap-4 text-sm">
                 <div>
-                  Total Files:{" "}
+                  {t("bulkTotalFiles")}:{" "}
                   <span className="font-semibold">{bulkReport.totalFiles}</span>
                 </div>
                 <div className="text-emerald-600 font-medium">
-                  Matched: {bulkReport.matchedCount}
+                  {t("matched")}: {bulkReport.matchedCount}
                 </div>
                 <div className="text-rose-600 font-medium">
-                  Unmatched: {bulkReport.unmatchedCount}
+                  {t("unmatched")}: {bulkReport.unmatchedCount}
                 </div>
               </div>
 
               <div className="overflow-x-auto rounded border border-border">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-muted/50 font-medium text-muted-foreground uppercase border-b border-border">
+                  <thead className="bg-surface font-medium text-muted-foreground uppercase border-b border-border">
                     <tr>
-                      <th className="px-3 py-2">Filename</th>
-                      <th className="px-3 py-2">Matched Employee</th>
-                      <th className="px-3 py-2">Period</th>
-                      <th className="px-3 py-2">Status</th>
+                      <th className="px-3 py-2">{t("colFilename")}</th>
+                      <th className="px-3 py-2">{t("colMatchedEmployee")}</th>
+                      <th className="px-3 py-2">{t("colPeriod")}</th>
+                      <th className="px-3 py-2">{t("matchStatus")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
                     {bulkReport.matches.map((m, idx) => (
-                      <tr key={idx} className="hover:bg-muted/30">
+                      <tr key={idx} className="hover:bg-surface">
                         <td className="px-3 py-2 font-mono">{m.filename}</td>
                         <td className="px-3 py-2">{m.employeeName ?? "—"}</td>
                         <td className="px-3 py-2">
@@ -755,13 +780,15 @@ export default function DocumentsPage() {
                         </td>
                         <td className="px-3 py-2">
                           <span
-                            className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                            className={`inline-flex px-1.5 py-0.5 rounded text-xs font-medium ${
                               m.status === "matched"
                                 ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
                                 : "bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300"
                             }`}
                           >
-                            {m.status}
+                            {m.status === "matched"
+                              ? t("matched")
+                              : t("unmatched")}
                           </span>
                         </td>
                       </tr>
@@ -779,7 +806,7 @@ export default function DocumentsPage() {
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-foreground">
+              <h2 className="text-base font-semibold text-foreground">
                 {t("templatesListTitle")}
               </h2>
               <p className="text-xs text-muted-foreground">
@@ -820,10 +847,19 @@ export default function DocumentsPage() {
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                  setNewTemplateName("Certificat d'Empresa / Work Certificate");
+                  setNewTemplateName(t("sampleTemplateName"));
                   setNewTemplateCategory("certificates");
+                  // Merge tags are passed as arguments so the ICU parser leaves them intact.
                   setNewTemplateContent(
-                    `# Certificat d'Empresa\n\nPer la present es certifica que **{{employee.name}}** amb DNI/NIE **{{employee.dni}}** treballa a **{{organization.name}}** com a **{{employee.job_title}}** al departament de **{{employee.department}}** des del **{{employee.hire_date}}**.\n\nData d'emissió: {{current_date}}`,
+                    t("sampleTemplateContent", {
+                      name: "{{employee.name}}",
+                      dni: "{{employee.dni}}",
+                      org: "{{organization.name}}",
+                      jobTitle: "{{employee.job_title}}",
+                      department: "{{employee.department}}",
+                      hireDate: "{{employee.hire_date}}",
+                      currentDate: "{{current_date}}",
+                    }),
                   );
                   setIsNewTemplateOpen(true);
                 }}
@@ -843,8 +879,8 @@ export default function DocumentsPage() {
                       <h3 className="font-semibold text-foreground text-sm line-clamp-1">
                         {tpl.name}
                       </h3>
-                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary shrink-0 uppercase tracking-wider">
-                        {tpl.category}
+                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary shrink-0 uppercase tracking-wider">
+                        {categoryLabel(tpl.category)}
                       </span>
                     </div>
                     {tpl.description && (
@@ -852,7 +888,7 @@ export default function DocumentsPage() {
                         {tpl.description}
                       </p>
                     )}
-                    <pre className="rounded bg-background p-2 font-mono text-[11px] text-muted-foreground max-h-24 overflow-hidden border border-border/50">
+                    <pre className="rounded bg-background p-2 font-mono text-xs text-muted-foreground max-h-24 overflow-hidden border border-border/50">
                       {tpl.content}
                     </pre>
                   </div>
@@ -885,133 +921,147 @@ export default function DocumentsPage() {
             </div>
           )}
 
-          {/* New Template Modal */}
-          {isNewTemplateOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-              <div className="w-full max-w-2xl rounded-card border border-border bg-background p-6 shadow-xl space-y-5 animate-in fade-in zoom-in-95">
-                <div>
-                  <h3 className="text-lg font-bold text-foreground">
-                    {t("createNewTemplateTitle")}
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {t("createNewTemplateSubtitle")}
-                  </p>
-                </div>
+          <Dialog
+            open={isNewTemplateOpen}
+            onOpenChange={(open) => {
+              if (!open && !isTemplateSubmitting) setIsNewTemplateOpen(false);
+            }}
+          >
+            <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>{t("createNewTemplateTitle")}</DialogTitle>
+                <DialogDescription>
+                  {t("createNewTemplateSubtitle")}
+                </DialogDescription>
+              </DialogHeader>
 
-                <form onSubmit={handleCreateTemplate} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-foreground mb-1">
-                        {t("templateNameLabel")} *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={newTemplateName}
-                        onChange={(e) => setNewTemplateName(e.target.value)}
-                        placeholder="Ex: Contract Extension Letter"
-                        className="w-full rounded-input border border-border bg-surface px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-foreground mb-1">
-                        {t("category")} *
-                      </label>
-                      <select
-                        value={newTemplateCategory}
-                        onChange={(e) => setNewTemplateCategory(e.target.value)}
-                        className="w-full rounded-input border border-border bg-surface px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary"
-                      >
-                        <option value="contracts">Contracts</option>
-                        <option value="certificates">Certificates</option>
-                        <option value="company_policies">
-                          Company Policies
-                        </option>
-                        <option value="other">Other</option>
-                      </select>
-                    </div>
-                  </div>
-
+              <form onSubmit={handleCreateTemplate} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-medium text-foreground">
-                        {t("templateContentMarkdown")} *
-                      </label>
-                      <span className="text-[10px] text-muted-foreground">
-                        Supports Markdown & merge tags
-                      </span>
-                    </div>
-                    <textarea
+                    <label className="block text-xs font-medium text-foreground mb-1">
+                      {t("templateNameLabel")} *
+                    </label>
+                    <input
+                      type="text"
                       required
-                      rows={8}
-                      value={newTemplateContent}
-                      onChange={(e) => setNewTemplateContent(e.target.value)}
-                      placeholder="# Letter Title&#10;&#10;Dear {{employee.name}},&#10;&#10;We hereby confirm your employment at {{organization.name}}..."
-                      className="w-full rounded-input border border-border bg-surface p-3 font-mono text-xs text-foreground focus:ring-1 focus:ring-primary"
+                      value={newTemplateName}
+                      onChange={(e) => setNewTemplateName(e.target.value)}
+                      placeholder={t("templateNamePlaceholder")}
+                      className="w-full rounded-input border border-border bg-surface px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary"
                     />
                   </div>
-
-                  {/* Cheat sheet of merge fields */}
-                  <div className="rounded-input border border-border bg-surface p-3 text-xs space-y-1.5">
-                    <div className="font-semibold text-foreground text-[11px] uppercase tracking-wider">
-                      {t("availableMergeFields")}
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 font-mono text-[11px] text-primary">
-                      {[
-                        "{{employee.name}}",
-                        "{{employee.dni}}",
-                        "{{employee.job_title}}",
-                        "{{employee.department}}",
-                        "{{employee.hire_date}}",
-                        "{{employee.email}}",
-                        "{{organization.name}}",
-                        "{{current_date}}",
-                      ].map((tag) => (
-                        <button
-                          key={tag}
-                          type="button"
-                          onClick={() =>
-                            setNewTemplateContent((prev) => `${prev} ${tag}`)
-                          }
-                          className="rounded bg-background px-1.5 py-0.5 border border-border hover:border-primary/50 cursor-pointer"
-                        >
-                          {tag}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end gap-2 pt-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setIsNewTemplateOpen(false)}
-                      disabled={isTemplateSubmitting}
+                  <div>
+                    <label className="block text-xs font-medium text-foreground mb-1">
+                      {t("category")} *
+                    </label>
+                    <select
+                      value={newTemplateCategory}
+                      onChange={(e) => setNewTemplateCategory(e.target.value)}
+                      className="w-full rounded-input border border-border bg-surface px-3 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary"
                     >
-                      {t("cancel")}
-                    </Button>
-                    <Button type="submit" isLoading={isTemplateSubmitting}>
-                      {t("saveTemplateButton")}
-                    </Button>
+                      <option value="contracts">
+                        {t("categoryContracts")}
+                      </option>
+                      <option value="certificates">
+                        {t("categoryCertificates")}
+                      </option>
+                      <option value="company_policies">
+                        {t("categoryPolicies")}
+                      </option>
+                      <option value="other">{t("categoryOther")}</option>
+                    </select>
                   </div>
-                </form>
-              </div>
-            </div>
-          )}
-
-          {/* Generate Document Modal */}
-          {isGeneratingOpen && selectedTemplate && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-              <div className="w-full max-w-2xl rounded-card border border-border bg-background p-6 shadow-xl space-y-5 animate-in fade-in zoom-in-95">
-                <div>
-                  <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-                    <Wand2 className="h-5 w-5 text-primary" />
-                    {t("generateModalTitle")}: {selectedTemplate.name}
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {t("generateModalSubtitle")}
-                  </p>
                 </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-medium text-foreground">
+                      {t("templateContentMarkdown")} *
+                    </label>
+                    <span className="text-xs text-muted-foreground">
+                      {t("markdownHint")}
+                    </span>
+                  </div>
+                  <textarea
+                    required
+                    rows={8}
+                    value={newTemplateContent}
+                    onChange={(e) => setNewTemplateContent(e.target.value)}
+                    placeholder={t("templateContentPlaceholder", {
+                      name: "{{employee.name}}",
+                      org: "{{organization.name}}",
+                    })}
+                    className="w-full rounded-input border border-border bg-surface p-3 font-mono text-xs text-foreground focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+
+                {/* Cheat sheet of merge fields */}
+                <div className="rounded-input border border-border bg-surface p-3 text-xs space-y-1.5">
+                  <div className="font-semibold text-foreground text-xs uppercase tracking-wider">
+                    {t("availableMergeFields")}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 font-mono text-xs text-primary">
+                    {[
+                      "{{employee.name}}",
+                      "{{employee.dni}}",
+                      "{{employee.job_title}}",
+                      "{{employee.department}}",
+                      "{{employee.hire_date}}",
+                      "{{employee.email}}",
+                      "{{organization.name}}",
+                      "{{current_date}}",
+                    ].map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() =>
+                          setNewTemplateContent((prev) => `${prev} ${tag}`)
+                        }
+                        className="rounded bg-background px-1.5 py-0.5 border border-border hover:border-primary/50 cursor-pointer"
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsNewTemplateOpen(false)}
+                    disabled={isTemplateSubmitting}
+                  >
+                    {t("cancel")}
+                  </Button>
+                  <Button type="submit" isLoading={isTemplateSubmitting}>
+                    {t("saveTemplateButton")}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog
+            open={isGeneratingOpen && selectedTemplate !== null}
+            onOpenChange={(open) => {
+              if (!open) closeGenerateDialog();
+            }}
+          >
+            {selectedTemplate && (
+              <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Wand2
+                      className="h-5 w-5 text-primary"
+                      aria-hidden="true"
+                    />
+                    {t("generateModalTitle")}: {selectedTemplate.name}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {t("generateModalSubtitle")}
+                  </DialogDescription>
+                </DialogHeader>
 
                 <div className="space-y-4">
                   <div>
@@ -1040,7 +1090,7 @@ export default function DocumentsPage() {
                       <div className="text-xs font-medium text-foreground">
                         {t("saveAsDocumentCheckbox")}
                       </div>
-                      <div className="text-[10px] text-muted-foreground">
+                      <div className="text-xs text-muted-foreground">
                         {t("saveAsDocumentHint")}
                       </div>
                     </div>
@@ -1078,11 +1128,7 @@ export default function DocumentsPage() {
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => {
-                        setIsGeneratingOpen(false);
-                        setSelectedTemplate(null);
-                        setRenderedPreview(null);
-                      }}
+                      onClick={closeGenerateDialog}
                     >
                       {t("close")}
                     </Button>
@@ -1097,9 +1143,9 @@ export default function DocumentsPage() {
                     </Button>
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
+              </DialogContent>
+            )}
+          </Dialog>
         </div>
       )}
     </div>

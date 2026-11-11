@@ -21,7 +21,7 @@ export function NotificationBell() {
 
   const fetchNotifications = React.useCallback(async () => {
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setNotifications([]);
       setUnreadCount(0);
       setError("signIn");
@@ -29,7 +29,7 @@ export function NotificationBell() {
     }
 
     try {
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       const res = await client.listNotifications();
       setError(null);
       setNotifications(res.items);
@@ -47,11 +47,11 @@ export function NotificationBell() {
 
   const markAsRead = async (id: string) => {
     const session = getStoredSession();
-    if (!session?.token) return;
+    if (!session) return;
 
     setActionError(false);
     try {
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       await client.markNotificationRead(id);
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
@@ -64,11 +64,11 @@ export function NotificationBell() {
 
   const markAllRead = async () => {
     const session = getStoredSession();
-    if (!session?.token) return;
+    if (!session) return;
 
     setActionError(false);
     try {
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       await client.markAllNotificationsRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       setUnreadCount(0);
@@ -82,19 +82,19 @@ export function NotificationBell() {
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="relative flex h-9 w-9 items-center justify-center rounded-md border border-input bg-background hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
+        className="relative flex h-9 w-9 items-center justify-center rounded-md border border-border bg-background hover:bg-surface focus:outline-none focus:ring-2 focus:ring-focus-ring"
       >
         <Bell className="h-4 w-4 text-foreground" aria-hidden="true" />
         <span className="sr-only">{t("title")}</span>
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white">
+          <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-xs font-semibold leading-none text-white tabular-nums">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-80 rounded-md border border-border bg-card p-4 shadow-lg z-50">
+        <div className="absolute right-0 mt-2 w-80 rounded-md border border-border bg-surface p-4 shadow-lg z-50">
           <div className="flex items-center justify-between pb-2 border-b border-border">
             <h4 className="text-sm font-semibold text-foreground">
               {t("title")}
@@ -107,7 +107,7 @@ export function NotificationBell() {
                 <button
                   type="button"
                   onClick={markAllRead}
-                  className="text-[11px] text-primary hover:underline font-medium"
+                  className="text-xs font-medium text-primary hover:underline"
                 >
                   {t("markAllRead")}
                 </button>
@@ -147,7 +147,7 @@ export function NotificationBell() {
                   key={n.id}
                   className={`flex items-start justify-between p-2 rounded-md border text-xs ${
                     n.read
-                      ? "bg-muted/40 border-transparent text-muted-foreground"
+                      ? "bg-surface border-transparent text-muted-foreground"
                       : "bg-primary/5 border-primary/20 text-foreground"
                   }`}
                 >

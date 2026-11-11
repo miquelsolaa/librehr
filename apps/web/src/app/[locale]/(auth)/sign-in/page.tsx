@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Button, Input } from "@librehr/ui";
+import { Button, Input, LibreHRMark } from "@librehr/ui";
 import { getApiClient } from "@/lib/api-client";
 import { setStoredSession } from "@/lib/auth";
 
@@ -52,10 +52,6 @@ export default function SignInPage() {
           name: res.user.name,
           organizationId: res.user.organizationId,
           role: res.user.role,
-          token:
-            "token" in res && typeof res.token === "string"
-              ? res.token
-              : "librehr_session_token",
         });
 
         router.push(`/${locale}/home`);
@@ -87,10 +83,6 @@ export default function SignInPage() {
         name: res.user.name,
         organizationId: res.user.organizationId,
         role: res.user.role,
-        token:
-          "token" in res && typeof res.token === "string"
-            ? res.token
-            : "librehr_session_token",
       });
 
       router.push(`/${locale}/home`);
@@ -125,10 +117,12 @@ export default function SignInPage() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-surface px-4 py-12 sm:px-6 lg:px-8">
       <div className="w-full max-w-md space-y-8 rounded-card border border-border bg-background p-8 shadow-sm">
         <div className="text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-xl font-bold text-primary-foreground">
-            LH
-          </div>
-          <h1 className="mt-4 text-2xl font-bold tracking-tight text-foreground">
+          <LibreHRMark
+            size={48}
+            aria-hidden="true"
+            className="mx-auto text-primary"
+          />
+          <h1 className="mt-4 text-2xl font-semibold tracking-tight text-foreground">
             {challengeToken ? tAuth("twoFactorTitle") : tAuth("signInTitle")}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -218,7 +212,7 @@ export default function SignInPage() {
                   autoFocus
                   value={ssoDomain}
                   onChange={(e) => setSsoDomain(e.target.value)}
-                  placeholder="company.com"
+                  placeholder={tAuth("ssoDomainPlaceholder")}
                 />
               </div>
             </div>

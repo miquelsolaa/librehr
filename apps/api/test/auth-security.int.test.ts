@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import type { Sql } from "postgres";
 import { createApp } from "../src/app.js";
 import type { AuthPort, AuthSession } from "../src/ports/auth.js";
@@ -72,11 +72,14 @@ class FakeAuthPort implements AuthPort {
 describe("Enterprise Auth & Security Hardening API (AUTH-003, AUTH-004, DOC-007)", () => {
   const fakeSql = (async () => []) as unknown as Sql;
   const authPort = new FakeAuthPort();
-  const app = createApp({ sql: fakeSql, authPort });
+  const app = createApp({
+    sql: fakeSql,
+    authPort,
+    config: { ssoEnabled: true },
+  });
 
   it("does not issue a two-factor challenge without a configured signing secret", async () => {
-    vi.stubEnv("SESSION_SECRET", "");
-    try {
+    {
       const sql = (async () => [
         {
           id: "00000000-0000-0000-0000-000000000001",
@@ -87,7 +90,11 @@ describe("Enterprise Auth & Security Hardening API (AUTH-003, AUTH-004, DOC-007)
           twoFactorRecoveryCodes: [],
         },
       ]) as unknown as Sql;
-      const testApp = createApp({ sql, authPort: new FakeAuthPort() });
+      const testApp = createApp({
+        sql,
+        authPort: new FakeAuthPort(),
+        sessionSecret: "",
+      });
       const res = await testApp.request("/v1/auth/sign-in", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -98,17 +105,11 @@ describe("Enterprise Auth & Security Hardening API (AUTH-003, AUTH-004, DOC-007)
       });
       expect(res.status).toBe(503);
       expect(await res.json()).not.toHaveProperty("challengeToken");
-    } finally {
-      vi.unstubAllEnvs();
     }
   });
 
   it("issues a challenge when a strong signing secret is configured", async () => {
-    vi.stubEnv(
-      "SESSION_SECRET",
-      "a-secure-test-secret-with-at-least-32-characters",
-    );
-    try {
+    {
       const sql = (async () => [
         {
           id: "00000000-0000-0000-0000-000000000001",
@@ -119,7 +120,11 @@ describe("Enterprise Auth & Security Hardening API (AUTH-003, AUTH-004, DOC-007)
           twoFactorRecoveryCodes: [],
         },
       ]) as unknown as Sql;
-      const testApp = createApp({ sql, authPort: new FakeAuthPort() });
+      const testApp = createApp({
+        sql,
+        authPort: new FakeAuthPort(),
+        sessionSecret: "a-secure-test-secret-with-at-least-32-characters",
+      });
       const res = await testApp.request("/v1/auth/sign-in", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -130,8 +135,6 @@ describe("Enterprise Auth & Security Hardening API (AUTH-003, AUTH-004, DOC-007)
       });
       expect(res.status).toBe(200);
       expect(await res.json()).toHaveProperty("challengeToken");
-    } finally {
-      vi.unstubAllEnvs();
     }
   });
 
@@ -143,7 +146,15 @@ describe("Enterprise Auth & Security Hardening API (AUTH-003, AUTH-004, DOC-007)
   });
 
   it("POST /v1/auth/2fa/setup returns TOTP secret and recovery codes when authenticated", async () => {
-    const res = await app.request("/v1/auth/2fa/setup", {
+    // The pending setup is stored (UPDATE ... RETURNING id) before it is shown.
+    const setupApp = createApp({
+      sql: Object.assign(
+        async () => [{ id: "00000000-0000-0000-0000-000000000001" }],
+        { json: (value: unknown) => value },
+      ) as unknown as Sql,
+      authPort,
+    });
+    const res = await setupApp.request("/v1/auth/2fa/setup", {
       method: "POST",
       headers: {
         Authorization: "Bearer fake_admin_token",
@@ -162,7 +173,7 @@ describe("Enterprise Auth & Security Hardening API (AUTH-003, AUTH-004, DOC-007)
     expect(body.recoveryCodes).toHaveLength(8);
   });
 
-  it("POST /v1/auth/2fa/enable rejects invalid TOTP code with 400", async () => {
+  it("POST /v1/auth/2fa/enable rejects a client-supplied secret with 400", async () => {
     const secret = generateTotpSecret();
     const res = await app.request("/v1/auth/2fa/enable", {
       method: "POST",
@@ -179,7 +190,7 @@ describe("Enterprise Auth & Security Hardening API (AUTH-003, AUTH-004, DOC-007)
 
     expect(res.status).toBe(400);
     const problem = (await res.json()) as ProblemDetails;
-    expect(problem.code).toBe("INVALID_TOTP_CODE");
+    expect(problem.code).toBe("VALIDATION_ERROR");
   });
 
   it("POST /v1/sso/authorize validates request and detects missing domain", async () => {

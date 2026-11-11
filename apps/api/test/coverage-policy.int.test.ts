@@ -29,7 +29,7 @@ const auth: AuthPort = {
   async verifyCredentials() {
     return null;
   },
-  async createSession(user) {
+  async createSession(user: AuthUser) {
     return { user, token: user.id, expiresAt: new Date(Date.now() + 60000) };
   },
   async getSession(token) {
@@ -87,7 +87,7 @@ describe("department coverage configuration", () => {
         new DepartmentRepository().create(tx, { name: "Other team" }),
       )
     ).id;
-    app = createApp({ sql: db.sql, authPort: auth });
+    app = createApp({ sql: await db.appSql(), authPort: auth });
   }, 30000);
   afterAll(async () => {
     if (db) await db.close();

@@ -27,6 +27,9 @@ import {
 } from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
 import { can } from "../policies/can.js";
+import { assertNotSelfApproval } from "../policies/approvals.js";
+import { canOnEmployee, resolvePolicyContext } from "../policies/context.js";
+import { businessToday } from "../lib/business-date.js";
 import type { MailPort } from "../ports/mail.js";
 
 export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
@@ -135,18 +138,10 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
         const isSelf = emp.userId === user.id;
         const allowed =
           isSelf ||
-          can(
-            {
-              userId: user.id,
-              organizationId: user.organizationId,
-              role: user.role,
-            },
+          canOnEmployee(
+            await resolvePolicyContext(c, tx),
             "leave.request.read",
-            {
-              organizationId: user.organizationId,
-              employeeId: emp.id,
-              managerId: emp.managerId ?? undefined,
-            },
+            emp,
           );
 
         if (!allowed) {
@@ -633,27 +628,25 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
         const targetEmp = await employeeRepo.findById(tx, req.employeeId);
         if (!targetEmp) return { error: "NOT_FOUND" as const };
 
-        // Permission check
-        const allowed = can(
-          {
-            userId: user.id,
-            organizationId: user.organizationId,
-            role: user.role,
-          },
-          "leave.request.approve",
-          {
-            organizationId: user.organizationId,
-            employeeId: targetEmp.id,
-            managerId: targetEmp.managerId ?? undefined,
-          },
-        );
+        const ctx = await resolvePolicyContext(c, tx);
+        // LEA-004: nobody decides their own request, admins and delegates
+        // included. Checked first so the caller gets the specific reason.
+        assertNotSelfApproval(ctx, {
+          employeeId: targetEmp.id,
+          userId: targetEmp.userId,
+        });
+
+        // Permission check: managerId is an employee id, compared to the
+        // approver's linked employee by the policy context.
+        const allowed = canOnEmployee(ctx, "leave.request.approve", targetEmp);
 
         const approverEmp = await employeeRepo.findByUserId(tx, user.id);
         let isAuthorized = allowed;
 
         // LEA-008: Check manager absence approval delegation
         if (!isAuthorized && approverEmp && targetEmp.managerId) {
-          const today = new Date().toISOString().slice(0, 10);
+          // Delegations are organization-wide date ranges (LEA-008).
+          const today = await businessToday(c, tx);
           const delegations = await leaveRepo.getActiveDelegationsForDelegate(
             tx,
             approverEmp.id,
@@ -782,11 +775,18 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
           return { error: "FORBIDDEN" as const };
         }
 
+        // A reversal takes effect today in the employee's location zone.
+        const owner = isSelf
+          ? currentEmp
+          : await employeeRepo.findById(tx, req.employeeId);
+        const today = await businessToday(c, tx, owner?.locationId);
+
         try {
           const cancelled = await leaveRepo.cancelLeaveRequest(
             tx,
             requestId,
             user.id,
+            today,
           );
 
           await auditRepo.log(tx, {
@@ -926,7 +926,9 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
           amount: parsed.data.amount,
           unit: "days",
           note: parsed.data.note,
-          effectiveDate: parsed.data.effectiveDate,
+          effectiveDate:
+            parsed.data.effectiveDate ??
+            (await businessToday(c, tx, emp.locationId)),
         });
 
         await auditRepo.log(tx, {
@@ -1057,14 +1059,45 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
   router.get("/leave/delegations", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
     const empId = c.req.query("employeeId");
+    // A malformed id must not reach the uuid cast (500).
+    if (
+      empId !== undefined &&
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        empId,
+      )
+    ) {
+      return c.json(
+        createProblemDetails({
+          status: 400,
+          title: "Validation Error",
+          detail: "employeeId must be a UUID",
+          code: "VALIDATION_ERROR",
+        }),
+        400,
+        { "Content-Type": "application/problem+json" },
+      );
+    }
 
     const result = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        const currentEmp = await employeeRepo.findByUserId(tx, user.id);
-        const targetId = user.role === "admin" ? empId : currentEmp?.id;
-        return leaveRepo.listApprovalDelegations(tx, targetId);
+        // Admins see the organization's delegations (optionally filtered);
+        // everyone else only those they take part in. A user without a
+        // linked employee takes part in none, so the list is empty rather
+        // than unfiltered (delegation reasons may be sensitive).
+        if (user.role === "admin") {
+          return leaveRepo.listApprovalDelegations(tx, {
+            kind: "organization",
+            employeeId: empId,
+          });
+        }
+        const { employeeId } = await resolvePolicyContext(c, tx);
+        if (!employeeId) return [];
+        return leaveRepo.listApprovalDelegations(tx, {
+          kind: "participant",
+          employeeId,
+        });
       },
     );
 

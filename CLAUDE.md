@@ -22,7 +22,7 @@ Everything in `AGENTS.md` applies. This file adds Claude Code specific guidance.
 
 ## Things Claude must not do here
 
-- Do not read or write `.env*`, `infra/secrets/`, or anything under `data/`.
+- Do not read or write `.env*`, `infra/secrets/`, or anything under `data/`. Exception: `.env.example` and `infra/env/.env.example` hold only public development values and may be edited (keep the two identical).
 - Do not edit generated files by hand: `packages/contracts/generated/**`, `packages/db/migrations/meta/**`, `apps/web/.next/**`.
 - Do not paste or request real employee data. Use factories from `packages/testing`.
 - Do not browse competitor products or documentation to "see how they do it". Requirements come from `PRD.md`, public law (`COMPLIANCE.md`), and generic domain knowledge.

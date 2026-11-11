@@ -1,10 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+import { NotImplementedError } from "../src/lib/job-errors.js";
 import {
   handleEmailSend,
   type EmailJobPayload,
   type MailSender,
 } from "../src/queues/email.send.js";
-import { handleLeaveAccrue } from "../src/queues/leave.accrue.js";
 import { handleTimeCloseDay } from "../src/queues/time.close-day.js";
 import { handleRetentionEnforce } from "../src/queues/retention.enforce.js";
 import { handleAuditVerifyChain } from "../src/queues/audit.verify-chain.js";
@@ -38,28 +38,12 @@ describe("Worker Queue Handlers", () => {
 
     const res = await handleEmailSend({ id: "job-1", data: payload }, mailer);
     expect(res.success).toBe(true);
-    expect(res.skipped).toBeUndefined();
 
     expect(mailer.sentMessages.length).toBe(1);
     const msg = mailer.sentMessages[0]!;
     expect(msg.to).toBe("new.hire@example.cat");
     expect(msg.subject).toContain("Acme Serveis");
     expect(msg.html).toContain("https://librehr.local/invite/12345");
-  });
-
-  it("skips duplicate email.send job with identical idempotencyKey", async () => {
-    const mailer = new MockMailSender();
-    const payload: EmailJobPayload = {
-      to: "new.hire@example.cat",
-      template: "invite",
-      props: { inviteUrl: "https://librehr.local/invite/12345" },
-      idempotencyKey: "invite:new.hire@example.cat:2026-11-01", // Already executed
-    };
-
-    const res = await handleEmailSend({ id: "job-2", data: payload }, mailer);
-    expect(res.success).toBe(true);
-    expect(res.skipped).toBe(true);
-    expect(mailer.sentMessages.length).toBe(0);
   });
 
   it("processes password-reset template", async () => {
@@ -82,25 +66,50 @@ describe("Worker Queue Handlers", () => {
     );
   });
 
-  it("executes stub handlers with expected TODO requirement metadata", async () => {
-    const accrueRes = await handleLeaveAccrue({
-      data: { organizationId: "org-1", runDate: "2026-11-01" },
-    });
-    expect(accrueRes.stub).toBe("LEA-002");
+  it("fails time.close-day loudly and logs TIM-003", async () => {
+    const warn = vi.fn();
+    const err = await handleTimeCloseDay(
+      {
+        id: "j-close",
+        data: { organizationId: "org-1", closeDate: "2026-11-01" },
+      },
+      { warn },
+    ).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(NotImplementedError);
+    expect(String(err)).toContain("TIM-003");
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ requirement: "TIM-003", jobId: "j-close" }),
+    );
+  });
 
-    const closeRes = await handleTimeCloseDay({
-      data: { organizationId: "org-1", closeDate: "2026-11-01" },
-    });
-    expect(closeRes.stub).toBe("TIM-003");
+  it("fails retention.enforce loudly and logs ADM-005", async () => {
+    const warn = vi.fn();
+    const err = await handleRetentionEnforce(
+      {
+        id: "j-retention",
+        data: { organizationId: "org-1", runDate: "2026-11-01" },
+      },
+      { warn },
+    ).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(NotImplementedError);
+    expect(String(err)).toContain("ADM-005");
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ requirement: "ADM-005", jobId: "j-retention" }),
+    );
+  });
 
-    const retentionRes = await handleRetentionEnforce({
-      data: { organizationId: "org-1", runDate: "2026-11-01" },
-    });
-    expect(retentionRes.stub).toBe("ADM-005");
-
-    const auditRes = await handleAuditVerifyChain({
-      data: { organizationId: "org-1", runDate: "2026-11-01" },
-    });
-    expect(auditRes.stub).toBe("TIM-002");
+  it("rejects an invalid audit.verify-chain payload before touching the database", async () => {
+    const logger = { info: vi.fn(), error: vi.fn() };
+    await expect(
+      handleAuditVerifyChain(
+        { id: "j-audit", data: { organizationId: "org-1", runDate: "x" } },
+        {
+          sql: {} as never,
+          timeChainKey: "test_time_chain_key_with_at_least_32_chars",
+          logger,
+        },
+      ),
+    ).rejects.toThrow(/invalid audit.verify-chain payload/);
+    expect(logger.info).not.toHaveBeenCalled();
   });
 });

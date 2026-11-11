@@ -1,5 +1,10 @@
 import type { TenantTx } from "../with-tenant.js";
 import { encryptEnvelope, decryptEnvelope } from "../crypto/envelope.js";
+import {
+  EFFECTIVE_EMPLOYMENT_END,
+  loadEmploymentPeriods,
+  type EmploymentSpan,
+} from "./employment-periods.js";
 
 export interface EmployeeRow {
   id: string;
@@ -96,7 +101,59 @@ export interface UpdateEmployeeData {
   iban?: string | null | undefined;
 }
 
+/** Scope fields and display name of an employee listed for an export. */
+export interface EmployedDuringRow {
+  id: string;
+  organizationId: string;
+  userId: string | null;
+  departmentId: string | null;
+  managerId: string | null;
+  locationId: string | null;
+  firstName: string;
+  lastName: string;
+}
+
+export interface EmployeePolicyIdentity {
+  employeeId: string;
+  departmentId: string | null;
+  locationId: string | null;
+  /** Employee ids of direct reports. */
+  reports: string[];
+}
+
 export class EmployeeRepository {
+  /**
+   * Resolves the employee linked to a user in the current organization and
+   * their direct reports, for authorization scope checks.
+   */
+  async findPolicyIdentity(
+    tx: TenantTx,
+    userId: string,
+  ): Promise<EmployeePolicyIdentity | null> {
+    const orgId = tx.__tenantContext.organizationId;
+    const rows = await tx<
+      {
+        employeeId: string;
+        departmentId: string | null;
+        locationId: string | null;
+        reports: string[] | null;
+      }[]
+    >`
+      SELECT e.id as "employeeId", e.department_id as "departmentId",
+             e.location_id as "locationId",
+             ARRAY(
+               SELECT r.id::text FROM employees r
+               WHERE r.manager_id = e.id AND r.organization_id = ${orgId}
+             ) as "reports"
+      FROM employees e
+      WHERE e.user_id = ${userId} AND e.organization_id = ${orgId}
+      LIMIT 1
+    `;
+    const row = rows[0];
+    if (!row) return null;
+    return { ...row, reports: row.reports ?? [] };
+  }
+
   async findByUserId(
     tx: TenantTx,
     userId: string,
@@ -217,6 +274,79 @@ export class EmployeeRepository {
     return { items: rows, total };
   }
 
+  /**
+   * Employees of the current tenant to list in a working-time record for a
+   * period of local dates (TIM-006), ordered by last name, first name. An
+   * employee is included when any of these holds:
+   * - an employment record overlaps the period, its end clipped to the
+   *   termination date when it started on or before it (a later re-hire
+   *   is not clipped, so it is not dropped);
+   * - they have no employment record (hire date unknown) and did not leave
+   *   before the period;
+   * - they have a time event in the period, in their business zone
+   *   (location, else organization): recorded work is never left out of an
+   *   official record because HR data disagrees.
+   */
+  async listEmployedDuring(
+    tx: TenantTx,
+    startDate: string,
+    endDate: string,
+  ): Promise<EmployedDuringRow[]> {
+    const orgId = tx.__tenantContext.organizationId;
+    return tx<EmployedDuringRow[]>`
+      SELECT e.id, e.organization_id as "organizationId", e.user_id as "userId",
+             e.department_id as "departmentId", e.manager_id as "managerId",
+             e.location_id as "locationId",
+             e.first_name as "firstName", e.last_name as "lastName"
+      FROM employees e
+      JOIN organizations o ON o.id = e.organization_id
+      LEFT JOIN locations l
+        ON l.id = e.location_id AND l.organization_id = e.organization_id
+      WHERE e.organization_id = ${orgId}
+        AND (
+          EXISTS (
+            -- Ends clipped by the termination date (EFFECTIVE_EMPLOYMENT_END),
+            -- as in the export's employment days.
+            SELECT 1 FROM employments x
+            WHERE x.employee_id = e.id AND x.organization_id = ${orgId}
+              AND x.start_date <= ${endDate}::date
+              AND COALESCE(${tx.unsafe(EFFECTIVE_EMPLOYMENT_END)}, 'infinity'::date)
+                >= ${startDate}::date
+          )
+          OR (
+            NOT EXISTS (
+              SELECT 1 FROM employments emp
+              WHERE emp.employee_id = e.id AND emp.organization_id = ${orgId}
+            )
+            AND (e.termination_date IS NULL OR e.termination_date >= ${startDate}::date)
+          )
+          OR EXISTS (
+            -- Local midnights of the period in the employee's zone.
+            SELECT 1 FROM time_events te
+            WHERE te.employee_id = e.id AND te.organization_id = ${orgId}
+              AND te.occurred_at >= (${startDate}::date::timestamp
+                AT TIME ZONE COALESCE(l.timezone, o.timezone))
+              AND te.occurred_at < ((${endDate}::date + 1)::timestamp
+                AT TIME ZONE COALESCE(l.timezone, o.timezone))
+          )
+        )
+      ORDER BY e.last_name, e.first_name, e.id
+    `;
+  }
+
+  /**
+   * Employment periods overlapping a period of local dates, per employee
+   * (TIM-006); see {@link loadEmploymentPeriods}.
+   */
+  employmentPeriods(
+    tx: TenantTx,
+    employeeIds: readonly string[],
+    periodStart: string,
+    periodEnd: string,
+  ): Promise<Map<string, EmploymentSpan[] | null>> {
+    return loadEmploymentPeriods(tx, employeeIds, periodStart, periodEnd);
+  }
+
   async create(
     tx: TenantTx,
     data: CreateEmployeeData,
@@ -261,17 +391,25 @@ export class EmployeeRepository {
     const emp = inserted[0]!;
 
     if (data.jobTitle) {
-      const startDate = data.startDate ?? new Date().toISOString().slice(0, 10);
       const employmentType = data.employmentType ?? "indefinido";
+      // Without an explicit start date the employment starts "today" in the
+      // employee's location (else organization) time zone, never the UTC date.
       await tx`
         INSERT INTO employments (
           employee_id, job_title, employment_type, start_date
-        ) VALUES (
+        )
+        SELECT
           ${emp.id},
           ${data.jobTitle},
           ${employmentType},
-          ${startDate}
-        )
+          COALESCE(
+            ${data.startDate ?? null}::date,
+            (now() AT TIME ZONE COALESCE(l.timezone, o.timezone))::date
+          )
+        FROM organizations o
+        LEFT JOIN locations l
+          ON l.id = ${emp.locationId ?? null}::uuid AND l.organization_id = o.id
+        WHERE o.id = ${emp.organizationId}
       `;
     }
 
@@ -436,7 +574,8 @@ export class EmployeeRepository {
     tx: TenantTx,
     employeeId: string,
     pinHash: string,
-    pinSalt: string,
+    /** Only legacy SHA-256 hashes used a separate salt; scrypt hashes embed theirs. */
+    pinSalt: string | null,
     badgeId?: string | null | undefined,
   ): Promise<void> {
     await tx`
@@ -444,6 +583,24 @@ export class EmployeeRepository {
       SET pin_hash = ${pinHash},
           pin_salt = ${pinSalt},
           badge_id = ${badgeId !== undefined ? badgeId : null},
+          updated_at = now()
+      WHERE id = ${employeeId}
+    `;
+  }
+
+  /**
+   * Replaces only the stored PIN hash, e.g. to upgrade a legacy SHA-256 hash
+   * to scrypt after a successful kiosk login. Badge and other fields are kept.
+   */
+  async upgradeKioskPinHash(
+    tx: TenantTx,
+    employeeId: string,
+    pinHash: string,
+  ): Promise<void> {
+    await tx`
+      UPDATE employees
+      SET pin_hash = ${pinHash},
+          pin_salt = NULL,
           updated_at = now()
       WHERE id = ${employeeId}
     `;

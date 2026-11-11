@@ -1,6 +1,7 @@
 import { serve } from "@hono/node-server";
 import postgres from "postgres";
 import { runMigrations } from "@librehr/db/migrate";
+import { configureEnvelopeKey } from "@librehr/db";
 import { loadEnv } from "./env.js";
 import { createApp } from "./app.js";
 import { BetterAuthAdapter } from "./adapters/better-auth.js";
@@ -9,6 +10,9 @@ import { logger } from "./middleware/logger.js";
 
 async function bootstrap() {
   const env = loadEnv();
+  // loadEnv resolves ENVELOPE_MASTER_KEY_FILE into env only; hand the key to
+  // the crypto layer instead of letting it read process.env.
+  configureEnvelopeKey(env.ENVELOPE_MASTER_KEY);
 
   logger.info({
     msg: "Bootstrapping LibreHR API...",
@@ -30,10 +34,11 @@ async function bootstrap() {
     }
   }
 
-  // 2. Connect to database using application role & dedicated auth role
+  // 2. Every request, including identity lookups, runs on the restricted
+  // runtime role (librehr_app, NOBYPASSRLS). The owner role in
+  // DATABASE_MIGRATION_URL is only used for migrations above.
   const sql = postgres(env.DATABASE_URL, { max: 20 });
-  const authSql = postgres(env.DATABASE_MIGRATION_URL, { max: 5 });
-  const authPort = new BetterAuthAdapter(authSql);
+  const authPort = new BetterAuthAdapter(sql);
   const mailPort = new SmtpMailAdapter({
     host: env.SMTP_HOST,
     port: env.SMTP_PORT,
@@ -43,7 +48,23 @@ async function bootstrap() {
   });
 
   // 3. Create Hono application
-  const app = createApp({ sql, authPort, mailPort });
+  const app = createApp({
+    sql,
+    authPort,
+    mailPort,
+    sessionSecret: env.SESSION_SECRET,
+    timeChainKey: env.TIME_CHAIN_KEY,
+    nodeEnv: env.NODE_ENV,
+    trustProxy: env.TRUST_PROXY,
+    config: {
+      nodeEnv: env.NODE_ENV,
+      appUrl: env.APP_URL,
+      corsOrigins: env.CORS_ORIGINS,
+      publicApiUrl: env.BETTER_AUTH_URL,
+      ssoEnabled: env.SSO_ENABLED,
+      webhooksAllowPrivate: env.WEBHOOKS_ALLOW_PRIVATE,
+    },
+  });
 
   // 4. Start HTTP server
   serve(

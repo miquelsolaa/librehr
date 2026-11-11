@@ -4,9 +4,8 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Button } from "@librehr/ui";
+import { Button, PageHeader } from "@librehr/ui";
 import {
-  ArrowLeft,
   Users,
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -21,6 +20,7 @@ export default function TeamCalendarPage() {
   const locale = (params?.["locale"] as string | undefined) ?? "ca";
 
   const t = useTranslations("timeOff");
+  const tNav = useTranslations("nav");
 
   const [absences, setAbsences] = React.useState<TeamAbsence[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -28,7 +28,7 @@ export default function TeamCalendarPage() {
 
   const fetchAbsences = React.useCallback(async () => {
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setLoading(false);
       return;
     }
@@ -50,7 +50,7 @@ export default function TeamCalendarPage() {
         .toISOString()
         .slice(0, 10);
 
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       const res = await client.listTeamAbsences({
         startDate: startOfMonth,
         endDate: endOfMonth,
@@ -87,65 +87,71 @@ export default function TeamCalendarPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <Link
-          href={`/${locale}/time-off`}
-          className="flex items-center text-sm font-medium text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="mr-1 h-4 w-4" />
-          Back to Time Off
-        </Link>
-      </div>
+      <PageHeader
+        breadcrumb={
+          <Link
+            href={`/${locale}/time-off`}
+            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+            {tNav("timeOff")}
+          </Link>
+        }
+        title={t("calendarTitle")}
+        description={t("calendarSubtitle")}
+        actions={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={prevMonth}
+              className="p-2"
+              aria-label={t("previousMonth")}
+            >
+              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+            </Button>
+            <span
+              aria-live="polite"
+              className="min-w-36 text-center text-sm font-semibold capitalize text-foreground"
+            >
+              {monthName}
+            </span>
+            <Button
+              variant="outline"
+              onClick={nextMonth}
+              className="p-2"
+              aria-label={t("nextMonth")}
+            >
+              <ChevronRight className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </div>
+        }
+      />
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            {t("calendarTitle")}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t("calendarSubtitle")}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={prevMonth} className="p-2">
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="min-w-36 text-center text-sm font-semibold capitalize text-foreground">
-            {monthName}
-          </span>
-          <Button variant="outline" onClick={nextMonth} className="p-2">
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-4">
+      <div className="rounded-xl border border-border bg-surface p-6 shadow-sm space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-border">
           <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <Users className="h-4 w-4 text-primary" />
-            Scheduled Absences ({absences.length})
+            <Users className="h-4 w-4 text-primary" aria-hidden="true" />
+            {t("scheduledAbsences", { count: absences.length })}
           </div>
           <div className="text-xs text-muted-foreground">
-            Privacy: Statutory details masked for non-manager roles (GDPR Art.
-            9)
+            {t("calendarPrivacyNotice")}
           </div>
         </div>
 
         {loading ? (
           <div className="py-12 text-center text-sm text-muted-foreground">
-            Loading team schedule...
+            {t("loadingCalendar")}
           </div>
         ) : absences.length === 0 ? (
           <div className="py-12 text-center text-sm text-muted-foreground">
-            No absences scheduled for this month.
+            {t("noAbsencesMonth")}
           </div>
         ) : (
           <div className="divide-y divide-border">
             {absences.map((a) => (
               <div
                 key={a.requestId}
-                className="flex items-center justify-between py-3 hover:bg-muted/30 px-2 rounded-lg"
+                className="flex items-center justify-between py-3 hover:bg-surface px-2 rounded-lg"
               >
                 <div className="flex items-center gap-3">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
@@ -156,20 +162,21 @@ export default function TeamCalendarPage() {
                       {a.employeeName}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {a.departmentName || "General"}
+                      {a.departmentName || t("noDepartment")}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-4">
-                  <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                  <span className="rounded-full bg-surface px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
                     {a.leaveTypeName}
                   </span>
                   <div className="text-right text-xs text-muted-foreground">
                     <div className="flex items-center gap-1 font-medium text-foreground">
-                      <CalendarIcon className="h-3 w-3" />
-                      {a.startDate}{" "}
-                      {a.startDate !== a.endDate ? `to ${a.endDate}` : ""}
+                      <CalendarIcon className="h-3 w-3" aria-hidden="true" />
+                      {a.startDate !== a.endDate
+                        ? t("dateRange", { start: a.startDate, end: a.endDate })
+                        : a.startDate}
                     </div>
                   </div>
                 </div>

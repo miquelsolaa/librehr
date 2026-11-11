@@ -31,7 +31,7 @@ const auth: AuthPort = {
   async verifyCredentials() {
     return null;
   },
-  async createSession(u) {
+  async createSession(u: AuthUser) {
     return { user: u, token: u.id, expiresAt: new Date(Date.now() + 60000) };
   },
   async getSession(token) {
@@ -49,6 +49,16 @@ const auth: AuthPort = {
   },
   async revokeSession() {},
 };
+/** Period total of a timesheet, or of the single employee of an export (TIM-006). */
+function workedMinutes(path: string, body: unknown): unknown {
+  const doc = body as {
+    totalWorkedMinutes?: number;
+    employees?: { totalWorkedMinutes: number | null }[];
+  };
+  return path === "/v1/time/export"
+    ? doc.employees?.[0]?.totalWorkedMinutes
+    : doc.totalWorkedMinutes;
+}
 describe("time schedule requirements", () => {
   let db: TestDatabase;
   let app: ReturnType<typeof createApp>;
@@ -108,7 +118,7 @@ describe("time schedule requirements", () => {
       if (!otherSchedule) throw new Error("Schedule creation failed");
       await tx`INSERT INTO schedule_rules (schedule_id, day_of_week, expected_hours) VALUES (${otherSchedule.id}, 1, 8)`;
     });
-    app = createApp({ sql: db.sql, authPort: auth });
+    app = createApp({ sql: await db.appSql(), authPort: auth });
   }, 30000);
   afterAll(async () => {
     if (db) await db.close();
@@ -248,7 +258,7 @@ describe("time schedule requirements", () => {
   it("counts overnight work on local days in timesheets and exports", async () => {
     await db.sql`UPDATE organizations SET timezone = 'Europe/Madrid' WHERE id = ${org}`;
     await withTenant(db.sql, { organizationId: org }, async (tx) => {
-      await tx`INSERT INTO time_events (employee_id, event_type, occurred_at, recorded_at, source, actor_id, hash) VALUES (${employeeId}, 'clock_in', '2026-11-02T22:00:00Z', '2026-11-02T22:00:00Z', 'web', ${user.id}, 'local-day-in'), (${employeeId}, 'clock_out', '2026-11-03T02:00:00Z', '2026-11-03T02:00:00Z', 'web', ${user.id}, 'local-day-out')`;
+      await tx`INSERT INTO time_events (employee_id, event_type, occurred_at, recorded_at, source, actor_id, hash, seq) VALUES (${employeeId}, 'clock_in', '2026-11-02T22:00:00Z', '2026-11-02T22:00:00Z', 'web', ${user.id}, 'local-day-in', 1001), (${employeeId}, 'clock_out', '2026-11-03T02:00:00Z', '2026-11-03T02:00:00Z', 'web', ${user.id}, 'local-day-out', 1002)`;
     });
     for (const path of ["/v1/time/timesheet", "/v1/time/export"]) {
       const response = await app.request(
@@ -256,7 +266,7 @@ describe("time schedule requirements", () => {
         { headers: { Authorization: "Bearer test" } },
       );
       expect(response.status).toBe(200);
-      expect(await response.json()).toMatchObject({ totalWorkedMinutes: 180 });
+      expect(workedMinutes(path, await response.json())).toBe(180);
     }
   });
   it("applies a referenced correction to local-day timesheets and exports", async () => {
@@ -266,7 +276,7 @@ describe("time schedule requirements", () => {
       >`SELECT id FROM time_events WHERE hash = 'local-day-out' AND employee_id = ${employeeId}`;
       const original = originals[0];
       if (!original) throw new Error("Missing original event");
-      await tx`INSERT INTO time_events (employee_id, event_type, occurred_at, recorded_at, source, actor_id, ref_event_id, reason, hash) VALUES (${employeeId}, 'clock_out', '2026-11-03T03:00:00Z', '2026-11-04T09:00:00Z', 'manual', ${user.id}, ${original.id}, 'Corrected clock out', 'local-day-correction')`;
+      await tx`INSERT INTO time_events (employee_id, event_type, occurred_at, recorded_at, source, actor_id, ref_event_id, reason, hash, seq) VALUES (${employeeId}, 'clock_out', '2026-11-03T03:00:00Z', '2026-11-04T09:00:00Z', 'manual', ${user.id}, ${original.id}, 'Corrected clock out', 'local-day-correction', 1003)`;
     });
     for (const path of ["/v1/time/timesheet", "/v1/time/export"]) {
       const response = await app.request(
@@ -274,7 +284,7 @@ describe("time schedule requirements", () => {
         { headers: { Authorization: "Bearer test" } },
       );
       expect(response.status).toBe(200);
-      expect(await response.json()).toMatchObject({ totalWorkedMinutes: 240 });
+      expect(workedMinutes(path, await response.json())).toBe(240);
     }
   });
 });

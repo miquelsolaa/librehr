@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { TenantTx } from "../with-tenant.js";
 
 export interface TimeEventRow {
@@ -13,54 +14,213 @@ export interface TimeEventRow {
   reason: string | null;
   prevHash: string | null;
   hash: string;
+  /** 1 = legacy unkeyed hash (unverifiable), 2 = keyed chain. */
+  hashVersion: number;
+  /** Position in the employee's v2 chain; null for legacy rows. */
+  seq: number | null;
   createdAt: Date;
+}
+
+export type TimeEventKind =
+  "clock_in" | "clock_out" | "break_start" | "break_end" | "correction";
+
+/** Origin of a time event. Always chosen by the server route, never by the client. */
+export type TimeEventOrigin = "web" | "mobile" | "kiosk" | "manual" | "import";
+
+/**
+ * Exactly the values stored for a v2 event, as the chain signer must hash
+ * them. Timestamps are ISO 8601 UTC strings with milliseconds.
+ */
+export interface TimeChainLink {
+  id: string;
+  organizationId: string;
+  employeeId: string;
+  seq: number;
+  eventType: TimeEventKind;
+  occurredAt: string;
+  recordedAt: string;
+  source: TimeEventOrigin;
+  actorId: string;
+  refEventId: string | null;
+  reason: string | null;
+  prevHash: string | null;
+}
+
+/** Computes the v2 chain hash of a link (the HMAC key lives outside this package). */
+export type TimeChainSigner = (link: TimeChainLink) => string;
+
+export const TIME_CHAIN_HASH_VERSION = 2;
+
+function eventColumns(tx: TenantTx) {
+  return tx`
+    id, organization_id as "organizationId", employee_id as "employeeId",
+    event_type as "eventType", occurred_at as "occurredAt", recorded_at as "recordedAt",
+    source, actor_id as "actorId", ref_event_id as "refEventId",
+    reason, prev_hash as "prevHash", hash, hash_version as "hashVersion",
+    seq::float8 as "seq", created_at as "createdAt"
+  `;
 }
 
 export class TimeRepository {
   /**
-   * Appends an immutable, tamper-evident time event to the employee's hash chain.
+   * Appends an immutable, tamper-evident time event to the employee's v2 hash
+   * chain (TIM-002). This is the only write path for `time_events`.
+   *
+   * A transaction-scoped advisory lock on (organization, employee) serializes
+   * the writers of one chain, so reading the previous link and inserting the
+   * next one cannot interleave and fork it (the unique index on seq is the
+   * backstop). The chain is ordered by `seq`, not `occurred_at`, so events
+   * dated in the past still link in the order they were recorded.
+   * `recordedAt` is taken once and used for both the stored column and the hash.
    */
   async appendEvent(
     tx: TenantTx,
+    sign: TimeChainSigner,
     data: {
+      organizationId: string;
       employeeId: string;
-      eventType:
-        "clock_in" | "clock_out" | "break_start" | "break_end" | "correction";
+      eventType: TimeEventKind;
       occurredAt?: Date | undefined;
-      source?: string | undefined;
+      source: TimeEventOrigin;
       actorId: string;
       refEventId?: string | null | undefined;
       reason?: string | null | undefined;
-      prevHash?: string | null | undefined;
-      hash: string;
     },
   ): Promise<TimeEventRow> {
-    const occurredAt = data.occurredAt ?? new Date();
+    const lockKey = `time_chain:${data.organizationId}:${data.employeeId}`;
+    await tx`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
+
+    const previous = await tx<{ seq: number; hash: string }[]>`
+      SELECT seq::float8 as "seq", hash
+      FROM time_events
+      WHERE organization_id = ${data.organizationId}
+        AND employee_id = ${data.employeeId}
+        AND seq IS NOT NULL
+      ORDER BY seq DESC
+      LIMIT 1
+    `;
+    const prev = previous[0];
+
     const recordedAt = new Date();
+    const occurredAt = data.occurredAt ?? recordedAt;
+    const link: TimeChainLink = {
+      id: randomUUID(),
+      organizationId: data.organizationId,
+      employeeId: data.employeeId,
+      seq: prev ? prev.seq + 1 : 1,
+      eventType: data.eventType,
+      occurredAt: occurredAt.toISOString(),
+      recordedAt: recordedAt.toISOString(),
+      source: data.source,
+      actorId: data.actorId,
+      refEventId: data.refEventId ?? null,
+      reason: data.reason ?? null,
+      prevHash: prev?.hash ?? null,
+    };
+    const hash = sign(link);
 
     const rows = await tx<TimeEventRow[]>`
       INSERT INTO time_events (
-        employee_id, event_type, occurred_at, recorded_at,
-        source, actor_id, ref_event_id, reason, prev_hash, hash
+        id, organization_id, employee_id, event_type, occurred_at, recorded_at,
+        source, actor_id, ref_event_id, reason, prev_hash, hash, hash_version, seq
       ) VALUES (
-        ${data.employeeId},
-        ${data.eventType},
-        ${occurredAt},
-        ${recordedAt},
-        ${data.source ?? "web"},
-        ${data.actorId},
-        ${data.refEventId ?? null},
-        ${data.reason ?? null},
-        ${data.prevHash ?? null},
-        ${data.hash}
+        ${link.id},
+        ${link.organizationId},
+        ${link.employeeId},
+        ${link.eventType},
+        ${link.occurredAt}::timestamptz,
+        ${link.recordedAt}::timestamptz,
+        ${link.source},
+        ${link.actorId},
+        ${link.refEventId},
+        ${link.reason},
+        ${link.prevHash},
+        ${hash},
+        ${TIME_CHAIN_HASH_VERSION},
+        ${link.seq}
       )
-      RETURNING id, organization_id as "organizationId", employee_id as "employeeId",
-                event_type as "eventType", occurred_at as "occurredAt", recorded_at as "recordedAt",
-                source, actor_id as "actorId", ref_event_id as "refEventId",
-                reason, prev_hash as "prevHash", hash, created_at as "createdAt"
+      RETURNING ${eventColumns(tx)}
+    `;
+
+    // Same transaction and lock as the event: the anchor always names the
+    // newest link, so a later deletion of the chain's tail is detectable.
+    await tx`
+      INSERT INTO time_event_chain_heads (
+        organization_id, employee_id, last_seq, last_hash
+      ) VALUES (
+        ${link.organizationId}, ${link.employeeId}, ${link.seq}, ${hash}
+      )
+      ON CONFLICT (organization_id, employee_id) DO UPDATE
+        SET last_seq = EXCLUDED.last_seq,
+            last_hash = EXCLUDED.last_hash,
+            updated_at = now()
     `;
 
     return rows[0]!;
+  }
+
+  /** The anchored newest link of an employee's chain (TIM-002), if any. */
+  async getChainHead(
+    tx: TenantTx,
+    employeeId: string,
+  ): Promise<{ seq: number; hash: string } | null> {
+    const rows = await tx<{ seq: number; hash: string }[]>`
+      SELECT last_seq::float8 as "seq", last_hash as "hash"
+      FROM time_event_chain_heads
+      WHERE employee_id = ${employeeId}
+      LIMIT 1
+    `;
+    return rows[0] ?? null;
+  }
+
+  /** One page of an employee's chained rows, in chain order, after `afterSeq`. */
+  async listChainPage(
+    tx: TenantTx,
+    employeeId: string,
+    afterSeq: number,
+    limit: number,
+  ): Promise<TimeEventRow[]> {
+    return tx<TimeEventRow[]>`
+      SELECT ${eventColumns(tx)}
+      FROM time_events
+      WHERE employee_id = ${employeeId}
+        AND seq IS NOT NULL
+        AND seq > ${afterSeq}
+      ORDER BY seq ASC
+      LIMIT ${limit}
+    `;
+  }
+
+  /** One page of rows without a chain position (legacy v1 rows), by id. */
+  async listUnchainedPage(
+    tx: TenantTx,
+    employeeId: string,
+    afterId: string | null,
+    limit: number,
+  ): Promise<TimeEventRow[]> {
+    return tx<TimeEventRow[]>`
+      SELECT ${eventColumns(tx)}
+      FROM time_events
+      WHERE employee_id = ${employeeId}
+        AND seq IS NULL
+        AND (${afterId}::uuid IS NULL OR id > ${afterId}::uuid)
+      ORDER BY id ASC
+      LIMIT ${limit}
+    `;
+  }
+
+  /**
+   * Employees of the current tenant that have at least one time event or a
+   * chain anchor (an anchor without rows means the whole chain was removed).
+   */
+  async listEmployeesWithEvents(tx: TenantTx): Promise<string[]> {
+    const rows = await tx<{ employeeId: string }[]>`
+      SELECT employee_id as "employeeId" FROM time_events
+      UNION
+      SELECT employee_id FROM time_event_chain_heads
+      ORDER BY 1
+    `;
+    return rows.map((r) => r.employeeId);
   }
 
   async getLatestEvent(
@@ -68,10 +228,7 @@ export class TimeRepository {
     employeeId: string,
   ): Promise<TimeEventRow | null> {
     const rows = await tx<TimeEventRow[]>`
-      SELECT id, organization_id as "organizationId", employee_id as "employeeId",
-             event_type as "eventType", occurred_at as "occurredAt", recorded_at as "recordedAt",
-             source, actor_id as "actorId", ref_event_id as "refEventId",
-             reason, prev_hash as "prevHash", hash, created_at as "createdAt"
+      SELECT ${eventColumns(tx)}
       FROM time_events
       WHERE employee_id = ${employeeId}
       ORDER BY occurred_at DESC, created_at DESC
@@ -87,10 +244,7 @@ export class TimeRepository {
     endDate?: string | undefined,
   ): Promise<TimeEventRow[]> {
     return tx<TimeEventRow[]>`
-      SELECT id, organization_id as "organizationId", employee_id as "employeeId",
-             event_type as "eventType", occurred_at as "occurredAt", recorded_at as "recordedAt",
-             source, actor_id as "actorId", ref_event_id as "refEventId",
-             reason, prev_hash as "prevHash", hash, created_at as "createdAt"
+      SELECT ${eventColumns(tx)}
       FROM time_events
       WHERE employee_id = ${employeeId}
         AND (${startDate ?? null}::timestamptz IS NULL OR occurred_at >= ${startDate ?? null}::timestamptz)
@@ -99,87 +253,37 @@ export class TimeRepository {
     `;
   }
 
-  // TIM-012: Time bank operations
-  async createTimeBankRecord(
-    tx: TenantTx,
-    data: {
-      employeeId: string;
-      type: string;
-      minutes: number;
-      referenceDate: string;
-      notes?: string | undefined;
-      actorId: string;
-    },
-  ): Promise<{
-    id: string;
-    organizationId: string;
-    employeeId: string;
-    type: string;
-    minutes: number;
-    referenceDate: string;
-    notes: string | null;
-    createdAt: Date;
-  }> {
-    const rows = await tx<
-      {
-        id: string;
-        organizationId: string;
-        employeeId: string;
-        type: string;
-        minutes: number;
-        referenceDate: string;
-        notes: string | null;
-        createdAt: Date;
-      }[]
-    >`
-      INSERT INTO time_bank_records (
-        employee_id, type, minutes, reference_date, notes, actor_id
-      ) VALUES (
-        ${data.employeeId},
-        ${data.type},
-        ${data.minutes},
-        ${data.referenceDate},
-        ${data.notes ?? null},
-        ${data.actorId}
-      )
-      RETURNING id, organization_id as "organizationId", employee_id as "employeeId",
-                type, minutes, reference_date as "referenceDate", notes, created_at as "createdAt"
-    `;
-    return rows[0]!;
-  }
-
-  async getTimeBankRecords(
+  /**
+   * An employee's events that occurred in `[from, to)` (ISO instants), plus
+   * every event linked to them through TIM-003 corrections, in either
+   * direction and transitively: the originals a correction refers to and the
+   * corrections of an original, even when those occurred outside the window.
+   * Folding these gives the same sessions inside the window as folding the
+   * whole history, without reading it. Ordered by `occurred_at`.
+   */
+  async getEventsForPeriod(
     tx: TenantTx,
     employeeId: string,
-  ): Promise<
-    {
-      id: string;
-      organizationId: string;
-      employeeId: string;
-      type: string;
-      minutes: number;
-      referenceDate: string;
-      notes: string | null;
-      createdAt: Date;
-    }[]
-  > {
-    return tx<
-      {
-        id: string;
-        organizationId: string;
-        employeeId: string;
-        type: string;
-        minutes: number;
-        referenceDate: string;
-        notes: string | null;
-        createdAt: Date;
-      }[]
-    >`
-      SELECT id, organization_id as "organizationId", employee_id as "employeeId",
-             type, minutes, reference_date as "referenceDate", notes, created_at as "createdAt"
-      FROM time_bank_records
+    from: string,
+    to: string,
+  ): Promise<TimeEventRow[]> {
+    return tx<TimeEventRow[]>`
+      WITH RECURSIVE related(id, ref_event_id) AS (
+        SELECT id, ref_event_id FROM time_events
+        WHERE employee_id = ${employeeId}
+          AND occurred_at >= ${from}::timestamptz
+          AND occurred_at < ${to}::timestamptz
+        UNION
+        SELECT t.id, t.ref_event_id
+        FROM time_events t
+        JOIN related r ON t.id = r.ref_event_id OR t.ref_event_id = r.id
+        WHERE t.employee_id = ${employeeId}
+      )
+      SELECT ${eventColumns(tx)}
+      FROM time_events
       WHERE employee_id = ${employeeId}
-      ORDER BY reference_date DESC, created_at DESC
+        AND id IN (SELECT id FROM related)
+      ORDER BY occurred_at ASC, seq ASC NULLS FIRST, id ASC
     `;
   }
 }

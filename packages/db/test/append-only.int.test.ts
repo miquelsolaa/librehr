@@ -38,8 +38,8 @@ describe("Append-Only Tables Protection Integration Tests", () => {
 
     await withTenant(db.sql, { organizationId: orgId }, async (tx) => {
       await tx`
-        INSERT INTO "time_events" ("id", "organization_id", "employee_id", "event_type", "occurred_at", "actor_id", "hash")
-        VALUES (${eventId}, ${orgId}, ${empId}, 'clock_in', now(), ${empId}, 'dummyhash')
+        INSERT INTO "time_events" ("id", "organization_id", "employee_id", "event_type", "occurred_at", "actor_id", "hash", "seq")
+        VALUES (${eventId}, ${orgId}, ${empId}, 'clock_in', now(), ${empId}, 'dummyhash', 1)
         ON CONFLICT ("id") DO NOTHING
       `;
     });

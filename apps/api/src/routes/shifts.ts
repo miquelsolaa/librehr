@@ -11,12 +11,30 @@ import {
   DecideShiftSwapRequestSchema,
 } from "@librehr/contracts";
 import {
+  addDays,
   generateRotationalRoster,
   type RotationalPattern,
   type ShiftDefinition,
 } from "@librehr/core";
 import { withTenant, ShiftRepository, EmployeeRepository } from "@librehr/db";
+import { NotFoundError, ValidationError } from "../errors/index.js";
+import { businessToday } from "../lib/business-date.js";
+import { IdParamSchema, parseJsonBody, parseParams } from "../lib/validate.js";
 import { requireAuth } from "../middleware/auth.js";
+import { assertNotSelfApproval } from "../policies/approvals.js";
+import {
+  inEmployeeFilter,
+  requireEmployeesInScope,
+  resolvePolicyContext,
+  scopedEmployeeFilter,
+} from "../policies/context.js";
+
+/**
+ * Rostering changes someone's working time, so it follows the time-record
+ * correction scope: managers for their direct reports, admin/HR for the
+ * organization.
+ */
+const ROSTER_PERMISSION = "time.record.correct" as const;
 
 export function createShiftRoutes(sql: Sql) {
   const router = new Hono();
@@ -49,25 +67,12 @@ export function createShiftRoutes(sql: Sql) {
       });
     }
 
-    const body = await c.req.json();
-    const parsed = CreateShiftTemplateRequestSchema.safeParse(body);
-    if (!parsed.success) {
-      const problem = createProblemDetails({
-        status: 400,
-        title: "Validation Error",
-        detail:
-          parsed.error.issues[0]?.message ?? "Invalid shift template data",
-        code: "VALIDATION_ERROR",
-      });
-      return c.json(problem, 400, {
-        "Content-Type": "application/problem+json",
-      });
-    }
+    const data = await parseJsonBody(c, CreateShiftTemplateRequestSchema);
 
     const template = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
-      async (tx) => shiftRepo.createShiftTemplate(tx, parsed.data),
+      async (tx) => shiftRepo.createShiftTemplate(tx, data),
     );
     return c.json(template, 201);
   });
@@ -106,29 +111,17 @@ export function createShiftRoutes(sql: Sql) {
       });
     }
 
-    const body = await c.req.json();
-    const parsed = CreateShiftPatternRequestSchema.safeParse(body);
-    if (!parsed.success) {
-      const problem = createProblemDetails({
-        status: 400,
-        title: "Validation Error",
-        detail: parsed.error.issues[0]?.message ?? "Invalid shift pattern data",
-        code: "VALIDATION_ERROR",
-      });
-      return c.json(problem, 400, {
-        "Content-Type": "application/problem+json",
-      });
-    }
+    const data = await parseJsonBody(c, CreateShiftPatternRequestSchema);
 
     const pattern = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) =>
         shiftRepo.createShiftPattern(tx, {
-          name: parsed.data.name,
-          cycleDays: parsed.data.cycleDays,
-          description: parsed.data.description,
-          steps: parsed.data.steps.map((s) => ({
+          name: data.name,
+          cycleDays: data.cycleDays,
+          description: data.description,
+          steps: data.steps.map((s) => ({
             stepOrder: s.stepOrder,
             shiftTemplateId: s.shiftTemplateId ?? null,
             isRest: s.isRest,
@@ -141,28 +134,27 @@ export function createShiftRoutes(sql: Sql) {
   // 5. GET /shifts/assignments - Get shift roster
   router.get("/shifts/assignments", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const startDate =
-      c.req.query("startDate") ?? new Date().toISOString().slice(0, 10);
-    const endDate =
-      c.req.query("endDate") ??
-      new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-        .toISOString()
-        .slice(0, 10);
     const employeeId = c.req.query("employeeId");
 
     const assignments = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        const currentEmp = await employeeRepo.findByUserId(tx, user.id);
-        const empFilter =
-          employeeId ??
-          (user.role === "employee" && currentEmp ? currentEmp.id : undefined);
-        return shiftRepo.getShiftAssignments(tx, {
+        const startDate =
+          c.req.query("startDate") ?? (await businessToday(c, tx));
+        const endDate = c.req.query("endDate") ?? addDays(startDate, 30);
+        // Employees see their own roster, managers theirs and their reports'.
+        const filter = scopedEmployeeFilter(
+          await resolvePolicyContext(c, tx),
+          "time.record.read",
+          employeeId,
+        );
+        const rows = await shiftRepo.getShiftAssignments(tx, {
           startDate,
           endDate,
-          employeeId: empFilter,
+          employeeId: filter.employeeId,
         });
+        return rows.filter((r) => inEmployeeFilter(filter, r.employeeId));
       },
     );
     return c.json(assignments);
@@ -183,36 +175,31 @@ export function createShiftRoutes(sql: Sql) {
       });
     }
 
-    const body = await c.req.json();
-    const parsed = AssignShiftsRequestSchema.safeParse(body);
-    if (!parsed.success) {
-      const problem = createProblemDetails({
-        status: 400,
-        title: "Validation Error",
-        detail: parsed.error.issues[0]?.message ?? "Invalid assignments data",
-        code: "VALIDATION_ERROR",
-      });
-      return c.json(problem, 400, {
-        "Content-Type": "application/problem+json",
-      });
-    }
+    const data = await parseJsonBody(c, AssignShiftsRequestSchema);
 
     await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
-      async (tx) =>
-        shiftRepo.assignShifts(
+      async (tx) => {
+        await requireEmployeesInScope(
+          await resolvePolicyContext(c, tx),
+          ROSTER_PERMISSION,
+          data.assignments.map((a) => a.employeeId),
+          (id) => employeeRepo.findById(tx, id),
+        );
+        return shiftRepo.assignShifts(
           tx,
-          parsed.data.assignments.map((a) => ({
+          data.assignments.map((a) => ({
             employeeId: a.employeeId,
             date: a.date,
             shiftTemplateId: a.shiftTemplateId ?? null,
             status: a.status ?? "scheduled",
             notes: a.notes ?? undefined,
           })),
-        ),
+        );
+      },
     );
-    return c.json({ success: true, count: parsed.data.assignments.length });
+    return c.json({ success: true, count: data.assignments.length });
   });
 
   // 7. POST /shifts/generate-roster - Generate continuous rotational cycle roster (TIM-004, TIM-005)
@@ -230,33 +217,29 @@ export function createShiftRoutes(sql: Sql) {
       });
     }
 
-    const body = await c.req.json();
-    const parsed = GenerateRosterRequestSchema.safeParse(body);
-    if (!parsed.success) {
-      const problem = createProblemDetails({
-        status: 400,
-        title: "Validation Error",
-        detail:
-          parsed.error.issues[0]?.message ?? "Invalid generation parameters",
-        code: "VALIDATION_ERROR",
-      });
-      return c.json(problem, 400, {
-        "Content-Type": "application/problem+json",
-      });
-    }
+    const data = await parseJsonBody(c, GenerateRosterRequestSchema);
 
-    const { patternId, anchorDate, startDate, endDate, employeeIds } =
-      parsed.data;
+    const { patternId, anchorDate, startDate, endDate, employeeIds } = data;
 
     const result = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
+        await requireEmployeesInScope(
+          await resolvePolicyContext(c, tx),
+          ROSTER_PERMISSION,
+          employeeIds,
+          (id) => employeeRepo.findById(tx, id),
+        );
+
         // Fetch pattern and its steps
         const patterns = await shiftRepo.getShiftPatterns(tx);
         const patternRow = patterns.find((p) => p.id === patternId);
         if (!patternRow) {
-          throw new Error("Pattern not found");
+          throw new NotFoundError({
+            detail: "Shift pattern not found",
+            code: "PATTERN_NOT_FOUND",
+          });
         }
 
         const steps = await shiftRepo.getShiftPatternSteps(tx, patternId);
@@ -333,19 +316,24 @@ export function createShiftRoutes(sql: Sql) {
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        const currentEmp = await employeeRepo.findByUserId(tx, user.id);
-        const filterStatus = status ? status : undefined;
-        const filterEmpId =
-          user.role === "employee" && currentEmp ? currentEmp.id : undefined;
-
+        // A swap is visible when either side is within the caller's scope.
+        const filter = scopedEmployeeFilter(
+          await resolvePolicyContext(c, tx),
+          "time.record.read",
+        );
         const filterObj: {
           status?: string | undefined;
           employeeId?: string | undefined;
         } = {};
-        if (filterStatus) filterObj.status = filterStatus;
-        if (filterEmpId) filterObj.employeeId = filterEmpId;
+        if (status) filterObj.status = status;
+        if (filter.employeeId) filterObj.employeeId = filter.employeeId;
 
-        return shiftRepo.getShiftSwaps(tx, filterObj);
+        const rows = await shiftRepo.getShiftSwaps(tx, filterObj);
+        return rows.filter(
+          (s) =>
+            inEmployeeFilter(filter, s.requesterId) ||
+            inEmployeeFilter(filter, s.targetEmployeeId),
+        );
       },
     );
     return c.json(swaps);
@@ -354,19 +342,7 @@ export function createShiftRoutes(sql: Sql) {
   // 9. POST /shifts/swaps - Request shift swap (employee)
   router.post("/shifts/swaps", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const body = await c.req.json();
-    const parsed = CreateShiftSwapRequestSchema.safeParse(body);
-    if (!parsed.success) {
-      const problem = createProblemDetails({
-        status: 400,
-        title: "Validation Error",
-        detail: parsed.error.issues[0]?.message ?? "Invalid swap request",
-        code: "VALIDATION_ERROR",
-      });
-      return c.json(problem, 400, {
-        "Content-Type": "application/problem+json",
-      });
-    }
+    const data = await parseJsonBody(c, CreateShiftSwapRequestSchema);
 
     const swap = await withTenant(
       sql,
@@ -374,35 +350,24 @@ export function createShiftRoutes(sql: Sql) {
       async (tx) => {
         const currentEmp = await employeeRepo.findByUserId(tx, user.id);
         if (!currentEmp) {
-          throw new Error("NO_EMPLOYEE_PROFILE");
+          throw new ValidationError({
+            detail: "User is not linked to an employee profile",
+            code: "NO_EMPLOYEE_PROFILE",
+          });
+        }
+        if (!(await employeeRepo.findById(tx, data.targetEmployeeId))) {
+          throw new NotFoundError({ detail: "Employee not found" });
         }
 
         return shiftRepo.createShiftSwap(tx, {
           requesterId: currentEmp.id,
-          targetEmployeeId: parsed.data.targetEmployeeId,
-          requesterDate: parsed.data.requesterDate,
-          targetDate: parsed.data.targetDate,
-          reason: parsed.data.reason,
+          targetEmployeeId: data.targetEmployeeId,
+          requesterDate: data.requesterDate,
+          targetDate: data.targetDate,
+          reason: data.reason,
         });
       },
-    ).catch((err: Error) => {
-      if (err.message === "NO_EMPLOYEE_PROFILE") {
-        return null;
-      }
-      throw err;
-    });
-
-    if (!swap) {
-      const problem = createProblemDetails({
-        status: 400,
-        title: "Bad Request",
-        detail: "User is not linked to an employee profile",
-        code: "NO_EMPLOYEE_PROFILE",
-      });
-      return c.json(problem, 400, {
-        "Content-Type": "application/problem+json",
-      });
-    }
+    );
 
     return c.json(swap, 201);
   });
@@ -422,29 +387,41 @@ export function createShiftRoutes(sql: Sql) {
       });
     }
 
-    const id = c.req.param("id");
-    const body = await c.req.json();
-    const parsed = DecideShiftSwapRequestSchema.safeParse(body);
-    if (!parsed.success) {
-      const problem = createProblemDetails({
-        status: 400,
-        title: "Validation Error",
-        detail: parsed.error.issues[0]?.message ?? "Invalid decision payload",
-        code: "VALIDATION_ERROR",
-      });
-      return c.json(problem, 400, {
-        "Content-Type": "application/problem+json",
-      });
-    }
+    const { id } = parseParams(c, IdParamSchema, {
+      detail: "Shift swap request not found",
+      code: "SWAP_NOT_FOUND",
+    });
+    const data = await parseJsonBody(c, DecideShiftSwapRequestSchema);
 
     const updated = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        const currentEmp = await employeeRepo.findByUserId(tx, user.id);
+        const swap = await shiftRepo.findShiftSwapById(tx, id);
+        if (!swap) return null;
+        // Both rosters change, so both employees must be the decider's
+        // reports (and a manager cannot decide their own swap).
+        const ctx = await resolvePolicyContext(c, tx);
+        // Nobody decides a swap of their own roster, admins included: both
+        // the requester and the target are parties to it.
+        for (const partyId of [swap.requesterId, swap.targetEmployeeId]) {
+          const party = await employeeRepo.findById(tx, partyId);
+          if (party) {
+            assertNotSelfApproval(ctx, {
+              employeeId: party.id,
+              userId: party.userId,
+            });
+          }
+        }
+        await requireEmployeesInScope(
+          ctx,
+          ROSTER_PERMISSION,
+          [swap.requesterId, swap.targetEmployeeId],
+          (empId) => employeeRepo.findById(tx, empId),
+        );
         return shiftRepo.decideShiftSwap(tx, id, {
-          status: parsed.data.status,
-          approverId: currentEmp ? currentEmp.id : user.id,
+          status: data.status,
+          approverId: ctx.employeeId ?? user.id,
         });
       },
     );

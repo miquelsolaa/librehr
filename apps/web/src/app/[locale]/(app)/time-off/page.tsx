@@ -11,7 +11,12 @@ import {
   ShieldAlert,
   UserCheck,
 } from "lucide-react";
-import { Button, StatusPill, type StatusPillType } from "@librehr/ui";
+import {
+  Button,
+  StatusPill,
+  type StatusPillType,
+  PageHeader,
+} from "@librehr/ui";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
 import type {
@@ -48,14 +53,14 @@ export default function TimeOffPage() {
     setLoading(true);
     setError(null);
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setData(null);
       setError("session");
       setLoading(false);
       return;
     }
     try {
-      const client = getApiClient(session.token);
+      const client = getApiClient();
       const [balance, requests, blackouts, delegations] = await Promise.all([
         client.getLeaveBalance(),
         client.listLeaveRequests(),
@@ -77,7 +82,7 @@ export default function TimeOffPage() {
 
   const handleCancel = async (id: string) => {
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setCancelError(true);
       return;
     }
@@ -85,7 +90,7 @@ export default function TimeOffPage() {
     setCancelError(false);
     setCancellingId(id);
     try {
-      await getApiClient(session.token).cancelLeaveRequest(id);
+      await getApiClient().cancelLeaveRequest(id);
       await fetchData();
     } catch {
       setCancelError(true);
@@ -111,30 +116,26 @@ export default function TimeOffPage() {
 
   return (
     <div className="space-y-8">
-      <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-        <div className="max-w-2xl space-y-2">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
-            {t("title")}
-          </h1>
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            {t("subtitle")}
-          </p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Button asChild variant="outline" className="min-h-11 gap-2">
-            <Link href={`/${locale}/time-off/calendar`}>
-              <Users aria-hidden="true" className="h-4 w-4" />
-              {t("teamCalendar")}
-            </Link>
-          </Button>
-          <Button asChild className="min-h-11 gap-2">
-            <Link href={`/${locale}/time-off/request`}>
-              <Plus aria-hidden="true" className="h-4 w-4" />
-              {t("requestLeave")}
-            </Link>
-          </Button>
-        </div>
-      </header>
+      <PageHeader
+        title={t("title")}
+        description={t("subtitle")}
+        actions={
+          <>
+            <Button asChild variant="outline" className="min-h-11 gap-2">
+              <Link href={`/${locale}/time-off/calendar`}>
+                <Users aria-hidden="true" className="h-4 w-4" />
+                {t("teamCalendar")}
+              </Link>
+            </Button>
+            <Button asChild className="min-h-11 gap-2">
+              <Link href={`/${locale}/time-off/request`}>
+                <Plus aria-hidden="true" className="h-4 w-4" />
+                {t("requestLeave")}
+              </Link>
+            </Button>
+          </>
+        }
+      />
 
       {loading ? (
         <p
@@ -174,7 +175,7 @@ export default function TimeOffPage() {
                     <CalendarDays aria-hidden="true" className="h-5 w-5" />
                   </div>
                   <div>
-                    <h2 className="text-sm font-medium text-foreground">
+                    <h2 className="text-base font-semibold text-foreground">
                       {t("currentBalance")}
                     </h2>
                     <p className="mt-2 text-4xl font-semibold tracking-tight tabular-nums text-foreground">
@@ -214,7 +215,7 @@ export default function TimeOffPage() {
               <div className="border-b border-border px-5 py-4 sm:px-6">
                 <h2
                   id="balance-history"
-                  className="text-lg font-semibold text-foreground"
+                  className="text-base font-semibold text-foreground"
                 >
                   {t("balanceHistory")}
                 </h2>
@@ -281,7 +282,7 @@ export default function TimeOffPage() {
               <div className="border-b border-border px-5 py-4 sm:px-6">
                 <h2
                   id="leave-requests"
-                  className="text-lg font-semibold text-foreground"
+                  className="text-base font-semibold text-foreground"
                 >
                   {t("requestsTitle")}
                 </h2>
@@ -366,7 +367,7 @@ export default function TimeOffPage() {
                   <div>
                     <h2
                       id="blackouts"
-                      className="font-semibold text-foreground"
+                      className="text-base font-semibold text-foreground"
                     >
                       {t("blackoutTitle")}
                     </h2>
@@ -408,7 +409,7 @@ export default function TimeOffPage() {
                   <div>
                     <h2
                       id="delegations"
-                      className="font-semibold text-foreground"
+                      className="text-base font-semibold text-foreground"
                     >
                       {t("delegationTitle")}
                     </h2>

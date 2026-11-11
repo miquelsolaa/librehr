@@ -7,6 +7,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "../lib/cn.js";
+import { useUiStrings } from "./ui-strings.js";
 
 export interface ToastProps {
   id?: string;
@@ -24,6 +25,7 @@ export const Toast: React.FC<ToastProps> = ({
   onDismiss,
   className,
 }) => {
+  const strings = useUiStrings();
   const icons = {
     success: <CheckCircle2 className="h-5 w-5 text-success shrink-0" />,
     warning: <AlertTriangle className="h-5 w-5 text-warning shrink-0" />,
@@ -54,7 +56,7 @@ export const Toast: React.FC<ToastProps> = ({
           type="button"
           onClick={onDismiss}
           className="rounded p-1 text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
-          aria-label="Dismiss"
+          aria-label={strings.dismiss}
         >
           <X className="h-4 w-4" />
         </button>

@@ -9,6 +9,7 @@ import {
 } from "./dialog.js";
 import { Button } from "./button.js";
 import { Input } from "./input.js";
+import { useUiStrings } from "./ui-strings.js";
 
 export interface ConfirmDialogProps {
   open: boolean;
@@ -21,6 +22,12 @@ export interface ConfirmDialogProps {
   variant?: "danger" | "default";
   onConfirm: () => void | Promise<void>;
   isLoading?: boolean;
+  /**
+   * Called when the dialog closes, before focus returns to the opener. Call
+   * `event.preventDefault()` and move focus yourself when the opener may no
+   * longer exist (e.g. the confirmed action removed it).
+   */
+  onCloseAutoFocus?: (event: Event) => void;
 }
 
 export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
@@ -28,13 +35,16 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   onOpenChange,
   title,
   description,
-  confirmText = "Confirm",
-  cancelText = "Cancel",
+  confirmText,
+  cancelText,
   expectedConfirmationWord,
   variant = "danger",
   onConfirm,
   isLoading = false,
+  onCloseAutoFocus,
 }) => {
+  const strings = useUiStrings();
+  const [before = "", after = ""] = strings.typeToConfirm.split("{word}");
   const [typedWord, setTypedWord] = React.useState("");
 
   const isConfirmed = expectedConfirmationWord
@@ -50,7 +60,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent {...(onCloseAutoFocus ? { onCloseAutoFocus } : {})}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
@@ -59,11 +69,11 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         {expectedConfirmationWord && (
           <div className="space-y-2 py-2">
             <p className="text-xs text-muted-foreground">
-              Please type{" "}
+              {before}
               <span className="font-semibold text-foreground">
                 {expectedConfirmationWord}
-              </span>{" "}
-              to confirm:
+              </span>
+              {after}
             </p>
             <Input
               value={typedWord}
@@ -80,7 +90,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             onClick={() => onOpenChange(false)}
             disabled={isLoading}
           >
-            {cancelText}
+            {cancelText ?? strings.cancel}
           </Button>
           <Button
             variant={variant === "danger" ? "danger" : "default"}
@@ -88,7 +98,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             isLoading={isLoading}
             onClick={handleConfirm}
           >
-            {confirmText}
+            {confirmText ?? strings.confirm}
           </Button>
         </DialogFooter>
       </DialogContent>

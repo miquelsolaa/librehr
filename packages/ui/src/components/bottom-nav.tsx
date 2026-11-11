@@ -1,4 +1,4 @@
-﻿import * as React from "react";
+import * as React from "react";
 import { cn } from "../lib/cn.js";
 import type { NavItem } from "./sidebar.js";
 
@@ -8,6 +8,11 @@ export interface BottomNavProps {
   currentPath?: string;
   ariaLabel?: string;
   moreLabel?: string;
+  /**
+   * Content shown at the end of the "More" panel, below the overflow links
+   * (for example a sign-out button). Its presence alone makes "More" appear.
+   */
+  overflowFooter?: React.ReactNode;
   className?: string;
 }
 
@@ -17,12 +22,14 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   currentPath,
   ariaLabel = "Mobile Navigation",
   moreLabel = "More",
+  overflowFooter,
   className,
 }) => {
   const [open, setOpen] = React.useState(false);
   const moreRef = React.useRef<HTMLButtonElement>(null);
   const panelId = React.useId();
   const allItems = [...items, ...overflowItems];
+  const hasOverflow = overflowItems.length > 0 || Boolean(overflowFooter);
   const activeHref = currentPath
     ? allItems
         .filter(
@@ -43,7 +50,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         }
       }}
       className={cn(
-        "fixed bottom-0 left-0 right-0 z-40 flex min-h-16 items-center justify-around border-t border-border bg-surface-raised px-1 pb-[env(safe-area-inset-bottom)] md:hidden",
+        "fixed bottom-0 left-0 right-0 z-40 flex min-h-16 items-center justify-around border-t border-border bg-surface-raised px-0 pb-[env(safe-area-inset-bottom)] md:hidden",
         className,
       )}
     >
@@ -54,21 +61,24 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             key={item.href}
             href={item.href}
             aria-current={active ? "page" : undefined}
+            // A short visible label keeps the full one as the accessible
+            // name; it contains the visible text (WCAG 2.5.3).
+            aria-label={item.shortLabel ? item.label : undefined}
             className={cn(
-              "flex min-h-[48px] min-w-[48px] flex-1 flex-col items-center justify-center gap-1 rounded-input px-1 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
+              "flex min-h-[48px] min-w-[48px] flex-1 flex-col items-center justify-center gap-1 rounded-input px-0 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
               active
-                ? "text-primary font-semibold"
+                ? "text-primary"
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
             <span className="shrink-0">{item.icon}</span>
-            <span className="max-w-full truncate text-[10px]">
-              {item.label}
+            <span className="max-w-full truncate text-xs tracking-tight">
+              {item.shortLabel ?? item.label}
             </span>
           </a>
         );
       })}
-      {overflowItems.length > 0 && (
+      {hasOverflow && (
         <>
           {open && (
             <div
@@ -92,6 +102,16 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                   <span>{item.label}</span>
                 </a>
               ))}
+              {overflowFooter && (
+                <div
+                  className={cn(
+                    overflowItems.length > 0 &&
+                      "mt-1 border-t border-border pt-1",
+                  )}
+                >
+                  {overflowFooter}
+                </div>
+              )}
             </div>
           )}
           <button
@@ -105,7 +125,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             <span aria-hidden="true" className="text-lg leading-4">
               ⋯
             </span>
-            <span className="text-[10px]">{moreLabel}</span>
+            <span className="text-xs">{moreLabel}</span>
           </button>
         </>
       )}

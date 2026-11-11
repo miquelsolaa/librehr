@@ -8,7 +8,37 @@ import {
   generateTotpUri,
   generateRecoveryCodes,
   verifyRecoveryCode,
+  matchTotpStep,
+  hashRecoveryCode,
 } from "../src/identity/totp.js";
+
+describe("TOTP replay support (AUTH-003)", () => {
+  it("returns the matched time step within the drift window", () => {
+    const secret = generateTotpSecret();
+    const now = 1_800_000_000_000;
+    const step = Math.floor(now / 30_000);
+    expect(matchTotpStep(secret, generateTotpCode(secret, now), now)).toBe(
+      step,
+    );
+    expect(
+      matchTotpStep(secret, generateTotpCode(secret, now - 30_000), now),
+    ).toBe(step - 1);
+    expect(
+      matchTotpStep(secret, generateTotpCode(secret, now + 30_000), now),
+    ).toBe(step + 1);
+    expect(
+      matchTotpStep(secret, generateTotpCode(secret, now - 90_000), now),
+    ).toBeNull();
+    expect(matchTotpStep(secret, "12345", now)).toBeNull();
+  });
+
+  it("hashes recovery codes in the stored format", () => {
+    const { plainCodes, hashedCodes } = generateRecoveryCodes(2);
+    expect(hashRecoveryCode(` ${plainCodes[0]!.toUpperCase()} `)).toBe(
+      hashedCodes[0],
+    );
+  });
+});
 
 describe("TOTP Two-Factor Authentication", () => {
   it("encodes and decodes base32 symmetrically", () => {
@@ -74,5 +104,19 @@ describe("TOTP Two-Factor Authentication", () => {
     // Verifying invalid code returns -1
     const invalidIdx = verifyRecoveryCode("0000-0000", hashedCodes);
     expect(invalidIdx).toBe(-1);
+  });
+
+  // CodeQL js/polynomial-redos: a regex trim of trailing "=" is quadratic on
+  // long runs of "=" that do not end the string.
+  it("rejects a long run of padding in linear time", () => {
+    const hostile = `${"=".repeat(200_000)}A`;
+    const started = performance.now();
+    expect(() => base32Decode(hostile)).toThrow("Invalid Base32 character");
+    expect(performance.now() - started).toBeLessThan(500);
+  });
+
+  it("still strips trailing padding and whitespace", () => {
+    expect(base32Decode("MZXW6===")).toEqual(Buffer.from("foo"));
+    expect(base32Decode("mzxw 6")).toEqual(Buffer.from("foo"));
   });
 });

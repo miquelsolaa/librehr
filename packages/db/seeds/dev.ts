@@ -1,10 +1,14 @@
 import crypto from "node:crypto";
 import postgres from "postgres";
 
-async function hashPassword(password: string): Promise<string> {
+/**
+ * scrypt with a fresh random salt, in the `scrypt$<salt>$<key>` format used for
+ * both account passwords and kiosk PINs.
+ */
+async function scryptHash(secret: string): Promise<string> {
   const salt = crypto.randomBytes(16).toString("hex");
   const key = await new Promise<Buffer>((resolve, reject) => {
-    crypto.scrypt(password, salt, 64, (err, derivedKey) => {
+    crypto.scrypt(secret, salt, 64, (err, derivedKey) => {
       if (err) reject(err);
       else resolve(derivedKey as Buffer);
     });
@@ -12,7 +16,30 @@ async function hashPassword(password: string): Promise<string> {
   return `scrypt$${salt}$${key.toString("hex")}`;
 }
 
-export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
+/** The API's development TIME_CHAIN_KEY default (apps/api/src/env.ts). */
+const DEV_TIME_CHAIN_KEY =
+  "dev_time_chain_key_must_be_changed_in_production_32";
+
+/**
+ * Thrown when the dev seed is pointed at a production environment. The seed
+ * writes well-known credentials, so it must never run there.
+ */
+export class SeedRefusedError extends Error {
+  constructor() {
+    super("Refusing to seed development data: NODE_ENV is production");
+    this.name = "SeedRefusedError";
+  }
+}
+
+export async function seedDevDatabase(
+  connectionUrl?: string,
+  env: Record<string, string | undefined> = process.env,
+): Promise<void> {
+  if (env["NODE_ENV"] === "production") throw new SeedRefusedError();
+  // Kiosk PIN for every dev user (scrypt, per-user salt). Override with
+  // SEED_DEV_KIOSK_PIN; never used outside development.
+  const devKioskPin = env["SEED_DEV_KIOSK_PIN"] || "1234";
+
   const url =
     connectionUrl ||
     process.env["DATABASE_MIGRATION_URL"] ||
@@ -35,6 +62,8 @@ export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
         RETURNING "id"
       `;
       const orgId = orgRows[0]?.["id"] as string;
+      // The owner role has no BYPASSRLS: tenant rows need the tenant context.
+      await tx`SELECT set_config('app.current_org', ${orgId}, true)`;
 
       // 2. Create Legal Entity
       const entityRows = await tx`
@@ -275,15 +304,19 @@ export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
       // Insert users and create employee records map
       const empIdByEmail = new Map<string, string>();
       const userIdByEmail = new Map<string, string>();
-      const devPasswordHash = await hashPassword("Password123!");
+      const devPasswordHash = await scryptHash("Password123!");
 
       // First pass: create users & base employees (without managerId to allow arbitrary order)
       for (const [idx, u] of usersList.entries()) {
-        const userRows = await tx`
+        // Never overwrite an existing account: credentials (and everything
+        // else) of a user that already exists are left untouched.
+        await tx`
           INSERT INTO "users" ("email", "name", "password_hash", "email_verified")
           VALUES (${u.email}, ${u.name}, ${devPasswordHash}, true)
-          ON CONFLICT ("email") DO UPDATE SET "name" = EXCLUDED."name", "password_hash" = EXCLUDED."password_hash"
-          RETURNING "id"
+          ON CONFLICT ("email") DO NOTHING
+        `;
+        const userRows = await tx`
+          SELECT "id" FROM "users" WHERE "email" = ${u.email}
         `;
         const userId = userRows[0]?.["id"] as string;
         userIdByEmail.set(u.email, userId);
@@ -297,7 +330,9 @@ export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
         const nameParts = u.name.split(" ");
         const firstName = nameParts[0] ?? "User";
         const lastName = nameParts.slice(1).join(" ") || "";
-        const badgeId = String(1001 + idx);
+        // Random, non-sequential badge numbers, so badges are not guessable.
+        const badgeId = `DEV-${crypto.randomBytes(4).toString("hex")}-${idx}`;
+        const pinHash = await scryptHash(devKioskPin);
 
         const empRows = await tx`
           INSERT INTO "employees" (
@@ -308,7 +343,7 @@ export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
           VALUES (
             ${orgId}, ${userId}, ${u.deptId}, ${u.locId},
             ${firstName}, ${lastName}, ${u.email}, ${u.phone}, ${u.status},
-            '8ea092a8015b7f4e96d99819caed8bb5ddcd0f636cf2d11aff9a5a3c51cc2ff8', '00112233445566778899aabbccddeeff',
+            ${pinHash}, NULL,
             ${badgeId}
           )
           RETURNING "id"
@@ -484,35 +519,63 @@ export async function seedDevDatabase(connectionUrl?: string): Promise<void> {
       }
 
       // 9. Seed Time Events with valid Hash Chain (Real Decreto-ley 8/2019)
+      // Only chained v2 rows are accepted (migration 0025). The seed cannot
+      // import @librehr/core, so it repeats the v2 canonical payload of
+      // core/time/hash-chain.ts; keyed with the API's dev TIME_CHAIN_KEY so
+      // the dev chain verifies.
       if (laiaEmpId) {
-        let prevHash = "0".repeat(64);
+        const chainKey = env["TIME_CHAIN_KEY"] || DEV_TIME_CHAIN_KEY;
+        let prevHash: string | null = null;
         const punches = [
           { type: "clock_in", time: "2026-11-02T08:31:00.000Z" },
           { type: "break_start", time: "2026-11-02T13:45:00.000Z" },
           { type: "break_end", time: "2026-11-02T14:40:00.000Z" },
         ];
 
-        for (const p of punches) {
-          const canonical = JSON.stringify({
+        for (const [index, p] of punches.entries()) {
+          const link: Record<string, string | number | null> & {
+            id: string;
+            seq: number;
+          } = {
+            id: crypto.randomUUID(),
+            organizationId: orgId,
             employeeId: laiaEmpId,
+            seq: index + 1,
             eventType: p.type,
             occurredAt: p.time,
+            recordedAt: p.time,
+            source: "web",
+            actorId: laiaEmpId,
+            refEventId: null,
+            reason: null,
             prevHash,
-          });
-          const hash = crypto
-            .createHash("sha256")
-            .update(canonical)
+          };
+          const payload: string = [
+            "librehr.time_event.v2",
+            ...Object.entries(link).map(
+              ([name, value]) => `${name}=${JSON.stringify(value)}`,
+            ),
+          ].join("\n");
+          const hash: string = crypto
+            .createHmac("sha256", chainKey)
+            .update(payload, "utf-8")
             .digest("hex");
 
           await tx`
             INSERT INTO "time_events" (
-              "organization_id", "employee_id", "event_type", "occurred_at", "recorded_at",
-              "source", "actor_id", "prev_hash", "hash"
+              "id", "organization_id", "employee_id", "event_type", "occurred_at", "recorded_at",
+              "source", "actor_id", "prev_hash", "hash", "hash_version", "seq"
             )
             VALUES (
-              ${orgId}, ${laiaEmpId}, ${p.type}, ${p.time}, ${p.time},
-              'web', ${laiaEmpId}, ${prevHash}, ${hash}
+              ${link.id}, ${orgId}, ${laiaEmpId}, ${p.type}, ${p.time}, ${p.time},
+              'web', ${laiaEmpId}, ${prevHash}, ${hash}, 2, ${link.seq}
             )
+          `;
+          await tx`
+            INSERT INTO "time_event_chain_heads" ("organization_id", "employee_id", "last_seq", "last_hash")
+            VALUES (${orgId}, ${laiaEmpId}, ${link.seq}, ${hash})
+            ON CONFLICT ("organization_id", "employee_id") DO UPDATE
+              SET "last_seq" = EXCLUDED."last_seq", "last_hash" = EXCLUDED."last_hash", "updated_at" = now()
           `;
           prevHash = hash;
         }

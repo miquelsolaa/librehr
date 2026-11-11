@@ -6,3 +6,4 @@ pnpm-lock.yaml
 packages/contracts/generated
 coverage
 storybook-static
+.claude/worktrees/

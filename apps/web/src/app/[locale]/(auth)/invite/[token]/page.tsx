@@ -6,7 +6,10 @@ import { useTranslations } from "next-intl";
 import { Mail, Check, AlertCircle } from "lucide-react";
 import { Button, Input } from "@librehr/ui";
 import { apiClient } from "../../../../../lib/api-client.js";
-import type { InvitationDetails } from "@librehr/contracts";
+import {
+  AUDITOR_ACCESS_ERROR_CODES,
+  type InvitationDetails,
+} from "@librehr/contracts";
 
 export default function AcceptInvitePage() {
   const params = useParams();
@@ -16,6 +19,21 @@ export default function AcceptInvitePage() {
 
   const t = useTranslations("invitations");
   const tCommon = useTranslations("common");
+
+  const roleLabel = (role: string): string => {
+    switch (role) {
+      case "employee":
+        return t("roleEmployee");
+      case "manager":
+        return t("roleManager");
+      case "admin":
+        return t("roleAdmin");
+      case "auditor":
+        return t("roleAuditor");
+      default:
+        return role;
+    }
+  };
 
   const [invite, setInvite] = React.useState<InvitationDetails | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -32,11 +50,19 @@ export default function AcceptInvitePage() {
       .getInvitation(token)
       .then((res) => setInvite(res))
       .catch((err: unknown) => {
-        const errorObj = err as { detail?: string };
-        setError(errorObj.detail ?? "Invalid or expired invitation token.");
+        // TIM-008: an auditor invitation whose access period has ended.
+        const code =
+          typeof err === "object" && err !== null && "code" in err
+            ? err.code
+            : undefined;
+        setError(
+          code === AUDITOR_ACCESS_ERROR_CODES.invitationAccessExpired
+            ? t("accessExpired")
+            : t("invalidToken"),
+        );
       })
       .finally(() => setLoading(false));
-  }, [token]);
+  }, [token, t]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,9 +76,8 @@ export default function AcceptInvitePage() {
       });
 
       router.push(`/${locale}/home`);
-    } catch (err: unknown) {
-      const errorObj = err as { detail?: string };
-      setError(errorObj.detail ?? "Failed to accept invitation.");
+    } catch {
+      setError(t("acceptFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -70,12 +95,18 @@ export default function AcceptInvitePage() {
 
   if (error && !invite) {
     return (
-      <div className="mx-auto max-w-md rounded-card border border-destructive/20 bg-destructive/10 p-6 text-center space-y-3">
-        <AlertCircle className="mx-auto h-8 w-8 text-destructive" />
-        <h2 className="text-base font-semibold text-destructive">
-          Invitation Error
-        </h2>
-        <p className="text-sm text-destructive">{error}</p>
+      <div
+        role="alert"
+        className="mx-auto max-w-md rounded-card border border-danger/20 bg-danger/10 p-6 text-center space-y-3"
+      >
+        <AlertCircle
+          className="mx-auto h-8 w-8 text-danger"
+          aria-hidden="true"
+        />
+        <h1 className="text-base font-semibold text-danger">
+          {t("errorTitle")}
+        </h1>
+        <p className="text-sm text-danger">{error}</p>
       </div>
     );
   }
@@ -83,24 +114,27 @@ export default function AcceptInvitePage() {
   return (
     <div className="mx-auto max-w-md space-y-6 py-12">
       <div className="text-center space-y-2">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-btn bg-primary/10 text-primary">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-input bg-primary/10 text-primary">
           <Mail className="h-6 w-6" />
         </div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           {t("title")}
         </h1>
         <p className="text-sm text-muted-foreground">
           {t("description", { orgName: invite?.orgName ?? "LibreHR" })}
         </p>
         <span className="inline-block rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-          {t("invitedAs", { role: invite?.role ?? "employee" })}
+          {t("invitedAs", { role: roleLabel(invite?.role ?? "employee") })}
         </span>
       </div>
 
       <div className="rounded-card border border-border bg-surface p-6 shadow-sm">
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="rounded-card bg-destructive/10 p-3 text-sm text-destructive">
+            <div
+              role="alert"
+              className="rounded-card bg-danger/10 p-3 text-sm text-danger"
+            >
               {error}
             </div>
           )}
@@ -115,7 +149,6 @@ export default function AcceptInvitePage() {
             <Input
               id="user-name"
               required
-              placeholder="Your full name"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />

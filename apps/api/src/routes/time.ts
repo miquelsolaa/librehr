@@ -4,57 +4,38 @@ import {
   type AuthUser,
   createProblemDetails,
   ClockRequestSchema,
-  KioskClockRequestSchema,
   TimesheetQuerySchema,
   CreateTimeBankEntrySchema,
 } from "@librehr/contracts";
-import {
-  foldSessions,
-  splitSessionsByLocalDay,
-  calculateDailyTimesheet,
-  calculatePeriodTimesheet,
-  buildInspectionExport,
-  computeEventHash,
-  verifyKioskPin,
-  calculateTimeBankBalance,
-} from "@librehr/core";
+import { calculateTimeBankBalance, isWithinClockWindow } from "@librehr/core";
 import {
   withTenant,
   TimeRepository,
+  TimeBankRepository,
   EmployeeRepository,
-  ScheduleRepository,
-  OrganizationRepository,
   AuditRepository,
-  type TimeEventRow,
+  type TimeChainSigner,
 } from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
-import { can } from "../policies/can.js";
+import { permissionScope } from "../policies/can.js";
+import { TimeEventOutOfWindowError } from "../errors/index.js";
+import { parseJsonBody } from "../lib/validate.js";
+import { buildTimesheet } from "../lib/timesheet.js";
+import type { TimeTrackingConfig } from "../lib/time-tracking-config.js";
+import {
+  canOnEmployee,
+  requireEmployeeInScope,
+  resolvePolicyContext,
+} from "../policies/context.js";
 
-function foldRecordedEvents(events: TimeEventRow[]) {
-  return foldSessions(
-    events.map((event) => ({
-      id: event.id,
-      organizationId: event.organizationId,
-      employeeId: event.employeeId,
-      eventType: event.eventType as
-        "clock_in" | "clock_out" | "break_start" | "break_end" | "correction",
-      occurredAt: event.occurredAt.toISOString(),
-      recordedAt: event.recordedAt.toISOString(),
-      source: event.source as "web" | "mobile" | "manual" | "import",
-      actorId: event.actorId,
-      ...(event.refEventId ? { refEventId: event.refEventId } : {}),
-      hash: event.hash,
-      prevHash: event.prevHash,
-    })),
-  );
-}
-
-export function createTimeRoutes(sql: Sql) {
+export function createTimeRoutes(
+  sql: Sql,
+  options: { sign: TimeChainSigner; config: TimeTrackingConfig },
+) {
   const router = new Hono();
   const timeRepo = new TimeRepository();
+  const timeBankRepo = new TimeBankRepository();
   const employeeRepo = new EmployeeRepository();
-  const scheduleRepo = new ScheduleRepository();
-  const orgRepo = new OrganizationRepository();
   const auditRepo = new AuditRepository();
 
   // 1. GET /time/current-status - Current employee's clock state
@@ -115,29 +96,26 @@ export function createTimeRoutes(sql: Sql) {
     return c.json(result);
   });
 
-  // 2. POST /time/clock - Append clock event with hash chaining
+  // 2. POST /time/clock - Append clock event to the employee's hash chain
   router.post("/time/clock", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const body = await c.req.json().catch(() => null);
-    const parsed = ClockRequestSchema.safeParse(body);
+    const clockData = await parseJsonBody(c, ClockRequestSchema);
 
-    if (!parsed.success) {
-      const problem = createProblemDetails({
-        status: 400,
-        title: "Bad Request",
-        detail: parsed.error.errors.map((e) => e.message).join(", "),
-        code: "VALIDATION_ERROR",
-        errors: parsed.error.issues.map((i) => ({
-          field: i.path.join("."),
-          message: i.message,
-        })),
-      });
-      return c.json(problem, 400, {
-        "Content-Type": "application/problem+json",
-      });
+    // TIM-002/TIM-003: a direct punch is "now". A client clock may drift a
+    // little, but a backdated punch must go through a correction.
+    let occurredAt: Date | undefined;
+    if (clockData.occurredAt) {
+      occurredAt = new Date(clockData.occurredAt);
+      if (
+        !isWithinClockWindow(
+          occurredAt,
+          new Date(),
+          options.config.clockToleranceMs,
+        )
+      ) {
+        throw new TimeEventOutOfWindowError(options.config.clockToleranceMs);
+      }
     }
-
-    const clockData = parsed.data;
 
     const result = await withTenant(
       sql,
@@ -146,34 +124,15 @@ export function createTimeRoutes(sql: Sql) {
         const emp = await employeeRepo.findByUserId(tx, user.id);
         if (!emp) return { error: "NO_EMPLOYEE" as const };
 
-        const latest = await timeRepo.getLatestEvent(tx, emp.id);
-        const prevHash = latest?.hash ?? null;
-
-        const occurredAt = clockData.occurredAt
-          ? new Date(clockData.occurredAt)
-          : new Date();
-        const recordedAt = new Date();
-
-        const hash = computeEventHash(prevHash, {
+        const created = await timeRepo.appendEvent(tx, options.sign, {
           organizationId: user.organizationId,
           employeeId: emp.id,
           eventType: clockData.eventType,
-          occurredAt: occurredAt.toISOString(),
-          recordedAt: recordedAt.toISOString(),
-          source: clockData.source,
-          actorId: user.id,
-          reason: clockData.notes,
-        });
-
-        const created = await timeRepo.appendEvent(tx, {
-          employeeId: emp.id,
-          eventType: clockData.eventType,
           occurredAt,
-          source: clockData.source,
+          // Set by the route, never by the client: only the kiosk route records "kiosk".
+          source: "web",
           actorId: user.id,
           reason: clockData.notes,
-          prevHash,
-          hash,
         });
 
         return { event: created };
@@ -211,115 +170,6 @@ export function createTimeRoutes(sql: Sql) {
     );
   });
 
-  // TIM-010: POST /time/kiosk/clock - Tablet Kiosk mode clocking with PIN/badge verification
-  router.post("/time/kiosk/clock", requireAuth, async (c) => {
-    const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const body = await c.req.json().catch(() => null);
-    const parsed = KioskClockRequestSchema.safeParse(body);
-
-    if (!parsed.success) {
-      const problem = createProblemDetails({
-        status: 400,
-        title: "Bad Request",
-        detail: parsed.error.errors.map((err) => err.message).join(", "),
-        code: "VALIDATION_ERROR",
-        errors: parsed.error.issues.map((i) => ({
-          field: i.path.join("."),
-          message: i.message,
-        })),
-      });
-      return c.json(problem, 400, {
-        "Content-Type": "application/problem+json",
-      });
-    }
-
-    const { identifier, pin, eventType } = parsed.data;
-
-    const result = await withTenant(
-      sql,
-      { organizationId: user.organizationId, userId: user.id },
-      async (tx) => {
-        const emp = await employeeRepo.findByIdentifier(tx, identifier);
-        if (!emp || !emp.pinHash || !emp.pinSalt) {
-          return { error: "INVALID_CREDENTIALS" as const };
-        }
-
-        const validPin = verifyKioskPin(pin, emp.pinHash, emp.pinSalt);
-        if (!validPin) {
-          return { error: "INVALID_CREDENTIALS" as const };
-        }
-
-        const latest = await timeRepo.getLatestEvent(tx, emp.id);
-        const prevHash = latest ? latest.hash : null;
-        const now = new Date();
-        const occurredAtStr = now.toISOString();
-
-        const canonical = {
-          organizationId: user.organizationId,
-          employeeId: emp.id,
-          eventType,
-          occurredAt: occurredAtStr,
-          recordedAt: occurredAtStr,
-          source: "kiosk",
-          actorId: emp.userId ?? user.id,
-        };
-
-        const hash = computeEventHash(prevHash, canonical);
-
-        await timeRepo.appendEvent(tx, {
-          employeeId: emp.id,
-          eventType,
-          occurredAt: now,
-          source: "kiosk",
-          actorId: emp.userId ?? user.id,
-          prevHash,
-          hash,
-        });
-
-        await auditRepo.log(tx, {
-          actorId: user.id,
-          action: "time.kiosk_clock",
-          resourceType: "time_event",
-          resourceId: emp.id,
-          metadata: {
-            eventType,
-            source: "kiosk",
-          },
-        });
-
-        let newStatus: "clocked_in" | "on_break" | "clocked_out" =
-          "clocked_out";
-        if (eventType === "clock_in" || eventType === "break_end") {
-          newStatus = "clocked_in";
-        } else if (eventType === "break_start") {
-          newStatus = "on_break";
-        }
-
-        return {
-          success: true,
-          employeeName: `${emp.firstName} ${emp.lastName}`,
-          eventType,
-          occurredAt: occurredAtStr,
-          newStatus,
-        };
-      },
-    );
-
-    if (result.error === "INVALID_CREDENTIALS") {
-      const problem = createProblemDetails({
-        status: 401,
-        title: "Unauthorized",
-        detail: "Invalid identifier or PIN",
-        code: "INVALID_CREDENTIALS",
-      });
-      return c.json(problem, 401, {
-        "Content-Type": "application/problem+json",
-      });
-    }
-
-    return c.json(result);
-  });
-
   // 3. GET /time/timesheet - Calculated daily/weekly/monthly breakdown
   router.get("/time/timesheet", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
@@ -344,30 +194,22 @@ export function createTimeRoutes(sql: Sql) {
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
         let employeeId = requestedEmpId;
+        let locationId: string | null;
         if (!employeeId) {
           const currentEmp = await employeeRepo.findByUserId(tx, user.id);
           if (!currentEmp) return "NO_EMPLOYEE";
           employeeId = currentEmp.id;
+          locationId = currentEmp.locationId;
         } else {
           // If viewing another employee's timesheet, check permission
           const emp = await employeeRepo.findById(tx, employeeId);
           if (!emp) return "NOT_FOUND";
-          if (emp.userId !== user.id && user.role !== "auditor") {
-            const manager = emp.managerId
-              ? await employeeRepo.findById(tx, emp.managerId)
-              : null;
-            const allowed = can(
-              {
-                userId: user.id,
-                organizationId: user.organizationId,
-                role: user.role,
-              },
+          locationId = emp.locationId;
+          if (emp.userId !== user.id) {
+            const allowed = canOnEmployee(
+              await resolvePolicyContext(c, tx),
               "time.record.read",
-              {
-                organizationId: user.organizationId,
-                employeeId: emp.id,
-                managerId: manager?.userId ?? undefined,
-              },
+              emp,
             );
             if (!allowed) return "FORBIDDEN";
           }
@@ -378,8 +220,8 @@ export function createTimeRoutes(sql: Sql) {
               action: "inspector.timesheet_access",
               resourceType: "timesheet",
               resourceId: employeeId,
+              // actorId identifies the auditor; no email in audit metadata.
               metadata: {
-                inspectorEmail: user.email,
                 periodStart: startDate,
                 periodEnd: endDate,
               },
@@ -387,51 +229,14 @@ export function createTimeRoutes(sql: Sql) {
           }
         }
 
-        const org = await orgRepo.findById(tx, user.organizationId);
-        if (!org) return "NOT_FOUND" as const;
-        // Include the enclosing session when it starts or ends outside the period.
-        const events = await timeRepo.getEventsForEmployee(tx, employeeId);
-
-        const sessionsByDay = splitSessionsByLocalDay(
-          foldRecordedEvents(events),
+        const { timesheet } = await buildTimesheet(c, tx, {
+          employeeId,
+          locationId,
           startDate,
           endDate,
-          org.timezone,
-        );
-
-        // Generate daily summaries between startDate and endDate
-        const dailySummaries = [];
-        const curr = new Date(startDate);
-        const end = new Date(endDate);
-
-        while (curr <= end) {
-          const dayStr = curr.toISOString().slice(0, 10);
-          const sessions = sessionsByDay.get(dayStr) ?? [];
-
-          const dayOfWeek = curr.getUTCDay() || 7;
-          const schedule = await scheduleRepo.getForEmployee(
-            tx,
-            employeeId,
-            dayStr,
-          );
-          if (!schedule) return "SCHEDULE_NOT_CONFIGURED" as const;
-          const rule = schedule.rules.find(
-            (item) => item.dayOfWeek === dayOfWeek,
-          ) ?? {
-            dayOfWeek,
-            expectedHours: 0,
-          };
-
-          const daily = calculateDailyTimesheet(dayStr, sessions, {
-            dayOfWeek: rule.dayOfWeek,
-            expectedHours: rule.expectedHours,
-          });
-          dailySummaries.push(daily);
-
-          curr.setUTCDate(curr.getUTCDate() + 1);
-        }
-
-        return calculatePeriodTimesheet(dailySummaries);
+        });
+        if (!timesheet.ok) return "SCHEDULE_NOT_CONFIGURED" as const;
+        return timesheet.summary;
       },
     );
 
@@ -476,173 +281,6 @@ export function createTimeRoutes(sql: Sql) {
     return c.json(data);
   });
 
-  // 4. GET /time/export - Official Labour Inspectorate export with cryptographic hash
-  router.get("/time/export", requireAuth, async (c) => {
-    const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const query = TimesheetQuerySchema.safeParse(c.req.query());
-
-    if (!query.success) {
-      const problem = createProblemDetails({
-        status: 400,
-        title: "Bad Request",
-        detail: query.error.errors.map((e) => e.message).join(", "),
-        code: "VALIDATION_ERROR",
-      });
-      return c.json(problem, 400, {
-        "Content-Type": "application/problem+json",
-      });
-    }
-
-    const { startDate, endDate, employeeId: requestedEmpId } = query.data;
-
-    const doc = await withTenant(
-      sql,
-      { organizationId: user.organizationId, userId: user.id },
-      async (tx) => {
-        let employeeId = requestedEmpId;
-        if (!employeeId) {
-          const currentEmp = await employeeRepo.findByUserId(tx, user.id);
-          if (!currentEmp) return null;
-          employeeId = currentEmp.id;
-        }
-
-        const emp = await employeeRepo.findById(tx, employeeId);
-        if (!emp) return null;
-
-        if (emp.userId !== user.id && user.role !== "auditor") {
-          const manager = emp.managerId
-            ? await employeeRepo.findById(tx, emp.managerId)
-            : null;
-          const allowed = can(
-            {
-              userId: user.id,
-              organizationId: user.organizationId,
-              role: user.role,
-            },
-            "time.record.read",
-            {
-              organizationId: user.organizationId,
-              employeeId: emp.id,
-              managerId: manager?.userId ?? undefined,
-            },
-          );
-          if (!allowed) return "FORBIDDEN";
-        }
-
-        if (user.role === "auditor") {
-          await auditRepo.log(tx, {
-            actorId: user.id,
-            action: "inspector.export_access",
-            resourceType: "official_inspection_export",
-            resourceId: employeeId,
-            metadata: {
-              inspectorEmail: user.email,
-              periodStart: startDate,
-              periodEnd: endDate,
-            },
-          });
-        }
-
-        const org = await orgRepo.findById(tx, user.organizationId);
-        if (!org) return null;
-        const orgName = org.name;
-
-        const events = await timeRepo.getEventsForEmployee(tx, employeeId);
-
-        const sessionsByDay = splitSessionsByLocalDay(
-          foldRecordedEvents(events),
-          startDate,
-          endDate,
-          org.timezone,
-        );
-
-        const dailySummaries = [];
-        const curr = new Date(startDate);
-        const end = new Date(endDate);
-
-        while (curr <= end) {
-          const dayStr = curr.toISOString().slice(0, 10);
-          const sessions = sessionsByDay.get(dayStr) ?? [];
-
-          const dayOfWeek = curr.getUTCDay() || 7;
-          const schedule = await scheduleRepo.getForEmployee(
-            tx,
-            employeeId,
-            dayStr,
-          );
-          if (!schedule) return "SCHEDULE_NOT_CONFIGURED" as const;
-          const rule = schedule.rules.find(
-            (item) => item.dayOfWeek === dayOfWeek,
-          ) ?? {
-            dayOfWeek,
-            expectedHours: 0,
-          };
-          dailySummaries.push(
-            calculateDailyTimesheet(dayStr, sessions, {
-              dayOfWeek: rule.dayOfWeek,
-              expectedHours: rule.expectedHours,
-            }),
-          );
-          curr.setUTCDate(curr.getUTCDate() + 1);
-        }
-
-        return buildInspectionExport(
-          {
-            organizationId: user.organizationId,
-            organizationName: orgName,
-            employeeId: emp.id,
-            employeeName: `${emp.firstName} ${emp.lastName}`,
-            periodStart: startDate,
-            periodEnd: endDate,
-            generatedAt: new Date().toISOString(),
-            generatorActorId: user.id,
-          },
-          dailySummaries,
-        );
-      },
-    );
-
-    if (doc === "SCHEDULE_NOT_CONFIGURED") {
-      return c.json(
-        createProblemDetails({
-          status: 409,
-          title: "Schedule not configured",
-          detail:
-            "Configure a schedule rule for every day in the requested period.",
-          code: "SCHEDULE_NOT_CONFIGURED",
-        }),
-        409,
-        { "Content-Type": "application/problem+json" },
-      );
-    }
-
-    if (doc === "FORBIDDEN") {
-      const problem = createProblemDetails({
-        status: 403,
-        title: "Forbidden",
-        detail: "You do not have permission to export this timesheet",
-        code: "FORBIDDEN",
-      });
-      return c.json(problem, 403, {
-        "Content-Type": "application/problem+json",
-      });
-    }
-
-    if (!doc) {
-      const problem = createProblemDetails({
-        status: 404,
-        title: "Not Found",
-        detail: "Employee not found",
-        code: "EMPLOYEE_NOT_FOUND",
-      });
-      return c.json(problem, 404, {
-        "Content-Type": "application/problem+json",
-      });
-    }
-
-    return c.json(doc);
-  });
-
   // TIM-012: GET /time/time-bank - Get employee time bank summary and history
   router.get("/time/time-bank", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
@@ -663,24 +301,16 @@ export function createTimeRoutes(sql: Sql) {
         if (!emp) return "NOT_FOUND";
 
         // Check permission: employee can see self, manager can see reports, admin can see all
-        if (emp.userId !== user.id && user.role !== "auditor") {
-          const allowed = can(
-            {
-              userId: user.id,
-              organizationId: user.organizationId,
-              role: user.role,
-            },
+        if (emp.userId !== user.id) {
+          const allowed = canOnEmployee(
+            await resolvePolicyContext(c, tx),
             "time.record.read",
-            {
-              organizationId: user.organizationId,
-              employeeId: emp.id,
-              managerId: emp.managerId ?? undefined,
-            },
+            emp,
           );
           if (!allowed) return "FORBIDDEN";
         }
 
-        const records = await timeRepo.getTimeBankRecords(tx, employeeId);
+        const records = await timeBankRepo.getTimeBankRecords(tx, employeeId);
         const summary = calculateTimeBankBalance(
           records.map((r) => ({
             type: r.type as
@@ -748,15 +378,17 @@ export function createTimeRoutes(sql: Sql) {
       });
     }
 
-    const allowed = can(
-      {
-        userId: user.id,
-        organizationId: user.organizationId,
-        role: user.role,
-      },
-      "time.record.correct",
-    );
-    if (!allowed && user.role !== "admin" && user.role !== "manager") {
+    // Role check up front; the per-employee scope check happens below.
+    if (
+      !permissionScope(
+        {
+          userId: user.id,
+          organizationId: user.organizationId,
+          role: user.role,
+        },
+        "time.record.correct",
+      )
+    ) {
       const problem = createProblemDetails({
         status: 403,
         title: "Forbidden",
@@ -772,10 +404,15 @@ export function createTimeRoutes(sql: Sql) {
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        const emp = await employeeRepo.findById(tx, parse.data.employeeId);
-        if (!emp) return null;
+        // Managers may only credit their direct reports (never themselves).
+        await requireEmployeeInScope(
+          await resolvePolicyContext(c, tx),
+          "time.record.correct",
+          () => employeeRepo.findById(tx, parse.data.employeeId),
+          "EMPLOYEE_NOT_FOUND",
+        );
 
-        const record = await timeRepo.createTimeBankRecord(tx, {
+        const record = await timeBankRepo.createTimeBankRecord(tx, {
           employeeId: parse.data.employeeId,
           type: parse.data.type,
           minutes: parse.data.minutes,
@@ -802,18 +439,6 @@ export function createTimeRoutes(sql: Sql) {
         };
       },
     );
-
-    if (!created) {
-      const problem = createProblemDetails({
-        status: 404,
-        title: "Not Found",
-        detail: "Employee not found",
-        code: "EMPLOYEE_NOT_FOUND",
-      });
-      return c.json(problem, 404, {
-        "Content-Type": "application/problem+json",
-      });
-    }
 
     return c.json(created, 201);
   });

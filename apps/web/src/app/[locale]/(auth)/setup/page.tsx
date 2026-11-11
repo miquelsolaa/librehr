@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Building2, Check, ArrowRight, ArrowLeft } from "lucide-react";
@@ -13,24 +14,35 @@ export default function SetupWizardPage() {
   const locale = (params?.["locale"] as string) ?? "es";
   const t = useTranslations("setup");
   const tCommon = useTranslations("common");
+  const tRegions = useTranslations("regions");
 
   const [step, setStep] = React.useState<1 | 2 | 3>(1);
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState("");
+  const [alreadyCompleted, setAlreadyCompleted] = React.useState(false);
+  const completedHeading = React.useRef<HTMLHeadingElement>(null);
+
+  // The submit button disappears with the form; keep keyboard and screen
+  // reader users on the message that replaced it.
+  React.useEffect(() => {
+    if (alreadyCompleted) completedHeading.current?.focus();
+  }, [alreadyCompleted]);
 
   // Form State
   const [formData, setFormData] = React.useState({
-    orgName: "Acme Serveis",
-    orgSlug: "acme-serveis",
-    adminName: "Marta Soler",
-    adminEmail: "admin@librehr.local",
-    adminPassword: "••••••••••••",
+    // Nothing is pre-filled: sample values would be submitted unnoticed, and
+    // the password must be typed by the administrator.
+    orgName: "",
+    orgSlug: "",
+    adminName: "",
+    adminEmail: "",
+    adminPassword: "",
     defaultLocale: (locale as "ca" | "es" | "en") || "ca",
     timezone: "Europe/Madrid",
-    legalEntityName: "Acme Serveis SL",
-    legalEntityCif: "B65432109",
-    locationName: "Barcelona Diagonal",
-    locationCity: "Barcelona",
+    legalEntityName: "",
+    legalEntityCif: "",
+    locationName: "",
+    locationCity: "",
     locationRegion: "CT",
   });
 
@@ -62,7 +74,7 @@ export default function SetupWizardPage() {
       !formData.adminEmail ||
       !formData.adminPassword
     ) {
-      setError("Please fill out all required organization and admin fields");
+      setError(t("requiredStep1"));
       return;
     }
     setError("");
@@ -77,7 +89,7 @@ export default function SetupWizardPage() {
       !formData.locationName ||
       !formData.locationCity
     ) {
-      setError("Please fill out all required legal entity and location fields");
+      setError(t("requiredStep2"));
       return;
     }
     setError("");
@@ -105,12 +117,19 @@ export default function SetupWizardPage() {
       });
 
       router.push(`/${locale}/sign-in`);
-    } catch (err: unknown) {
-      const errorObj = err as { detail?: string };
-      setError(
-        errorObj.detail ??
-          "Setup failed. Please check the values and try again.",
-      );
+    } catch (err) {
+      // The API refuses setup once an organization exists (409).
+      if (
+        typeof err === "object" &&
+        err !== null &&
+        "code" in err &&
+        err.code === "SETUP_ALREADY_COMPLETED"
+      ) {
+        setAlreadyCompleted(true);
+        setFormData((prev) => ({ ...prev, adminPassword: "" }));
+        return;
+      }
+      setError(t("setupFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -120,48 +139,79 @@ export default function SetupWizardPage() {
     <div className="mx-auto max-w-xl space-y-8 py-8">
       {/* Header */}
       <div className="text-center space-y-2">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-btn bg-primary/10 text-primary">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-input bg-primary/10 text-primary">
           <Building2 className="h-6 w-6" />
         </div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           {t("title")}
         </h1>
-        <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
+        {!alreadyCompleted && (
+          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
+        )}
       </div>
+
+      {alreadyCompleted && (
+        <section
+          aria-labelledby="setup-completed-title"
+          className="space-y-4 rounded-card border border-border bg-surface p-6 text-center"
+        >
+          <h2
+            ref={completedHeading}
+            tabIndex={-1}
+            id="setup-completed-title"
+            className="text-base font-semibold text-foreground"
+          >
+            {t("alreadyCompletedTitle")}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {t("alreadyCompletedDescription")}
+          </p>
+          <Button asChild>
+            <Link href={`/${locale}/sign-in`}>{t("goToSignIn")}</Link>
+          </Button>
+        </section>
+      )}
 
       {/* Steps Indicator */}
-      <div className="flex items-center justify-between border-b border-border pb-4 text-xs font-medium">
-        <span
-          className={
-            step >= 1 ? "text-primary font-semibold" : "text-muted-foreground"
-          }
-        >
-          {t("step1")}
-        </span>
-        <span
-          className={
-            step >= 2 ? "text-primary font-semibold" : "text-muted-foreground"
-          }
-        >
-          {t("step2")}
-        </span>
-        <span
-          className={
-            step === 3 ? "text-primary font-semibold" : "text-muted-foreground"
-          }
-        >
-          {t("step3")}
-        </span>
-      </div>
+      {!alreadyCompleted && (
+        <div className="flex items-center justify-between border-b border-border pb-4 text-xs font-medium">
+          <span
+            className={
+              step >= 1 ? "text-primary font-semibold" : "text-muted-foreground"
+            }
+          >
+            {t("step1")}
+          </span>
+          <span
+            className={
+              step >= 2 ? "text-primary font-semibold" : "text-muted-foreground"
+            }
+          >
+            {t("step2")}
+          </span>
+          <span
+            className={
+              step === 3
+                ? "text-primary font-semibold"
+                : "text-muted-foreground"
+            }
+          >
+            {t("step3")}
+          </span>
+        </div>
+      )}
 
       {error && (
-        <div className="rounded-card bg-destructive/10 p-3 text-sm text-destructive">
+        <div
+          role="alert"
+          className="rounded-card bg-danger/10 p-3 text-sm text-danger"
+        >
           {error}
         </div>
       )}
 
       {/* Step 1: Org & Admin */}
-      {step === 1 && (
+      {!alreadyCompleted && step === 1 && (
         <form onSubmit={handleNextStep1} className="space-y-4">
           <div className="space-y-1.5">
             <label
@@ -173,7 +223,7 @@ export default function SetupWizardPage() {
             <Input
               id="org-name"
               required
-              placeholder="e.g. Acme Iberia"
+              placeholder={t("orgNamePlaceholder")}
               value={formData.orgName}
               onChange={(e) => updateField("orgName", e.target.value)}
             />
@@ -238,17 +288,21 @@ export default function SetupWizardPage() {
             <Input
               id="admin-pass"
               type="password"
+              autoComplete="new-password"
               required
               minLength={8}
-              placeholder="••••••••••••"
+              aria-describedby="admin-pass-hint"
               value={formData.adminPassword}
               onChange={(e) => updateField("adminPassword", e.target.value)}
             />
+            <p id="admin-pass-hint" className="text-xs text-muted-foreground">
+              {t("adminPasswordHint")}
+            </p>
           </div>
 
           <div className="pt-4 flex justify-end">
             <Button type="submit" className="gap-2">
-              <span>Next</span>
+              <span>{t("next")}</span>
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
@@ -256,7 +310,7 @@ export default function SetupWizardPage() {
       )}
 
       {/* Step 2: Legal Entity & Location */}
-      {step === 2 && (
+      {!alreadyCompleted && step === 2 && (
         <form onSubmit={handleNextStep2} className="space-y-4">
           <div className="space-y-1.5">
             <label
@@ -268,7 +322,7 @@ export default function SetupWizardPage() {
             <Input
               id="legal-name"
               required
-              placeholder="e.g. Acme Iberia S.L."
+              placeholder={t("legalEntityNamePlaceholder")}
               value={formData.legalEntityName}
               onChange={(e) => updateField("legalEntityName", e.target.value)}
             />
@@ -300,7 +354,7 @@ export default function SetupWizardPage() {
             <Input
               id="loc-name"
               required
-              placeholder="e.g. Barcelona Diagonal"
+              placeholder={t("locationNamePlaceholder")}
               value={formData.locationName}
               onChange={(e) => updateField("locationName", e.target.value)}
             />
@@ -336,11 +390,11 @@ export default function SetupWizardPage() {
                 value={formData.locationRegion}
                 onChange={(e) => updateField("locationRegion", e.target.value)}
               >
-                <option value="CT">Catalunya</option>
-                <option value="MD">Madrid</option>
-                <option value="AN">Andalucía</option>
-                <option value="VC">Comunitat Valenciana</option>
-                <option value="PV">País Vasco</option>
+                {["CT", "MD", "AN", "VC", "PV"].map((code) => (
+                  <option key={code} value={code}>
+                    {tRegions(code)}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -353,10 +407,10 @@ export default function SetupWizardPage() {
               className="gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
-              <span>Back</span>
+              <span>{tCommon("back")}</span>
             </Button>
             <Button type="submit" className="gap-2">
-              <span>Next</span>
+              <span>{t("next")}</span>
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
@@ -364,11 +418,11 @@ export default function SetupWizardPage() {
       )}
 
       {/* Step 3: Review and Launch */}
-      {step === 3 && (
+      {!alreadyCompleted && step === 3 && (
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="rounded-card border border-border bg-surface p-6 space-y-3 text-sm">
             <h3 className="font-semibold text-foreground border-b border-border pb-2">
-              Summary Review
+              {t("summaryTitle")}
             </h3>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <span className="text-muted-foreground">{t("orgName")}:</span>
@@ -396,7 +450,7 @@ export default function SetupWizardPage() {
               </span>
               <span className="text-foreground">
                 {formData.locationName} ({formData.locationCity},{" "}
-                {formData.locationRegion})
+                {tRegions(formData.locationRegion)})
               </span>
             </div>
           </div>
@@ -409,7 +463,7 @@ export default function SetupWizardPage() {
               className="gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
-              <span>Back</span>
+              <span>{tCommon("back")}</span>
             </Button>
             <Button type="submit" disabled={submitting} className="gap-2">
               <Check className="h-4 w-4" />

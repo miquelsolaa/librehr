@@ -5,28 +5,40 @@ import {
   createProblemDetails,
   CreateInvitationRequestSchema,
   AcceptInvitationRequestSchema,
+  AUDITOR_ACCESS_ERROR_CODES,
 } from "@librehr/contracts";
 import {
   withTenant,
   InvitationRepository,
+  IdentityRepository,
   EmployeeRepository,
   AuditRepository,
+  AuditorAccessRepository,
 } from "@librehr/db";
+import { AppError, UnauthorizedError } from "../errors/index.js";
 import { requireAuth } from "../middleware/auth.js";
 import { can } from "../policies/can.js";
 import type { AuthPort } from "../ports/auth.js";
 import type { MailPort } from "../ports/mail.js";
 import { hashPassword, verifyPassword } from "../lib/password.js";
+import { resolveAuditorAccessEnd } from "../lib/auditor-access.js";
+import {
+  setSessionCookie,
+  type SessionCookieOptions,
+} from "../lib/session-cookie.js";
 
 export function createInvitationRoutes(
   sql: Sql,
   authPort: AuthPort,
   mailPort?: MailPort,
+  cookieOptions: SessionCookieOptions = {},
 ) {
   const router = new Hono();
   const invitationRepo = new InvitationRepository();
+  const identityRepo = new IdentityRepository();
   const employeeRepo = new EmployeeRepository();
   const auditRepo = new AuditRepository();
+  const auditorRepo = new AuditorAccessRepository();
 
   router.post("/invitations", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
@@ -70,18 +82,34 @@ export function createInvitationRoutes(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
+        // TIM-008: the schema guarantees a last day of access for auditors
+        // (and none for other roles); it must also fit the organization's
+        // window, and becomes the instant access ends in its time zone.
+        const accessExpiresAt =
+          parse.data.accessUntil === undefined
+            ? null
+            : resolveAuditorAccessEnd(
+                parse.data.accessUntil,
+                await auditorRepo.window(tx),
+              );
+
         const invite = await invitationRepo.create(tx, {
           email: parse.data.email,
           role: parse.data.role,
           invitedById: user.id,
+          accessExpiresAt,
         });
 
+        // No PII in audit metadata: the invitation id identifies the invitee.
         await auditRepo.log(tx, {
           actorId: user.id,
           action: "invitation.create",
           resourceType: "invitation",
           resourceId: invite.id,
-          metadata: { email: parse.data.email, role: parse.data.role },
+          metadata: {
+            role: parse.data.role,
+            accessExpiresAt: accessExpiresAt?.toISOString() ?? null,
+          },
         });
 
         return invite;
@@ -107,6 +135,9 @@ export function createInvitationRoutes(
         email: created.email,
         role: created.role,
         expiresAt: new Date(created.expiresAt).toISOString(),
+        accessExpiresAt: created.accessExpiresAt
+          ? new Date(created.accessExpiresAt).toISOString()
+          : null,
         acceptedAt: created.acceptedAt
           ? new Date(created.acceptedAt).toISOString()
           : null,
@@ -119,7 +150,7 @@ export function createInvitationRoutes(
   router.get("/invitations/:token", async (c) => {
     const token = c.req.param("token");
 
-    const invite = await invitationRepo.findByToken(sql, token);
+    const invite = await identityRepo.invitation(sql, token);
     if (!invite) {
       const problem = createProblemDetails({
         status: 404,
@@ -156,6 +187,26 @@ export function createInvitationRoutes(
       });
     }
 
+    // TIM-008: an auditor invitation whose access period has already ended
+    // cannot be accepted (see markAccepted); say so specifically.
+    const accessExpiresAt = await withTenant(
+      sql,
+      { organizationId: invite.organizationId },
+      (tx) => invitationRepo.accessExpiresAt(tx, invite.id),
+    );
+    if (accessExpiresAt && accessExpiresAt.getTime() <= Date.now()) {
+      const problem = createProblemDetails({
+        status: 410,
+        title: "Invitation Access Expired",
+        detail:
+          "The access period this invitation grants has ended. Please request a new invite.",
+        code: AUDITOR_ACCESS_ERROR_CODES.invitationAccessExpired,
+      });
+      return c.json(problem, 410, {
+        "Content-Type": "application/problem+json",
+      });
+    }
+
     return c.json({
       email: invite.email,
       role: invite.role,
@@ -180,7 +231,7 @@ export function createInvitationRoutes(
     }
 
     const { token, name, password } = parse.data;
-    const invite = await invitationRepo.findByToken(sql, token);
+    const invite = await identityRepo.invitation(sql, token);
     if (
       !invite ||
       invite.acceptedAt ||
@@ -222,8 +273,10 @@ export function createInvitationRoutes(
       sql,
       { organizationId: invite.organizationId },
       async (tx) => {
-        // 1. Mark invitation accepted
-        if (!(await invitationRepo.markAccepted(tx, invite.id))) return null;
+        // 1. Mark invitation accepted. An auditor invitation whose access
+        // end date (TIM-008) has passed is refused like an expired link.
+        const accepted = await invitationRepo.markAccepted(tx, invite.id);
+        if (!accepted) return null;
 
         // 2. Create or find User
         const userRows = await tx<
@@ -251,20 +304,46 @@ export function createInvitationRoutes(
             !account ||
             !(await verifyPassword(password, account.password_hash))
           )
-            throw new Error(
-              "Account credentials changed during invitation acceptance",
-            );
+            // The account's password changed between the pre-check and this
+            // locked read: answer like the pre-check instead of a 500.
+            throw new UnauthorizedError({
+              detail: "Invalid email or password",
+              code: "INVALID_CREDENTIALS",
+            });
           user = account;
         }
 
-        // 3. Create Membership
+        // 3. TIM-008: an invitation older than the last access change of an
+        // existing auditor membership is stale. The admin has since revoked,
+        // shortened or extended that access, and accepting must not rewrite
+        // it. Revoking or shortening also expires pending invitations
+        // outright; this check covers every other order of events. Throwing
+        // rolls the acceptance back, so the invitation stays unused.
+        if (
+          await auditorRepo.auditorMembershipChangedAfter(
+            tx,
+            user.id,
+            accepted.createdAt,
+          )
+        ) {
+          throw new AppError({
+            status: 400,
+            title: "Invalid Invitation",
+            code: "INVALID_INVITATION",
+            detail: "This invitation is invalid, expired, or already used.",
+          });
+        }
+
+        // 4. Create Membership. The access end date follows the role: set
+        // for auditors, cleared for every other role (migration 0029 CHECK).
         await tx`
-          INSERT INTO memberships (organization_id, user_id, role)
-          VALUES (${invite.organizationId}, ${user.id}, ${invite.role})
-          ON CONFLICT (organization_id, user_id) DO UPDATE SET role = EXCLUDED.role
+          INSERT INTO memberships (organization_id, user_id, role, access_expires_at)
+          VALUES (${invite.organizationId}, ${user.id}, ${invite.role}, ${accepted.accessExpiresAt})
+          ON CONFLICT (organization_id, user_id) DO UPDATE
+          SET role = EXCLUDED.role, access_expires_at = EXCLUDED.access_expires_at
         `;
 
-        // 4. Create Employee record if not existing
+        // 5. Create Employee record if not existing
         const nameParts = name.trim().split(" ");
         const firstName = nameParts[0] ?? name;
         const lastName = nameParts.slice(1).join(" ") || "Employee";
@@ -309,6 +388,14 @@ export function createInvitationRoutes(
       );
     }
     const session = await authPort.createSession(authUser);
+    if (!session) {
+      throw new UnauthorizedError({
+        code: "INVALID_INVITATION",
+        detail: "This invitation is invalid, expired, or already used.",
+      });
+    }
+    // The session lives only in the httpOnly cookie (AUTH-001/002).
+    setSessionCookie(c, session.token, session.expiresAt, cookieOptions);
     return c.json({
       user: session.user,
       expiresAt: session.expiresAt.toISOString(),

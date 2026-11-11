@@ -1,5 +1,6 @@
-﻿import AxeBuilder from "@axe-core/playwright";
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import { mockRoute } from "./support/mock-api";
 test("first location is created using a selected real legal entity", async ({
   page,
 }) => {
@@ -17,24 +18,16 @@ test("first location is created using a selected real legal entity", async ({
   );
   let selected: string | undefined;
   const entityId = "11111111-1111-4111-8111-111111111111";
-  await page.route("**/v1/org/**", async (route) => {
-    const headers = {
-      "access-control-allow-origin": "*",
-      "access-control-allow-headers": "*",
-      "access-control-allow-methods": "GET, POST, OPTIONS",
-    };
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers });
+  await mockRoute(page, "**/v1/org/**", async (route) => {
     if (route.request().url().endsWith("legal-entities"))
       return route.fulfill({
-        headers,
         json: [{ id: entityId, name: "Example entity" }],
       });
     if (route.request().method() === "POST") {
       selected = route.request().postDataJSON().legalEntityId;
-      return route.fulfill({ status: 201, headers, json: {} });
+      return route.fulfill({ status: 201, json: {} });
     }
-    return route.fulfill({ headers, json: [] });
+    return route.fulfill({ json: [] });
   });
   await page.goto("/en/settings/locations");
   await page.getByRole("button", { name: "Add Work Center" }).click();
@@ -61,27 +54,19 @@ test("a first legal entity can be created before its first location", async ({
       }),
     ),
   );
-  await page.route("**/v1/org/**", async (route) => {
-    const headers = {
-      "access-control-allow-origin": "*",
-      "access-control-allow-headers": "*",
-      "access-control-allow-methods": "GET, POST, OPTIONS",
-    };
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers });
+  await mockRoute(page, "**/v1/org/**", async (route) => {
     if (
       route.request().url().endsWith("legal-entities") &&
       route.request().method() === "POST"
     )
       return route.fulfill({
         status: 201,
-        headers,
         json: {
           id: "11111111-1111-4111-8111-111111111111",
           name: "New entity",
         },
       });
-    return route.fulfill({ headers, json: [] });
+    return route.fulfill({ json: [] });
   });
   await page.goto("/en/settings/locations");
   await page.getByRole("button", { name: "Add Work Center" }).click();
@@ -108,17 +93,10 @@ test("failed legal entity creation preserves input and reports the error", async
       }),
     ),
   );
-  await page.route("**/v1/org/**", async (route) => {
-    const headers = {
-      "access-control-allow-origin": "*",
-      "access-control-allow-headers": "*",
-      "access-control-allow-methods": "GET, POST, OPTIONS",
-    };
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers });
+  await mockRoute(page, "**/v1/org/**", async (route) => {
     if (route.request().method() === "POST")
-      return route.fulfill({ status: 500, headers });
-    return route.fulfill({ headers, json: [] });
+      return route.fulfill({ status: 500 });
+    return route.fulfill({ json: [] });
   });
   await page.goto("/en/settings/locations");
   await page.getByRole("button", { name: "Add Work Center" }).click();
@@ -145,15 +123,8 @@ test("new legal entity form has no axe violations", async ({ page }) => {
       }),
     ),
   );
-  await page.route("**/v1/org/**", async (route) => {
-    const headers = {
-      "access-control-allow-origin": "*",
-      "access-control-allow-headers": "*",
-      "access-control-allow-methods": "GET, POST, OPTIONS",
-    };
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers });
-    return route.fulfill({ headers, json: [] });
+  await mockRoute(page, "**/v1/org/**", async (route) => {
+    return route.fulfill({ json: [] });
   });
   await page.goto("/en/settings/locations");
   await page.getByRole("button", { name: "Add Work Center" }).click();

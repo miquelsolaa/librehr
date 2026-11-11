@@ -1,10 +1,5 @@
 import { test, expect } from "@playwright/test";
-
-const cors = {
-  "access-control-allow-origin": "*",
-  "access-control-allow-headers": "*",
-  "access-control-allow-methods": "GET, OPTIONS",
-};
+import { mockRoute } from "./support/mock-api";
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() =>
@@ -19,12 +14,9 @@ test.beforeEach(async ({ page }) => {
       }),
     ),
   );
-  await page.route("**/v1/leave/**", async (route) => {
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers: cors });
+  await mockRoute(page, "**/v1/leave/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     await route.fulfill({
-      headers: cors,
       json: path.endsWith("/balance")
         ? {
             currentBalance: 8,
@@ -51,15 +43,12 @@ test("a failed balance request shows an error and can be retried", async ({
   page,
 }) => {
   let fails = true;
-  await page.route("**/v1/leave/balance", async (route) => {
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers: cors });
+  await mockRoute(page, "**/v1/leave/balance", async (route) => {
     if (fails) {
       fails = false;
-      await route.fulfill({ status: 500, body: "error", headers: cors });
+      await route.fulfill({ status: 500, body: "error" });
     } else
       await route.fulfill({
-        headers: cors,
         json: {
           currentBalance: 8,
           totalAccrued: 10,
@@ -82,11 +71,8 @@ test("a failed balance request shows an error and can be retried", async ({
 });
 
 test("balance history explains signed ledger entries", async ({ page }) => {
-  await page.route("**/v1/leave/balance", async (route) => {
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers: cors });
+  await mockRoute(page, "**/v1/leave/balance", async (route) => {
     return route.fulfill({
-      headers: cors,
       json: {
         currentBalance: 8.5,
         totalAccrued: 10,
@@ -137,10 +123,8 @@ test("balance history explains signed ledger entries", async ({ page }) => {
 test("an unavailable policy endpoint is reported without hiding balances", async ({
   page,
 }) => {
-  await page.route("**/v1/leave/blackouts", async (route) => {
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers: cors });
-    return route.fulfill({ status: 503, headers: cors });
+  await mockRoute(page, "**/v1/leave/blackouts", async (route) => {
+    return route.fulfill({ status: 503 });
   });
   await page.goto("/en/time-off");
   await expect(
@@ -155,11 +139,8 @@ test("an unavailable policy endpoint is reported without hiding balances", async
 test("a cancellation failure is visible and retains the request", async ({
   page,
 }) => {
-  await page.route("**/v1/leave/requests", async (route) => {
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers: cors });
+  await mockRoute(page, "**/v1/leave/requests", async (route) => {
     return route.fulfill({
-      headers: cors,
       json: [
         {
           id: "request-1",
@@ -172,11 +153,13 @@ test("a cancellation failure is visible and retains the request", async ({
       ],
     });
   });
-  await page.route("**/v1/leave/requests/request-1/cancel", async (route) => {
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers: cors });
-    return route.fulfill({ status: 500, headers: cors });
-  });
+  await mockRoute(
+    page,
+    "**/v1/leave/requests/request-1/cancel",
+    async (route) => {
+      return route.fulfill({ status: 500 });
+    },
+  );
   page.on("dialog", (dialog) => dialog.accept());
   await page.goto("/en/time-off");
   await page.getByRole("button", { name: "Cancel Request" }).click();
@@ -189,15 +172,8 @@ test("a cancellation failure is visible and retains the request", async ({
 test("leave submission explains a missing coverage policy and preserves dates", async ({
   page,
 }) => {
-  const headers = {
-    ...cors,
-    "access-control-allow-methods": "GET, POST, OPTIONS",
-  };
-  await page.route("**/v1/leave/types", async (route) => {
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers });
+  await mockRoute(page, "**/v1/leave/types", async (route) => {
     return route.fulfill({
-      headers,
       json: [
         {
           id: "11111111-1111-4111-8111-111111111111",
@@ -208,12 +184,9 @@ test("leave submission explains a missing coverage policy and preserves dates", 
       ],
     });
   });
-  await page.route("**/v1/leave/requests", async (route) => {
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers });
+  await mockRoute(page, "**/v1/leave/requests", async (route) => {
     return route.fulfill({
       status: 409,
-      headers,
       json: {
         code: "COVERAGE_NOT_CONFIGURED",
         status: 409,

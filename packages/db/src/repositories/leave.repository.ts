@@ -214,11 +214,11 @@ export class LeaveRepository {
       unit?: string | undefined;
       sourceRef?: string | null | undefined;
       note?: string | null | undefined;
-      effectiveDate?: string | undefined;
+      /** Business date in the employee's location (or organization) zone. */
+      effectiveDate: string;
     },
   ): Promise<LeaveLedgerRow> {
-    const effectiveDate =
-      data.effectiveDate ?? new Date().toISOString().slice(0, 10);
+    const effectiveDate = data.effectiveDate;
     const rows = await tx<LeaveLedgerRow[]>`
       INSERT INTO leave_ledger (
         employee_id, entry_type, amount, unit,
@@ -433,10 +433,16 @@ export class LeaveRepository {
     return updated!;
   }
 
+  /**
+   * `today` is the business date of the cancellation in the employee's
+   * location (or organization) time zone; a compensating reversal takes
+   * effect on it.
+   */
   async cancelLeaveRequest(
     tx: TenantTx,
     id: string,
     cancelledById: string,
+    today: string,
   ): Promise<LeaveRequestRow> {
     const req = await this.getLeaveRequestById(tx, id);
     if (!req) throw new Error("Leave request not found");
@@ -454,7 +460,7 @@ export class LeaveRepository {
         amount: Math.abs(req.workingDays),
         sourceRef: id,
         note: `Compensating reversal for cancelled request ${req.startDate} to ${req.endDate}`,
-        effectiveDate: new Date().toISOString().slice(0, 10),
+        effectiveDate: today,
       });
       reversalEntryId = reversal.id;
     }
@@ -631,9 +637,18 @@ export class LeaveRepository {
     return rows[0]!;
   }
 
+  /**
+   * Approval delegations visible in `scope` (LEA-008). The scope is
+   * explicit: `organization` lists every delegation of the tenant
+   * (optionally those involving one employee), `participant` only those where
+   * the employee is the manager or the delegate. There is no default, so a
+   * missing employee can never widen a list to the whole organization.
+   */
   async listApprovalDelegations(
     tx: TenantTx,
-    employeeId?: string | undefined,
+    scope:
+      | { kind: "organization"; employeeId?: string | undefined }
+      | { kind: "participant"; employeeId: string },
   ): Promise<
     {
       id: string;
@@ -648,6 +663,7 @@ export class LeaveRepository {
       createdAt: Date;
     }[]
   > {
+    const employeeId = scope.employeeId ?? null;
     return tx<
       {
         id: string;
@@ -672,9 +688,9 @@ export class LeaveRepository {
       FROM approval_delegations ad
       JOIN employees m ON m.id = ad.manager_employee_id
       JOIN employees d ON d.id = ad.delegate_employee_id
-      WHERE (${employeeId ?? null}::uuid IS NULL
-             OR ad.manager_employee_id = ${employeeId ?? null}::uuid
-             OR ad.delegate_employee_id = ${employeeId ?? null}::uuid)
+      WHERE ((${scope.kind === "organization"} AND ${employeeId}::uuid IS NULL)
+             OR ad.manager_employee_id = ${employeeId}::uuid
+             OR ad.delegate_employee_id = ${employeeId}::uuid)
       ORDER BY ad.start_date DESC
     `;
   }

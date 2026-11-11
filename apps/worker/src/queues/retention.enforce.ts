@@ -1,32 +1,49 @@
-import { defaultIdempotency } from "../lib/idempotency.js";
+import { z } from "zod";
+import type { Logger } from "pino";
+import { NotImplementedError } from "../lib/job-errors.js";
+import { isoDate, parsePayload } from "../lib/payload.js";
 
-export interface RetentionEnforcePayload {
-  organizationId: string;
-  runDate: string;
-  dryRun?: boolean | undefined;
-}
+export const RetentionEnforcePayloadSchema = z.object({
+  organizationId: z.string().min(1),
+  runDate: z.string().regex(isoDate),
+  dryRun: z.boolean().optional(),
+});
+
+export type RetentionEnforcePayload = z.input<
+  typeof RetentionEnforcePayloadSchema
+>;
+
+export const retentionEnforceSingletonKey = (
+  p: z.output<typeof RetentionEnforcePayloadSchema>,
+) => `${p.organizationId}:${p.runDate}`;
 
 /**
  * Handles retention policy enforcement per ADM-005 / COMPLIANCE.md.
  * Evaluates soft-deleted documents and expired records past statutory retention periods:
  * - Working time records: retained 4 years per Spanish Labor Law (Art. 34.9 ET).
  * - Soft-deleted documents: purged after 30-day grace period.
+ * Deduplicated at enqueue time by `retentionEnforceSingletonKey`.
+ *
+ * Fails loudly by design: purging is not implemented yet, and reporting "completed" would hide
+ * data kept past its retention period. The job is dead-lettered until ADM-005 lands.
  */
-export async function handleRetentionEnforce(job: {
-  data: RetentionEnforcePayload;
-}) {
-  const idempotencyKey = `retention-enforce:${job.data.organizationId}:${job.data.runDate}`;
-  const proceed = await defaultIdempotency.checkAndMark(idempotencyKey);
-  if (!proceed) return { skipped: true, stub: "ADM-005" };
+export async function handleRetentionEnforce(
+  job: { id: string; data: unknown },
+  logger: Pick<Logger, "warn">,
+): Promise<never> {
+  const data = parsePayload(
+    "retention.enforce",
+    RetentionEnforcePayloadSchema,
+    job.data,
+  );
 
-  const dryRun = job.data.dryRun ?? false;
-
-  return {
-    organizationId: job.data.organizationId,
-    runDate: job.data.runDate,
-    dryRun,
-    purgedDocuments: 0,
-    status: "completed",
-    stub: "ADM-005",
-  };
+  logger.warn({
+    msg: "retention enforcement not performed: implementation deferred",
+    requirement: "ADM-005",
+    jobId: job.id,
+    organizationId: data.organizationId,
+    runDate: data.runDate,
+    dryRun: data.dryRun ?? false,
+  });
+  throw new NotImplementedError("retention purge deferred (ADM-005)");
 }

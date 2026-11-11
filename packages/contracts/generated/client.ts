@@ -47,6 +47,11 @@ import type {
   AcceptInvitationRequest,
 } from '../src/invitations.js';
 import type {
+  Auditor,
+  AuditorListResponse,
+  UpdateAuditorAccessRequest,
+} from '../src/auditor-access.js';
+import type {
   LeaveType,
   CreateLeaveTypeRequest,
   LeaveBalanceSummary,
@@ -89,6 +94,7 @@ import type {
   DecideTimeCorrection,
   TimeCorrectionItem,
   OfficialExportResponse,
+  ExportEmployeesResponse,
   KioskClockRequest,
   KioskClockResponse,
   SetEmployeePin,
@@ -156,7 +162,10 @@ export class LibreHrApiClient {
   private getHeaders?: (() => Record<string, string> | Promise<Record<string, string>>) | undefined;
 
   constructor(options: ApiClientOptions) {
-    this.baseUrl = options.baseUrl.replace(/\/+$/, '');
+    // A loop, not a trailing-slash regex: that is quadratic on long "/" runs.
+    let end = options.baseUrl.length;
+    while (end > 0 && options.baseUrl[end - 1] === '/') end -= 1;
+    this.baseUrl = options.baseUrl.slice(0, end);
     this.fetchFn = options.fetchFn ?? fetch;
     this.getHeaders = options.getHeaders;
   }
@@ -201,6 +210,13 @@ export class LibreHrApiClient {
     return this.request<SignInResult>('/v1/auth/sign-in', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  }
+
+  // Revokes the current session server-side and clears the session cookie.
+  async signOut(): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>('/v1/auth/sign-out', {
+      method: 'POST',
     });
   }
 
@@ -324,6 +340,24 @@ export class LibreHrApiClient {
     return this.request<SessionResponse>('/v1/invitations/accept', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  }
+
+  // Inspector / auditor access (TIM-008)
+  async listAuditors(): Promise<AuditorListResponse> {
+    return this.request<AuditorListResponse>('/v1/auditors');
+  }
+
+  async updateAuditorAccess(userId: string, data: UpdateAuditorAccessRequest): Promise<Auditor> {
+    return this.request<Auditor>(`/v1/auditors/${userId}/access`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async cancelAuditorInvitation(id: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/v1/auditors/invitations/${id}`, {
+      method: 'DELETE',
     });
   }
 
@@ -556,13 +590,24 @@ export class LibreHrApiClient {
     return this.request<PeriodTimesheetResponse>(`/v1/time/timesheet?${searchParams.toString()}`);
   }
 
-  async getOfficialExport(params: { startDate: string; endDate: string; employeeId?: string }): Promise<OfficialExportResponse> {
+  async getOfficialExport(params: { startDate: string; endDate: string; employeeId?: string; scope?: 'employee' | 'organization'; locale?: 'ca' | 'es' | 'en' }): Promise<OfficialExportResponse> {
+    const searchParams = new URLSearchParams({
+      startDate: params.startDate,
+      endDate: params.endDate,
+      format: 'json',
+    });
+    if (params.employeeId) searchParams.set('employeeId', params.employeeId);
+    if (params.scope) searchParams.set('scope', params.scope);
+    if (params.locale) searchParams.set('locale', params.locale);
+    return this.request<OfficialExportResponse>(`/v1/time/export?${searchParams.toString()}`);
+  }
+
+  async listExportEmployees(params: { startDate: string; endDate: string }): Promise<ExportEmployeesResponse> {
     const searchParams = new URLSearchParams({
       startDate: params.startDate,
       endDate: params.endDate,
     });
-    if (params.employeeId) searchParams.set('employeeId', params.employeeId);
-    return this.request<OfficialExportResponse>(`/v1/time/export?${searchParams.toString()}`);
+    return this.request<ExportEmployeesResponse>(`/v1/time/export/employees?${searchParams.toString()}`);
   }
 
   async listTimeCorrections(params?: { employeeId?: string; status?: string }): Promise<TimeCorrectionItem[]> {
@@ -818,10 +863,10 @@ export class LibreHrApiClient {
     });
   }
 
-  async disableTwoFactor(data?: { code?: string }): Promise<{ success: boolean }> {
+  async disableTwoFactor(data: { code: string }): Promise<{ success: boolean }> {
     return this.request<{ success: boolean }>('/v1/auth/2fa/disable', {
       method: 'POST',
-      body: JSON.stringify(data ?? {}),
+      body: JSON.stringify(data),
     });
   }
 

@@ -18,6 +18,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
+  PageHeader,
 } from "@librehr/ui";
 import { getApiClient } from "@/lib/api-client";
 import { getStoredSession } from "@/lib/auth";
@@ -57,14 +58,14 @@ export default function PeoplePage() {
     setLoading(true);
     setLoadError(null);
     const session = getStoredSession();
-    if (!session?.token) {
+    if (!session) {
       setEmployees([]);
       setLoadError("signInRequired");
       setLoading(false);
       return;
     }
     try {
-      const res = await getApiClient(session.token).listEmployees({
+      const res = await getApiClient().listEmployees({
         search: search || undefined,
         departmentId: selectedDept || undefined,
         status:
@@ -87,9 +88,9 @@ export default function PeoplePage() {
 
   const fetchDepartments = React.useCallback(() => {
     const session = getStoredSession();
-    if (!session?.token) return;
+    if (!session) return;
     setDepartmentsError(false);
-    void getApiClient(session.token)
+    void getApiClient()
       .listDepartments()
       .then((depts) => setDepartments(depts))
       .catch(() => {
@@ -107,8 +108,8 @@ export default function PeoplePage() {
     setInviteError("");
     try {
       const session = getStoredSession();
-      if (!session?.token) throw new Error("Session unavailable");
-      await getApiClient(session.token).createInvitation({
+      if (!session) throw new Error("Session unavailable");
+      await getApiClient().createInvitation({
         email: inviteEmail,
         role: inviteRole,
       });
@@ -204,7 +205,7 @@ export default function PeoplePage() {
         <div className="text-right">
           <Link
             href={`/${locale}/people/${item.id}`}
-            className="inline-flex items-center gap-1 rounded-btn px-2.5 py-1 text-xs font-medium text-primary hover:bg-surface-raised transition-colors"
+            className="inline-flex items-center gap-1 rounded-input px-2.5 py-1 text-xs font-medium text-primary hover:bg-surface-raised transition-colors"
           >
             <span>{t("view")}</span>
             <ChevronRight className="h-3.5 w-3.5" />
@@ -216,116 +217,114 @@ export default function PeoplePage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            {t("title")}
-          </h1>
-          <p className="text-sm text-muted-foreground">{t("description")}</p>
-        </div>
+      <PageHeader
+        title={t("title")}
+        description={t("description")}
+        actions={
+          <>
+            <div className="flex items-center rounded-input border border-border bg-surface p-1">
+              <span className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-sm">
+                {t("directory")}
+              </span>
+              <Link
+                href={`/${locale}/people/org-chart`}
+                className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {t("orgChart")}
+              </Link>
+            </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center rounded-btn border border-border bg-surface p-1">
-            <span className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-sm">
-              {t("directory")}
-            </span>
-            <Link
-              href={`/${locale}/people/org-chart`}
-              className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {t("orgChart")}
-            </Link>
-          </div>
+            <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2">
+                  <UserPlus className="h-4 w-4" />
+                  <span>{t("inviteEmployee")}</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{tInvites("dialogTitle")}</DialogTitle>
+                  <DialogDescription>
+                    {tInvites("dialogDescription")}
+                  </DialogDescription>
+                </DialogHeader>
 
-          <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <UserPlus className="h-4 w-4" />
-                <span>{t("inviteEmployee")}</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{tInvites("dialogTitle")}</DialogTitle>
-                <DialogDescription>
-                  {tInvites("dialogDescription")}
-                </DialogDescription>
-              </DialogHeader>
-
-              {inviteSuccess ? (
-                <div className="rounded-card bg-emerald-500/10 p-4 text-center text-sm font-medium text-emerald-600 dark:text-emerald-400">
-                  {tInvites("inviteSent")}
-                </div>
-              ) : (
-                <form onSubmit={handleSendInvite} className="space-y-4">
-                  {inviteError && (
-                    <div className="rounded-card bg-destructive/10 p-3 text-sm text-destructive">
-                      {inviteError}
+                {inviteSuccess ? (
+                  <div className="rounded-card bg-emerald-500/10 p-4 text-center text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                    {tInvites("inviteSent")}
+                  </div>
+                ) : (
+                  <form onSubmit={handleSendInvite} className="space-y-4">
+                    {inviteError && (
+                      <div className="rounded-card bg-danger/10 p-3 text-sm text-danger">
+                        {inviteError}
+                      </div>
+                    )}
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="invite-email"
+                        className="text-xs font-medium text-foreground"
+                      >
+                        {tInvites("emailLabel")}
+                      </label>
+                      <Input
+                        id="invite-email"
+                        type="email"
+                        required
+                        placeholder={tInvites("emailPlaceholder")}
+                        value={inviteEmail}
+                        onChange={(e) => setInviteEmail(e.target.value)}
+                      />
                     </div>
-                  )}
-                  <div className="space-y-1.5">
-                    <label
-                      htmlFor="invite-email"
-                      className="text-xs font-medium text-foreground"
-                    >
-                      {tInvites("emailLabel")}
-                    </label>
-                    <Input
-                      id="invite-email"
-                      type="email"
-                      required
-                      placeholder="colleague@company.com"
-                      value={inviteEmail}
-                      onChange={(e) => setInviteEmail(e.target.value)}
-                    />
-                  </div>
 
-                  <div className="space-y-1.5">
-                    <label
-                      htmlFor="invite-role"
-                      className="text-xs font-medium text-foreground"
-                    >
-                      {tInvites("roleLabel")}
-                    </label>
-                    <select
-                      id="invite-role"
-                      className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-                      value={inviteRole}
-                      onChange={(e) =>
-                        setInviteRole(
-                          e.target.value as "employee" | "manager" | "admin",
-                        )
-                      }
-                    >
-                      <option value="employee">
-                        {tInvites("roleEmployee")}
-                      </option>
-                      <option value="manager">{tInvites("roleManager")}</option>
-                      <option value="admin">{tInvites("roleAdmin")}</option>
-                    </select>
-                  </div>
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="invite-role"
+                        className="text-xs font-medium text-foreground"
+                      >
+                        {tInvites("roleLabel")}
+                      </label>
+                      <select
+                        id="invite-role"
+                        className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                        value={inviteRole}
+                        onChange={(e) =>
+                          setInviteRole(
+                            e.target.value as "employee" | "manager" | "admin",
+                          )
+                        }
+                      >
+                        <option value="employee">
+                          {tInvites("roleEmployee")}
+                        </option>
+                        <option value="manager">
+                          {tInvites("roleManager")}
+                        </option>
+                        <option value="admin">{tInvites("roleAdmin")}</option>
+                      </select>
+                    </div>
 
-                  <DialogFooter>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setInviteOpen(false)}
-                    >
-                      {tCommon("cancel")}
-                    </Button>
-                    <Button type="submit" disabled={inviteSending}>
-                      {inviteSending
-                        ? tCommon("loading")
-                        : tInvites("sendInvite")}
-                    </Button>
-                  </DialogFooter>
-                </form>
-              )}
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
+                    <DialogFooter>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setInviteOpen(false)}
+                      >
+                        {tCommon("cancel")}
+                      </Button>
+                      <Button type="submit" disabled={inviteSending}>
+                        {inviteSending
+                          ? tCommon("loading")
+                          : tInvites("sendInvite")}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                )}
+              </DialogContent>
+            </Dialog>
+          </>
+        }
+      />
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">

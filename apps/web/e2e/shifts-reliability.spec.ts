@@ -1,10 +1,5 @@
 import { expect, test } from "@playwright/test";
-
-const cors = {
-  "access-control-allow-origin": "*",
-  "access-control-allow-headers": "*",
-  "access-control-allow-methods": "GET, POST, PATCH, OPTIONS",
-};
+import { mockRoute } from "./support/mock-api";
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() =>
@@ -25,15 +20,13 @@ test("failed roster loading shows an error and can be retried", async ({
   page,
 }) => {
   let fail = true;
-  await page.route("**/v1/shifts/**", async (route) => {
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers: cors });
+  await mockRoute(page, "**/v1/shifts/**", async (route) => {
     if (fail && route.request().url().includes("assignments"))
-      return route.fulfill({ status: 503, headers: cors });
-    return route.fulfill({ headers: cors, json: [] });
+      return route.fulfill({ status: 503 });
+    return route.fulfill({ json: [] });
   });
-  await page.route("**/v1/employees**", (route) =>
-    route.fulfill({ headers: cors, json: { items: [], total: 0 } }),
+  await mockRoute(page, "**/v1/employees**", (route) =>
+    route.fulfill({ json: { items: [], total: 0 } }),
   );
   await page.goto("/en/time/shifts");
   await expect(page.locator("main").getByRole("alert")).toContainText(
@@ -47,16 +40,13 @@ test("failed roster loading shows an error and can be retried", async ({
 test("failed shift swap shows an error and preserves the reason", async ({
   page,
 }) => {
-  await page.route("**/v1/shifts/**", async (route) => {
-    if (route.request().method() === "OPTIONS")
-      return route.fulfill({ status: 204, headers: cors });
+  await mockRoute(page, "**/v1/shifts/**", async (route) => {
     if (route.request().method() === "POST")
-      return route.fulfill({ status: 503, headers: cors });
-    return route.fulfill({ headers: cors, json: [] });
+      return route.fulfill({ status: 503 });
+    return route.fulfill({ json: [] });
   });
-  await page.route("**/v1/employees**", (route) =>
+  await mockRoute(page, "**/v1/employees**", (route) =>
     route.fulfill({
-      headers: cors,
       json: {
         items: [
           {
@@ -81,6 +71,9 @@ test("failed shift swap shows an error and preserves the reason", async ({
   await page.goto("/en/time/shifts");
   await page.getByRole("button", { name: "Request Shift Swap" }).click();
   const dialog = page.getByRole("dialog");
+  // The colleague list loads asynchronously; until it does, the required
+  // select is empty and the browser blocks the submit without an alert.
+  await expect(dialog.getByLabel("Colleague to swap with")).toHaveValue("two");
   await dialog
     .getByPlaceholder("e.g. Personal family appointment")
     .fill("Family appointment");

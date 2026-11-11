@@ -25,7 +25,7 @@ const auth: AuthPort = {
   async verifyCredentials() {
     return null;
   },
-  async createSession(user) {
+  async createSession(user: AuthUser) {
     return { user, token: user.id, expiresAt: new Date(Date.now() + 60000) };
   },
   async getSession(token) {
@@ -59,7 +59,7 @@ describe("document soft deletion", () => {
       await tx`INSERT INTO document_versions (document_id, version_number, storage_key, filename, mime_type, size_bytes, sha256_hash, uploaded_by_id) VALUES (${documentId}, 1, 'old-key', 'old.pdf', 'application/pdf', 1, 'old', ${admin.id}), (${documentId}, 2, 'new-key', 'new.pdf', 'application/pdf', 1, 'new', ${admin.id})`;
     });
     app = createApp({
-      sql: db.sql,
+      sql: await db.appSql(),
       authPort: auth,
       storagePort: {
         async put(key) {

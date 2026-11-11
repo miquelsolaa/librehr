@@ -62,6 +62,7 @@ describe("LeaveRepository & Ledger Invariance (LEA-001, LEA-004, LEA-005)", () =
         entryType: "accrual",
         amount: 22,
         note: "Initial 2026 allocation",
+        effectiveDate: "2026-01-01",
       });
 
       let balance = await leaveRepo.calculateBalance(tx, employee.id);
@@ -99,9 +100,15 @@ describe("LeaveRepository & Ledger Invariance (LEA-001, LEA-004, LEA-005)", () =
         tx,
         req.id,
         employee.id,
+        "2026-07-01",
       );
       expect(cancelled.status).toBe("cancelled");
       expect(cancelled.reversalLedgerEntryId).toBeDefined();
+      const reversal = (await leaveRepo.getLedgerEntries(tx, employee.id)).find(
+        (e) => e.id === cancelled.reversalLedgerEntryId,
+      );
+      // The reversal takes effect on the business date the caller passed.
+      expect(reversal?.effectiveDate).toBe("2026-07-01");
 
       // Final balance is fully restored to 22 via compensating entry
       balance = await leaveRepo.calculateBalance(tx, employee.id);

@@ -14,6 +14,8 @@ import {
   SignInRequestSchema,
   SessionResponseSchema,
   MeResponseSchema,
+  OrgSecuritySettingsSchema,
+  UpdateOrgSecuritySettingsSchema,
 } from "../src/auth.js";
 import {
   OrganizationResponseSchema,
@@ -48,6 +50,11 @@ import {
   InvitationDetailsSchema,
 } from "../src/invitations.js";
 import {
+  AuditorListResponseSchema,
+  UpdateAuditorAccessRequestSchema,
+  AuditorSchema,
+} from "../src/auditor-access.js";
+import {
   LeaveTypeSchema,
   CreateLeaveTypeRequestSchema,
   LeavePolicySchema,
@@ -78,7 +85,10 @@ import {
   CreateTimeCorrectionSchema,
   DecideTimeCorrectionSchema,
   TimeCorrectionItemSchema,
+  OfficialExportQuerySchema,
   OfficialExportResponseSchema,
+  ExportEmployeesQuerySchema,
+  ExportEmployeesResponseSchema,
   KioskClockRequestSchema,
   KioskClockResponseSchema,
   SetEmployeePinSchema,
@@ -192,6 +202,7 @@ registry.register("CreateTimeCorrection", CreateTimeCorrectionSchema);
 registry.register("DecideTimeCorrection", DecideTimeCorrectionSchema);
 registry.register("TimeCorrectionItem", TimeCorrectionItemSchema);
 registry.register("OfficialExportResponse", OfficialExportResponseSchema);
+registry.register("ExportEmployeesResponse", ExportEmployeesResponseSchema);
 registry.register("KioskClockRequest", KioskClockRequestSchema);
 registry.register("KioskClockResponse", KioskClockResponseSchema);
 registry.register("SetEmployeePin", SetEmployeePinSchema);
@@ -635,6 +646,11 @@ registry.registerPath({
       description: "Invitation details",
       content: { "application/json": { schema: InvitationDetailsSchema } },
     },
+    410: {
+      description:
+        "Link expired (INVITATION_EXPIRED), already used (INVITATION_ALREADY_ACCEPTED) or the auditor access it grants has ended (INVITATION_ACCESS_EXPIRED)",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
   },
 });
 
@@ -653,6 +669,121 @@ registry.registerPath({
     200: {
       description: "Invitation accepted and session created",
       content: { "application/json": { schema: SessionResponseSchema } },
+    },
+  },
+});
+
+// Organization security settings (AUTH-003, TIM-008)
+registry.registerPath({
+  method: "get",
+  path: "/v1/settings/security",
+  summary: "Read the organization's security settings",
+  responses: {
+    200: {
+      description: "Organization security settings",
+      content: { "application/json": { schema: OrgSecuritySettingsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "patch",
+  path: "/v1/settings/security",
+  summary:
+    "Update the organization's security settings (admin only, audit-logged)",
+  request: {
+    body: {
+      content: {
+        "application/json": { schema: UpdateOrgSecuritySettingsSchema },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Settings as stored",
+      content: { "application/json": { schema: OrgSecuritySettingsSchema } },
+    },
+    400: {
+      description: "Invalid settings",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    403: {
+      description: "Not an organization admin",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+// Inspector / auditor access (TIM-008)
+registry.registerPath({
+  method: "delete",
+  path: "/v1/auditors/invitations/{id}",
+  summary: "Cancel a pending auditor invitation (audit-logged)",
+  request: { params: z.object({ id: z.string().uuid() }) },
+  responses: {
+    200: {
+      description: "Invitation cancelled",
+      content: {
+        "application/json": { schema: z.object({ success: z.boolean() }) },
+      },
+    },
+    403: {
+      description: "Not an organization admin",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    404: {
+      description: "No pending auditor invitation with this id",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/v1/auditors",
+  summary: "List the organization's auditors and their access end dates",
+  responses: {
+    200: {
+      description: "Auditors of the organization",
+      content: { "application/json": { schema: AuditorListResponseSchema } },
+    },
+    403: {
+      description: "Not an organization admin",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "patch",
+  path: "/v1/auditors/{userId}/access",
+  summary:
+    "Move an auditor's access end date or revoke access now (audit-logged)",
+  request: {
+    params: z.object({ userId: z.string().uuid() }),
+    body: {
+      content: {
+        "application/json": { schema: UpdateAuditorAccessRequestSchema },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "The auditor with the new access end date",
+      content: { "application/json": { schema: AuditorSchema } },
+    },
+    400: {
+      description:
+        "End date in the past or beyond the organization's maximum (AUDITOR_ACCESS_END_IN_PAST, AUDITOR_ACCESS_END_TOO_FAR)",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    403: {
+      description: "Not an organization admin",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    404: {
+      description: "No auditor with this user id in the organization",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
   },
 });
@@ -1042,15 +1173,84 @@ registry.registerPath({
 registry.registerPath({
   method: "get",
   path: "/v1/time/export",
-  summary: "Export a configured employee timesheet",
-  request: { query: TimesheetQuerySchema },
+  summary:
+    "Labour Inspectorate working-time record (TIM-006) for one employee or the organization, as JSON, CSV or PDF",
+  description:
+    "Every format carries the same export id and content hash (SHA-256 of the CSV body, every line before the final `# sha256=` line, without the BOM), also sent as the X-Export-Id and X-Content-SHA256 headers. Each employee's days and clock times are in that employee's time zone (location, else organization), named on every row; the header zone is the organization's. The last column (and `rowsEmployed` in JSON) flags whether the day falls inside one of the employee's employment periods: a day outside them expects 0 minutes, so its difference equals the recorded work, which is still listed. Each successful export is written to the audit log (ADM-002). Limited to 10 requests per minute per user and client address.",
+  request: { query: OfficialExportQuerySchema },
   responses: {
     200: {
-      description: "Inspection export",
-      content: { "application/json": { schema: OfficialExportResponseSchema } },
+      description:
+        "Inspection export. Headers: X-Export-Id, X-Content-SHA256, Cache-Control: no-store; csv and pdf are sent as attachments.",
+      content: {
+        "application/json": { schema: OfficialExportResponseSchema },
+        "text/csv": { schema: z.string() },
+        "application/pdf": { schema: z.string().openapi({ format: "binary" }) },
+      },
+    },
+    400: {
+      description:
+        "Invalid query (dates, period over 366 days, format or locale)",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    401: {
+      description: "Not authenticated",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    403: {
+      description: "Employee or organization outside the caller's scope",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    404: {
+      description: "Employee not found",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
     409: {
-      description: "Schedule rule not configured",
+      description:
+        "Schedule rule not configured for a day the employee is employed (employee scope)",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    422: {
+      description:
+        "EXPORT_TOO_LARGE: organization export over OFFICIAL_EXPORT_MAX_EMPLOYEE_DAYS (employees × days); request a shorter period",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    429: {
+      description: "RATE_LIMIT_EXCEEDED, with a Retry-After header",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/v1/time/export/employees",
+  summary:
+    "Employees the caller may export (TIM-006, TIM-008) for a period, for the export's employee picker",
+  description:
+    "Requires time.record.read at any scope. Organization scope (admin, auditor) lists every employee of the organization employed during the period (the same set as an organization export); reports scope (manager) lists self and direct reports; self scope lists only the caller. Id and display name only, sorted by name. A caller with organization-wide time access but no employee.read (an inspector) gets one inspector.export_picker_access audit entry per call (TIM-008). Limited to 60 requests per minute per user and client address.",
+  request: { query: ExportEmployeesQuerySchema },
+  responses: {
+    200: {
+      description: "Employees in the caller's scope",
+      content: {
+        "application/json": { schema: ExportEmployeesResponseSchema },
+      },
+    },
+    400: {
+      description: "Invalid dates or period over 366 days",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    401: {
+      description: "Not authenticated",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    403: {
+      description: "No time.record.read permission",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    429: {
+      description: "RATE_LIMIT_EXCEEDED, with a Retry-After header",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
   },
@@ -1534,6 +1734,11 @@ import type {
   AcceptInvitationRequest,
 } from '../src/invitations.js';
 import type {
+  Auditor,
+  AuditorListResponse,
+  UpdateAuditorAccessRequest,
+} from '../src/auditor-access.js';
+import type {
   LeaveType,
   CreateLeaveTypeRequest,
   LeaveBalanceSummary,
@@ -1576,6 +1781,7 @@ import type {
   DecideTimeCorrection,
   TimeCorrectionItem,
   OfficialExportResponse,
+  ExportEmployeesResponse,
   KioskClockRequest,
   KioskClockResponse,
   SetEmployeePin,
@@ -1643,7 +1849,10 @@ export class LibreHrApiClient {
   private getHeaders?: (() => Record<string, string> | Promise<Record<string, string>>) | undefined;
 
   constructor(options: ApiClientOptions) {
-    this.baseUrl = options.baseUrl.replace(/\\/+$/, '');
+    // A loop, not a trailing-slash regex: that is quadratic on long "/" runs.
+    let end = options.baseUrl.length;
+    while (end > 0 && options.baseUrl[end - 1] === '/') end -= 1;
+    this.baseUrl = options.baseUrl.slice(0, end);
     this.fetchFn = options.fetchFn ?? fetch;
     this.getHeaders = options.getHeaders;
   }
@@ -1688,6 +1897,13 @@ export class LibreHrApiClient {
     return this.request<SignInResult>('/v1/auth/sign-in', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  }
+
+  // Revokes the current session server-side and clears the session cookie.
+  async signOut(): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>('/v1/auth/sign-out', {
+      method: 'POST',
     });
   }
 
@@ -1811,6 +2027,24 @@ export class LibreHrApiClient {
     return this.request<SessionResponse>('/v1/invitations/accept', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  }
+
+  // Inspector / auditor access (TIM-008)
+  async listAuditors(): Promise<AuditorListResponse> {
+    return this.request<AuditorListResponse>('/v1/auditors');
+  }
+
+  async updateAuditorAccess(userId: string, data: UpdateAuditorAccessRequest): Promise<Auditor> {
+    return this.request<Auditor>(\`/v1/auditors/\${userId}/access\`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async cancelAuditorInvitation(id: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(\`/v1/auditors/invitations/\${id}\`, {
+      method: 'DELETE',
     });
   }
 
@@ -2043,13 +2277,24 @@ export class LibreHrApiClient {
     return this.request<PeriodTimesheetResponse>(\`/v1/time/timesheet?\${searchParams.toString()}\`);
   }
 
-  async getOfficialExport(params: { startDate: string; endDate: string; employeeId?: string }): Promise<OfficialExportResponse> {
+  async getOfficialExport(params: { startDate: string; endDate: string; employeeId?: string; scope?: 'employee' | 'organization'; locale?: 'ca' | 'es' | 'en' }): Promise<OfficialExportResponse> {
+    const searchParams = new URLSearchParams({
+      startDate: params.startDate,
+      endDate: params.endDate,
+      format: 'json',
+    });
+    if (params.employeeId) searchParams.set('employeeId', params.employeeId);
+    if (params.scope) searchParams.set('scope', params.scope);
+    if (params.locale) searchParams.set('locale', params.locale);
+    return this.request<OfficialExportResponse>(\`/v1/time/export?\${searchParams.toString()}\`);
+  }
+
+  async listExportEmployees(params: { startDate: string; endDate: string }): Promise<ExportEmployeesResponse> {
     const searchParams = new URLSearchParams({
       startDate: params.startDate,
       endDate: params.endDate,
     });
-    if (params.employeeId) searchParams.set('employeeId', params.employeeId);
-    return this.request<OfficialExportResponse>(\`/v1/time/export?\${searchParams.toString()}\`);
+    return this.request<ExportEmployeesResponse>(\`/v1/time/export/employees?\${searchParams.toString()}\`);
   }
 
   async listTimeCorrections(params?: { employeeId?: string; status?: string }): Promise<TimeCorrectionItem[]> {
@@ -2305,10 +2550,10 @@ export class LibreHrApiClient {
     });
   }
 
-  async disableTwoFactor(data?: { code?: string }): Promise<{ success: boolean }> {
+  async disableTwoFactor(data: { code: string }): Promise<{ success: boolean }> {
     return this.request<{ success: boolean }>('/v1/auth/2fa/disable', {
       method: 'POST',
-      body: JSON.stringify(data ?? {}),
+      body: JSON.stringify(data),
     });
   }
 

@@ -23,8 +23,17 @@ import {
   encryptEnvelope,
   decryptEnvelope,
 } from "@librehr/db";
+import { ForbiddenError, NotFoundError } from "../errors/index.js";
+import { businessToday } from "../lib/business-date.js";
+import { IdParamSchema, parseParams } from "../lib/validate.js";
 import { requireAuth } from "../middleware/auth.js";
-import { can } from "../policies/can.js";
+import { can, permissionScope } from "../policies/can.js";
+import { canOnEmployee, resolvePolicyContext } from "../policies/context.js";
+import {
+  canListDocument,
+  canReadDocument,
+  isInDocumentAudience,
+} from "../policies/documents.js";
 import type { StoragePort } from "../ports/storage.js";
 
 export function createDocumentRoutes(sql: Sql, storagePort: StoragePort) {
@@ -49,34 +58,27 @@ export function createDocumentRoutes(sql: Sql, storagePort: StoragePort) {
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        const currentEmp = await empRepo.findByUserId(tx, user.id);
+        const ctx = await resolvePolicyContext(c, tx);
 
-        // RBAC & Privacy enforcement (DOC-003)
-        if (user.role === "employee") {
-          if (employeeId && currentEmp && employeeId !== currentEmp.id) {
-            return "FORBIDDEN";
-          }
+        // DOC-003: asking for someone else's folder needs organization scope.
+        const orgWide =
+          permissionScope(ctx, "document.read") === "organization" ||
+          permissionScope(ctx, "document.write") === "organization";
+        if (employeeId && !orgWide && employeeId !== ctx.employeeId) {
+          return "FORBIDDEN";
         }
 
-        const targetEmployeeId =
-          user.role === "employee" ? (currentEmp?.id ?? "none") : employeeId;
+        // Without organization scope, the personal folder is always your own.
+        const folder = orgWide ? employeeId : ctx.employeeId;
+        if (!orgWide && !folder && !isCompanyWide) return [];
 
         const results = await docRepo.list(tx, {
-          employeeId: isCompanyWide ? undefined : targetEmployeeId,
+          employeeId: isCompanyWide ? undefined : folder,
           category,
           isCompanyWide,
         });
 
-        // Filter out payslips if user is not the employee and not an admin (DOC-003)
-        return results.filter((doc) => {
-          if (doc.category === "payslips") {
-            return (
-              user.role === "admin" ||
-              (currentEmp && doc.employeeId === currentEmp.id)
-            );
-          }
-          return true;
-        });
+        return results.filter((doc) => canListDocument(ctx, doc));
       },
     );
 
@@ -245,7 +247,9 @@ export function createDocumentRoutes(sql: Sql, storagePort: StoragePort) {
   // 3. GET /documents/:id/download - Download and decrypt document
   router.get("/documents/:id/download", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const id = c.req.param("id");
+    const { id } = parseParams(c, IdParamSchema, {
+      detail: "Document not found",
+    });
 
     const doc = await withTenant(
       sql,
@@ -254,23 +258,23 @@ export function createDocumentRoutes(sql: Sql, storagePort: StoragePort) {
         const found = await docRepo.findById(tx, id);
         if (!found) return null;
 
-        const currentEmp = await empRepo.findByUserId(tx, user.id);
-
-        // DOC-003: Privacy checks
-        if (found.category === "payslips") {
-          if (
-            user.role !== "admin" &&
-            (!currentEmp || currentEmp.id !== found.employeeId)
-          ) {
-            return "FORBIDDEN";
-          }
-        } else if (
-          found.employeeId &&
-          user.role === "employee" &&
-          (!currentEmp || currentEmp.id !== found.employeeId)
-        ) {
+        // DOC-003: payslips, personal folders and audiences.
+        if (!canReadDocument(await resolvePolicyContext(c, tx), found)) {
           return "FORBIDDEN";
         }
+
+        // ADM-002: every document access is audited, with ids only.
+        await auditRepo.log(tx, {
+          actorId: user.id,
+          action: "document.download",
+          resourceType: "document",
+          resourceId: found.id,
+          metadata: {
+            employeeId: found.employeeId,
+            category: found.category,
+            versionNumber: found.latestVersionNumber,
+          },
+        });
 
         return found;
       },
@@ -345,7 +349,9 @@ export function createDocumentRoutes(sql: Sql, storagePort: StoragePort) {
   // 4. DELETE /documents/:id - Delete a document
   router.delete("/documents/:id", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const id = c.req.param("id");
+    const { id } = parseParams(c, IdParamSchema, {
+      detail: "Document not found",
+    });
 
     const allowed = can(
       {
@@ -374,19 +380,22 @@ export function createDocumentRoutes(sql: Sql, storagePort: StoragePort) {
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
+        // DOC-001: soft delete. Rows, versions and stored files are kept for
+        // the retention job (ADM-005); a deleted or unknown id is a 404.
         const existing = await docRepo.findById(tx, id);
         if (!existing) return false;
+        if (!(await docRepo.softDelete(tx, id))) return false;
 
-        await docRepo.delete(tx, id);
         await auditRepo.log(tx, {
           actorId: user.id,
           action: "document.delete",
           resourceType: "document",
           resourceId: id,
-          metadata: { title: existing.title },
+          metadata: {
+            employeeId: existing.employeeId,
+            category: existing.category,
+          },
         });
-
-        await storagePort.delete(existing.latestStorageKey);
         return true;
       },
     );
@@ -516,7 +525,9 @@ export function createDocumentRoutes(sql: Sql, storagePort: StoragePort) {
   // DOC-006: Acknowledge document policy / read receipt
   router.post("/documents/:id/acknowledge", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const documentId = c.req.param("id");
+    const { id: documentId } = parseParams(c, IdParamSchema, {
+      detail: "Document not found",
+    });
 
     const ack = await withTenant(
       sql,
@@ -524,6 +535,21 @@ export function createDocumentRoutes(sql: Sql, storagePort: StoragePort) {
       async (tx) => {
         const emp = await empRepo.findByUserId(tx, user.id);
         if (!emp) return null;
+
+        // DOC-006: you acknowledge for yourself only, and only documents
+        // addressed to you (your audience or your own folder).
+        const doc = await docRepo.findById(tx, documentId);
+        if (!doc) throw new NotFoundError({ detail: "Document not found" });
+        const ctx = await resolvePolicyContext(c, tx);
+        const addressedToMe =
+          doc.employeeId === null
+            ? isInDocumentAudience(ctx, doc)
+            : doc.employeeId === emp.id;
+        if (!addressedToMe) {
+          throw new ForbiddenError({
+            detail: "This document is not addressed to you",
+          });
+        }
 
         const res = await docRepo.acknowledge(tx, documentId, emp.id);
 
@@ -559,13 +585,29 @@ export function createDocumentRoutes(sql: Sql, storagePort: StoragePort) {
 
   router.get("/documents/:id/acknowledgements", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const documentId = c.req.param("id");
+    const { id: documentId } = parseParams(c, IdParamSchema, {
+      detail: "Document not found",
+    });
 
     const acks = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        return docRepo.getAcknowledgements(tx, documentId);
+        const doc = await docRepo.findById(tx, documentId);
+        if (!doc) throw new NotFoundError({ detail: "Document not found" });
+        const ctx = await resolvePolicyContext(c, tx);
+        const all = await docRepo.getAcknowledgements(tx, documentId);
+        // HR/admin follow up on who has acknowledged; everyone else who can
+        // read the document only sees their own receipt.
+        if (permissionScope(ctx, "document.write") === "organization") {
+          return all;
+        }
+        if (!canReadDocument(ctx, doc)) {
+          throw new ForbiddenError({
+            detail: "You cannot view acknowledgements for this document",
+          });
+        }
+        return all.filter((a) => a.employeeId === ctx.employeeId);
       },
     );
 
@@ -659,8 +701,28 @@ export function createDocumentRoutes(sql: Sql, storagePort: StoragePort) {
 
   router.post("/documents/templates/:id/render", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const templateId = c.req.param("id");
-    const body = await c.req.json();
+    // DOC-007: rendering merges another person's personal data (address,
+    // email) and can file the result in their folder, so it is an HR/admin
+    // document write on that employee.
+    if (
+      permissionScope(
+        {
+          userId: user.id,
+          organizationId: user.organizationId,
+          role: user.role,
+        },
+        "document.write",
+      ) === null
+    ) {
+      throw new ForbiddenError({
+        detail: "Only HR and administrators can render document templates",
+      });
+    }
+    const { id: templateId } = parseParams(c, IdParamSchema, {
+      detail: "The requested document template does not exist",
+      code: "TEMPLATE_NOT_FOUND",
+    });
+    const body = await c.req.json().catch(() => null);
     const parsed = RenderDocumentTemplateRequestSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -685,6 +747,17 @@ export function createDocumentRoutes(sql: Sql, storagePort: StoragePort) {
 
         const emp = await empRepo.findById(tx, parsed.data.employeeId);
         if (!emp) return "EMPLOYEE_NOT_FOUND";
+        if (
+          !canOnEmployee(
+            await resolvePolicyContext(c, tx),
+            "document.write",
+            emp,
+          )
+        ) {
+          throw new ForbiddenError({
+            detail: "This employee is outside your access scope",
+          });
+        }
 
         const org = await orgRepo.findById(tx, user.organizationId);
 
@@ -715,6 +788,7 @@ export function createDocumentRoutes(sql: Sql, storagePort: StoragePort) {
             organization: {
               name: org?.name ?? "LibreHR",
             },
+            currentDate: await businessToday(c, tx, emp.locationId),
             ...(parsed.data.customFields
               ? {
                   custom: parsed.data.customFields as Record<

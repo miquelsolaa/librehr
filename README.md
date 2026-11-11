@@ -318,10 +318,27 @@ Follow these steps to set up a local development environment.
 3. **Configure environment variables:**
 
    ```sh
-   cp infra/env/.env.example .env
+   cp .env.example .env
    ```
 
-4. **Start local infrastructure (Postgres 16, Mailpit, MinIO):**
+   The values in `.env.example` are public, development-only defaults. The API
+   refuses to start with them when `NODE_ENV=production`; for a production
+   install follow [docs/guides/self-hosting.md](docs/guides/self-hosting.md).
+
+   The database is used through two roles:
+
+   | Variable                 | Role            | Used by                                               |
+   | ------------------------ | --------------- | ----------------------------------------------------- |
+   | `DATABASE_URL`           | `librehr_app`   | API requests; `NOBYPASSRLS`, always bound by RLS      |
+   | `DATABASE_MIGRATION_URL` | `librehr_owner` | Migrations, `db:seed`, and the worker (owns `pgboss`) |
+
+   Neither role is a superuser or has `BYPASSRLS`. Existing installs: see
+   [docs/guides/upgrading.md](docs/guides/upgrading.md).
+
+4. **Start local infrastructure (Postgres 17, Mailpit, MinIO):**
+
+   Ports are bound to `127.0.0.1` only. If you have an existing Postgres 16
+   dev volume, remove it first (`docker compose -f infra/compose/docker-compose.dev.yml down -v`).
 
    ```sh
    pnpm infra:up

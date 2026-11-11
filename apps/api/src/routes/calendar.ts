@@ -4,17 +4,37 @@ import {
   type AuthUser,
   createProblemDetails,
   CreateHolidayRequestSchema,
+  ListHolidaysQuerySchema,
   SeedStatutoryHolidaysRequestSchema,
+  TeamAbsencesQuerySchema,
 } from "@librehr/contracts";
-import { generateIcsCalendar, resolveLocationHolidays } from "@librehr/core";
+import {
+  addDays,
+  generateIcsCalendar,
+  resolveLocationHolidays,
+} from "@librehr/core";
 import {
   withTenant,
   HolidayRepository,
   LeaveRepository,
   LocationRepository,
 } from "@librehr/db";
+import { businessToday } from "../lib/business-date.js";
+import {
+  IdParamSchema,
+  parseJsonBody,
+  parseParams,
+  parseQuery,
+} from "../lib/validate.js";
 import { requireAuth } from "../middleware/auth.js";
 import { canSeeLeaveType } from "../policies/calendar-visibility.js";
+import { can } from "../policies/can.js";
+
+const canConfigureOrg = (user: AuthUser) =>
+  can(
+    { userId: user.id, organizationId: user.organizationId, role: user.role },
+    "org.write",
+  );
 
 export function createCalendarRoutes(sql: Sql) {
   const router = new Hono();
@@ -25,26 +45,17 @@ export function createCalendarRoutes(sql: Sql) {
   // 1. GET /calendar/holidays - List holidays for a location and year
   router.get("/calendar/holidays", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const locationId = c.req.query("locationId");
-    const yearStr = c.req.query("year");
-    const year = yearStr ? parseInt(yearStr, 10) : new Date().getFullYear();
-
-    if (!locationId) {
-      const problem = createProblemDetails({
-        status: 400,
-        title: "Bad Request",
-        detail: "locationId query parameter is required",
-        code: "MISSING_LOCATION_ID",
-      });
-      return c.json(problem, 400, {
-        "Content-Type": "application/problem+json",
-      });
-    }
+    const query = parseQuery(c, ListHolidaysQuerySchema);
+    const locationId = query.locationId;
 
     const holidays = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
+        // The current year of the location's calendar, not of the server.
+        const year =
+          query.year ??
+          Number((await businessToday(c, tx, locationId)).slice(0, 4));
         await holidayRepo.ensureCalendarForLocation(tx, locationId, year);
         return holidayRepo.getHolidaysForLocation(tx, locationId, year);
       },
@@ -63,11 +74,12 @@ export function createCalendarRoutes(sql: Sql) {
   // 1b. POST /calendar/holidays - Add a holiday to a location's calendar (LEA-003)
   router.post("/calendar/holidays", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    if (user.role !== "admin" && user.role !== "manager") {
+    // LEA-003: holiday calendars are organization settings (admin/HR).
+    if (!canConfigureOrg(user)) {
       const problem = createProblemDetails({
         status: 403,
         title: "Forbidden",
-        detail: "Only administrators and managers can configure holidays",
+        detail: "Only administrators and HR can configure holidays",
         code: "FORBIDDEN",
       });
       return c.json(problem, 403, {
@@ -75,22 +87,9 @@ export function createCalendarRoutes(sql: Sql) {
       });
     }
 
-    const body = await c.req.json();
-    const parsed = CreateHolidayRequestSchema.safeParse(body);
-    if (!parsed.success) {
-      const problem = createProblemDetails({
-        status: 400,
-        title: "Validation Error",
-        detail: parsed.error.issues[0]?.message ?? "Invalid holiday data",
-        code: "VALIDATION_ERROR",
-      });
-      return c.json(problem, 400, {
-        "Content-Type": "application/problem+json",
-      });
-    }
-
-    const { locationId, date, name, scope } = parsed.data;
-    const year = parsed.data.year ?? parseInt(date.slice(0, 4), 10);
+    const data = await parseJsonBody(c, CreateHolidayRequestSchema);
+    const { locationId, date, name, scope } = data;
+    const year = data.year ?? parseInt(date.slice(0, 4), 10);
 
     const holiday = await withTenant(
       sql,
@@ -124,11 +123,12 @@ export function createCalendarRoutes(sql: Sql) {
   // 1c. DELETE /calendar/holidays/:id - Remove a holiday (LEA-003)
   router.delete("/calendar/holidays/:id", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    if (user.role !== "admin" && user.role !== "manager") {
+    // LEA-003: holiday calendars are organization settings (admin/HR).
+    if (!canConfigureOrg(user)) {
       const problem = createProblemDetails({
         status: 403,
         title: "Forbidden",
-        detail: "Only administrators and managers can delete holidays",
+        detail: "Only administrators and HR can delete holidays",
         code: "FORBIDDEN",
       });
       return c.json(problem, 403, {
@@ -136,7 +136,10 @@ export function createCalendarRoutes(sql: Sql) {
       });
     }
 
-    const id = c.req.param("id");
+    const { id } = parseParams(c, IdParamSchema, {
+      detail: "Holiday not found",
+      code: "HOLIDAY_NOT_FOUND",
+    });
     const success = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
@@ -163,11 +166,12 @@ export function createCalendarRoutes(sql: Sql) {
   // 1d. POST /calendar/seed-statutory - Populate official 3-tier Spanish holidays (LEA-003)
   router.post("/calendar/seed-statutory", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    if (user.role !== "admin" && user.role !== "manager") {
+    // LEA-003: holiday calendars are organization settings (admin/HR).
+    if (!canConfigureOrg(user)) {
       const problem = createProblemDetails({
         status: 403,
         title: "Forbidden",
-        detail: "Only administrators and managers can seed statutory holidays",
+        detail: "Only administrators and HR can seed statutory holidays",
         code: "FORBIDDEN",
       });
       return c.json(problem, 403, {
@@ -175,29 +179,16 @@ export function createCalendarRoutes(sql: Sql) {
       });
     }
 
-    const body = await c.req.json();
-    const parsed = SeedStatutoryHolidaysRequestSchema.safeParse(body);
-    if (!parsed.success) {
-      const problem = createProblemDetails({
-        status: 400,
-        title: "Validation Error",
-        detail: parsed.error.issues[0]?.message ?? "Invalid request",
-        code: "VALIDATION_ERROR",
-      });
-      return c.json(problem, 400, {
-        "Content-Type": "application/problem+json",
-      });
-    }
-
-    const { locationId, year } = parsed.data;
+    const data = await parseJsonBody(c, SeedStatutoryHolidaysRequestSchema);
+    const { locationId, year } = data;
 
     const holidays = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
         const loc = await locationRepo.findById(tx, locationId);
-        const region = parsed.data.region ?? loc?.region ?? "CT";
-        const city = parsed.data.city ?? loc?.city ?? "Barcelona";
+        const region = data.region ?? loc?.region ?? "CT";
+        const city = data.city ?? loc?.city ?? "Barcelona";
 
         const statutory = resolveLocationHolidays({
           year,
@@ -232,19 +223,15 @@ export function createCalendarRoutes(sql: Sql) {
   // 2. GET /calendar/team-absences - Team calendar with GDPR Art. 9 privacy masking
   router.get("/calendar/team-absences", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const startDate =
-      c.req.query("startDate") ?? new Date().toISOString().slice(0, 10);
-    const endDate =
-      c.req.query("endDate") ??
-      new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-        .toISOString()
-        .slice(0, 10);
-    const departmentId = c.req.query("departmentId");
+    const query = parseQuery(c, TeamAbsencesQuerySchema);
+    const departmentId = query.departmentId;
 
     const absences = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
+        const startDate = query.startDate ?? (await businessToday(c, tx));
+        const endDate = query.endDate ?? addDays(startDate, 30);
         return leaveRepo.getTeamAbsences(tx, {
           startDate,
           endDate,
@@ -275,17 +262,13 @@ export function createCalendarRoutes(sql: Sql) {
   router.get("/calendar/feed.ics", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
 
-    const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .slice(0, 10);
-    const endDate = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .slice(0, 10);
-
     const icsContent = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
+        const today = await businessToday(c, tx);
+        const startDate = addDays(today, -30);
+        const endDate = addDays(today, 90);
         const absences = await leaveRepo.getTeamAbsences(tx, {
           startDate,
           endDate,

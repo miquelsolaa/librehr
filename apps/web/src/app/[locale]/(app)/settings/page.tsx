@@ -13,14 +13,17 @@ import {
   Webhook,
   ChevronRight,
   Clock,
+  ClipboardCheck,
 } from "lucide-react";
 
+import { PageHeader } from "@librehr/ui";
 export default function SettingsPage() {
   const params = useParams();
   const locale = (params?.["locale"] as string) ?? "es";
   const tNav = useTranslations("nav");
   const t = useTranslations("settings");
   const tSchedule = useTranslations("scheduleSettings");
+  const tAuditors = useTranslations("auditorAccess");
 
   const settingsCards = [
     {
@@ -48,8 +51,8 @@ export default function SettingsPage() {
       icon: <KeyRound className="h-5 w-5 text-primary" />,
     },
     {
-      title: "Custom Profile Fields",
-      description: "Manage dynamic employee profile fields and attributes.",
+      title: t("customFieldsTitle"),
+      description: t("customFieldsCardDescription"),
       href: `/${locale}/settings/custom-fields`,
       icon: <Sliders className="h-5 w-5 text-primary" />,
     },
@@ -58,6 +61,12 @@ export default function SettingsPage() {
       description: t("securityCardDescription"),
       href: `/${locale}/settings/security`,
       icon: <ShieldCheck className="h-5 w-5 text-primary" />,
+    },
+    {
+      title: tAuditors("title"),
+      description: tAuditors("linkDescription"),
+      href: `/${locale}/settings/auditors`,
+      icon: <ClipboardCheck className="h-5 w-5 text-primary" />,
     },
     {
       title: t("ssoCardTitle"),
@@ -75,15 +84,10 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          {tNav("settings")}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Manage statutory configuration, work centers, and organizational
-          units.
-        </p>
-      </div>
+      <PageHeader
+        title={tNav("settings")}
+        description={t("settingsDescription")}
+      />
 
       <div className="grid gap-4 sm:grid-cols-2">
         {settingsCards.map((card) => (
@@ -93,7 +97,7 @@ export default function SettingsPage() {
             className="group flex items-center justify-between rounded-card border border-border bg-surface p-5 hover:border-primary/50 hover:bg-surface-raised transition-all"
           >
             <div className="flex items-center gap-4">
-              <div className="flex h-11 w-11 items-center justify-center rounded-btn bg-primary/10">
+              <div className="flex h-11 w-11 items-center justify-center rounded-input bg-primary/10">
                 {card.icon}
               </div>
               <div>

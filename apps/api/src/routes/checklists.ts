@@ -5,6 +5,7 @@ import {
   createProblemDetails,
   CreateChecklistTemplateSchema,
   InstantiateChecklistSchema,
+  ToggleChecklistTaskSchema,
 } from "@librehr/contracts";
 import { computeChecklistTaskDueDates } from "@librehr/core";
 import {
@@ -13,7 +14,17 @@ import {
   EmployeeRepository,
   AuditRepository,
 } from "@librehr/db";
+import { ForbiddenError, NotFoundError } from "../errors/index.js";
+import { businessToday } from "../lib/business-date.js";
+import { IdParamSchema, parseJsonBody, parseParams } from "../lib/validate.js";
 import { requireAuth } from "../middleware/auth.js";
+import {
+  canAssignChecklist,
+  canToggleChecklistTask,
+  checklistInstanceReadScope,
+  mayAssignChecklists,
+} from "../policies/checklists.js";
+import { resolvePolicyContext } from "../policies/context.js";
 
 export function createChecklistRoutes(sql: Sql) {
   const router = new Hono();
@@ -60,26 +71,16 @@ export function createChecklistRoutes(sql: Sql) {
       );
     }
 
-    const body = await c.req.json();
-    const parsed = CreateChecklistTemplateSchema.safeParse(body);
-    if (!parsed.success) {
-      return c.json(
-        createProblemDetails({
-          status: 422,
-          title: "Validation Error",
-          detail: "Invalid template payload",
-          code: "VALIDATION_ERROR",
-        }),
-        422,
-        { "Content-Type": "application/problem+json" },
-      );
-    }
+    const data = await parseJsonBody(c, CreateChecklistTemplateSchema, {
+      status: 422,
+      detail: "Invalid template payload",
+    });
 
     const template = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        const created = await checklistRepo.createTemplate(tx, parsed.data);
+        const created = await checklistRepo.createTemplate(tx, data);
         await auditRepo.log(tx, {
           actorId: user.id,
           action: "checklist.template_create",
@@ -111,40 +112,41 @@ export function createChecklistRoutes(sql: Sql) {
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        const currentEmp = await empRepo.findByUserId(tx, user.id);
-
-        // Employees can only view their own checklist instances
+        // ONB-002: HR/admin the organization, managers their own and their
+        // reports', everyone else their own only.
+        const scope = checklistInstanceReadScope(
+          await resolvePolicyContext(c, tx),
+        );
         if (
-          user.role === "employee" &&
-          employeeId &&
-          currentEmp &&
-          employeeId !== currentEmp.id
+          employeeId !== undefined &&
+          !IdParamSchema.safeParse({ id: employeeId }).success
         ) {
-          return "FORBIDDEN";
+          throw new NotFoundError({ detail: "Employee not found" });
         }
+        if (employeeId !== undefined && scope !== "all") {
+          if (!scope.has(employeeId)) {
+            // Unknown or other-tenant ids are 404; real colleagues are 403.
+            if (!(await empRepo.findById(tx, employeeId))) {
+              throw new NotFoundError({ detail: "Employee not found" });
+            }
+            throw new ForbiddenError({
+              detail: "Cannot view other employee's checklists",
+            });
+          }
+        }
+        if (scope !== "all" && scope.size === 0) return [];
 
-        const targetEmployeeId =
-          user.role === "employee" ? (currentEmp?.id ?? "none") : employeeId;
-
-        return checklistRepo.listInstances(tx, {
-          employeeId: targetEmployeeId,
+        const rows = await checklistRepo.listInstances(tx, {
+          employeeId:
+            employeeId ??
+            (scope !== "all" && scope.size === 1 ? [...scope][0] : undefined),
           status,
         });
+        return scope === "all"
+          ? rows
+          : rows.filter((r) => scope.has(r.employeeId));
       },
     );
-
-    if (instances === "FORBIDDEN") {
-      return c.json(
-        createProblemDetails({
-          status: 403,
-          title: "Forbidden",
-          detail: "Cannot view other employee's checklists",
-          code: "FORBIDDEN",
-        }),
-        403,
-        { "Content-Type": "application/problem+json" },
-      );
-    }
 
     return c.json(
       instances.map((i) => ({
@@ -160,48 +162,43 @@ export function createChecklistRoutes(sql: Sql) {
   router.post("/checklists/instances", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
 
-    if (user.role === "employee") {
-      return c.json(
-        createProblemDetails({
-          status: 403,
-          title: "Forbidden",
-          detail: "Only managers or admins can assign checklists",
-          code: "FORBIDDEN",
-        }),
-        403,
-        { "Content-Type": "application/problem+json" },
-      );
+    if (!mayAssignChecklists(user)) {
+      throw new ForbiddenError({
+        detail: "Only managers or admins can assign checklists",
+      });
     }
 
-    const body = await c.req.json();
-    const parsed = InstantiateChecklistSchema.safeParse(body);
-    if (!parsed.success) {
-      return c.json(
-        createProblemDetails({
-          status: 422,
-          title: "Validation Error",
-          detail: "Invalid checklist instantiation payload",
-          code: "VALIDATION_ERROR",
-        }),
-        422,
-        { "Content-Type": "application/problem+json" },
-      );
-    }
-
-    const { templateId, employeeId, baseDate, customTitle } = parsed.data;
+    const { templateId, employeeId, baseDate, customTitle } =
+      await parseJsonBody(c, InstantiateChecklistSchema, {
+        status: 422,
+        detail: "Invalid checklist instantiation payload",
+      });
 
     const instance = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
+        // ONB-002: HR/admin for anyone in the organization, managers for
+        // their direct reports only. Unknown or other-tenant ids are 404.
+        const employee = await empRepo.findById(tx, employeeId);
+        if (!employee) {
+          throw new NotFoundError({ detail: "Employee not found" });
+        }
+        if (!canAssignChecklist(await resolvePolicyContext(c, tx), employee)) {
+          throw new ForbiddenError({
+            detail: "You can only assign checklists to your direct reports",
+          });
+        }
+        if (!(await checklistRepo.templateExists(tx, templateId))) {
+          throw new NotFoundError({
+            detail: "Checklist template not found",
+            code: "TEMPLATE_NOT_FOUND",
+          });
+        }
         const templateTasks = await checklistRepo.getTemplateTasks(
           tx,
           templateId,
         );
-        const employee = await empRepo.findById(tx, employeeId);
-        if (!employee) {
-          throw new Error("Employee not found");
-        }
 
         const scheduledTasks = computeChecklistTaskDueDates(
           templateTasks.map((t) => ({
@@ -211,6 +208,7 @@ export function createChecklistRoutes(sql: Sql) {
             dueOffsetDays: t.dueOffsetDays,
           })),
           baseDate,
+          await businessToday(c, tx, employee.locationId),
         );
 
         const inst = await checklistRepo.instantiateChecklist(tx, {
@@ -255,30 +253,32 @@ export function createChecklistRoutes(sql: Sql) {
   // 5. PATCH /checklists/tasks/:id - Toggle task completion status
   router.patch("/checklists/tasks/:id", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
-    const taskId = c.req.param("id");
-    const body = (await c.req.json()) as { isCompleted?: boolean };
-
-    if (body.isCompleted === undefined) {
-      return c.json(
-        createProblemDetails({
-          status: 400,
-          title: "Bad Request",
-          detail: "isCompleted field is required",
-          code: "BAD_REQUEST",
-        }),
-        400,
-        { "Content-Type": "application/problem+json" },
-      );
-    }
+    const { id: taskId } = parseParams(c, IdParamSchema, {
+      detail: "Checklist task not found",
+    });
+    const body = await parseJsonBody(c, ToggleChecklistTaskSchema);
 
     const updatedTask = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
+        const ownership = await checklistRepo.findTaskOwnership(tx, taskId);
+        if (!ownership) return null;
+        const subject = await empRepo.findById(tx, ownership.subjectEmployeeId);
+        const allowed = canToggleChecklistTask(
+          await resolvePolicyContext(c, tx),
+          { ...ownership, subjectManagerId: subject?.managerId ?? null },
+        );
+        if (!allowed) {
+          throw new ForbiddenError({
+            detail: "Only the task owner or HR can update this task",
+          });
+        }
+
         const task = await checklistRepo.toggleTask(
           tx,
           taskId,
-          body.isCompleted!,
+          body.isCompleted,
           user.id,
         );
 
