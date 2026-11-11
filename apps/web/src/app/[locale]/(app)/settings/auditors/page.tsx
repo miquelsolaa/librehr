@@ -4,9 +4,9 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ArrowLeft, Mail, Users } from "lucide-react";
+import { ChevronLeft, Mail, Users } from "lucide-react";
 import type { Auditor, AuditorListResponse } from "@librehr/contracts";
-import { Button } from "@librehr/ui";
+import { Button, PageHeader } from "@librehr/ui";
 import { getApiClient } from "@/lib/api-client";
 import { getStoredSession } from "@/lib/auth";
 import { AuditorAccessList } from "@/components/auditor-access-list";
@@ -23,6 +23,7 @@ export default function AuditorAccessSettingsPage() {
   const locale = (params?.["locale"] as string | undefined) ?? "ca";
   const t = useTranslations("auditorAccess");
   const tSettings = useTranslations("settings");
+  const tNav = useTranslations("nav");
 
   const [isAdmin, setIsAdmin] = React.useState<boolean | null>(null);
   // Kept while refreshing, so rows (and the focus inside them) stay mounted.
@@ -89,21 +90,19 @@ export default function AuditorAccessSettingsPage() {
 
   return (
     <div className="space-y-6" aria-busy={refreshing || undefined}>
-      <div className="flex items-center gap-3">
-        <Link
-          href={`/${locale}/settings`}
-          className="rounded-btn p-2 text-muted-foreground hover:bg-surface hover:text-foreground transition-colors"
-          aria-label={tSettings("backToSettings")}
-        >
-          <ArrowLeft className="h-5 w-5" aria-hidden="true" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            {t("title")}
-          </h1>
-          <p className="text-sm text-muted-foreground">{t("description")}</p>
-        </div>
-      </div>
+      <PageHeader
+        breadcrumb={
+          <Link
+            href={`/${locale}/settings`}
+            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+            {tNav("settings")}
+          </Link>
+        }
+        title={t("title")}
+        description={t("description")}
+      />
 
       {status && (
         <div

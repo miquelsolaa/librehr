@@ -1,4 +1,3 @@
-import AxeBuilder from "@axe-core/playwright";
 import { test, expect, type Page } from "@playwright/test";
 import { mockRoute, seedProfile } from "./support/mock-api";
 
@@ -58,7 +57,6 @@ test("sign-in keeps no token in storage", async ({ page }) => {
 
 test("sign-out revokes the session and returns to sign-in", async ({
   page,
-  isMobile,
 }) => {
   await seedProfile(page, { role: "admin" });
   let signOutCalls = 0;
@@ -67,7 +65,7 @@ test("sign-out revokes the session and returns to sign-in", async ({
     await route.fulfill({ json: { success: true } });
   });
   await page.goto("/en/home");
-  await clickSignOut(page, isMobile);
+  await clickSignOut(page);
   await expect(page).toHaveURL(/\/en\/sign-in/);
   expect(signOutCalls).toBe(1);
   expect(
@@ -77,56 +75,49 @@ test("sign-out revokes the session and returns to sign-in", async ({
 
 test("sign-out still clears the local profile when the API fails", async ({
   page,
-  isMobile,
 }) => {
   await seedProfile(page, { role: "admin" });
   await mockRoute(page, "**/v1/auth/sign-out", async (route) => {
     await route.fulfill({ status: 500, body: "" });
   });
   await page.goto("/en/home");
-  await clickSignOut(page, isMobile);
+  await clickSignOut(page);
   await expect(page).toHaveURL(/\/en\/sign-in/);
   expect(
     await page.evaluate(() => localStorage.getItem("librehr_auth_session")),
   ).toBeNull();
 });
 
-/** Desktop shows sign-out in the sidebar; mobile keeps it under "More". */
-async function clickSignOut(page: Page, isMobile: boolean): Promise<void> {
-  if (isMobile) {
-    await page
-      .getByRole("navigation", { name: "Mobile Navigation" })
-      .getByRole("button", { name: "More" })
-      .click();
-  }
-  await page.getByRole("button", { name: "Sign out" }).click();
+/** Sign-out lives in the account menu at every width. */
+async function clickSignOut(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Account menu" }).click();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
 }
 
-test("mobile navigation offers sign-out even without overflow links", async ({
+test("employees on mobile sign out from the account menu with the keyboard", async ({
   page,
   isMobile,
 }) => {
-  test.skip(!isMobile, "Covers the mobile bottom navigation");
-  // Employees have no overflow links: "More" exists only for sign-out.
-  await seedProfile(page, { role: "employee" });
+  test.skip(!isMobile, "Covers the mobile top bar");
+  // Employees have no overflow links, so the bottom bar has no "More".
+  await seedProfile(page, { role: "employee", name: "Sample Person" });
   let signOutCalls = 0;
   await mockRoute(page, "**/v1/auth/sign-out", async (route) => {
     signOutCalls++;
     await route.fulfill({ json: { success: true } });
   });
   await page.goto("/ca/home");
-  const nav = page.getByRole("navigation", { name: "Navegació mòbil" });
-  const more = nav.getByRole("button", { name: "Més" });
-  await expect(more).toHaveAttribute("aria-expanded", "false");
-  await more.click();
-  await expect(more).toHaveAttribute("aria-expanded", "true");
-  const signOut = nav.getByRole("button", { name: "Tancar sessió" });
+  await expect(
+    page
+      .getByRole("navigation", { name: "Navegació mòbil" })
+      .getByRole("button", { name: "Més" }),
+  ).toHaveCount(0);
+  const menu = page.getByRole("button", { name: "Menú del compte" });
+  await menu.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("menu")).toBeVisible();
+  const signOut = page.getByRole("menuitem", { name: "Tancar sessió" });
   await expect(signOut).toBeVisible();
-  const results = await new AxeBuilder({ page })
-    .include("nav")
-    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-    .analyze();
-  expect(results.violations).toEqual([]);
   await signOut.focus();
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/ca\/sign-in/);

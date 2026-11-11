@@ -1,13 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { usePathname, useParams, useRouter } from "next/navigation";
+import { usePathname, useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
   Sidebar,
   Topbar,
   BottomNav,
-  Avatar,
+  LibreHRMark,
+  type NavGroup,
   type NavItem,
   IconEmployees,
   IconTimeOff,
@@ -17,34 +18,26 @@ import {
   IconReports,
   IconSettings,
 } from "@librehr/ui";
-import { Home, Tablet, FileText, LogOut } from "lucide-react";
-import { ThemeToggle } from "../../../components/theme-toggle";
-import { LanguageSwitcher } from "../../../components/language-switcher";
+import { Home, Tablet, FileText } from "lucide-react";
 import { NotificationBell } from "../../../components/notification-bell";
 import { ClockWidget } from "../../../components/clock-widget";
-import { getStoredSession, signOut } from "@/lib/auth";
+import { ClockStatusProvider } from "../../../components/clock-status-provider";
+import { UserMenu } from "../../../components/user-menu";
+import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
+
+/**
+ * Destinations about the signed-in person: everything an employee sees, and
+ * the "Me" group for everyone else. The rest are organization-wide.
+ */
+const PERSONAL_PATHS = new Set(["home", "time-off", "time", "documents"]);
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const params = useParams();
   const locale = (params?.["locale"] as string | undefined) ?? "ca";
 
-  const router = useRouter();
   const tNav = useTranslations("nav");
-  const tAuth = useTranslations("auth");
-  const [isSigningOut, setIsSigningOut] = React.useState(false);
-
-  const handleSignOut = async () => {
-    setIsSigningOut(true);
-    try {
-      await signOut();
-    } catch {
-      // The local profile is cleared regardless; the cookie expires anyway.
-    } finally {
-      router.push(`/${locale}/sign-in`);
-    }
-  };
 
   const [userName, setUserName] = React.useState<string | null>(null);
   const [userRole, setUserRole] = React.useState<string | null>(null);
@@ -88,6 +81,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     {
       href: `/${locale}/time`,
       label: tNav("time"),
+      shortLabel: tNav("timeShort"),
       icon: <IconClockIn size={16} />,
     },
     {
@@ -127,11 +121,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     {
       href: `/${locale}/time`,
       label: tNav("time"),
+      shortLabel: tNav("timeShort"),
       icon: <IconClockIn size={16} />,
     },
     {
       href: `/${locale}/time/export`,
       label: tNav("inspectionRecords"),
+      shortLabel: tNav("inspectionRecordsShort"),
       icon: <FileText className="h-4 w-4" />,
     },
     {
@@ -141,7 +137,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     },
   ];
 
-  const employeePaths = new Set(["home", "time-off", "time", "documents"]);
   const managerPaths = new Set([
     "home",
     "people",
@@ -160,7 +155,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             const path = item.href.slice(`/${locale}/`.length);
             return userRole === "manager"
               ? managerPaths.has(path)
-              : employeePaths.has(path);
+              : PERSONAL_PATHS.has(path);
           });
 
   const mobilePrimaryPaths =
@@ -174,98 +169,97 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     (item) => !mobileNavItems.some((primary) => primary.href === item.href),
   );
 
+  const isPersonal = (item: NavItem) =>
+    PERSONAL_PATHS.has(item.href.slice(`/${locale}/`.length));
+  // Auditors get one short read-only list; the sidebar drops empty groups and
+  // hides the labels when only one group is left.
+  const navGroups: NavGroup[] =
+    userRole === "auditor"
+      ? [{ label: "", items: navItems }]
+      : [
+          { label: tNav("groupMe"), items: navItems.filter(isPersonal) },
+          {
+            label: tNav("groupOrganization"),
+            items: navItems.filter((item) => !isPersonal(item)),
+          },
+        ];
+
+  // These pages show the full clock widget themselves; a second copy in the
+  // top bar would offer the same action twice.
+  const pageHasClock =
+    pathname === `/${locale}/home` || pathname === `/${locale}/time`;
+
   return (
-    <div className="flex min-h-screen bg-background">
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-input focus:bg-surface-raised focus:p-3 focus:text-foreground focus:ring-2 focus:ring-focus-ring"
-      >
-        {tNav("skipToContent")}
-      </a>
-      {/* Desktop Sidebar */}
-      <Sidebar
-        items={navItems}
-        currentPath={pathname}
-        orgName={orgName}
-        ariaLabel={tNav("mainNavigation")}
-        workspaceLabel={tNav("workspace")}
-        footer={
-          userName ? (
-            <div className="flex items-center gap-3">
-              <Avatar name={userName} size="sm" />
-              <div className="flex flex-col overflow-hidden text-xs">
-                <span className="truncate font-semibold text-foreground">
-                  {userName}
-                </span>
-                {userRole && (
-                  <span className="text-muted-foreground">{userRole}</span>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => void handleSignOut()}
-                disabled={isSigningOut}
-                className="ml-auto rounded-input px-2 py-1 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:opacity-50"
-              >
-                {tAuth("signOut")}
-              </button>
-            </div>
-          ) : undefined
-        }
-      />
-
-      {/* Main content area */}
-      <div className="flex flex-1 flex-col overflow-x-hidden">
-        <Topbar
-          actions={
-            <div className="flex items-center gap-2">
-              <div className="hidden sm:block">
-                <ClockWidget />
-              </div>
-              <NotificationBell />
-              <LanguageSwitcher />
-              <ThemeToggle />
-            </div>
-          }
-          userMenu={
-            userName ? (
-              <div className="flex items-center gap-2 md:hidden">
-                <Avatar name={userName} size="sm" />
-              </div>
-            ) : undefined
-          }
-        />
-
-        <main
-          id="main-content"
-          tabIndex={-1}
-          className="flex-1 p-4 pb-20 md:p-8 md:pb-8 max-w-[1280px] w-full mx-auto"
+    <ClockStatusProvider>
+      <div className="flex min-h-screen bg-background">
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-input focus:bg-surface-raised focus:p-3 focus:text-foreground focus:ring-2 focus:ring-focus-ring"
         >
-          {children}
-        </main>
-
-        {/* Mobile Bottom Navigation */}
-        <BottomNav
-          items={mobileNavItems}
-          overflowItems={mobileOverflowItems}
+          {tNav("skipToContent")}
+        </a>
+        {/* Desktop Sidebar */}
+        <Sidebar
+          groups={navGroups}
           currentPath={pathname}
-          ariaLabel={tNav("mobileNavigation")}
-          moreLabel={tNav("more")}
-          overflowFooter={
-            userName ? (
-              <button
-                type="button"
-                onClick={() => void handleSignOut()}
-                disabled={isSigningOut}
-                className="flex min-h-[44px] w-full items-center gap-3 rounded-input px-3 text-sm font-medium text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:opacity-50"
-              >
-                <LogOut className="h-4 w-4" aria-hidden="true" />
-                <span>{tAuth("signOut")}</span>
-              </button>
-            ) : undefined
-          }
+          orgName={orgName}
+          ariaLabel={tNav("mainNavigation")}
         />
+
+        {/* Main content area */}
+        <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
+          <Topbar
+            brand={
+              // The sidebar carries the brand on desktop.
+              <a
+                href={`/${locale}/home`}
+                className="flex min-w-0 items-center gap-2 rounded-input focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring md:hidden"
+              >
+                <LibreHRMark
+                  size={28}
+                  aria-hidden="true"
+                  className="shrink-0 text-primary"
+                />
+                <span className="truncate text-sm font-semibold text-foreground">
+                  {orgName}
+                </span>
+              </a>
+            }
+            actions={
+              <div className="flex items-center gap-2">
+                {!pageHasClock && (
+                  <div className="hidden sm:block">
+                    <ClockWidget density="compact" />
+                  </div>
+                )}
+                <NotificationBell />
+              </div>
+            }
+            userMenu={
+              userName ? (
+                <UserMenu name={userName} role={userRole} />
+              ) : undefined
+            }
+          />
+
+          <main
+            id="main-content"
+            tabIndex={-1}
+            className="flex-1 p-4 pb-20 md:p-8 md:pb-8 max-w-[1280px] w-full mx-auto"
+          >
+            {children}
+          </main>
+
+          {/* Mobile Bottom Navigation */}
+          <BottomNav
+            items={mobileNavItems}
+            overflowItems={mobileOverflowItems}
+            currentPath={pathname}
+            ariaLabel={tNav("mobileNavigation")}
+            moreLabel={tNav("more")}
+          />
+        </div>
       </div>
-    </div>
+    </ClockStatusProvider>
   );
 }

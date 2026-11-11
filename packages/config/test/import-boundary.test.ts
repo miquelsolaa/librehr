@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { beforeAll, describe, it, expect } from "vitest";
 import { ESLint } from "eslint";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -28,6 +28,14 @@ const API = "apps/api/src/routes/example.ts";
 const WORKER = "apps/worker/src/jobs/example.ts";
 
 describe("Import boundary rules (AGENTS.md section 2)", () => {
+  // Loading the flat config and typescript-eslint takes seconds under a
+  // parallel `pnpm verify`; pay it once here, not inside the first test.
+  beforeAll(async () => {
+    await eslint.lintText("export {};", {
+      filePath: "apps/web/src/warm-up.ts",
+    });
+  }, 30_000);
+
   it("fails when packages/core imports @librehr/db", async () => {
     const messages = await restrictedImportMessages("@librehr/db", CORE);
     expect(messages.some((m) => m.includes("core must not import db"))).toBe(

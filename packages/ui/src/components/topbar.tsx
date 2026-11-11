@@ -3,6 +3,8 @@ import { cn } from "../lib/cn.js";
 import { useUiStrings } from "./ui-strings.js";
 
 export interface TopbarProps {
+  /** Product or organization mark, for layouts without a visible sidebar. */
+  brand?: React.ReactNode;
   breadcrumbs?: React.ReactNode;
   actions?: React.ReactNode;
   userMenu?: React.ReactNode;
@@ -11,6 +13,7 @@ export interface TopbarProps {
 }
 
 export const Topbar: React.FC<TopbarProps> = ({
+  brand,
   breadcrumbs,
   actions,
   userMenu,
@@ -25,7 +28,8 @@ export const Topbar: React.FC<TopbarProps> = ({
         className,
       )}
     >
-      <div className="flex items-center gap-4">
+      <div className="flex min-w-0 items-center gap-4">
+        {brand}
         {orgSwitcher}
         {breadcrumbs && (
           <nav aria-label={strings.breadcrumb} className="text-sm">

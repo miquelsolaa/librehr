@@ -7,7 +7,6 @@ import { useTranslations } from "next-intl";
 import {
   Webhook,
   Plus,
-  ArrowLeft,
   Trash2,
   Copy,
   Check,
@@ -15,6 +14,7 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
+  ChevronLeft,
 } from "lucide-react";
 import {
   Button,
@@ -27,6 +27,7 @@ import {
   DialogDescription,
   DialogFooter,
   Badge,
+  PageHeader,
 } from "@librehr/ui";
 import { apiClient } from "../../../../../lib/api-client.js";
 import {
@@ -53,6 +54,7 @@ export default function WebhooksSettingsPage() {
   const params = useParams();
   const locale = (params?.["locale"] as string) ?? "es";
   const t = useTranslations("webhooks");
+  const tNav = useTranslations("nav");
   const tCommon = useTranslations("common");
   const tSettings = useTranslations("settings");
 
@@ -199,129 +201,125 @@ export default function WebhooksSettingsPage() {
   return (
     <div className="space-y-6">
       {/* Navigation Header */}
-      <div className="flex items-center gap-4">
-        <Link
-          href={`/${locale}/settings`}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-btn border border-border bg-surface hover:bg-surface-raised transition-colors"
-          aria-label={tSettings("backToSettings")}
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        </Link>
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <Webhook className="h-6 w-6 text-primary" aria-hidden="true" />
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              {t("title")}
-            </h1>
-          </div>
-          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
-        </div>
+      <PageHeader
+        breadcrumb={
+          <Link
+            href={`/${locale}/settings`}
+            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+            {tNav("settings")}
+          </Link>
+        }
+        title={t("title")}
+        description={t("subtitle")}
+        actions={
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                {t("newWebhook")}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>{t("newWebhook")}</DialogTitle>
+                <DialogDescription>{t("createDescription")}</DialogDescription>
+              </DialogHeader>
 
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger asChild>
-            <Button className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              {t("newWebhook")}
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>{t("newWebhook")}</DialogTitle>
-              <DialogDescription>{t("createDescription")}</DialogDescription>
-            </DialogHeader>
-
-            <form onSubmit={handleCreate} className="space-y-4">
-              {actionError && (
-                <p role="alert" className="text-sm text-danger">
-                  {tSettings("actionError")}
-                </p>
-              )}
-              <div className="space-y-2">
-                <label
-                  htmlFor="webhook-name"
-                  className="text-sm font-medium text-foreground"
-                >
-                  {t("name")}
-                </label>
-                <Input
-                  id="webhook-name"
-                  required
-                  placeholder={t("namePlaceholder")}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label
-                  htmlFor="webhook-url"
-                  className="text-sm font-medium text-foreground"
-                >
-                  {t("url")}
-                </label>
-                <Input
-                  id="webhook-url"
-                  required
-                  type="url"
-                  placeholder="https://api.example.com/webhooks"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <span
-                  id="webhook-events-label"
-                  className="text-sm font-medium text-foreground"
-                >
-                  {t("events")}
-                </span>
-                <div
-                  role="group"
-                  aria-labelledby="webhook-events-label"
-                  className="grid grid-cols-2 gap-2 border border-border rounded-btn p-3 max-h-48 overflow-y-auto"
-                >
-                  {AVAILABLE_EVENTS.map((ev) => {
-                    const checked = selectedEvents.includes(ev);
-                    return (
-                      <label
-                        key={ev}
-                        className="flex items-center gap-2 text-xs text-foreground cursor-pointer hover:text-primary transition-colors"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleEvent(ev)}
-                          className="rounded border-border text-primary focus:ring-primary"
-                        />
-                        <span className="font-mono text-[11px]">{ev}</span>
-                      </label>
-                    );
-                  })}
+              <form onSubmit={handleCreate} className="space-y-4">
+                {actionError && (
+                  <p role="alert" className="text-sm text-danger">
+                    {tSettings("actionError")}
+                  </p>
+                )}
+                <div className="space-y-2">
+                  <label
+                    htmlFor="webhook-name"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    {t("name")}
+                  </label>
+                  <Input
+                    id="webhook-name"
+                    required
+                    placeholder={t("namePlaceholder")}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
                 </div>
-              </div>
 
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setCreateOpen(false)}
-                >
-                  {tCommon("cancel")}
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={
-                    submitting || !name || !url || selectedEvents.length === 0
-                  }
-                >
-                  {submitting ? t("saving") : t("newWebhook")}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
+                <div className="space-y-2">
+                  <label
+                    htmlFor="webhook-url"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    {t("url")}
+                  </label>
+                  <Input
+                    id="webhook-url"
+                    required
+                    type="url"
+                    placeholder="https://api.example.com/webhooks"
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <span
+                    id="webhook-events-label"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    {t("events")}
+                  </span>
+                  <div
+                    role="group"
+                    aria-labelledby="webhook-events-label"
+                    className="grid grid-cols-2 gap-2 border border-border rounded-input p-3 max-h-48 overflow-y-auto"
+                  >
+                    {AVAILABLE_EVENTS.map((ev) => {
+                      const checked = selectedEvents.includes(ev);
+                      return (
+                        <label
+                          key={ev}
+                          className="flex items-center gap-2 text-xs text-foreground cursor-pointer hover:text-primary transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleEvent(ev)}
+                            className="rounded border-border text-primary focus:ring-primary"
+                          />
+                          <span className="font-mono text-xs">{ev}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setCreateOpen(false)}
+                  >
+                    {tCommon("cancel")}
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={
+                      submitting || !name || !url || selectedEvents.length === 0
+                    }
+                  >
+                    {submitting ? t("saving") : t("newWebhook")}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        }
+      />
 
       {actionError && !createOpen && (
         <p role="alert" className="text-sm text-danger">
@@ -381,7 +379,7 @@ export default function WebhooksSettingsPage() {
                               ? "outline"
                               : "danger"
                           }
-                          className="text-[11px]"
+                          className="text-xs"
                         >
                           HTTP {hook.lastDeliveryStatus}
                         </Badge>
@@ -415,7 +413,7 @@ export default function WebhooksSettingsPage() {
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="text-destructive hover:bg-destructive/10"
+                      className="text-danger hover:bg-danger/10"
                       onClick={() => handleDelete(hook.id)}
                       aria-label={t("deleteWebhook", { name: hook.name })}
                     >
@@ -427,10 +425,10 @@ export default function WebhooksSettingsPage() {
                 {/* Test Result Pill */}
                 {testInfo?.result && (
                   <div
-                    className={`flex items-center gap-2 p-3 rounded-btn text-xs ${
+                    className={`flex items-center gap-2 p-3 rounded-input text-xs ${
                       testInfo.result.success
                         ? "bg-success/10 text-success border border-success/20"
-                        : "bg-destructive/10 text-destructive border border-destructive/20"
+                        : "bg-danger/10 text-danger border border-danger/20"
                     }`}
                   >
                     {testInfo.result.success ? (
@@ -476,7 +474,7 @@ export default function WebhooksSettingsPage() {
                     ).map((ev: string) => (
                       <span
                         key={ev}
-                        className="px-2 py-0.5 rounded-full bg-surface-raised border border-border text-[11px] font-mono text-foreground"
+                        className="px-2 py-0.5 rounded-full bg-surface-raised border border-border text-xs font-mono text-foreground"
                       >
                         {ev}
                       </span>
@@ -490,7 +488,7 @@ export default function WebhooksSettingsPage() {
                       <span className="text-muted-foreground">
                         {t("secret")}:
                       </span>
-                      <code className="bg-surface-raised px-2 py-0.5 rounded border border-border font-mono text-[11px] text-muted-foreground">
+                      <code className="bg-surface-raised px-2 py-0.5 rounded border border-border font-mono text-xs text-muted-foreground">
                         {hook.secret.slice(0, 10)}...
                       </code>
                       <button

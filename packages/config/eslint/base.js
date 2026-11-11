@@ -1,6 +1,7 @@
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import { boundaryConfigs } from "./boundaries.js";
+import { designSystemConfigs } from "./design-system.js";
 
 export const baseConfig = tseslint.config(
   js.configs.recommended,
@@ -29,6 +30,8 @@ export const baseConfig = tseslint.config(
   },
   // Import boundaries (AGENTS.md section 2); see boundaries.js.
   ...boundaryConfigs,
+  // Type scale and other DESIGN.md rules for UI code; see design-system.js.
+  ...designSystemConfigs,
 );
 
 export default baseConfig;
