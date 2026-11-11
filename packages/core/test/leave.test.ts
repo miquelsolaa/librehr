@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import * as fc from "fast-check";
 import {
   foldLedgerToBalance,
+  runningBalances,
   type LeaveLedgerEntry,
 } from "../src/leave/ledger.js";
 import { computeBalanceSummary } from "../src/leave/balance.js";
@@ -80,6 +81,56 @@ describe("Leave Domain Logic", () => {
         },
       ),
     );
+  });
+
+  describe("runningBalances", () => {
+    it("gives the balance after each entry, half days included", () => {
+      expect(
+        runningBalances([{ amount: 22 }, { amount: -5 }, { amount: -0.5 }]),
+      ).toEqual([22, 17, 16.5]);
+    });
+
+    it("is empty for an empty ledger and may go negative", () => {
+      expect(runningBalances([])).toEqual([]);
+      expect(runningBalances([{ amount: -2 }, { amount: 1 }])).toEqual([
+        -2, -1,
+      ]);
+    });
+
+    it("does not accumulate floating point drift", () => {
+      expect(
+        runningBalances([{ amount: 0.1 }, { amount: 0.2 }, { amount: -0.3 }]),
+      ).toEqual([0.1, 0.3, 0]);
+    });
+
+    it("property: ends on the folded balance and steps by each amount", () => {
+      fc.assert(
+        fc.property(
+          fc.array(
+            fc.record({
+              id: fc.uuid(),
+              employeeId: fc.constant("emp-test"),
+              entryType: fc.constantFrom<"accrual" | "usage">(
+                "accrual",
+                "usage",
+              ),
+              // Half-day steps, as the ledger stores them.
+              amount: fc.integer({ min: -60, max: 60 }).map((n) => n / 2),
+              effectiveDate: fc.constant("2026-01-01"),
+            }),
+          ),
+          (entries) => {
+            const balances = runningBalances(entries);
+            expect(balances).toHaveLength(entries.length);
+            expect(balances.at(-1) ?? 0).toBe(foldLedgerToBalance(entries));
+            balances.forEach((value, i) => {
+              const previous = i === 0 ? 0 : (balances[i - 1] ?? 0);
+              expect(value - previous).toBe(entries[i]?.amount);
+            });
+          },
+        ),
+      );
+    });
   });
 
   describe("validateLeaveRequest", () => {

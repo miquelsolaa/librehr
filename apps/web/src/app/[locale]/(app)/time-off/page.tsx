@@ -4,19 +4,15 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import {
-  CalendarDays,
-  Plus,
-  Users,
-  ShieldAlert,
-  UserCheck,
-} from "lucide-react";
+import { Plus, Users, ShieldAlert, UserCheck } from "lucide-react";
 import {
   Button,
   StatusPill,
   type StatusPillType,
   PageHeader,
+  ConfirmDialog,
 } from "@librehr/ui";
+import { formatCalendarDate, formatNumber } from "@/lib/format";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
 import type {
@@ -80,13 +76,18 @@ export default function TimeOffPage() {
     void fetchData();
   }, [fetchData]);
 
+  const [confirmCancel, setConfirmCancel] = React.useState<LeaveRequest | null>(
+    null,
+  );
+  const dateRange = (start: string, end: string) =>
+    `${formatCalendarDate(start, locale)} – ${formatCalendarDate(end, locale)}`;
+
   const handleCancel = async (id: string) => {
     const session = getStoredSession();
     if (!session) {
       setCancelError(true);
       return;
     }
-    if (!window.confirm(t("confirmCancel"))) return;
     setCancelError(false);
     setCancellingId(id);
     try {
@@ -170,23 +171,20 @@ export default function TimeOffPage() {
               className="overflow-hidden rounded-card border border-border bg-surface"
             >
               <div className="grid sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-                <div className="flex items-start gap-4 bg-accent p-6 sm:p-7">
-                  <div className="rounded-input bg-surface p-2.5 text-primary">
-                    <CalendarDays aria-hidden="true" className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h2 className="text-base font-semibold text-foreground">
-                      {t("currentBalance")}
-                    </h2>
-                    <p className="mt-2 text-4xl font-semibold tracking-tight tabular-nums text-foreground">
-                      {data.balance.currentBalance}{" "}
-                      <span className="text-sm font-normal text-muted-foreground">
-                        {t("days")}
-                      </span>
-                    </p>
-                  </div>
+                <div className="bg-accent p-6 sm:p-7">
+                  <h2 className="text-base font-semibold text-foreground">
+                    {t("currentBalance")}
+                  </h2>
+                  <p className="mt-2 flex items-baseline gap-2">
+                    <span className="font-display text-4xl font-semibold tracking-tight tabular-nums text-foreground">
+                      {formatNumber(data.balance.currentBalance, locale)}
+                    </span>{" "}
+                    <span className="text-sm text-muted-foreground">
+                      {t("days")}
+                    </span>
+                  </p>
                 </div>
-                <dl className="grid grid-cols-3 gap-3 p-5 sm:p-7">
+                <dl className="grid grid-cols-2 gap-x-3 gap-y-5 p-5 sm:grid-cols-4 sm:p-7">
                   {(
                     [
                       ["totalAccrued", data.balance.totalAccrued],
@@ -200,7 +198,7 @@ export default function TimeOffPage() {
                         {t(key)}
                       </dt>
                       <dd className="mt-2 text-xl font-semibold tabular-nums text-foreground">
-                        {value}
+                        {formatNumber(value, locale)}
                       </dd>
                     </div>
                   ))}
@@ -246,20 +244,20 @@ export default function TimeOffPage() {
                     return (
                       <li
                         key={entry.id}
-                        className="flex flex-wrap justify-between gap-3 px-5 py-4 sm:px-6"
+                        className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1 px-5 py-3 text-sm sm:grid-cols-[8rem_minmax(0,1fr)_auto_7.5rem] sm:px-6"
                       >
-                        <div>
-                          <p className="font-medium">{label}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {entry.effectiveDate}
-                          </p>
+                        <span className="col-span-2 tabular-nums text-muted-foreground sm:col-span-1">
+                          {formatCalendarDate(entry.effectiveDate, locale)}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="font-medium text-foreground">{label}</p>
                           {entry.note && (
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-muted-foreground">
                               {entry.note}
                             </p>
                           )}
                         </div>
-                        <span className="font-medium tabular-nums">
+                        <span className="text-right font-medium tabular-nums text-foreground">
                           {entry.amount < 0 ? "−" : entry.amount > 0 ? "+" : ""}
                           {amount}{" "}
                           {entry.unit === "days"
@@ -268,6 +266,13 @@ export default function TimeOffPage() {
                               ? t("ledgerHours")
                               : entry.unit}
                         </span>
+                        {entry.balanceAfter !== undefined && (
+                          <span className="col-span-2 text-right tabular-nums text-muted-foreground sm:col-span-1">
+                            {t("balanceAfter", {
+                              value: formatNumber(entry.balanceAfter, locale),
+                            })}
+                          </span>
+                        )}
                       </li>
                     );
                   })}
@@ -308,7 +313,7 @@ export default function TimeOffPage() {
                           {request.leaveTypeName ?? t("leaveType")}
                         </p>
                         <p className="text-sm text-muted-foreground tabular-nums">
-                          {request.startDate} – {request.endDate}{" "}
+                          {dateRange(request.startDate, request.endDate)}{" "}
                           <span aria-hidden="true">·</span>{" "}
                           {request.workingDays} {t("days")}
                         </p>
@@ -325,7 +330,7 @@ export default function TimeOffPage() {
                             variant="outline"
                             className="min-h-11"
                             disabled={cancellingId !== null}
-                            onClick={() => void handleCancel(request.id)}
+                            onClick={() => setConfirmCancel(request)}
                           >
                             {cancellingId === request.id
                               ? t("cancelling")
@@ -386,7 +391,7 @@ export default function TimeOffPage() {
                         >
                           <span>{bo.reason}</span>
                           <span className="tabular-nums text-muted-foreground">
-                            {bo.startDate} – {bo.endDate}
+                            {dateRange(bo.startDate, bo.endDate)}
                           </span>
                         </li>
                       ))}
@@ -428,7 +433,7 @@ export default function TimeOffPage() {
                               {t("delegate")}: {del.delegateName ?? "—"}
                             </span>
                             <span className="tabular-nums text-muted-foreground">
-                              {del.startDate} – {del.endDate}
+                              {dateRange(del.startDate, del.endDate)}
                             </span>
                           </div>
                           {del.reason && (
@@ -449,6 +454,24 @@ export default function TimeOffPage() {
           </>
         )
       )}
+      <ConfirmDialog
+        open={confirmCancel !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirmCancel(null);
+        }}
+        title={t("confirmCancel")}
+        description={
+          confirmCancel
+            ? `${confirmCancel.leaveTypeName ?? t("leaveType")} · ${dateRange(confirmCancel.startDate, confirmCancel.endDate)}`
+            : ""
+        }
+        confirmText={t("cancel")}
+        cancelText={t("keepRequest")}
+        onConfirm={() => {
+          // Close at once: the outcome is reported inline on the page.
+          if (confirmCancel) void handleCancel(confirmCancel.id);
+        }}
+      />
     </div>
   );
 }
