@@ -22,3 +22,22 @@ export function foldLedgerToBalance(
   // Round to 2 decimal places to avoid floating point inaccuracies
   return Math.round(sum * 100) / 100;
 }
+
+/**
+ * The balance after each entry of a ledger given in chronological order, so a
+ * history can show where every figure comes from. The last value equals
+ * `foldLedgerToBalance` of the same entries.
+ *
+ * @example
+ * runningBalances([{ amount: 22 }, { amount: -5 }, { amount: 0.5 }]);
+ * // [22, 17, 17.5]
+ */
+export function runningBalances(
+  entries: readonly { readonly amount: number }[],
+): number[] {
+  let sum = 0;
+  return entries.map((entry) => {
+    sum += entry.amount;
+    return Math.round(sum * 100) / 100;
+  });
+}
