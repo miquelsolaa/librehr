@@ -6,9 +6,12 @@ const intlMiddleware = createMiddleware({
   locales,
   defaultLocale,
   localePrefix: "always",
+  // next-intl 4 defaults to a session cookie; keep the one-year lifetime
+  // that v3 used so a chosen locale still survives a browser restart.
+  localeCookie: { maxAge: 60 * 60 * 24 * 365 },
 });
 
-export function middleware(request: NextRequest): NextResponse {
+export function proxy(request: NextRequest): NextResponse {
   // Pass through internal next paths, static files, and healthz API
   if (
     request.nextUrl.pathname.startsWith("/_next") ||
