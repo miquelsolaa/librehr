@@ -28,6 +28,7 @@ import {
   DialogFooter,
   Badge,
   PageHeader,
+  ConfirmDialog,
 } from "@librehr/ui";
 import { apiClient } from "../../../../../lib/api-client.js";
 import {
@@ -131,9 +132,11 @@ export default function WebhooksSettingsPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm(t("deleteConfirm"))) return;
+  const [pendingDelete, setPendingDelete] = React.useState<WebhookItem | null>(
+    null,
+  );
 
+  const handleDelete = async (id: string) => {
     setActionError(false);
     try {
       await apiClient.deleteWebhook(id);
@@ -360,7 +363,7 @@ export default function WebhooksSettingsPage() {
             return (
               <div
                 key={hook.id}
-                className="rounded-card border border-border bg-surface p-5 space-y-4 shadow-sm"
+                className="rounded-card border border-border bg-surface p-5 space-y-4"
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="space-y-1">
@@ -414,7 +417,7 @@ export default function WebhooksSettingsPage() {
                       size="sm"
                       variant="ghost"
                       className="text-danger hover:bg-danger/10"
-                      onClick={() => handleDelete(hook.id)}
+                      onClick={() => setPendingDelete(hook)}
                       aria-label={t("deleteWebhook", { name: hook.name })}
                     >
                       <Trash2 className="h-4 w-4" aria-hidden="true" />
@@ -519,6 +522,17 @@ export default function WebhooksSettingsPage() {
           })}
         </div>
       )}
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDelete(null);
+        }}
+        title={t("deleteConfirm")}
+        description={pendingDelete?.name ?? ""}
+        onConfirm={() => {
+          if (pendingDelete) void handleDelete(pendingDelete.id);
+        }}
+      />
     </div>
   );
 }
