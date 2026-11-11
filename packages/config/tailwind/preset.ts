@@ -45,6 +45,14 @@ export const librehrTailwindPreset = {
           "Roboto",
           "sans-serif",
         ],
+        // Page titles and large figures only (DESIGN.md §2.3). Self-hosted via
+        // @fontsource-variable/bricolage-grotesque (imported by apps/web).
+        display: [
+          '"Bricolage Grotesque Variable"',
+          '"Inter Variable"',
+          "Inter",
+          "sans-serif",
+        ],
       },
     },
   },

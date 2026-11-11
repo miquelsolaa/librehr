@@ -43,6 +43,11 @@ test("sign-in keeps no token in storage", async ({ page }) => {
     });
   });
   await page.goto("/en/sign-in");
+  // The form starts empty: no credentials ship in the page.
+  await expect(page.getByLabel("Email address")).toHaveValue("");
+  await expect(page.getByLabel("Password")).toHaveValue("");
+  await page.getByLabel("Email address").fill("sample@example.invalid");
+  await page.getByLabel("Password").fill("sample-password-1");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page).toHaveURL(/\/en\/home/);
   const stored = await page.evaluate(() =>
