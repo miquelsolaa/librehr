@@ -15,7 +15,7 @@ export const SheetOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Overlay
     className={cn(
-      "fixed inset-0 z-50 bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      "fixed inset-0 z-50 bg-scrim/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 motion-reduce:animate-none",
       className,
     )}
     {...props}
@@ -55,8 +55,8 @@ export const SheetContent = React.forwardRef<
         {...props}
       >
         {children}
-        <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-focus-ring">
-          <X className="h-4 w-4" />
+        <DialogPrimitive.Close className="absolute right-2 top-2 inline-flex h-11 w-11 items-center justify-center rounded-input text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">
+          <X aria-hidden="true" className="h-4 w-4" />
           <span className="sr-only">{strings.close}</span>
         </DialogPrimitive.Close>
       </DialogPrimitive.Content>
@@ -70,10 +70,7 @@ export const SheetHeader = ({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn(
-      "flex flex-col space-y-2 text-center sm:text-left",
-      className,
-    )}
+    className={cn("flex flex-col gap-2 pr-10 text-left", className)}
     {...props}
   />
 );
@@ -85,7 +82,10 @@ export const SheetTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn("text-lg font-semibold text-foreground", className)}
+    className={cn(
+      "font-display text-xl font-semibold leading-tight tracking-tight text-foreground",
+      className,
+    )}
     {...props}
   />
 ));

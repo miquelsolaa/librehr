@@ -930,7 +930,7 @@ export default function DocumentsPage() {
               if (!open && !isTemplateSubmitting) setIsNewTemplateOpen(false);
             }}
           >
-            <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+            <DialogContent size="panel" className="sm:max-w-2xl">
               <DialogHeader>
                 <DialogTitle>{t("createNewTemplateTitle")}</DialogTitle>
                 <DialogDescription>
@@ -1052,7 +1052,7 @@ export default function DocumentsPage() {
             }}
           >
             {selectedTemplate && (
-              <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+              <DialogContent size="panel" className="sm:max-w-2xl">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
                     <Wand2

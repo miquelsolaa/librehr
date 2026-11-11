@@ -465,7 +465,7 @@ export default function ShiftRosterPage() {
                   <span>{t("generateRosterButton")}</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-lg">
+              <DialogContent>
                 <DialogHeader>
                   <DialogTitle>{t("generateRosterButton")}</DialogTitle>
                   <DialogDescription>
