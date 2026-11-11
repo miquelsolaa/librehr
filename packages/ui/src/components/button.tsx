@@ -27,13 +27,13 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const Comp = asChild ? Slot : "button";
 
     const variantStyles = {
-      default: "bg-primary text-primary-foreground hover:opacity-90 shadow-sm",
+      default: "bg-primary text-primary-foreground hover:opacity-90",
       secondary:
         "bg-surface border border-border text-foreground hover:bg-accent",
       outline:
         "border border-border bg-transparent text-foreground hover:bg-surface",
       ghost: "text-foreground hover:bg-surface",
-      danger: "bg-danger text-white hover:opacity-90 shadow-sm",
+      danger: "bg-danger text-white hover:opacity-90",
     };
 
     const sizeStyles = {

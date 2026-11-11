@@ -5,7 +5,10 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button, PageHeader, Skeleton } from "@librehr/ui";
-import { ClockWidget } from "@/components/clock-widget";
+import { ClockWidget, type DaySession } from "@/components/clock-widget";
+import { useClockStatus } from "@/components/clock-status-provider";
+import { HomeAway } from "@/components/home-away";
+import { formatNumber, localIsoDate } from "@/lib/format";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
 
@@ -53,6 +56,29 @@ export default function HomePage() {
     if (current) void loadBalance();
   }, [locale, loadBalance]);
 
+  // Today's sessions feed the ring only. Without them (no schedule yet, or
+  // the request failed) the ring still shows the current stretch.
+  const { lastEvent } = useClockStatus();
+  const lastEventId = lastEvent?.id;
+  const [sessions, setSessions] = React.useState<readonly DaySession[]>();
+  React.useEffect(() => {
+    if (!session) return;
+    let current = true;
+    const today = localIsoDate();
+    getApiClient()
+      .getTimesheet({ startDate: today, endDate: today })
+      .then((sheet) => {
+        if (current)
+          setSessions(sheet.days.find((d) => d.date === today)?.sessions);
+      })
+      .catch(() => {
+        if (current) setSessions(undefined);
+      });
+    return () => {
+      current = false;
+    };
+  }, [session, lastEventId]);
+
   const balanceLoading = balance === null && !balanceError;
 
   return (
@@ -86,7 +112,7 @@ export default function HomePage() {
               {t("yourTime")}
             </h2>
             <div className="space-y-4">
-              <ClockWidget />
+              <ClockWidget sessions={sessions} />
               <Link className={linkClass} href={`/${locale}/time`}>
                 {t("viewTime")}
               </Link>
@@ -118,8 +144,8 @@ export default function HomePage() {
               <Skeleton className="h-10 w-40" />
             ) : (
               <p className="flex items-baseline gap-2">
-                <span className="text-4xl font-semibold tabular-nums text-foreground">
-                  {new Intl.NumberFormat(locale).format(balance)}
+                <span className="font-display text-4xl font-semibold tracking-tight tabular-nums text-foreground">
+                  {formatNumber(balance, locale)}
                 </span>
                 <span className="text-sm text-muted-foreground">
                   {t("daysRemaining")}
@@ -137,6 +163,9 @@ export default function HomePage() {
               </Link>
             </div>
           </section>
+          <div className="md:col-span-2">
+            <HomeAway locale={locale} />
+          </div>
         </div>
       )}
     </div>
