@@ -280,7 +280,7 @@ export default function ShiftRosterPage() {
     if (assign.shiftCode === "M") {
       return (
         <span
-          className="inline-block w-full py-1 text-center font-mono font-bold text-xs rounded text-amber-900 bg-amber-100 dark:bg-amber-950/70 dark:text-amber-300"
+          className="inline-block w-full py-1 text-center font-mono font-bold text-xs rounded text-warning bg-warning/10"
           title={t("shiftMorning")}
         >
           M
@@ -291,7 +291,7 @@ export default function ShiftRosterPage() {
     if (assign.shiftCode === "T") {
       return (
         <span
-          className="inline-block w-full py-1 text-center font-mono font-bold text-xs rounded text-blue-900 bg-blue-100 dark:bg-blue-950/70 dark:text-blue-300"
+          className="inline-block w-full py-1 text-center font-mono font-bold text-xs rounded text-info bg-info/10"
           title={t("shiftAfternoon")}
         >
           T
@@ -302,7 +302,7 @@ export default function ShiftRosterPage() {
     if (assign.shiftCode === "N") {
       return (
         <span
-          className="inline-flex items-center justify-center gap-0.5 w-full py-1 text-center font-mono font-bold text-xs rounded text-indigo-900 bg-indigo-100 dark:bg-indigo-950/70 dark:text-indigo-300"
+          className="inline-flex items-center justify-center gap-0.5 w-full py-1 text-center font-mono font-bold text-xs rounded text-info bg-info/10"
           title={t("shiftNight")}
         >
           <Moon className="h-2.5 w-2.5" aria-hidden="true" />N
@@ -624,9 +624,9 @@ export default function ShiftRosterPage() {
         <div className="rounded-xl border border-border bg-surface p-4 shadow-sm">
           <div className="flex items-center justify-between text-muted-foreground">
             <span className="text-xs font-medium">{t("shiftsNightHours")}</span>
-            <Moon className="h-4 w-4 text-indigo-500" />
+            <Moon className="h-4 w-4 text-info" />
           </div>
-          <div className="mt-2 text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+          <div className="mt-2 text-2xl font-bold text-info">
             {loading ? "..." : `${totalNightHours}h`}
           </div>
           <span className="text-xs text-muted-foreground">
@@ -637,7 +637,7 @@ export default function ShiftRosterPage() {
         <div className="rounded-xl border border-border bg-surface p-4 shadow-sm">
           <div className="flex items-center justify-between text-muted-foreground">
             <span className="text-xs font-medium">{t("shiftsRotations")}</span>
-            <Repeat className="h-4 w-4 text-amber-500" />
+            <Repeat className="h-4 w-4 text-warning" />
           </div>
           <div className="mt-2 text-sm font-semibold text-foreground truncate">
             {patterns[0]?.name ?? t("noActivePattern")}
@@ -654,7 +654,7 @@ export default function ShiftRosterPage() {
             <span className="text-xs font-medium">
               {t("shiftsPendingSwaps")}
             </span>
-            <ArrowLeftRight className="h-4 w-4 text-blue-500" />
+            <ArrowLeftRight className="h-4 w-4 text-info" />
           </div>
           <div className="mt-2 text-2xl font-bold text-foreground">
             {loading ? "..." : pendingSwaps}
@@ -764,15 +764,15 @@ export default function ShiftRosterPage() {
             {/* Legend */}
             <div className="flex items-center gap-3 text-xs">
               <div className="flex items-center gap-1">
-                <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+                <span className="h-2.5 w-2.5 rounded-full bg-warning" />
                 <span>{t("legendMorning")}</span>
               </div>
               <div className="flex items-center gap-1">
-                <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
+                <span className="h-2.5 w-2.5 rounded-full bg-info" />
                 <span>{t("legendAfternoon")}</span>
               </div>
               <div className="flex items-center gap-1">
-                <span className="h-2.5 w-2.5 rounded-full bg-indigo-500" />
+                <span className="h-2.5 w-2.5 rounded-full bg-info" />
                 <span>{t("legendNight")}</span>
               </div>
               <div className="flex items-center gap-1">

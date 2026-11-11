@@ -250,7 +250,7 @@ export default function PeoplePage() {
                 </DialogHeader>
 
                 {inviteSuccess ? (
-                  <div className="rounded-card bg-emerald-500/10 p-4 text-center text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                  <div className="rounded-card bg-success/10 p-4 text-center text-sm font-medium text-success">
                     {tInvites("inviteSent")}
                   </div>
                 ) : (

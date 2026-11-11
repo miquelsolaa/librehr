@@ -147,7 +147,7 @@ export default function TimeCorrectionsPage() {
           {error && (
             <div
               role="alert"
-              className="rounded-md bg-red-50 p-3 text-xs text-red-700 dark:bg-red-950/50 dark:text-red-400"
+              className="rounded-md bg-danger/10 p-3 text-xs text-danger"
             >
               {error}
             </div>
