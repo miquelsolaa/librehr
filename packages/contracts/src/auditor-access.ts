@@ -33,7 +33,7 @@ export const AccessUntilSchema = z
   }, "Not a valid calendar date");
 
 export const AuditorSchema = z.object({
-  userId: z.string().uuid(),
+  userId: z.guid(),
   name: z.string(),
   email: z.string().email(),
   /** Instant access ends (exclusive). */
@@ -44,7 +44,7 @@ export const AuditorSchema = z.object({
 export type Auditor = z.infer<typeof AuditorSchema>;
 
 export const PendingAuditorInvitationSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   email: z.string().email(),
   accessExpiresAt: z.string().datetime(),
   accessUntil: z.string(),

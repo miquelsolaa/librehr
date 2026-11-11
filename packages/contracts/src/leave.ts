@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const LeaveTypeSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   name: z.string(),
   code: z.string(),
   isPaid: z.boolean(),
@@ -32,8 +32,8 @@ export type CreateLeaveTypeRequest = z.infer<
 >;
 
 export const LeavePolicySchema = z.object({
-  id: z.string().uuid(),
-  leaveTypeId: z.string().uuid(),
+  id: z.guid(),
+  leaveTypeId: z.guid(),
   name: z.string(),
   annualAllowanceDays: z.number(),
   accrualMethod: z.enum(["upfront", "monthly", "daily"]),
@@ -44,8 +44,8 @@ export const LeavePolicySchema = z.object({
 export type LeavePolicy = z.infer<typeof LeavePolicySchema>;
 
 export const LeaveLedgerEntrySchema = z.object({
-  id: z.string().uuid(),
-  employeeId: z.string().uuid(),
+  id: z.guid(),
+  employeeId: z.guid(),
   entryType: z.string(),
   amount: z.number(),
   unit: z.string(),
@@ -77,10 +77,10 @@ export const LeaveRequestStatusSchema = z.enum([
 export type LeaveRequestStatus = z.infer<typeof LeaveRequestStatusSchema>;
 
 export const LeaveRequestSchema = z.object({
-  id: z.string().uuid(),
-  employeeId: z.string().uuid(),
+  id: z.guid(),
+  employeeId: z.guid(),
   employeeName: z.string().optional(),
-  leaveTypeId: z.string().uuid(),
+  leaveTypeId: z.guid(),
   leaveTypeName: z.string().optional(),
   leaveTypeCode: z.string().optional(),
   leaveTypeColor: z.string().optional(),
@@ -91,7 +91,7 @@ export const LeaveRequestSchema = z.object({
   workingDays: z.number(),
   status: LeaveRequestStatusSchema,
   notes: z.string().nullable().optional(),
-  approverId: z.string().uuid().nullable().optional(),
+  approverId: z.guid().nullable().optional(),
   approverName: z.string().nullable().optional(),
   decidedAt: z.string().datetime().nullable().optional(),
   decisionReason: z.string().nullable().optional(),
@@ -100,8 +100,8 @@ export const LeaveRequestSchema = z.object({
 export type LeaveRequest = z.infer<typeof LeaveRequestSchema>;
 
 export const CreateLeaveRequestSchema = z.object({
-  employeeId: z.string().uuid().optional(), // HR can specify on behalf (LEA-010)
-  leaveTypeId: z.string().uuid(),
+  employeeId: z.guid().optional(), // HR can specify on behalf (LEA-010)
+  leaveTypeId: z.guid(),
   startDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Format must be YYYY-MM-DD"),
@@ -119,7 +119,7 @@ export const DecideLeaveRequestSchema = z.object({
 export type DecideLeaveRequest = z.infer<typeof DecideLeaveRequestSchema>;
 
 export const AdjustBalanceRequestSchema = z.object({
-  employeeId: z.string().uuid(),
+  employeeId: z.guid(),
   amount: z.number(),
   note: z.string().min(3, "Mandatory reason for audit trail is required"),
   effectiveDate: z
@@ -130,7 +130,7 @@ export const AdjustBalanceRequestSchema = z.object({
 export type AdjustBalanceRequest = z.infer<typeof AdjustBalanceRequestSchema>;
 
 export const HolidaySchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   name: z.string(),
   scope: z.string(),
@@ -138,7 +138,7 @@ export const HolidaySchema = z.object({
 export type Holiday = z.infer<typeof HolidaySchema>;
 
 export const ListHolidaysQuerySchema = z.object({
-  locationId: z.string().uuid(),
+  locationId: z.guid(),
   year: z.coerce.number().int().min(2000).max(2100).optional(),
 });
 export type ListHolidaysQuery = z.infer<typeof ListHolidaysQuerySchema>;
@@ -152,12 +152,12 @@ export const TeamAbsencesQuerySchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
-  departmentId: z.string().uuid().optional(),
+  departmentId: z.guid().optional(),
 });
 export type TeamAbsencesQuery = z.infer<typeof TeamAbsencesQuerySchema>;
 
 export const CreateHolidayRequestSchema = z.object({
-  locationId: z.string().uuid(),
+  locationId: z.guid(),
   year: z.number().int().min(2000).max(2100).optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   name: z.string().min(1).max(100),
@@ -166,7 +166,7 @@ export const CreateHolidayRequestSchema = z.object({
 export type CreateHolidayRequest = z.infer<typeof CreateHolidayRequestSchema>;
 
 export const SeedStatutoryHolidaysRequestSchema = z.object({
-  locationId: z.string().uuid(),
+  locationId: z.guid(),
   year: z.number().int().min(2000).max(2100),
   region: z.string().optional(),
   city: z.string().optional(),
@@ -176,10 +176,10 @@ export type SeedStatutoryHolidaysRequest = z.infer<
 >;
 
 export const TeamAbsenceSchema = z.object({
-  requestId: z.string().uuid(),
-  employeeId: z.string().uuid(),
+  requestId: z.guid(),
+  employeeId: z.guid(),
   employeeName: z.string(),
-  departmentId: z.string().uuid().nullable().optional(),
+  departmentId: z.guid().nullable().optional(),
   departmentName: z.string().nullable().optional(),
   startDate: z.string(),
   endDate: z.string(),
@@ -193,8 +193,8 @@ export type TeamAbsence = z.infer<typeof TeamAbsenceSchema>;
 
 // LEA-007: Blackout Periods
 export const BlackoutPeriodSchema = z.object({
-  id: z.string().uuid(),
-  departmentId: z.string().uuid().nullable().optional(),
+  id: z.guid(),
+  departmentId: z.guid().nullable().optional(),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   reason: z.string(),
@@ -203,7 +203,7 @@ export const BlackoutPeriodSchema = z.object({
 export type BlackoutPeriod = z.infer<typeof BlackoutPeriodSchema>;
 
 export const CreateBlackoutPeriodSchema = z.object({
-  departmentId: z.string().uuid().optional(),
+  departmentId: z.guid().optional(),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Must be YYYY-MM-DD"),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Must be YYYY-MM-DD"),
   reason: z.string().min(3, "Reason is mandatory"),
@@ -212,9 +212,9 @@ export type CreateBlackoutPeriod = z.infer<typeof CreateBlackoutPeriodSchema>;
 
 // LEA-008: Approval Delegations
 export const ApprovalDelegationSchema = z.object({
-  id: z.string().uuid(),
-  managerEmployeeId: z.string().uuid(),
-  delegateEmployeeId: z.string().uuid(),
+  id: z.guid(),
+  managerEmployeeId: z.guid(),
+  delegateEmployeeId: z.guid(),
   managerName: z.string().optional(),
   delegateName: z.string().optional(),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -225,7 +225,7 @@ export const ApprovalDelegationSchema = z.object({
 export type ApprovalDelegation = z.infer<typeof ApprovalDelegationSchema>;
 
 export const CreateApprovalDelegationSchema = z.object({
-  delegateEmployeeId: z.string().uuid(),
+  delegateEmployeeId: z.guid(),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Must be YYYY-MM-DD"),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Must be YYYY-MM-DD"),
   reason: z.string().optional(),

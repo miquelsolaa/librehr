@@ -23,7 +23,7 @@ We adopt the following core dependencies:
 | `turbo`                | 2.11.x        | Monorepo build orchestrator       | Apache-2.0 | High performance caching and dependency graph pipeline                |
 | `typescript`           | 5.7.x         | Static typing                     | Apache-2.0 | Strict type safety, exact optional property checking                  |
 | `hono`                 | 4.7.x         | API Framework                     | MIT        | Ultra-fast, lightweight, web-standard compliant, zero-runtime bloat   |
-| `@hono/zod-openapi`    | 0.18.x        | OpenAPI contract generation       | MIT        | Type-safe schema validation and documentation generation              |
+| `@hono/zod-openapi`    | 1.x           | OpenAPI contract generation       | MIT        | Type-safe schema validation and documentation generation              |
 | `drizzle-orm`          | 0.39.x        | Database ORM                      | Apache-2.0 | SQL-first, zero-overhead TypeScript ORM with full RLS policy support  |
 | `postgres`             | 3.4.x         | PostgreSQL driver                 | MIT        | Fastest modern pure JS/TS driver, pipeline support                    |
 | `pg-boss`              | 10.1.x        | Background job queue              | MIT        | Reliable job queues directly backed by PostgreSQL                     |

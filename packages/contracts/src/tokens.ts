@@ -34,7 +34,7 @@ export function parsePatScopes(value: unknown): PersonalAccessTokenScope[] {
 }
 
 export const PersonalAccessTokenSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   name: z.string().min(1, "Token name is required"),
   prefix: z.string(),
   scopes: z.array(PersonalAccessTokenScopeSchema),

@@ -11,14 +11,14 @@ export const TimeEventTypeSchema = z.enum([
 export type TimeEventType = z.infer<typeof TimeEventTypeSchema>;
 
 export const TimeEventSchema = z.object({
-  id: z.string().uuid(),
-  employeeId: z.string().uuid(),
+  id: z.guid(),
+  employeeId: z.guid(),
   eventType: TimeEventTypeSchema,
   occurredAt: z.string().datetime(),
   recordedAt: z.string().datetime(),
   source: z.string(),
-  actorId: z.string().uuid(),
-  refEventId: z.string().uuid().nullable().optional(),
+  actorId: z.guid(),
+  refEventId: z.guid().nullable().optional(),
   reason: z.string().nullable().optional(),
   prevHash: z.string().nullable().optional(),
   hash: z.string(),
@@ -26,7 +26,7 @@ export const TimeEventSchema = z.object({
 export type TimeEvent = z.infer<typeof TimeEventSchema>;
 
 export const CreateScheduleAssignmentSchema = z.object({
-  employeeId: z.string().uuid(),
+  employeeId: z.guid(),
   name: z.string().trim().min(1).max(100),
   effectiveFrom: z.string().date(),
   minimumDailyRestHours: z.number().min(0).max(24),
@@ -137,14 +137,14 @@ export type PeriodTimesheetResponse = z.infer<
 >;
 
 export const TimesheetQuerySchema = z.object({
-  employeeId: z.string().uuid().optional(),
+  employeeId: z.guid().optional(),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
 export type TimesheetQuery = z.infer<typeof TimesheetQuerySchema>;
 
 export const CreateTimeCorrectionSchema = z.object({
-  refEventId: z.string().uuid().optional(),
+  refEventId: z.guid().optional(),
   proposedEventType: TimeEventTypeSchema,
   proposedOccurredAt: z.string().datetime(),
   reason: storableText(
@@ -160,19 +160,19 @@ export const DecideTimeCorrectionSchema = z.object({
 export type DecideTimeCorrection = z.infer<typeof DecideTimeCorrectionSchema>;
 
 export const TimeCorrectionItemSchema = z.object({
-  id: z.string().uuid(),
-  employeeId: z.string().uuid(),
+  id: z.guid(),
+  employeeId: z.guid(),
   employeeName: z.string().optional(),
-  refEventId: z.string().uuid().nullable().optional(),
+  refEventId: z.guid().nullable().optional(),
   proposedEventType: TimeEventTypeSchema,
   proposedOccurredAt: z.string().datetime(),
   reason: z.string(),
   status: z.enum(["pending", "approved", "rejected"]),
-  approverId: z.string().uuid().nullable().optional(),
+  approverId: z.guid().nullable().optional(),
   approverName: z.string().nullable().optional(),
   decidedAt: z.string().datetime().nullable().optional(),
   decisionReason: z.string().nullable().optional(),
-  createdEventId: z.string().uuid().nullable().optional(),
+  createdEventId: z.guid().nullable().optional(),
   createdAt: z.string().datetime(),
 });
 export type TimeCorrectionItem = z.infer<typeof TimeCorrectionItemSchema>;
@@ -225,7 +225,7 @@ export const OfficialExportQuerySchema = z
   .object({
     format: z.enum(["json", "csv", "pdf"]).default("json"),
     scope: z.enum(["employee", "organization"]).default("employee"),
-    employeeId: z.string().uuid().optional(),
+    employeeId: z.guid().optional(),
     startDate: z.string().date(),
     endDate: z.string().date(),
     locale: z.enum(["ca", "es", "en"]).default("es"),
@@ -261,7 +261,7 @@ export type ExportEmployeesQuery = z.input<typeof ExportEmployeesQuerySchema>;
 export const ExportEmployeesResponseSchema = z.object({
   items: z.array(
     z.object({
-      id: z.string().uuid(),
+      id: z.guid(),
       name: z.string(),
     }),
   ),
@@ -284,7 +284,7 @@ export type ChainStatus = z.infer<typeof ChainStatusSchema>;
  * CSV (in `columns` order); `contentHash` is the SHA-256 of the CSV body.
  */
 export const OfficialExportResponseSchema = z.object({
-  exportId: z.string().uuid(),
+  exportId: z.guid(),
   contentHash: z.string().regex(/^[0-9a-f]{64}$/),
   scope: z.enum(["employee", "organization"]),
   locale: z.enum(["ca", "es", "en"]),
@@ -307,7 +307,7 @@ export const OfficialExportResponseSchema = z.object({
   rowsEmployed: z.array(z.boolean().nullable()),
   employees: z.array(
     z.object({
-      employeeId: z.string().uuid(),
+      employeeId: z.guid(),
       name: z.string(),
       /** IANA zone of this employee's days and times (location, else organization). */
       timeZone: z.string(),
@@ -324,8 +324,8 @@ export type OfficialExportResponse = z.infer<
 >;
 
 export const TimeBankRecordSchema = z.object({
-  id: z.string().uuid(),
-  employeeId: z.string().uuid(),
+  id: z.guid(),
+  employeeId: z.guid(),
   type: z.enum([
     "overtime_accrual",
     "compensatory_rest_taken",
@@ -349,7 +349,7 @@ export const TimeBankSummarySchema = z.object({
 export type TimeBankSummary = z.infer<typeof TimeBankSummarySchema>;
 
 export const CreateTimeBankEntrySchema = z.object({
-  employeeId: z.string().uuid(),
+  employeeId: z.guid(),
   type: z.enum([
     "overtime_accrual",
     "compensatory_rest_taken",
