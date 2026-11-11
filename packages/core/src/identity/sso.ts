@@ -1,3 +1,5 @@
+import { trimTrailing } from "./trim-trailing.js";
+
 /**
  * Validates whether an email domain is in the organization's allowed SSO domains.
  */
@@ -30,12 +32,16 @@ export function buildOidcAuthorizationUrl(params: {
   state: string;
   scopes?: string[];
 }): string {
-  const cleanIssuer = params.issuerUrl.replace(/\/+$/, "");
-  const authEndpoint = cleanIssuer.includes("accounts.google.com")
-    ? "https://accounts.google.com/o/oauth2/v2/auth"
-    : cleanIssuer.includes("login.microsoftonline.com")
-      ? `${cleanIssuer}/oauth2/v2.0/authorize`
-      : `${cleanIssuer}/protocol/openid-connect/auth`;
+  const cleanIssuer = trimTrailing(params.issuerUrl, "/");
+  // Match the exact host: a substring test would accept look-alikes such as
+  // accounts.google.com.example.invalid.
+  const host = new URL(cleanIssuer).hostname;
+  const authEndpoint =
+    host === "accounts.google.com"
+      ? "https://accounts.google.com/o/oauth2/v2/auth"
+      : host === "login.microsoftonline.com"
+        ? `${cleanIssuer}/oauth2/v2.0/authorize`
+        : `${cleanIssuer}/protocol/openid-connect/auth`;
 
   const scopes = params.scopes ?? ["openid", "profile", "email"];
 

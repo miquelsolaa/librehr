@@ -105,4 +105,18 @@ describe("TOTP Two-Factor Authentication", () => {
     const invalidIdx = verifyRecoveryCode("0000-0000", hashedCodes);
     expect(invalidIdx).toBe(-1);
   });
+
+  // CodeQL js/polynomial-redos: a regex trim of trailing "=" is quadratic on
+  // long runs of "=" that do not end the string.
+  it("rejects a long run of padding in linear time", () => {
+    const hostile = `${"=".repeat(200_000)}A`;
+    const started = performance.now();
+    expect(() => base32Decode(hostile)).toThrow("Invalid Base32 character");
+    expect(performance.now() - started).toBeLessThan(500);
+  });
+
+  it("still strips trailing padding and whitespace", () => {
+    expect(base32Decode("MZXW6===")).toEqual(Buffer.from("foo"));
+    expect(base32Decode("mzxw 6")).toEqual(Buffer.from("foo"));
+  });
 });
