@@ -128,7 +128,7 @@ export default function AcceptInvitePage() {
         </span>
       </div>
 
-      <div className="rounded-card border border-border bg-surface p-6 shadow-sm">
+      <div className="rounded-card border border-border bg-surface p-6">
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
             <div

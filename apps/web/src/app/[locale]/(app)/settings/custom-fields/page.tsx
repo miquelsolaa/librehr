@@ -368,7 +368,7 @@ export default function CustomFieldsSettingsPage() {
                     {def.required && (
                       <Badge
                         variant="outline"
-                        className="text-xs text-amber-700 border-amber-700/30 dark:text-amber-400 dark:border-amber-400/30"
+                        className="text-xs text-warning border-warning/30"
                       >
                         {t("customFieldRequiredBadge")}
                       </Badge>

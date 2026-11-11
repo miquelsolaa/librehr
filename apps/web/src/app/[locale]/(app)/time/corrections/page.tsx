@@ -136,7 +136,7 @@ export default function TimeCorrectionsPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Form Card */}
-        <div className="rounded-xl border border-border bg-surface p-6 shadow-sm space-y-4">
+        <div className="rounded-card border border-border bg-surface p-6 space-y-4">
           <div className="flex items-center gap-2 border-b border-border pb-3">
             <Clock className="h-5 w-5 text-primary" />
             <h2 className="text-base font-semibold text-foreground">
@@ -147,7 +147,7 @@ export default function TimeCorrectionsPage() {
           {error && (
             <div
               role="alert"
-              className="rounded-md bg-red-50 p-3 text-xs text-red-700 dark:bg-red-950/50 dark:text-red-400"
+              className="rounded-md bg-danger/10 p-3 text-xs text-danger"
             >
               {error}
             </div>
@@ -225,7 +225,7 @@ export default function TimeCorrectionsPage() {
         </div>
 
         {/* History Table */}
-        <div className="rounded-xl border border-border bg-surface p-6 shadow-sm space-y-4 lg:col-span-2">
+        <div className="rounded-card border border-border bg-surface p-6 space-y-4 lg:col-span-2">
           <div className="flex items-center gap-2 border-b border-border pb-3">
             <CheckCircle2 className="h-5 w-5 text-primary" />
             <h2 className="text-base font-semibold text-foreground">

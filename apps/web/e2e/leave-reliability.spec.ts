@@ -160,9 +160,12 @@ test("a cancellation failure is visible and retains the request", async ({
       return route.fulfill({ status: 500 });
     },
   );
-  page.on("dialog", (dialog) => dialog.accept());
   await page.goto("/en/time-off");
   await page.getByRole("button", { name: "Cancel Request" }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Cancel Request" })
+    .click();
   await expect(page.locator("main").getByRole("alert")).toContainText(
     "could not be cancelled",
   );
@@ -204,4 +207,51 @@ test("leave submission explains a missing coverage policy and preserves dates", 
     "configure your department's coverage policy",
   );
   await expect(dates.nth(0)).toHaveValue("2030-11-04");
+});
+
+test("the balance history shows the balance after every entry", async ({
+  page,
+}) => {
+  const entry = {
+    employeeId: "00000000-0000-4000-8000-000000000002",
+    unit: "days",
+    createdAt: "2026-01-01T00:00:00.000Z",
+  };
+  await mockRoute(page, "**/v1/leave/balance", (route) =>
+    route.fulfill({
+      json: {
+        currentBalance: 20.5,
+        totalAccrued: 22,
+        totalUsed: 1.5,
+        totalCarryover: 0,
+        totalAdjustments: 0,
+        entries: [
+          {
+            ...entry,
+            id: "00000000-0000-4000-8000-000000000021",
+            entryType: "accrual",
+            amount: 22,
+            effectiveDate: "2026-01-01",
+            balanceAfter: 22,
+          },
+          {
+            ...entry,
+            id: "00000000-0000-4000-8000-000000000022",
+            entryType: "usage",
+            amount: -1.5,
+            effectiveDate: "2026-03-10",
+            balanceAfter: 20.5,
+          },
+        ],
+      },
+    }),
+  );
+  await page.goto("/en/time-off");
+  const rows = page
+    .getByRole("region", { name: "Balance history" })
+    .getByRole("listitem");
+  await expect(rows).toHaveCount(2);
+  await expect(rows.nth(0)).toContainText("Balance 22");
+  await expect(rows.nth(1)).toContainText("−1.5 days");
+  await expect(rows.nth(1)).toContainText("Balance 20.5");
 });

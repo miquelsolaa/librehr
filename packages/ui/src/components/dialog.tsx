@@ -16,7 +16,7 @@ export const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      "fixed inset-0 z-50 bg-scrim/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 motion-reduce:animate-none",
       className,
     )}
     {...props}
@@ -24,12 +24,44 @@ export const DialogOverlay = React.forwardRef<
 ));
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
+export interface DialogContentProps extends React.ComponentPropsWithoutRef<
+  typeof DialogPrimitive.Content
+> {
+  /**
+   * How much room the task needs (DESIGN.md §4, Overlays).
+   * - `dialog` (default): one decision or a short form. Floats in the
+   *   centre on desktop; docks to the bottom edge on a phone.
+   * - `panel`: a long form or reference content. Slides in from the right
+   *   on desktop so the page behind stays readable; fills the screen on a
+   *   phone.
+   */
+  size?: "dialog" | "panel";
+}
+
+const shell =
+  "fixed z-50 flex flex-col gap-4 overflow-y-auto overscroll-contain border-border bg-surface-raised p-5 shadow-lg duration-200 sm:p-6 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 motion-reduce:animate-none";
+
+const sizes = {
+  dialog:
+    // Centred with auto margins, not a transform, so the entry slide stays true.
+    "inset-x-0 bottom-0 max-h-[90dvh] rounded-t-dialog border-t data-[state=open]:slide-in-from-bottom-4 sm:inset-0 sm:m-auto sm:h-fit sm:max-h-[85dvh] sm:w-full sm:max-w-lg sm:rounded-dialog sm:border",
+  panel:
+    "inset-0 data-[state=open]:slide-in-from-right-8 sm:left-auto sm:w-full sm:max-w-xl sm:border-l",
+} as const;
+
 export const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
+  DialogContentProps
 >(
   (
-    { className, children, onOpenAutoFocus, onCloseAutoFocus, ...props },
+    {
+      className,
+      children,
+      size = "dialog",
+      onOpenAutoFocus,
+      onCloseAutoFocus,
+      ...props
+    },
     ref,
   ) => {
     const strings = useUiStrings();
@@ -59,15 +91,12 @@ export const DialogContent = React.forwardRef<
               target.focus();
             }
           }}
-          className={cn(
-            "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-surface-raised p-6 shadow-lg duration-200 rounded-dialog data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-            className,
-          )}
+          className={cn(shell, sizes[size], className)}
           {...props}
         >
           {children}
-          <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-focus-ring">
-            <X className="h-4 w-4" />
+          <DialogPrimitive.Close className="absolute right-2 top-2 inline-flex h-11 w-11 items-center justify-center rounded-input text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">
+            <X aria-hidden="true" className="h-4 w-4" />
             <span className="sr-only">{strings.close}</span>
           </DialogPrimitive.Close>
         </DialogPrimitive.Content>
@@ -83,7 +112,8 @@ export const DialogHeader = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col space-y-1.5 text-center sm:text-left",
+      // Clears the close button; always set to the left like the page.
+      "flex flex-col gap-1.5 pr-10 text-left",
       className,
     )}
     {...props}
@@ -97,7 +127,8 @@ export const DialogFooter = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2",
+      // Full-width and stacked under the thumb on a phone, main action first.
+      "mt-auto flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end",
       className,
     )}
     {...props}
@@ -112,7 +143,7 @@ export const DialogTitle = React.forwardRef<
   <DialogPrimitive.Title
     ref={ref}
     className={cn(
-      "text-lg font-semibold leading-none tracking-tight text-foreground",
+      "font-display text-xl font-semibold leading-tight tracking-tight text-foreground",
       className,
     )}
     {...props}
