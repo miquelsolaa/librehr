@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { trimTrailing } from "./trim-trailing.js";
 
 const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
@@ -32,7 +33,7 @@ export function base32Encode(buffer: Buffer): string {
  * Decodes an RFC 4648 Base32 string into a Buffer.
  */
 export function base32Decode(input: string): Buffer {
-  const cleanInput = input.toUpperCase().replace(/=+$/, "").replace(/\s+/g, "");
+  const cleanInput = trimTrailing(input.toUpperCase(), "=").replace(/\s+/g, "");
   let bits = 0;
   let value = 0;
   const bytes: number[] = [];

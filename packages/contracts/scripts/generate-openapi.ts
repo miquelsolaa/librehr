@@ -1849,7 +1849,10 @@ export class LibreHrApiClient {
   private getHeaders?: (() => Record<string, string> | Promise<Record<string, string>>) | undefined;
 
   constructor(options: ApiClientOptions) {
-    this.baseUrl = options.baseUrl.replace(/\\/+$/, '');
+    // A loop, not a trailing-slash regex: that is quadratic on long "/" runs.
+    let end = options.baseUrl.length;
+    while (end > 0 && options.baseUrl[end - 1] === '/') end -= 1;
+    this.baseUrl = options.baseUrl.slice(0, end);
     this.fetchFn = options.fetchFn ?? fetch;
     this.getHeaders = options.getHeaders;
   }

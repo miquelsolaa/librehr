@@ -1,3 +1,5 @@
+import { trimTrailing } from "./trim-trailing.js";
+
 /**
  * Validates whether an email domain is in the organization's allowed SSO domains.
  */
@@ -30,7 +32,7 @@ export function buildOidcAuthorizationUrl(params: {
   state: string;
   scopes?: string[];
 }): string {
-  const cleanIssuer = params.issuerUrl.replace(/\/+$/, "");
+  const cleanIssuer = trimTrailing(params.issuerUrl, "/");
   const authEndpoint = cleanIssuer.includes("accounts.google.com")
     ? "https://accounts.google.com/o/oauth2/v2/auth"
     : cleanIssuer.includes("login.microsoftonline.com")

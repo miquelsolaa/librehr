@@ -60,4 +60,22 @@ describe("SSO OIDC Helpers", () => {
     expect(claims?.["name"]).toBe("Alice Smith");
     expect(claims?.["sub"]).toBe("user-123");
   });
+
+  // CodeQL js/polynomial-redos: a regex trim of trailing "/" is quadratic on
+  // long runs of "/" that do not end the string.
+  it("trims trailing slashes from the issuer in linear time", () => {
+    const build = (issuerUrl: string) =>
+      buildOidcAuthorizationUrl({
+        issuerUrl,
+        clientId: "client",
+        redirectUri: "https://app.example.invalid/cb",
+        state: "s",
+      });
+    expect(
+      new URL(build("https://idp.example.invalid/realms/x///")).pathname,
+    ).toBe("/realms/x/protocol/openid-connect/auth");
+    const started = performance.now();
+    build(`https://idp.example.invalid/${"/".repeat(200_000)}x`);
+    expect(performance.now() - started).toBeLessThan(500);
+  });
 });
