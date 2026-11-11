@@ -21,15 +21,15 @@ export interface OrgChartNode {
 export const OrgChartNodeSchema: z.ZodType<OrgChartNode> = z
   .lazy(() =>
     z.object({
-      id: z.string().uuid(),
+      id: z.guid(),
       name: z.string(),
       preferredName: z.string().nullable(),
       email: z.string().email(),
       jobTitle: z.string().nullable(),
-      departmentId: z.string().uuid().nullable(),
+      departmentId: z.guid().nullable(),
       departmentName: z.string().nullable(),
       locationName: z.string().nullable(),
-      managerId: z.string().uuid().nullable(),
+      managerId: z.guid().nullable(),
       directReportsCount: z.number().int(),
       totalTeamCount: z.number().int(),
       directReports: z.array(OrgChartNodeSchema),

@@ -116,7 +116,7 @@ export function createSsoRoutes(sql: Sql, options: SsoRouteOptions) {
           title: "Validation Error",
           detail: "Invalid SSO configuration payload",
           code: "VALIDATION_ERROR",
-          errors: parsed.error.errors.map((e) => ({
+          errors: parsed.error.issues.map((e) => ({
             field: e.path.join("."),
             message: e.message,
           })),

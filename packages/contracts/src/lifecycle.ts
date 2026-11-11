@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const ChecklistTemplateTaskSchema = z.object({
-  id: z.string().uuid().optional(),
+  id: z.guid().optional(),
   title: z.string().min(1, "Title is required"),
   description: z.string().nullable().optional(),
   assignedRole: z.enum(["employee", "manager", "admin"]),
@@ -11,7 +11,7 @@ export const ChecklistTemplateTaskSchema = z.object({
 export type ChecklistTemplateTask = z.infer<typeof ChecklistTemplateTaskSchema>;
 
 export const ChecklistTemplateSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   name: z.string().min(1, "Name is required"),
   type: z.enum(["onboarding", "offboarding"]),
   description: z.string().nullable().optional(),
@@ -40,23 +40,23 @@ export type CreateChecklistTemplate = z.infer<
 >;
 
 export const ChecklistTaskSchema = z.object({
-  id: z.string().uuid(),
-  instanceId: z.string().uuid(),
+  id: z.guid(),
+  instanceId: z.guid(),
   title: z.string(),
   description: z.string().nullable().optional(),
   assignedRole: z.enum(["employee", "manager", "admin"]),
-  assigneeEmployeeId: z.string().uuid().nullable().optional(),
+  assigneeEmployeeId: z.guid().nullable().optional(),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   isCompleted: z.boolean(),
   completedAt: z.string().datetime().nullable().optional(),
-  completedById: z.string().uuid().nullable().optional(),
+  completedById: z.guid().nullable().optional(),
 });
 export type ChecklistTask = z.infer<typeof ChecklistTaskSchema>;
 
 export const ChecklistInstanceSchema = z.object({
-  id: z.string().uuid(),
-  templateId: z.string().uuid().nullable().optional(),
-  employeeId: z.string().uuid(),
+  id: z.guid(),
+  templateId: z.guid().nullable().optional(),
+  employeeId: z.guid(),
   employeeName: z.string().optional(),
   type: z.enum(["onboarding", "offboarding"]),
   title: z.string(),
@@ -72,8 +72,8 @@ export const ChecklistInstanceSchema = z.object({
 export type ChecklistInstance = z.infer<typeof ChecklistInstanceSchema>;
 
 export const InstantiateChecklistSchema = z.object({
-  templateId: z.string().uuid(),
-  employeeId: z.string().uuid(),
+  templateId: z.guid(),
+  employeeId: z.guid(),
   baseDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   customTitle: z.string().optional(),
 });
@@ -109,10 +109,10 @@ export type EmployeeImportValidationResponse = z.infer<
 
 export const DataSubjectExportResponseSchema = z.object({
   exportedAt: z.string().datetime(),
-  employee: z.record(z.unknown()),
-  leaveSummary: z.record(z.unknown()),
-  timeRecords: z.array(z.record(z.unknown())),
-  documents: z.array(z.record(z.unknown())),
+  employee: z.record(z.string(), z.unknown()),
+  leaveSummary: z.record(z.string(), z.unknown()),
+  timeRecords: z.array(z.record(z.string(), z.unknown())),
+  documents: z.array(z.record(z.string(), z.unknown())),
 });
 export type DataSubjectExportResponse = z.infer<
   typeof DataSubjectExportResponseSchema

@@ -20,7 +20,7 @@ import {
 import { isoDate, parsePayload } from "../lib/payload.js";
 
 export const AuditVerifyChainPayloadSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.guid(),
   runDate: z.string().regex(isoDate),
   /** Rows read per query; bounds memory and transaction length. */
   batchSize: z.number().int().min(1).max(5000).optional(),
@@ -63,7 +63,7 @@ export interface AuditVerifyChainReport {
 
 /** Newest link of one employee's chain as recorded in the audit log. */
 const RecordedHeadSchema = z.object({
-  employeeId: z.string().uuid(),
+  employeeId: z.guid(),
   seq: z.number().int().min(1),
   hash: z.string().min(1),
 });

@@ -66,7 +66,7 @@ export function createEmployeeRoutes(
       const problem = createProblemDetails({
         status: 400,
         title: "Bad Request",
-        detail: queryParse.error.errors.map((e) => e.message).join(", "),
+        detail: queryParse.error.issues.map((e) => e.message).join(", "),
         code: "VALIDATION_FAILED",
       });
       return c.json(problem, 400, {
@@ -127,7 +127,7 @@ export function createEmployeeRoutes(
       const problem = createProblemDetails({
         status: 400,
         title: "Validation Failed",
-        detail: parse.error.errors.map((e) => e.message).join(", "),
+        detail: parse.error.issues.map((e) => e.message).join(", "),
         code: "VALIDATION_FAILED",
       });
       return c.json(problem, 400, {
@@ -262,7 +262,7 @@ export function createEmployeeRoutes(
       const problem = createProblemDetails({
         status: 400,
         title: "Validation Failed",
-        detail: parse.error.errors.map((e) => e.message).join(", "),
+        detail: parse.error.issues.map((e) => e.message).join(", "),
         code: "VALIDATION_FAILED",
       });
       return c.json(problem, 400, {
@@ -352,7 +352,7 @@ export function createEmployeeRoutes(
       const problem = createProblemDetails({
         status: 400,
         title: "Validation Failed",
-        detail: parse.error.errors.map((e) => e.message).join(", "),
+        detail: parse.error.issues.map((e) => e.message).join(", "),
         code: "VALIDATION_FAILED",
       });
       return c.json(problem, 400, {
@@ -427,7 +427,7 @@ export function createEmployeeRoutes(
       const problem = createProblemDetails({
         status: 400,
         title: "Validation Failed",
-        detail: parse.error.errors.map((e) => e.message).join(", "),
+        detail: parse.error.issues.map((e) => e.message).join(", "),
         code: "VALIDATION_FAILED",
       });
       return c.json(problem, 400, {
@@ -545,7 +545,7 @@ export function createEmployeeRoutes(
       const problem = createProblemDetails({
         status: 400,
         title: "Validation Failed",
-        detail: parse.error.errors.map((e) => e.message).join(", "),
+        detail: parse.error.issues.map((e) => e.message).join(", "),
         code: "VALIDATION_FAILED",
       });
       return c.json(problem, 400, {
@@ -586,7 +586,7 @@ export function createEmployeeRoutes(
       const user = (c.get as (key: string) => unknown)("user") as AuthUser;
       const { id: employeeId, contactId } = parseParams(
         c,
-        z.object({ id: z.string().uuid(), contactId: z.string().uuid() }),
+        z.object({ id: z.guid(), contactId: z.guid() }),
         { detail: "Emergency contact not found" },
       );
 
@@ -624,7 +624,7 @@ export function createEmployeeRoutes(
       const problem = createProblemDetails({
         status: 400,
         title: "Validation Failed",
-        detail: parse.error.errors.map((e) => e.message).join(", "),
+        detail: parse.error.issues.map((e) => e.message).join(", "),
         code: "VALIDATION_FAILED",
       });
       return c.json(problem, 400, {
@@ -711,7 +711,7 @@ export function createEmployeeRoutes(
       const problem = createProblemDetails({
         status: 400,
         title: "Validation Failed",
-        detail: parse.error.errors.map((e) => e.message).join(", "),
+        detail: parse.error.issues.map((e) => e.message).join(", "),
         code: "VALIDATION_FAILED",
       });
       return c.json(problem, 400, {

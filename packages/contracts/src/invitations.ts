@@ -13,7 +13,7 @@ export const CreateInvitationRequestSchema = z
     role: z
       .enum(["admin", "manager", "employee", "auditor"])
       .default("employee"),
-    departmentId: z.string().uuid().nullable().optional(),
+    departmentId: z.guid().nullable().optional(),
     /** TIM-008: last day of access, in the organization's time zone. */
     accessUntil: AccessUntilSchema.optional(),
   })
@@ -38,7 +38,7 @@ export type CreateInvitationRequest = z.infer<
 >;
 
 export const InvitationResponseSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   email: z.string().email(),
   role: z.string(),
   expiresAt: z.string().datetime(),

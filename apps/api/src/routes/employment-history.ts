@@ -23,7 +23,7 @@ export function createEmploymentHistoryRoutes(sql: Sql) {
   const execute = (write: boolean) => async (c: import("hono").Context) => {
     const user = c.get("user") as AuthUser;
     const id = c.req.param("id") ?? "";
-    if (!z.string().uuid().safeParse(id).success) {
+    if (!z.guid().safeParse(id).success) {
       return c.json(
         createProblemDetails({
           status: 404,

@@ -32,7 +32,7 @@ export const errorHandler: ErrorHandler = (err, c) => {
 
   // 2. Zod Validation Error (HTTP 400)
   if (err instanceof ZodError) {
-    const errors = err.errors.map((e) => ({
+    const errors = err.issues.map((e) => ({
       field: e.path.join("."),
       message: e.message,
     }));

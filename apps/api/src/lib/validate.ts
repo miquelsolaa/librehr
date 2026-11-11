@@ -9,7 +9,7 @@ import {
 type ParseOptions = Omit<ValidationErrorOptions, "issues">;
 
 /** Path params for routes addressed by a single resource id. */
-export const IdParamSchema = z.object({ id: z.string().uuid() });
+export const IdParamSchema = z.object({ id: z.guid() });
 
 /**
  * Reads and validates a JSON request body. Malformed JSON and schema failures

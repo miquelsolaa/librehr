@@ -27,7 +27,7 @@ export const AbsenceMetricsSchema = z.object({
   totalAbsentDays: z.number(),
   totalPlannedWorkingDays: z.number(),
   absenceRatePercent: z.number(),
-  byCategory: z.record(z.number()),
+  byCategory: z.record(z.string(), z.number()),
 });
 export type AbsenceMetrics = z.infer<typeof AbsenceMetricsSchema>;
 

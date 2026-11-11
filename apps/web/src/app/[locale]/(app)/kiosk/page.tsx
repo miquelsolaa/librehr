@@ -152,7 +152,7 @@ export default function KioskModePage() {
         {successEvent ? (
           /* Success Screen with Auto-reset Countdown */
           <div className="flex flex-col items-center justify-center py-8 text-center animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-success/10 text-success">
               <CheckCircle2 className="h-10 w-10" />
             </div>
             <h2 className="mt-4 text-2xl font-semibold tracking-tight text-foreground">
@@ -175,7 +175,7 @@ export default function KioskModePage() {
             {error && (
               <div
                 role="alert"
-                className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300"
+                className="flex items-center gap-2 rounded-lg border border-danger/30 bg-danger/10 p-3 text-sm text-danger"
               >
                 <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>{error}</span>
@@ -197,7 +197,7 @@ export default function KioskModePage() {
                 onChange={(e) => setIdentifier(e.target.value)}
                 placeholder={t("kioskIdentifierPlaceholder")}
                 disabled={loading}
-                className="w-full rounded-xl border bg-background px-4 py-3 text-center text-lg font-medium shadow-inner outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                className="w-full rounded-xl border bg-background px-4 py-3 text-center text-lg font-medium shadow-inner outline-none transition focus:border-focus-ring focus:ring-2 focus:ring-focus-ring/30"
                 autoComplete="off"
               />
             </div>
@@ -267,7 +267,7 @@ export default function KioskModePage() {
                 type="button"
                 onClick={() => handleKioskClock("clock_in")}
                 disabled={loading || !identifier || pin.length < 4}
-                className="flex h-14 flex-col items-center justify-center rounded-xl bg-emerald-700 text-white font-semibold shadow-md transition hover:bg-emerald-800 active:scale-95 disabled:opacity-40"
+                className="flex h-14 flex-col items-center justify-center rounded-xl bg-success text-background font-semibold shadow-md transition hover:opacity-90 active:scale-95 disabled:opacity-40"
               >
                 <LogIn className="h-5 w-5 mb-0.5" aria-hidden="true" />
                 <span className="text-xs">{t("kioskActionIn")}</span>
@@ -276,7 +276,7 @@ export default function KioskModePage() {
                 type="button"
                 onClick={() => handleKioskClock("break_start")}
                 disabled={loading || !identifier || pin.length < 4}
-                className="flex h-14 flex-col items-center justify-center rounded-xl bg-amber-700 text-white font-semibold shadow-md transition hover:bg-amber-800 active:scale-95 disabled:opacity-40"
+                className="flex h-14 flex-col items-center justify-center rounded-xl bg-warning text-background font-semibold shadow-md transition hover:opacity-90 active:scale-95 disabled:opacity-40"
               >
                 <Coffee className="h-5 w-5 mb-0.5" aria-hidden="true" />
                 <span className="text-xs">{t("kioskActionBreak")}</span>
@@ -285,7 +285,7 @@ export default function KioskModePage() {
                 type="button"
                 onClick={() => handleKioskClock("clock_out")}
                 disabled={loading || !identifier || pin.length < 4}
-                className="flex h-14 flex-col items-center justify-center rounded-xl bg-rose-700 text-white font-semibold shadow-md transition hover:bg-rose-800 active:scale-95 disabled:opacity-40"
+                className="flex h-14 flex-col items-center justify-center rounded-xl bg-danger text-background font-semibold shadow-md transition hover:opacity-90 active:scale-95 disabled:opacity-40"
               >
                 <LogOut className="h-5 w-5 mb-0.5" aria-hidden="true" />
                 <span className="text-xs">{t("kioskActionOut")}</span>
