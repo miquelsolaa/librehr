@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
-  Calendar,
   Moon,
   Repeat,
   ArrowLeftRight,
@@ -27,6 +26,8 @@ import {
   DialogDescription,
   DialogFooter,
   PageHeader,
+  Skeleton,
+  StatStrip,
 } from "@librehr/ui";
 import { calendarDateInZone, daysInMonth, isoDate } from "@librehr/i18n";
 import { apiClient } from "@/lib/api-client";
@@ -271,7 +272,7 @@ export default function ShiftRosterPage() {
   const getShiftBadge = (assign?: ShiftAssignment) => {
     if (!assign || !assign.shiftCode || assign.shiftCode === "OFF") {
       return (
-        <span className="inline-block w-full py-1 text-center font-mono text-xs text-muted-foreground/50 rounded bg-surface">
+        <span className="inline-block w-full py-1 text-center tabular-nums text-xs text-muted-foreground/50 rounded bg-surface">
           -
         </span>
       );
@@ -280,7 +281,7 @@ export default function ShiftRosterPage() {
     if (assign.shiftCode === "M") {
       return (
         <span
-          className="inline-block w-full py-1 text-center font-mono font-bold text-xs rounded text-warning bg-warning/10"
+          className="inline-block w-full py-1 text-center tabular-nums font-bold text-xs rounded text-foreground bg-brand-accent/25"
           title={t("shiftMorning")}
         >
           M
@@ -291,7 +292,7 @@ export default function ShiftRosterPage() {
     if (assign.shiftCode === "T") {
       return (
         <span
-          className="inline-block w-full py-1 text-center font-mono font-bold text-xs rounded text-info bg-info/10"
+          className="inline-block w-full py-1 text-center tabular-nums font-bold text-xs rounded text-foreground bg-info/15"
           title={t("shiftAfternoon")}
         >
           T
@@ -302,7 +303,7 @@ export default function ShiftRosterPage() {
     if (assign.shiftCode === "N") {
       return (
         <span
-          className="inline-flex items-center justify-center gap-0.5 w-full py-1 text-center font-mono font-bold text-xs rounded text-info bg-info/10"
+          className="inline-flex items-center justify-center gap-0.5 w-full py-1 text-center tabular-nums font-bold text-xs rounded text-foreground bg-foreground/15"
           title={t("shiftNight")}
         >
           <Moon className="h-2.5 w-2.5" aria-hidden="true" />N
@@ -311,7 +312,7 @@ export default function ShiftRosterPage() {
     }
 
     return (
-      <span className="inline-block w-full py-1 text-center font-mono font-bold text-xs rounded text-primary-foreground bg-primary/80">
+      <span className="inline-block w-full py-1 text-center tabular-nums font-bold text-xs rounded text-primary-foreground bg-primary/80">
         {assign.shiftCode}
       </span>
     );
@@ -327,6 +328,9 @@ export default function ShiftRosterPage() {
       />
     );
   }
+
+  const figure = (value: React.ReactNode) =>
+    loading ? <Skeleton className="h-7 w-16" /> : value;
 
   return (
     <div className="space-y-6">
@@ -609,61 +613,31 @@ export default function ShiftRosterPage() {
         }
       />
 
-      {/* KPI Cards Row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-border bg-surface p-4 shadow-sm">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-medium">{t("shiftsTotal")}</span>
-            <Calendar className="h-4 w-4 text-primary" />
-          </div>
-          <div className="mt-2 text-2xl font-bold text-foreground">
-            {loading ? "..." : totalAssigned}
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-border bg-surface p-4 shadow-sm">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-medium">{t("shiftsNightHours")}</span>
-            <Moon className="h-4 w-4 text-info" />
-          </div>
-          <div className="mt-2 text-2xl font-bold text-info">
-            {loading ? "..." : `${totalNightHours}h`}
-          </div>
-          <span className="text-xs text-muted-foreground">
-            {t("nightShiftsCount", { count: nightShiftsCount })}
-          </span>
-        </div>
-
-        <div className="rounded-xl border border-border bg-surface p-4 shadow-sm">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-medium">{t("shiftsRotations")}</span>
-            <Repeat className="h-4 w-4 text-warning" />
-          </div>
-          <div className="mt-2 text-sm font-semibold text-foreground truncate">
-            {patterns[0]?.name ?? t("noActivePattern")}
-          </div>
-          {patterns[0] && (
-            <span className="text-xs text-muted-foreground">
-              {t("patternCycle", { days: patterns[0].cycleDays })}
-            </span>
-          )}
-        </div>
-
-        <div className="rounded-xl border border-border bg-surface p-4 shadow-sm">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-medium">
-              {t("shiftsPendingSwaps")}
-            </span>
-            <ArrowLeftRight className="h-4 w-4 text-info" />
-          </div>
-          <div className="mt-2 text-2xl font-bold text-foreground">
-            {loading ? "..." : pendingSwaps}
-          </div>
-          <span className="text-xs text-muted-foreground">
-            {t("restValidation")}
-          </span>
-        </div>
-      </div>
+      {/* The roster period in one strip. */}
+      <StatStrip
+        aria-busy={loading || undefined}
+        items={[
+          { label: t("shiftsTotal"), value: figure(totalAssigned) },
+          {
+            label: t("shiftsNightHours"),
+            value: figure(`${totalNightHours}h`),
+            hint: t("nightShiftsCount", { count: nightShiftsCount }),
+          },
+          {
+            label: t("shiftsPendingSwaps"),
+            value: figure(pendingSwaps),
+            hint: t("restValidation"),
+          },
+          {
+            label: t("shiftsRotations"),
+            value: patterns[0]?.name ?? t("noActivePattern"),
+            hint: patterns[0]
+              ? t("patternCycle", { days: patterns[0].cycleDays })
+              : undefined,
+            text: true,
+          },
+        ]}
+      />
 
       {/* Tabs */}
       <div className="flex border-b border-border gap-4 text-sm font-medium">
@@ -703,7 +677,7 @@ export default function ShiftRosterPage() {
       )}
       {activeTab === "grid" ? (
         /* Shift Roster Grid Matrix */
-        <div className="rounded-card border border-border bg-surface overflow-hidden shadow-sm">
+        <div className="rounded-card border border-border bg-surface overflow-hidden">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border-b border-border bg-surface gap-3">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1">
@@ -764,7 +738,7 @@ export default function ShiftRosterPage() {
             {/* Legend */}
             <div className="flex items-center gap-3 text-xs">
               <div className="flex items-center gap-1">
-                <span className="h-2.5 w-2.5 rounded-full bg-warning" />
+                <span className="h-2.5 w-2.5 rounded-full bg-brand-accent" />
                 <span>{t("legendMorning")}</span>
               </div>
               <div className="flex items-center gap-1">
@@ -772,7 +746,7 @@ export default function ShiftRosterPage() {
                 <span>{t("legendAfternoon")}</span>
               </div>
               <div className="flex items-center gap-1">
-                <span className="h-2.5 w-2.5 rounded-full bg-info" />
+                <span className="h-2.5 w-2.5 rounded-full bg-foreground/70" />
                 <span>{t("legendNight")}</span>
               </div>
               <div className="flex items-center gap-1">

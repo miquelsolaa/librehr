@@ -73,7 +73,7 @@ export function DataTable<T>({
                     key={col.id}
                     className={cn(
                       "px-4 py-3 text-foreground",
-                      col.isNumeric && "font-mono tabular-nums",
+                      col.isNumeric && "tabular-nums",
                       col.align === "right" || col.isNumeric
                         ? "text-right"
                         : col.align === "center"

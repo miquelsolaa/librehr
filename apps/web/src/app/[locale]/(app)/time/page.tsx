@@ -4,13 +4,10 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Button, PageHeader } from "@librehr/ui";
+import { Button, PageHeader, Skeleton, StatStrip } from "@librehr/ui";
 import {
-  Clock,
   FileText,
   CheckCircle2,
-  AlertTriangle,
-  Coffee,
   Tablet,
   Hourglass,
   Repeat,
@@ -18,6 +15,7 @@ import {
 import { getStoredSession } from "@/lib/auth";
 import { ClockWidget } from "@/components/clock-widget";
 import { getApiClient } from "@/lib/api-client";
+import { formatCalendarDate, localIsoDate } from "@/lib/format";
 import type {
   PeriodTimesheetResponse,
   TimeBankSummary,
@@ -51,12 +49,13 @@ export default function TimeTrackingPage() {
 
     try {
       const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-        .toISOString()
-        .slice(0, 10);
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-        .toISOString()
-        .slice(0, 10);
+      // Local days: toISOString() would shift the month by a day in UTC+ zones.
+      const startOfMonth = localIsoDate(
+        new Date(now.getFullYear(), now.getMonth(), 1),
+      );
+      const endOfMonth = localIsoDate(
+        new Date(now.getFullYear(), now.getMonth() + 1, 0),
+      );
 
       const client = getApiClient();
       const [tsRes, tbRes] = await Promise.all([
@@ -96,9 +95,12 @@ export default function TimeTrackingPage() {
     const abs = Math.abs(mins);
     const h = Math.floor(abs / 60);
     const m = abs % 60;
-    const sign = mins < 0 ? "-" : "";
+    const sign = mins < 0 ? "−" : "";
     return `${sign}${h}h ${m}m`;
   };
+
+  const figure = (value: string) =>
+    loading ? <Skeleton className="h-7 w-20" /> : value;
 
   return (
     <div className="space-y-8">
@@ -109,44 +111,44 @@ export default function TimeTrackingPage() {
           <>
             <Button
               asChild
-              variant="outline"
+              variant="ghost"
               className="min-h-11 max-w-full gap-2"
             >
               <Link href={`/${locale}/kiosk`} className="gap-2">
-                <Tablet className="h-4 w-4" />
+                <Tablet aria-hidden="true" className="h-4 w-4" />
                 {t("kioskTitle")}
               </Link>
             </Button>
 
             <Button
               asChild
-              variant="outline"
+              variant="ghost"
               className="min-h-11 max-w-full gap-2"
             >
               <Link href={`/${locale}/time/shifts`} className="gap-2">
-                <Repeat className="h-4 w-4" />
+                <Repeat aria-hidden="true" className="h-4 w-4" />
                 {t("shiftsNav")}
               </Link>
             </Button>
 
             <Button
               asChild
-              variant="outline"
+              variant="ghost"
               className="min-h-11 max-w-full gap-2"
             >
               <Link href={`/${locale}/time/corrections`} className="gap-2">
-                <CheckCircle2 className="h-4 w-4" />
+                <CheckCircle2 aria-hidden="true" className="h-4 w-4" />
                 {t("correctionsTitle")}
               </Link>
             </Button>
 
             <Button
               asChild
-              variant="default"
+              variant="outline"
               className="min-h-11 max-w-full gap-2"
             >
               <Link href={`/${locale}/time/export`} className="gap-2">
-                <FileText className="h-4 w-4" />
+                <FileText aria-hidden="true" className="h-4 w-4" />
                 {t("exportTitle")}
               </Link>
             </Button>
@@ -155,7 +157,12 @@ export default function TimeTrackingPage() {
       />
 
       <section className="rounded-card border border-border bg-surface p-5">
-        <ClockWidget onClockChange={() => void fetchTimesheet()} />
+        <ClockWidget
+          onClockChange={() => void fetchTimesheet()}
+          sessions={
+            timesheet?.days.find((d) => d.date === localIsoDate())?.sessions
+          }
+        />
       </section>
 
       {loadError && (
@@ -182,68 +189,35 @@ export default function TimeTrackingPage() {
       )}
       {!loadError && (
         <>
-          {/* Monthly Summary KPI Cards */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-xl border border-border bg-surface p-5 shadow-sm">
-              <div className="flex items-center justify-between text-muted-foreground">
-                <span className="text-sm font-medium">{t("periodWorked")}</span>
-                <Clock className="h-4 w-4 text-primary" />
-              </div>
-              <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-2xl font-semibold tracking-tight tabular-nums text-foreground">
-                  {loading
-                    ? "..."
-                    : formatMinutes(timesheet?.totalWorkedMinutes ?? 0)}
-                </span>
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-border bg-surface p-5 shadow-sm">
-              <div className="flex items-center justify-between text-muted-foreground">
-                <span className="text-sm font-medium">{t("periodBreaks")}</span>
-                <Coffee className="h-4 w-4 text-warning" />
-              </div>
-              <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-2xl font-semibold tracking-tight tabular-nums text-foreground">
-                  {loading
-                    ? "..."
-                    : formatMinutes(timesheet?.totalBreakMinutes ?? 0)}
-                </span>
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-border bg-surface p-5 shadow-sm">
-              <div className="flex items-center justify-between text-muted-foreground">
-                <span className="text-sm font-medium">{t("expected")}</span>
-                <Clock className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-2xl font-semibold tracking-tight tabular-nums text-foreground">
-                  {loading ? "..." : `${timesheet?.totalExpectedHours ?? 0}h`}
-                </span>
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-border bg-surface p-5 shadow-sm">
-              <div className="flex items-center justify-between text-muted-foreground">
-                <span className="text-sm font-medium">
-                  {t("periodOvertime")}
-                </span>
-                <AlertTriangle className="h-4 w-4 text-info" />
-              </div>
-              <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-2xl font-semibold tracking-tight tabular-nums text-foreground">
-                  {loading
-                    ? "..."
-                    : formatMinutes(timesheet?.totalOvertimeMinutes ?? 0)}
-                </span>
-              </div>
-            </div>
-          </div>
+          {/* The month in one strip: worked leads, against what was expected. */}
+          <StatStrip
+            aria-busy={loading || undefined}
+            items={[
+              {
+                label: t("periodWorked"),
+                value: figure(
+                  formatMinutes(timesheet?.totalWorkedMinutes ?? 0),
+                ),
+                hint: loading
+                  ? undefined
+                  : `${t("expected")}: ${timesheet?.totalExpectedHours ?? 0}h`,
+              },
+              {
+                label: t("periodBreaks"),
+                value: figure(formatMinutes(timesheet?.totalBreakMinutes ?? 0)),
+              },
+              {
+                label: t("periodOvertime"),
+                value: figure(
+                  formatMinutes(timesheet?.totalOvertimeMinutes ?? 0),
+                ),
+              },
+            ]}
+          />
 
           {/* Time Bank & Compensatory Rest (TIM-012) */}
           {timeBank && (
-            <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+            <div className="rounded-card border border-border bg-surface p-6">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-border pb-4 mb-4">
                 <div className="flex items-center gap-3">
                   <Hourglass className="h-5 w-5 text-info" />
@@ -260,7 +234,7 @@ export default function TimeTrackingPage() {
                   <span className="text-xs font-medium text-muted-foreground">
                     {t("timeBankBalance")}:
                   </span>
-                  <span className="rounded-full bg-info/10 px-3 py-1 font-mono text-sm font-bold text-info">
+                  <span className="rounded-full bg-info/10 px-3 py-1 tabular-nums text-sm font-bold text-info">
                     {timeBank.currentBalanceHoursFormatted}
                   </span>
                 </div>
@@ -271,7 +245,7 @@ export default function TimeTrackingPage() {
                   <span className="text-xs text-muted-foreground">
                     {t("timeBankAccrued")}
                   </span>
-                  <p className="mt-1 font-mono text-lg font-bold text-foreground">
+                  <p className="mt-1 tabular-nums text-lg font-bold text-foreground">
                     {formatMinutes(timeBank.totalAccruedMinutes)}
                   </p>
                 </div>
@@ -279,7 +253,7 @@ export default function TimeTrackingPage() {
                   <span className="text-xs text-muted-foreground">
                     {t("timeBankCompensated")}
                   </span>
-                  <p className="mt-1 font-mono text-lg font-bold text-foreground">
+                  <p className="mt-1 tabular-nums text-lg font-bold text-foreground">
                     {formatMinutes(timeBank.totalCompensatedMinutes)}
                   </p>
                 </div>
@@ -288,7 +262,7 @@ export default function TimeTrackingPage() {
           )}
 
           {/* Timesheet Days Table */}
-          <div className="rounded-xl border border-border bg-surface p-6 shadow-sm space-y-4">
+          <div className="rounded-card border border-border bg-surface p-6 space-y-4">
             <h2 className="text-base font-semibold text-foreground">
               {t("timesheetTitle")}
             </h2>
@@ -321,7 +295,7 @@ export default function TimeTrackingPage() {
                     {timesheet.days.map((d) => (
                       <tr key={d.date} className="hover:bg-surface">
                         <td className="py-3 font-medium text-foreground">
-                          {d.date}
+                          {formatCalendarDate(d.date, locale)}
                         </td>
                         <td className="py-3 text-muted-foreground">
                           {formatMinutes(d.totalWorkedMinutes)}

@@ -26,26 +26,28 @@ Define light and dark values. Never reference palette steps in feature code; use
 
 | Token                                             | Purpose                          | Light (calibrated) | Dark (calibrated)  | Contrast Ratio (AA/AAA) |
 | ------------------------------------------------- | -------------------------------- | ------------------ | ------------------ | ----------------------- |
-| `--background`                                    | App background                   | 0 0% 100%          | 222 18% 8%         | Base canvas             |
-| `--surface`                                       | Cards, panels                    | 220 20% 98%        | 222 16% 11%        | Subtle tier             |
-| `--surface-raised`                                | Popovers, dialogs                | 0 0% 100%          | 222 16% 14%        | Raised tier             |
-| `--foreground`                                    | Primary text                     | 222 25% 12%        | 210 20% 96%        | >= 14:1 (AAA)           |
-| `--muted-foreground`                              | Secondary text                   | 220 10% 38%        | 215 12% 70%        | >= 4.5:1 (AA)           |
-| `--border`                                        | Dividers                         | 220 14% 90%        | 222 12% 20%        | UI boundary             |
+| `--background`                                    | App background (pine-tinted)     | 156 18% 97%        | 170 16% 7%         | Base canvas             |
+| `--surface`                                       | Cards, panels                    | 150 20% 99%        | 170 13% 10%        | Subtle tier             |
+| `--surface-raised`                                | Popovers, dialogs                | 0 0% 100%          | 170 12% 13%        | Raised tier             |
+| `--foreground`                                    | Primary text                     | 170 28% 10%        | 150 14% 95%        | >= 14:1 (AAA)           |
+| `--muted-foreground`                              | Secondary text                   | 168 8% 36%         | 160 8% 68%         | >= 4.5:1 (AA)           |
+| `--border`                                        | Dividers                         | 160 12% 87%        | 170 10% 19%        | UI boundary             |
 | `--primary`                                       | Brand/primary action (Pine/Sage) | 168 54% 22%        | 168 55% 55%        | 8.1:1 AAA / 9.7:1 AAA   |
 | `--primary-foreground`                            | Text on primary                  | 0 0% 100%          | 168 45% 9%         | 8.1:1 AAA / 10.1:1 AAA  |
-| `--accent`                                        | Subtle tint/highlights           | 168 40% 94%        | 168 30% 16%        | Soft backdrop tint      |
+| `--accent`                                        | Subtle tint/highlights           | 168 36% 92%        | 168 30% 16%        | Soft backdrop tint      |
 | `--brand-accent`                                  | Warm Terracotta Ochre            | 32 68% 51%         | 32 75% 58%         | Warm highlight          |
 | `--success` / `--warning` / `--danger` / `--info` | Status                           | WCAG-checked pairs | WCAG-checked pairs | >= 4.5:1 (AA)           |
 | `--focus-ring`                                    | Focus outline (3:1 vs adjacent)  | 168 54% 30%        | 168 55% 55%        | >= 3:1 accessible ring  |
+
+Neutrals are tinted toward the pine anchor (hue ~160-170), never pure white or blue-grey. Feature code uses these semantic tokens only; raw Tailwind palette steps (`text-emerald-600`, `bg-indigo-50`) are rejected by `packages/config/test/tailwind-tokens.test.ts`. `--brand-accent` (ochre) is a highlight for one thing per view (for example the morning shift), never body text.
 
 Leave-type colors come from a fixed, color-blind-safe categorical palette (8 hues) and are always paired with an icon/label.
 
 ### 2.3 Typography
 
-- Self-hosted variable font (Inter or system UI stack fallback). **No Google Fonts or external CDNs.**
+- Two self-hosted variable fonts (OFL-1.1, via `@fontsource-variable/*`): **Inter** for text and UI (`font-sans`), **Bricolage Grotesque** for page titles and large figures only (`font-display`). **No Google Fonts or external CDNs.**
 - Scale (rem): 12, 14 (base for dense UI), 16 (base for forms/mobile), 18, 20, 24, 30, 36. Line-height 1.5 body, 1.25 headings.
-- Headings: every page title comes from `PageHeader` (24 px, semibold, no icons in the title). Section headings (`h2`) are 16 px semibold. Keep semantic order h1 → h2 → h3.
+- Headings: every page title comes from `PageHeader` (display face, 24 px on mobile and 30 px from `sm`, semibold, no icons in the title). Section headings (`h2`) are 16 px semibold. Keep semantic order h1 → h2 → h3.
 - No arbitrary font sizes (`text-[11px]`); use the scale above. Lint enforces this in `apps/web` and `packages/ui`.
 - Numerals: use tabular figures for tables, balances, and timesheets (`font-variant-numeric: tabular-nums`).
 - Never truncate meaningful text without a tooltip/expand affordance.
@@ -105,11 +107,11 @@ Leave request (desktop dialog):
 Build on shadcn primitives; every component supports light/dark, RTL-safe logical properties, keyboard, and has Storybook stories.
 
 - **Inputs:** Text, Textarea, Select, Combobox (async), DatePicker (locale-aware, keyboard typing supported), DateRangePicker (with half-day toggles), TimePicker, Switch, Checkbox, RadioGroup, FileDropzone, SecretField (masked + reveal).
-- **Feedback:** Toast (non-critical), Alert (inline, persistent), Banner (org-level), Skeleton, Spinner, ProgressBar, EmptyState, ErrorState.
-- **Data display:** DataTable (server pagination/sort/filter, column visibility, density toggle, sticky header, bulk selection, row actions), StatCard, Badge/StatusPill, Avatar/AvatarGroup, Timeline, Calendar (month/week/timeline-by-person), OrgChart, DescriptionList, BalanceExplainer.
-- **Navigation:** PageHeader (breadcrumb, title, description, actions), Sidebar (groups), Topbar (brand slot), DropdownMenu, BottomNav, Tabs, Breadcrumbs, CommandPalette (Ctrl/Cmd+K).
+- **Feedback:** Toast (non-critical), Alert (inline, persistent), Banner (org-level), Skeleton, Spinner, ProgressBar, EmptyState (left-aligned under the brand ring with no arc; never a dashed box with an icon in a circle), ErrorState.
+- **Data display:** DataTable (server pagination/sort/filter, column visibility, density toggle, sticky header, bulk selection, row actions), StatStrip (a period's figures as one strip led by the figure that matters most; use it instead of a row of identical stat cards), Badge/StatusPill (`away` and `inactive` are neutral states: on leave is not a warning and a past employee is not an error), Avatar/AvatarGroup, Timeline, Calendar (month/week/timeline-by-person), OrgChart, DescriptionList, BalanceExplainer.
+- **Navigation:** PageHeader (breadcrumb, title, description, actions; the actions drop under the title when both do not fit, and a page has at most one filled or outlined action, the rest are quiet links), Sidebar (groups), Topbar (brand slot), DropdownMenu, BottomNav, Tabs, Breadcrumbs, CommandPalette (Ctrl/Cmd+K).
 - **Overlays:** Dialog, Sheet (mobile-friendly), Popover, Tooltip, ConfirmDialog (typed confirmation for destructive/irreversible).
-- **Domain components:** ClockWidget, LeaveRequestForm, ApprovalCard, TimesheetGrid, CorrectionDialog, ChecklistRunner, DocumentList, AuditLogTable.
+- **Domain components:** DayRing (the brand mark as a 12-hour dial: an arc from when the current stretch began to now, over fainter arcs for the stretches already worked today; it shows what was recorded, never a target; decorative, the status sentence carries the state), ClockWidget, LeaveRequestForm, ApprovalCard, TimesheetGrid, CorrectionDialog, ChecklistRunner, DocumentList, AuditLogTable.
 
 ## 5. Patterns
 

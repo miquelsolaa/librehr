@@ -22,6 +22,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  ConfirmDialog,
 } from "@librehr/ui";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
@@ -250,8 +251,10 @@ export default function DocumentsPage() {
     }
   };
 
+  const [pendingTemplateDelete, setPendingTemplateDelete] =
+    React.useState<DocumentTemplate | null>(null);
+
   const handleDeleteTemplate = async (templateId: string) => {
-    if (!window.confirm(t("deleteTemplateConfirm"))) return;
     const session = getStoredSession();
     if (!session) {
       setErrorMsg(t("signInRequired"));
@@ -621,7 +624,7 @@ export default function DocumentsPage() {
       )}
 
       {activeTab === "upload" && (
-        <div className="max-w-xl rounded-lg border border-border bg-surface p-6 shadow-sm">
+        <div className="max-w-xl rounded-card border border-border bg-surface p-6">
           <h2 className="mb-4 text-base font-semibold text-foreground">
             {t("uploadTitle")}
           </h2>
@@ -706,7 +709,7 @@ export default function DocumentsPage() {
       )}
 
       {activeTab === "bulk" && (
-        <div className="max-w-3xl rounded-lg border border-border bg-surface p-6 shadow-sm space-y-6">
+        <div className="max-w-3xl rounded-card border border-border bg-surface p-6 space-y-6">
           <div>
             <h2 className="text-base font-semibold text-foreground">
               {t("bulkUploadTitle")}
@@ -909,7 +912,7 @@ export default function DocumentsPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => handleDeleteTemplate(tpl.id)}
+                      onClick={() => setPendingTemplateDelete(tpl)}
                       className="h-8 text-danger hover:bg-danger/10 border-danger/20 p-2"
                       title={t("deleteTemplate")}
                     >
@@ -1148,6 +1151,18 @@ export default function DocumentsPage() {
           </Dialog>
         </div>
       )}
+      <ConfirmDialog
+        open={pendingTemplateDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingTemplateDelete(null);
+        }}
+        title={t("deleteTemplateConfirm")}
+        description={pendingTemplateDelete?.name ?? ""}
+        onConfirm={() => {
+          if (pendingTemplateDelete)
+            void handleDeleteTemplate(pendingTemplateDelete.id);
+        }}
+      />
     </div>
   );
 }
