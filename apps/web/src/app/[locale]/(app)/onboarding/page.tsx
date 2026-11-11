@@ -213,8 +213,8 @@ export default function OnboardingPage() {
                       <span
                         className={`text-xs px-1.5 py-0.5 rounded font-medium ${
                           inst.status === "completed"
-                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
-                            : "bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300"
+                            ? "bg-success/10 text-success"
+                            : "bg-info/10 text-info"
                         }`}
                       >
                         {inst.status === "completed"
@@ -285,7 +285,7 @@ export default function OnboardingPage() {
                             className="mt-0.5 text-muted-foreground hover:text-primary transition-colors"
                           >
                             {task.isCompleted ? (
-                              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                              <CheckCircle2 className="h-5 w-5 text-success" />
                             ) : (
                               <Circle className="h-5 w-5" />
                             )}
@@ -342,7 +342,7 @@ export default function OnboardingPage() {
           </div>
 
           {importSuccess && (
-            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-4 text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+            <div className="rounded-lg border border-success/30 bg-success/10 p-4 text-success flex items-center gap-2">
               <CheckCircle2 className="h-5 w-5 shrink-0" />
               <span className="text-sm font-medium">{importSuccess}</span>
             </div>
@@ -395,21 +395,21 @@ export default function OnboardingPage() {
                     {importReport.totalRows}
                   </span>
                 </div>
-                <div className="text-emerald-600 font-medium">
+                <div className="text-success font-medium">
                   {t("importValidRows")}: {importReport.validRowsCount}
                 </div>
-                <div className="text-rose-600 font-medium">
+                <div className="text-danger font-medium">
                   {t("importErrorRows")}: {importReport.errors.length}
                 </div>
               </div>
 
               {importReport.errors.length > 0 && (
-                <div className="rounded-md border border-rose-200 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/30 p-4 space-y-2">
-                  <h4 className="text-xs font-semibold text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
+                <div className="rounded-md border border-danger/30 bg-danger/10 p-4 space-y-2">
+                  <h4 className="text-xs font-semibold text-danger flex items-center gap-1.5">
                     <AlertTriangle className="h-4 w-4" aria-hidden="true" />
                     {t("importErrorsTitle")}
                   </h4>
-                  <ul className="list-disc pl-5 text-xs text-rose-700 dark:text-rose-300 space-y-1">
+                  <ul className="list-disc pl-5 text-xs text-danger space-y-1">
                     {importReport.errors.map((err, idx) => (
                       <li key={idx}>
                         {t("importRow", { row: err.row })}{" "}

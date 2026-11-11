@@ -470,7 +470,7 @@ export default function DocumentsPage() {
       />
 
       {successMsg && (
-        <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-4 text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+        <div className="rounded-lg border border-success/30 bg-success/10 p-4 text-success flex items-center gap-2">
           <CheckCircle2 className="h-5 w-5 shrink-0" />
           <span className="text-sm font-medium">{successMsg}</span>
         </div>
@@ -479,7 +479,7 @@ export default function DocumentsPage() {
       {errorMsg && (
         <div
           role="alert"
-          className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-4 text-rose-800 dark:text-rose-300 flex items-center gap-2"
+          className="rounded-lg border border-danger/30 bg-danger/10 p-4 text-danger flex items-center gap-2"
         >
           <AlertCircle className="h-5 w-5 shrink-0" />
           <span className="text-sm font-medium">{errorMsg}</span>
@@ -566,7 +566,7 @@ export default function DocumentsPage() {
                               {doc.employeeName}
                             </span>
                           ) : (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-info/10 text-info">
                               {t("companyWide")}
                             </span>
                           )}
@@ -582,7 +582,7 @@ export default function DocumentsPage() {
                             {(doc.category === "company_policies" ||
                               !doc.employeeName) &&
                               (acknowledgedDocs.has(doc.id) ? (
-                                <span className="inline-flex items-center gap-1 text-xs text-emerald-600 bg-emerald-500/10 px-2 py-1 rounded font-medium">
+                                <span className="inline-flex items-center gap-1 text-xs text-success bg-success/10 px-2 py-1 rounded font-medium">
                                   <CheckCircle2 className="h-3.5 w-3.5" />
                                   <span>{t("acknowledged")}</span>
                                 </span>
@@ -600,7 +600,7 @@ export default function DocumentsPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 px-2 text-rose-600 hover:text-rose-700"
+                              className="h-8 px-2 text-danger hover:text-danger"
                               aria-label={t("deleteDocument", {
                                 title: doc.title,
                               })}
@@ -752,10 +752,10 @@ export default function DocumentsPage() {
                   {t("bulkTotalFiles")}:{" "}
                   <span className="font-semibold">{bulkReport.totalFiles}</span>
                 </div>
-                <div className="text-emerald-600 font-medium">
+                <div className="text-success font-medium">
                   {t("matched")}: {bulkReport.matchedCount}
                 </div>
-                <div className="text-rose-600 font-medium">
+                <div className="text-danger font-medium">
                   {t("unmatched")}: {bulkReport.unmatchedCount}
                 </div>
               </div>
@@ -782,8 +782,8 @@ export default function DocumentsPage() {
                           <span
                             className={`inline-flex px-1.5 py-0.5 rounded text-xs font-medium ${
                               m.status === "matched"
-                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
-                                : "bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300"
+                                ? "bg-success/10 text-success"
+                                : "bg-danger/10 text-danger"
                             }`}
                           >
                             {m.status === "matched"

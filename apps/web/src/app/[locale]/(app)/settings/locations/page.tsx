@@ -250,7 +250,7 @@ export default function LocationsSettingsPage() {
         return <Badge variant="info">{t("scopeNational")}</Badge>;
       case "regional":
         return (
-          <span className="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-700 dark:bg-purple-950/60 dark:text-purple-300">
+          <span className="inline-flex items-center rounded-full bg-info/10 px-2 py-0.5 text-xs font-semibold text-info">
             {t("scopeRegional")}
           </span>
         );
@@ -552,7 +552,7 @@ export default function LocationsSettingsPage() {
                 disabled={seeding}
                 onClick={handleSeedHolidays}
               >
-                <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                <Sparkles className="h-3.5 w-3.5 text-warning" />
                 <span>
                   {seeding ? tCommon("loading") : t("seedOfficialHolidays")}
                 </span>

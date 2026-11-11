@@ -201,7 +201,7 @@ export default function TimeTrackingPage() {
             <div className="rounded-xl border border-border bg-surface p-5 shadow-sm">
               <div className="flex items-center justify-between text-muted-foreground">
                 <span className="text-sm font-medium">{t("periodBreaks")}</span>
-                <Coffee className="h-4 w-4 text-amber-600" />
+                <Coffee className="h-4 w-4 text-warning" />
               </div>
               <div className="mt-3 flex items-baseline gap-2">
                 <span className="text-2xl font-semibold tracking-tight tabular-nums text-foreground">
@@ -229,7 +229,7 @@ export default function TimeTrackingPage() {
                 <span className="text-sm font-medium">
                   {t("periodOvertime")}
                 </span>
-                <AlertTriangle className="h-4 w-4 text-indigo-600" />
+                <AlertTriangle className="h-4 w-4 text-info" />
               </div>
               <div className="mt-3 flex items-baseline gap-2">
                 <span className="text-2xl font-semibold tracking-tight tabular-nums text-foreground">
@@ -246,7 +246,7 @@ export default function TimeTrackingPage() {
             <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-border pb-4 mb-4">
                 <div className="flex items-center gap-3">
-                  <Hourglass className="h-5 w-5 text-indigo-600" />
+                  <Hourglass className="h-5 w-5 text-info" />
                   <div>
                     <h2 className="text-base font-semibold text-foreground">
                       {t("timeBankTitle")}
@@ -260,7 +260,7 @@ export default function TimeTrackingPage() {
                   <span className="text-xs font-medium text-muted-foreground">
                     {t("timeBankBalance")}:
                   </span>
-                  <span className="rounded-full bg-indigo-50 px-3 py-1 font-mono text-sm font-bold text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300">
+                  <span className="rounded-full bg-info/10 px-3 py-1 font-mono text-sm font-bold text-info">
                     {timeBank.currentBalanceHoursFormatted}
                   </span>
                 </div>
@@ -333,7 +333,7 @@ export default function TimeTrackingPage() {
                           {d.expectedHours}h
                         </td>
                         <td
-                          className={`py-3 font-semibold ${d.overtimeMinutes < 0 ? "text-amber-600" : "text-emerald-600"}`}
+                          className={`py-3 font-semibold ${d.overtimeMinutes < 0 ? "text-warning" : "text-success"}`}
                         >
                           {formatMinutes(d.overtimeMinutes)}
                         </td>
