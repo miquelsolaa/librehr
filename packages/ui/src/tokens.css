@@ -1,29 +1,29 @@
 :root {
-  --background: 0 0% 100%;
-  --surface: 220 20% 98%;
+  --background: 156 18% 97%;
+  --surface: 150 20% 99%;
   --surface-raised: 0 0% 100%;
-  --foreground: 222 25% 12%;
-  --muted-foreground: 220 10% 38%;
-  --border: 220 14% 90%;
+  --foreground: 170 28% 10%;
+  --muted-foreground: 168 8% 36%;
+  --border: 160 12% 87%;
   --primary: 168 54% 22%;
   --primary-foreground: 0 0% 100%;
-  --accent: 168 40% 94%;
+  --accent: 168 36% 92%;
   --brand-accent: 32 68% 51%;
   --brand-accent-foreground: 0 0% 100%;
   --success: 142 76% 25%;
   --warning: 32 92% 35%;
   --danger: 0 75% 45%;
-  --info: 217 91% 60%;
+  --info: 217 85% 42%;
   --focus-ring: 168 54% 30%;
 }
 
 .dark {
-  --background: 222 18% 8%;
-  --surface: 222 16% 11%;
-  --surface-raised: 222 16% 14%;
-  --foreground: 210 20% 96%;
-  --muted-foreground: 215 12% 70%;
-  --border: 222 12% 20%;
+  --background: 170 16% 7%;
+  --surface: 170 13% 10%;
+  --surface-raised: 170 12% 13%;
+  --foreground: 150 14% 95%;
+  --muted-foreground: 160 8% 68%;
+  --border: 170 10% 19%;
   --primary: 168 55% 55%;
   --primary-foreground: 168 45% 9%;
   --accent: 168 30% 16%;

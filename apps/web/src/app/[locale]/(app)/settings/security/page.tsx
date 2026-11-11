@@ -231,7 +231,7 @@ export default function SecuritySettingsPage() {
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Personal 2FA Card */}
-        <div className="rounded-card border border-border bg-surface p-6 shadow-sm space-y-4">
+        <div className="rounded-card border border-border bg-surface p-6 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-input bg-primary/10">
@@ -286,7 +286,7 @@ export default function SecuritySettingsPage() {
 
         {/* Organization Security Policy Card */}
         {isAdmin && (
-          <div className="rounded-card border border-border bg-surface p-6 shadow-sm space-y-4">
+          <div className="rounded-card border border-border bg-surface p-6 space-y-4">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-input bg-primary/10">
                 <Shield className="h-5 w-5 text-primary" />

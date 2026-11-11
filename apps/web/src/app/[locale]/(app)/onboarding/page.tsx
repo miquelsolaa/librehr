@@ -252,7 +252,7 @@ export default function OnboardingPage() {
               {t("tasksTitle")}
             </h2>
             {selectedInstance ? (
-              <div className="rounded-lg border border-border bg-surface p-6 shadow-sm space-y-4">
+              <div className="rounded-card border border-border bg-surface p-6 space-y-4">
                 <div>
                   <h3 className="text-lg font-semibold text-foreground">
                     {selectedInstance.title}
@@ -331,7 +331,7 @@ export default function OnboardingPage() {
       )}
 
       {activeTab === "import" && (
-        <div className="max-w-3xl rounded-lg border border-border bg-surface p-6 shadow-sm space-y-6">
+        <div className="max-w-3xl rounded-card border border-border bg-surface p-6 space-y-6">
           <div>
             <h2 className="text-base font-semibold text-foreground">
               {t("importTitle")}

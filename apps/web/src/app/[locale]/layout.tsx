@@ -6,6 +6,7 @@ import { ThemeProvider } from "../../components/theme-provider";
 
 // Bundled and served from our own origin: no third-party font request.
 import "@fontsource-variable/inter";
+import "@fontsource-variable/bricolage-grotesque";
 import "../globals.css";
 
 const ogLocales: Record<string, string> = {

@@ -125,7 +125,7 @@ export default function RequestLeavePage() {
         description={t("requestFormSubtitle")}
       />
 
-      <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+      <div className="rounded-card border border-border bg-surface p-6">
         {error && (
           <div
             role="alert"
