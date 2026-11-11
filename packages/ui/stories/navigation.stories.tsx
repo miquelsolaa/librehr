@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from "@storybook/react";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 import React from "react";
 import { Sidebar } from "../src/components/sidebar.js";
 import { BottomNav } from "../src/components/bottom-nav.js";

@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from "@storybook/react";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 import { StatStrip } from "../src/components/stat-strip.js";
 
 const meta: Meta<typeof StatStrip> = {

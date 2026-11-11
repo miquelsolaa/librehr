@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from "@storybook/react";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 import { DayRing } from "../src/components/day-ring.js";
 
 const meta: Meta<typeof DayRing> = {
