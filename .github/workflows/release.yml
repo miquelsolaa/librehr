@@ -70,10 +70,11 @@ jobs:
       # cyclonedx-npm reads the tree through `npm ls`, which reports pnpm's
       # symlinked node_modules layout as errors; --ignore-npm-errors is the
       # tool's documented switch for trees npm itself considers invalid.
-      # Any other failure (crash, empty output) fails the job.
+      # Any other failure (crash, empty output) fails the job. It runs through
+      # npx, not `pnpm dlx`: the tool refuses to start when pnpm launched it.
       - name: Generate SBOM
         run: |
-          pnpm dlx @cyclonedx/cyclonedx-npm@6.0.1 --ignore-npm-errors --output-file bom.json
+          npx --yes @cyclonedx/cyclonedx-npm@6.0.1 --ignore-npm-errors --output-file bom.json
           test -s bom.json
 
       - name: Upload SBOM
