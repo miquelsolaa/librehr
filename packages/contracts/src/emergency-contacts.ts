@@ -1,9 +1,9 @@
 import { z } from "zod";
 
 export const EmergencyContactSchema = z.object({
-  id: z.string().uuid(),
-  organizationId: z.string().uuid(),
-  employeeId: z.string().uuid(),
+  id: z.guid(),
+  organizationId: z.guid(),
+  employeeId: z.guid(),
   fullName: z.string().min(1, "Full name is required"),
   relationship: z.string().min(1, "Relationship is required"),
   phonePrimary: z.string().min(1, "Primary phone is required"),

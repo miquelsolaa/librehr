@@ -87,7 +87,7 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
       const problem = createProblemDetails({
         status: 400,
         title: "Bad Request",
-        detail: parsed.error.errors.map((e) => e.message).join(", "),
+        detail: parsed.error.issues.map((e) => e.message).join(", "),
         code: "VALIDATION_ERROR",
         errors: parsed.error.issues.map((i) => ({
           field: i.path.join("."),
@@ -261,7 +261,7 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
       const problem = createProblemDetails({
         status: 400,
         title: "Bad Request",
-        detail: parsed.error.errors.map((e) => e.message).join(", "),
+        detail: parsed.error.issues.map((e) => e.message).join(", "),
         code: "VALIDATION_ERROR",
         errors: parsed.error.issues.map((i) => ({
           field: i.path.join("."),
@@ -606,7 +606,7 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
       const problem = createProblemDetails({
         status: 400,
         title: "Bad Request",
-        detail: parsed.error.errors.map((e) => e.message).join(", "),
+        detail: parsed.error.issues.map((e) => e.message).join(", "),
         code: "VALIDATION_ERROR",
         errors: parsed.error.issues.map((i) => ({
           field: i.path.join("."),
@@ -901,7 +901,7 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
       const problem = createProblemDetails({
         status: 400,
         title: "Bad Request",
-        detail: parsed.error.errors.map((e) => e.message).join(", "),
+        detail: parsed.error.issues.map((e) => e.message).join(", "),
         code: "VALIDATION_ERROR",
         errors: parsed.error.issues.map((i) => ({
           field: i.path.join("."),
@@ -1006,7 +1006,7 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
       const problem = createProblemDetails({
         status: 400,
         title: "Validation Error",
-        detail: parsed.error.errors.map((e) => e.message).join(", "),
+        detail: parsed.error.issues.map((e) => e.message).join(", "),
         code: "VALIDATION_ERROR",
       });
       return c.json(problem, 400, {
@@ -1119,7 +1119,7 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
       const problem = createProblemDetails({
         status: 400,
         title: "Validation Error",
-        detail: parsed.error.errors.map((e) => e.message).join(", "),
+        detail: parsed.error.issues.map((e) => e.message).join(", "),
         code: "VALIDATION_ERROR",
       });
       return c.json(problem, 400, {

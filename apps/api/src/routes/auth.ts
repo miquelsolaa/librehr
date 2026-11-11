@@ -263,7 +263,7 @@ export function createAuthRoutes(
         title: "Validation Error",
         detail: "Invalid sign-in request body",
         code: "VALIDATION_ERROR",
-        errors: parsed.error.errors.map((e) => ({
+        errors: parsed.error.issues.map((e) => ({
           field: e.path.join("."),
           message: e.message,
         })),

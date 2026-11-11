@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const NotificationItemSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   title: z.string(),
   body: z.string(),
   category: z.string(),

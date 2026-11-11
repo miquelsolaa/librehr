@@ -4,7 +4,7 @@ export const ShiftTypeEnum = z.enum(["morning", "afternoon", "night", "rest"]);
 export type ShiftType = z.infer<typeof ShiftTypeEnum>;
 
 export const ShiftTemplateSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   name: z.string().min(1),
   code: z.string().min(1).max(10),
   type: ShiftTypeEnum,
@@ -29,9 +29,9 @@ export type CreateShiftTemplateRequest = z.infer<
 >;
 
 export const ShiftPatternStepSchema = z.object({
-  id: z.string().uuid().optional(),
+  id: z.guid().optional(),
   stepOrder: z.number().int().nonnegative(),
-  shiftTemplateId: z.string().uuid().nullable().optional(),
+  shiftTemplateId: z.guid().nullable().optional(),
   isRest: z.boolean(),
   shiftCode: z.string().optional(),
   shiftName: z.string().optional(),
@@ -39,7 +39,7 @@ export const ShiftPatternStepSchema = z.object({
 export type ShiftPatternStep = z.infer<typeof ShiftPatternStepSchema>;
 
 export const ShiftPatternSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   name: z.string().min(1),
   cycleDays: z.number().int().positive(),
   description: z.string().nullable().optional(),
@@ -54,7 +54,7 @@ export const CreateShiftPatternRequestSchema = z.object({
   steps: z.array(
     z.object({
       stepOrder: z.number().int().nonnegative(),
-      shiftTemplateId: z.string().uuid().nullable().optional(),
+      shiftTemplateId: z.guid().nullable().optional(),
       isRest: z.boolean().default(false),
     }),
   ),
@@ -64,11 +64,11 @@ export type CreateShiftPatternRequest = z.infer<
 >;
 
 export const ShiftAssignmentSchema = z.object({
-  id: z.string().uuid(),
-  employeeId: z.string().uuid(),
+  id: z.guid(),
+  employeeId: z.guid(),
   employeeName: z.string().optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  shiftTemplateId: z.string().uuid().nullable().optional(),
+  shiftTemplateId: z.guid().nullable().optional(),
   shiftCode: z.string().optional(),
   shiftName: z.string().optional(),
   shiftType: z.string().optional(),
@@ -83,9 +83,9 @@ export type ShiftAssignment = z.infer<typeof ShiftAssignmentSchema>;
 export const AssignShiftsRequestSchema = z.object({
   assignments: z.array(
     z.object({
-      employeeId: z.string().uuid(),
+      employeeId: z.guid(),
       date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-      shiftTemplateId: z.string().uuid().nullable().optional(),
+      shiftTemplateId: z.guid().nullable().optional(),
       status: z.string().optional(),
       notes: z.string().optional(),
     }),
@@ -94,31 +94,31 @@ export const AssignShiftsRequestSchema = z.object({
 export type AssignShiftsRequest = z.infer<typeof AssignShiftsRequestSchema>;
 
 export const GenerateRosterRequestSchema = z.object({
-  patternId: z.string().uuid(),
+  patternId: z.guid(),
   anchorDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  employeeIds: z.array(z.string().uuid()),
+  employeeIds: z.array(z.guid()),
 });
 export type GenerateRosterRequest = z.infer<typeof GenerateRosterRequestSchema>;
 
 export const ShiftSwapSchema = z.object({
-  id: z.string().uuid(),
-  requesterId: z.string().uuid(),
+  id: z.guid(),
+  requesterId: z.guid(),
   requesterName: z.string().optional(),
-  targetEmployeeId: z.string().uuid(),
+  targetEmployeeId: z.guid(),
   targetEmployeeName: z.string().optional(),
   requesterDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   targetDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   status: z.enum(["pending", "approved", "rejected", "cancelled"]),
   reason: z.string().nullable().optional(),
-  approverId: z.string().uuid().nullable().optional(),
+  approverId: z.guid().nullable().optional(),
   decidedAt: z.string().nullable().optional(),
 });
 export type ShiftSwap = z.infer<typeof ShiftSwapSchema>;
 
 export const CreateShiftSwapRequestSchema = z.object({
-  targetEmployeeId: z.string().uuid(),
+  targetEmployeeId: z.guid(),
   requesterDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   targetDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   reason: z.string().max(500).optional(),

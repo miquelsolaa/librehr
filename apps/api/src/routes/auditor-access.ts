@@ -23,7 +23,7 @@ import { IdParamSchema, parseJsonBody, parseParams } from "../lib/validate.js";
 import { requireAuth } from "../middleware/auth.js";
 import { can } from "../policies/can.js";
 
-const UserIdParamSchema = z.object({ userId: z.string().uuid() });
+const UserIdParamSchema = z.object({ userId: z.guid() });
 
 function toAuditor(row: AuditorRow, timeZone: string): Auditor {
   const expiresAt = new Date(row.accessExpiresAt);

@@ -10,16 +10,16 @@ export const DocumentCategorySchema = z.enum([
 export type DocumentCategory = z.infer<typeof DocumentCategorySchema>;
 
 export const DocumentItemSchema = z.object({
-  id: z.string().uuid(),
-  employeeId: z.string().uuid().nullable(),
+  id: z.guid(),
+  employeeId: z.guid().nullable(),
   employeeName: z.string().nullable().optional(),
   title: z.string(),
   category: DocumentCategorySchema,
   description: z.string().nullable().optional(),
   audienceType: z.enum(["individual", "company", "department", "location"]),
-  targetDepartmentId: z.string().uuid().nullable().optional(),
-  targetLocationId: z.string().uuid().nullable().optional(),
-  createdById: z.string().uuid(),
+  targetDepartmentId: z.guid().nullable().optional(),
+  targetLocationId: z.guid().nullable().optional(),
+  createdById: z.guid(),
   latestVersionNumber: z.number().int(),
   latestFilename: z.string(),
   latestMimeType: z.string(),
@@ -30,15 +30,15 @@ export const DocumentItemSchema = z.object({
 export type DocumentItem = z.infer<typeof DocumentItemSchema>;
 
 export const CreateDocumentRequestSchema = z.object({
-  employeeId: z.string().uuid().optional(),
+  employeeId: z.guid().optional(),
   title: z.string().min(1, "Title is required"),
   category: DocumentCategorySchema,
   description: z.string().optional(),
   audienceType: z
     .enum(["individual", "company", "department", "location"])
     .default("individual"),
-  targetDepartmentId: z.string().uuid().optional(),
-  targetLocationId: z.string().uuid().optional(),
+  targetDepartmentId: z.guid().optional(),
+  targetLocationId: z.guid().optional(),
   filename: z.string().min(1),
   mimeType: z.string().min(1),
   fileDataBase64: z.string().min(1, "File content is required"),
@@ -47,7 +47,7 @@ export type CreateDocumentRequest = z.infer<typeof CreateDocumentRequestSchema>;
 
 export const BulkPayslipMatchItemSchema = z.object({
   filename: z.string(),
-  matchedEmployeeId: z.string().uuid().nullable(),
+  matchedEmployeeId: z.guid().nullable(),
   employeeName: z.string().optional(),
   periodYearMonth: z.string().optional(),
   status: z.enum(["matched", "unmatched", "ambiguous"]),
@@ -79,12 +79,12 @@ export type BulkPayslipUploadRequest = z.infer<
 
 // DOC-007: Document Templates
 export const DocumentTemplateSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   name: z.string(),
   category: z.string(),
   description: z.string().nullable().optional(),
   content: z.string(),
-  createdById: z.string().uuid(),
+  createdById: z.guid(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
@@ -101,10 +101,12 @@ export type CreateDocumentTemplate = z.infer<
 >;
 
 export const RenderDocumentTemplateRequestSchema = z.object({
-  employeeId: z.string().uuid(),
+  employeeId: z.guid(),
   saveAsDocument: z.boolean().default(false),
   title: z.string().optional(),
-  customFields: z.record(z.union([z.string(), z.number()])).optional(),
+  customFields: z
+    .record(z.string(), z.union([z.string(), z.number()]))
+    .optional(),
 });
 export type RenderDocumentTemplateRequest = z.infer<
   typeof RenderDocumentTemplateRequestSchema
@@ -112,7 +114,7 @@ export type RenderDocumentTemplateRequest = z.infer<
 
 export const RenderDocumentTemplateResponseSchema = z.object({
   renderedContent: z.string(),
-  documentId: z.string().uuid().optional(),
+  documentId: z.guid().optional(),
 });
 export type RenderDocumentTemplateResponse = z.infer<
   typeof RenderDocumentTemplateResponseSchema

@@ -2708,7 +2708,8 @@
                     "verified",
                     "tampered",
                     "legacy_only",
-                    "empty"
+                    "empty",
+                    null
                   ]
                 },
                 "totalWorkedMinutes": {
@@ -4215,8 +4216,7 @@
           "roots": {
             "type": "array",
             "items": {
-              "type": "object",
-              "description": "Org chart hierarchy node"
+              "$ref": "#/components/schemas/OrgChartNode"
             }
           },
           "totalEmployees": {
@@ -4303,19 +4303,22 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "format": "date-time"
           },
           "createdAt": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "format": "date-time"
           },
           "updatedAt": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "format": "date-time"
           }
         },
         "required": [
@@ -11121,7 +11124,8 @@
                               "verified",
                               "tampered",
                               "legacy_only",
-                              "empty"
+                              "empty",
+                              null
                             ]
                           },
                           "totalWorkedMinutes": {
@@ -13074,8 +13078,7 @@
                     "roots": {
                       "type": "array",
                       "items": {
-                        "type": "object",
-                        "description": "Org chart hierarchy node"
+                        "$ref": "#/components/schemas/OrgChartNode"
                       }
                     },
                     "totalEmployees": {
@@ -14007,19 +14010,22 @@
                         "type": [
                           "string",
                           "null"
-                        ]
+                        ],
+                        "format": "date-time"
                       },
                       "createdAt": {
                         "type": [
                           "string",
                           "null"
-                        ]
+                        ],
+                        "format": "date-time"
                       },
                       "updatedAt": {
                         "type": [
                           "string",
                           "null"
-                        ]
+                        ],
+                        "format": "date-time"
                       }
                     },
                     "required": [
@@ -14144,19 +14150,22 @@
                       "type": [
                         "string",
                         "null"
-                      ]
+                      ],
+                      "format": "date-time"
                     },
                     "createdAt": {
                       "type": [
                         "string",
                         "null"
-                      ]
+                      ],
+                      "format": "date-time"
                     },
                     "updatedAt": {
                       "type": [
                         "string",
                         "null"
-                      ]
+                      ],
+                      "format": "date-time"
                     }
                   },
                   "required": [
@@ -14279,19 +14288,22 @@
                       "type": [
                         "string",
                         "null"
-                      ]
+                      ],
+                      "format": "date-time"
                     },
                     "createdAt": {
                       "type": [
                         "string",
                         "null"
-                      ]
+                      ],
+                      "format": "date-time"
                     },
                     "updatedAt": {
                       "type": [
                         "string",
                         "null"
-                      ]
+                      ],
+                      "format": "date-time"
                     }
                   },
                   "required": [

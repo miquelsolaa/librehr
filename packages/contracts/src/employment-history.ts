@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const EmploymentPeriodSchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   jobTitle: z.string(),
   employmentType: z.string(),
   startDate: z.string().date(),
