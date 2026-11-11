@@ -414,7 +414,6 @@ export default function SecuritySettingsPage() {
       >
         {setupData && (
           <DialogContent
-            className="max-h-[90vh] overflow-y-auto"
             // Recovery codes are on screen: a stray click outside must not
             // dismiss them. Esc and the explicit buttons still close.
             onInteractOutside={(event) => event.preventDefault()}

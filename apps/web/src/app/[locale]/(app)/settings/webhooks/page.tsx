@@ -224,7 +224,7 @@ export default function WebhooksSettingsPage() {
                 {t("newWebhook")}
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent>
               <DialogHeader>
                 <DialogTitle>{t("newWebhook")}</DialogTitle>
                 <DialogDescription>{t("createDescription")}</DialogDescription>
