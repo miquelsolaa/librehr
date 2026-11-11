@@ -27,12 +27,12 @@ We adopt the following core dependencies:
 | `drizzle-orm`          | 0.39.x        | Database ORM                      | Apache-2.0 | SQL-first, zero-overhead TypeScript ORM with full RLS policy support  |
 | `postgres`             | 3.4.x         | PostgreSQL driver                 | MIT        | Fastest modern pure JS/TS driver, pipeline support                    |
 | `pg-boss`              | 10.1.x        | Background job queue              | MIT        | Reliable job queues directly backed by PostgreSQL                     |
-| `next`                 | 15.1.x        | Frontend framework                | MIT        | Server components, App Router, asset self-hosting                     |
+| `next`                 | 16.4.x        | Frontend framework                | MIT        | Server components, App Router, asset self-hosting                     |
 | `react`                | 19.0.x        | UI library                        | MIT        | Standard component model, actions, compiler integration               |
 | `tailwindcss`          | 3.4.x         | Utility-first CSS                 | MIT        | Token-based theming via CSS variables without runtime overhead        |
 | `radix-ui`             | 1.1.x / 2.1.x | Headless accessible UI primitives | MIT        | Unstyled, WCAG 2.2 AA compliant accessible foundations                |
 | `lucide-react`         | 0.475.x       | Iconography                       | ISC        | Clean, consistent, tree-shakeable icons                               |
-| `next-intl`            | 3.26.x        | Internationalization              | MIT        | App Router native ICU messaging, routing, locale detection            |
+| `next-intl`            | 4.14.x        | Internationalization              | MIT        | App Router native ICU messaging, routing, locale detection            |
 | `next-themes`          | 0.4.x         | Theme switching                   | MIT        | Zero-FOUC light, dark, and system preference support                  |
 | `@react-email/*`       | 3.0.x         | Transactional email templates     | MIT        | React-based email authoring with text fallback                        |
 | `nodemailer`           | 6.10.x        | SMTP email transport              | MIT-0      | Dependable SMTP transport for self-hosted mail gateways               |
