@@ -34,6 +34,14 @@ Moving a feature between columns is a maintainer decision (`AGENTS.md` section 8
 
 A Business licence key is a signed token set in `LIBREHR_LICENSE_KEY`. It is verified offline. LibreHR never contacts a licence server. If the key is missing, invalid or expired, the instance runs as Community and all data remains accessible. The current edition is shown by `GET /v1/edition` (`LIC-001`).
 
+The key is read once, when the API starts. A key that expires while the API is running keeps working until the next restart; restart the API after changing or renewing a key.
+
+What a Business feature stored is never hidden when its licence lapses (`LIC-003`). For single sign-on, administrators can still read the stored configuration (`GET /v1/sso/config`) and switch it off (`POST /v1/sso/config/disable`) in Community; creating or changing it needs the licence.
+
+## Builds and images
+
+A checkout with `ee/` deleted builds and runs as the Community edition; CI proves it on every pull request. The default API image (`infra/docker/api.Dockerfile`) is the AGPL Community image and does not contain `ee/`. Build the Business image with `--build-arg EDITION=business`.
+
 ## Partner programme (outline)
 
 - **Gestorías and labour advisers**: resell Cloud to their clients and get a client management view.

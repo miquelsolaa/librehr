@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { BusinessFeature } from "@librehr/contracts";
 import { LicenseRequiredError } from "../errors/index.js";
+import { createStoredSsoConfigRoutes } from "../routes/sso-stored-config.js";
 import type { ApiExtension, ExtensionContext } from "./types.js";
 
 /**
@@ -13,8 +14,9 @@ export const BUSINESS_ROUTE_PREFIXES: Record<BusinessFeature, string> = {
 };
 
 /**
- * Mounts licensed extensions and a LICENSE_REQUIRED guard on every other
- * Business prefix. Call after the core routes.
+ * Mounts each licensed extension under its own prefix, so an extension can
+ * never answer a route outside it, and a LICENSE_REQUIRED guard on every
+ * other Business prefix. Call after the core routes.
  */
 export function mountBusinessRoutes(
   app: Hono,
@@ -25,7 +27,7 @@ export function mountBusinessRoutes(
   for (const extension of extensions) {
     const router = new Hono();
     extension.register(router, context);
-    app.route("/v1", router);
+    app.route(`/v1${BUSINESS_ROUTE_PREFIXES[extension.feature]}`, router);
     mounted.add(extension.feature);
   }
 
@@ -34,6 +36,13 @@ export function mountBusinessRoutes(
     string,
   ][]) {
     if (mounted.has(feature)) continue;
+    // LIC-003: what a lapsed licence leaves behind stays readable.
+    if (feature === "sso") {
+      app.route(
+        "/v1",
+        createStoredSsoConfigRoutes(context.sql, context.requireAuth),
+      );
+    }
     const guard = () => {
       throw new LicenseRequiredError();
     };

@@ -25,7 +25,10 @@ export interface EeExtensionContext {
   createError: (init: ProblemInit) => Error;
 }
 
-/** Routes of one Business feature, mounted by the API under `/v1`. */
+/**
+ * Routes of one Business feature. The API mounts the router under the
+ * feature's own prefix (`/v1/sso` for `sso`), so paths here are relative.
+ */
 export interface EeApiExtension {
   feature: BusinessFeature;
   register: (router: Hono, context: EeExtensionContext) => void;

@@ -9,6 +9,7 @@ import {
 } from "@asteasolutions/zod-to-openapi";
 import { ProblemDetailsSchema } from "../src/errors.js";
 import { EditionResponseSchema } from "../src/edition.js";
+import { SsoConfigSchema } from "../src/auth.js";
 import {
   SignInRequestSchema,
   SessionResponseSchema,
@@ -280,6 +281,108 @@ registry.registerPath({
     },
     401: {
       description: "Invalid credentials",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/v1/sso/config",
+  summary:
+    "Read the organization's stored single sign-on configuration (admin, hr_admin). Available without a Business licence (LIC-003); the client secret is never returned",
+  responses: {
+    200: {
+      description: "The stored configuration, or null when there is none",
+      content: {
+        "application/json": { schema: SsoConfigSchema.nullable() },
+      },
+    },
+    401: {
+      description: "Unauthorized",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    403: {
+      description: "Forbidden",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    404: {
+      description:
+        "SSO_DISABLED: licensed, but single sign-on is switched off on this instance",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/sso/config/disable",
+  summary:
+    "Switch the stored single sign-on configuration off without a Business licence (admin, LIC-003)",
+  responses: {
+    200: {
+      description: "The configuration, now disabled and not enforced",
+      content: { "application/json": { schema: SsoConfigSchema } },
+    },
+    401: {
+      description: "Unauthorized",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    403: {
+      description: "Forbidden",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    404: {
+      description: "No configuration is stored",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/sso/config",
+  summary:
+    "Create or change the single sign-on configuration (admin). Business edition (AUTH-004)",
+  responses: {
+    200: {
+      description: "The saved configuration",
+      content: { "application/json": { schema: SsoConfigSchema } },
+    },
+    400: {
+      description: "Validation error",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    401: {
+      description: "Unauthorized",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    403: {
+      description:
+        "FORBIDDEN, or LICENSE_REQUIRED without a Business licence that grants sso (LIC-003)",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/sso/authorize",
+  summary:
+    "Start an OIDC sign-in for an email address. Business edition (AUTH-004)",
+  responses: {
+    200: { description: "The identity provider's authorization URL" },
+    400: {
+      description: "Validation error",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    403: {
+      description:
+        "LICENSE_REQUIRED without a Business licence that grants sso (LIC-003)",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    404: {
+      description: "No provider for this email domain, or SSO_DISABLED",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
   },
@@ -2602,6 +2705,13 @@ export class LibreHrApiClient {
     return this.request<SsoConfig>('/v1/sso/config', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  }
+
+  /** Switches a stored configuration off; works without a licence (LIC-003). */
+  async disableSsoConfig(): Promise<SsoConfig> {
+    return this.request<SsoConfig>('/v1/sso/config/disable', {
+      method: 'POST',
     });
   }
 

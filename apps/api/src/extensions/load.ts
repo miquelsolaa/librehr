@@ -59,10 +59,16 @@ export async function loadEdition(
     return { license: communityLicense(), extensions: [] };
   }
 
-  const bundle = mod.createEeExtensions({
-    licenseKey: options.licenseKey,
-    publicKeyPem: options.publicKeyPem,
-  });
+  let bundle: EditionBundle;
+  try {
+    bundle = mod.createEeExtensions({
+      licenseKey: options.licenseKey,
+      publicKeyPem: options.publicKeyPem,
+    });
+  } catch {
+    options.warn?.("Business edition module failed to start", "error");
+    return { license: communityLicense(), extensions: [] };
+  }
   const status = bundle.license.licenseStatus;
   if (status === "invalid" || status === "expired") {
     options.warn?.(

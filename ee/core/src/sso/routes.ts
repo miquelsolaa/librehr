@@ -41,8 +41,8 @@ function registerSsoRoutes(router: Hono, context: EeExtensionContext): void {
         detail: "Single sign-on is not available on this instance",
       });
     };
-    router.all("/sso", disabled);
-    router.all("/sso/*", disabled);
+    router.all("/", disabled);
+    router.all("/*", disabled);
     return;
   }
 
@@ -52,7 +52,7 @@ function registerSsoRoutes(router: Hono, context: EeExtensionContext): void {
   ).toString();
 
   // 1. GET /v1/sso/config - View organization SSO configuration (admin/hr)
-  router.get("/sso/config", requireAuth, async (c) => {
+  router.get("/config", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
 
     if (user.role !== "admin" && user.role !== "hr_admin") {
@@ -95,7 +95,7 @@ function registerSsoRoutes(router: Hono, context: EeExtensionContext): void {
   });
 
   // 2. POST /v1/sso/config - Configure or update SSO settings (admin only)
-  router.post("/sso/config", requireAuth, async (c) => {
+  router.post("/config", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
 
     if (user.role !== "admin") {
@@ -185,7 +185,7 @@ function registerSsoRoutes(router: Hono, context: EeExtensionContext): void {
   });
 
   // 3. POST /v1/sso/authorize - Initiate SSO flow
-  router.post("/sso/authorize", async (c) => {
+  router.post("/authorize", async (c) => {
     const body = await c.req.json().catch(() => ({}));
     const parsed = SsoAuthorizeRequestSchema.safeParse(body);
 

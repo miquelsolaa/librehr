@@ -218,6 +218,11 @@ const API_FIXTURES: Record<string, unknown> = {
   "/v1/tokens": [],
   "/v1/webhooks": [],
   "/v1/sso/config": null,
+  "/v1/edition": {
+    edition: "business",
+    licenseStatus: "valid",
+    features: ["sso"],
+  },
   [`/v1/invitations/${INVITE_TOKEN}`]: {
     email: "new.person@example.invalid",
     role: "employee",

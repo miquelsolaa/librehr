@@ -12,7 +12,7 @@ import {
   Check,
   ChevronLeft,
 } from "lucide-react";
-import { Button, Input, PageHeader } from "@librehr/ui";
+import { Button, ConfirmDialog, Input, PageHeader } from "@librehr/ui";
 import { getApiClient } from "@/lib/api-client";
 import type {
   ProblemDetails,
@@ -50,6 +50,8 @@ export default function SsoSettingsPage() {
   const [unavailable, setUnavailable] = React.useState(false);
   // LIC-003: SSO is a LibreHR Business feature.
   const [licenseRequired, setLicenseRequired] = React.useState(false);
+  const [confirmDisable, setConfirmDisable] = React.useState(false);
+  const [isDisabling, setIsDisabling] = React.useState(false);
 
   const callbackUrl =
     typeof window !== "undefined"
@@ -71,6 +73,12 @@ export default function SsoSettingsPage() {
         setEnabled(current.enabled);
         setEnforceSso(current.enforceSso);
       }
+      // Without a licence the stored configuration is still readable
+      // (LIC-003), so the edition says whether it can be changed.
+      // If the edition cannot be read, saving still answers LICENSE_REQUIRED.
+      const edition = await client.getEdition().catch(() => null);
+      if (edition && !edition.features?.includes("sso"))
+        setLicenseRequired(true);
     } catch (err) {
       const problem = err as Partial<ProblemDetails> | null;
       if (problem?.code === "LICENSE_REQUIRED") {
@@ -88,6 +96,20 @@ export default function SsoSettingsPage() {
   React.useEffect(() => {
     loadConfig();
   }, [loadConfig]);
+
+  const handleDisable = async () => {
+    setIsDisabling(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      setConfig(await getApiClient().disableSsoConfig());
+      setSuccessMessage(t("ssoDisabledSuccess"));
+    } catch {
+      setErrorMessage(t("ssoDisableError"));
+    } finally {
+      setIsDisabling(false);
+    }
+  };
 
   const handleProviderChange = (p: SsoProvider) => {
     setProvider(p);
@@ -201,237 +223,297 @@ export default function SsoSettingsPage() {
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-6">
-          <form
-            onSubmit={handleSave}
-            className="rounded-card border border-border bg-surface p-6 space-y-5"
-          >
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
-                {t("ssoProviderLabel")}
-              </label>
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { id: "google", label: "Google Workspace" },
-                  { id: "microsoft", label: "Microsoft Entra ID" },
-                  { id: "generic_oidc", label: t("ssoGenericOidc") },
-                ].map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => handleProviderChange(item.id as SsoProvider)}
-                    aria-pressed={provider === item.id}
-                    className={`rounded-card border p-3 text-center text-sm font-medium transition-all cursor-pointer ${
-                      provider === item.id
-                        ? "border-primary bg-primary/10 text-primary font-bold shadow-xs"
-                        : "border-border bg-background text-muted-foreground hover:bg-surface-raised"
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+      {licenseRequired && config && (
+        <section
+          aria-labelledby="sso-stored"
+          className="max-w-2xl space-y-4 rounded-card border border-border bg-surface p-6"
+        >
+          <div>
+            <h2
+              id="sso-stored"
+              className="text-base font-semibold text-foreground"
+            >
+              {t("ssoStoredTitle")}
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {t("ssoStoredDescription")}
+            </p>
+          </div>
+          <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-[10rem_minmax(0,1fr)]">
+            <dt className="text-muted-foreground">{t("ssoStoredStatus")}</dt>
+            <dd className="font-medium text-foreground">
+              {config.enabled
+                ? t("ssoStoredStatusOn")
+                : t("ssoStoredStatusOff")}
+            </dd>
+            <dt className="text-muted-foreground">{t("ssoClientIdLabel")}</dt>
+            <dd className="break-all text-foreground">{config.clientId}</dd>
+            <dt className="text-muted-foreground">{t("ssoIssuerUrlLabel")}</dt>
+            <dd className="break-all text-foreground">{config.issuerUrl}</dd>
+            <dt className="text-muted-foreground">
+              {t("ssoAllowedDomainsLabel")}
+            </dt>
+            <dd className="break-words text-foreground">
+              {config.allowedDomains.join(", ")}
+            </dd>
+          </dl>
+          {config.enabled && (
+            <Button
+              variant="outline"
+              onClick={() => setConfirmDisable(true)}
+              disabled={isDisabling}
+            >
+              {t("ssoDisable")}
+            </Button>
+          )}
+          <ConfirmDialog
+            open={confirmDisable}
+            onOpenChange={setConfirmDisable}
+            title={t("ssoDisableConfirmTitle")}
+            description={t("ssoDisableConfirmBody")}
+            confirmText={t("ssoDisable")}
+            cancelText={tCommon("cancel")}
+            isLoading={isDisabling}
+            onConfirm={handleDisable}
+          />
+        </section>
+      )}
 
-            <div>
-              <label
-                htmlFor="clientId"
-                className="block text-sm font-medium text-foreground"
-              >
-                {t("ssoClientIdLabel")}{" "}
-                <span className="text-xs text-muted-foreground">
-                  {tCommon("required")}
-                </span>
-              </label>
-              <Input
-                id="clientId"
-                name="clientId"
-                required
-                value={clientId}
-                onChange={(e) => setClientId(e.target.value)}
-                placeholder="client-id-xyz.apps.googleusercontent.com"
-                className="mt-1"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="clientSecret"
-                className="block text-sm font-medium text-foreground"
-              >
-                {t("ssoClientSecretLabel")}{" "}
-                <span className="text-xs text-muted-foreground">
-                  {config
-                    ? t("ssoClientSecretLeaveBlank")
-                    : tCommon("required")}
-                </span>
-              </label>
-              <Input
-                id="clientSecret"
-                name="clientSecret"
-                type="password"
-                required={!config}
-                value={clientSecret}
-                onChange={(e) => setClientSecret(e.target.value)}
-                placeholder={config ? "••••••••••••••••" : "GOCSPX-..."}
-                className="mt-1 font-mono"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="issuerUrl"
-                className="block text-sm font-medium text-foreground"
-              >
-                {t("ssoIssuerUrlLabel")}{" "}
-                <span className="text-xs text-muted-foreground">
-                  {tCommon("required")}
-                </span>
-              </label>
-              <Input
-                id="issuerUrl"
-                name="issuerUrl"
-                required
-                value={issuerUrl}
-                onChange={(e) => setIssuerUrl(e.target.value)}
-                placeholder="https://accounts.google.com"
-                className="mt-1 font-mono text-xs"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="allowedDomains"
-                className="block text-sm font-medium text-foreground"
-              >
-                {t("ssoAllowedDomainsLabel")}{" "}
-                <span className="text-xs text-muted-foreground">
-                  {tCommon("required")}
-                </span>
-              </label>
-              <Input
-                id="allowedDomains"
-                name="allowedDomains"
-                required
-                value={allowedDomains}
-                onChange={(e) => setAllowedDomains(e.target.value)}
-                placeholder="acme.corp, acme.es"
-                className="mt-1"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                {t("ssoAllowedDomainsHint")}
-              </p>
-            </div>
-
-            <div className="pt-2 border-t border-border space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div
-                    id="sso-enabled-label"
-                    className="text-sm font-medium text-foreground"
-                  >
-                    {t("ssoEnabledLabel")}
-                  </div>
-                  <div
-                    id="sso-enabled-hint"
-                    className="text-xs text-muted-foreground"
-                  >
-                    {t("ssoEnabledHint")}
-                  </div>
-                </div>
-                <input
-                  type="checkbox"
-                  aria-labelledby="sso-enabled-label"
-                  aria-describedby="sso-enabled-hint"
-                  checked={enabled}
-                  onChange={(e) => setEnabled(e.target.checked)}
-                  className="h-5 w-5 rounded border-border text-primary focus:ring-primary cursor-pointer"
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <div
-                    id="sso-enforce-label"
-                    className="text-sm font-medium text-foreground"
-                  >
-                    {t("ssoEnforceLabel")}
-                  </div>
-                  <div
-                    id="sso-enforce-hint"
-                    className="text-xs text-muted-foreground"
-                  >
-                    {t("ssoEnforceHint")}
-                  </div>
-                </div>
-                <input
-                  type="checkbox"
-                  aria-labelledby="sso-enforce-label"
-                  aria-describedby="sso-enforce-hint"
-                  checked={enforceSso}
-                  onChange={(e) => setEnforceSso(e.target.checked)}
-                  className="h-5 w-5 rounded border-border text-primary focus:ring-primary cursor-pointer"
-                />
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <Button type="submit" isLoading={isSaving || isLoading}>
-                {t("saveSsoButton")}
-              </Button>
-            </div>
-          </form>
-        </div>
-
-        {/* Callback URI Info Card */}
-        <div className="space-y-4">
-          <div className="rounded-card border border-border bg-surface p-6 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-input bg-primary/10">
-                <Globe className="h-5 w-5 text-primary" />
-              </div>
+      {!licenseRequired && (
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2 space-y-6">
+            <form
+              onSubmit={handleSave}
+              className="rounded-card border border-border bg-surface p-6 space-y-5"
+            >
               <div>
-                <h2 className="text-base font-semibold text-foreground">
-                  {t("ssoRedirectUriTitle")}
-                </h2>
-                <p className="text-xs text-muted-foreground">
-                  {t("ssoRedirectUriSubtitle")}
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  {t("ssoProviderLabel")}
+                </label>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { id: "google", label: "Google Workspace" },
+                    { id: "microsoft", label: "Microsoft Entra ID" },
+                    { id: "generic_oidc", label: t("ssoGenericOidc") },
+                  ].map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() =>
+                        handleProviderChange(item.id as SsoProvider)
+                      }
+                      aria-pressed={provider === item.id}
+                      className={`rounded-card border p-3 text-center text-sm font-medium transition-all cursor-pointer ${
+                        provider === item.id
+                          ? "border-primary bg-primary/10 text-primary font-bold shadow-xs"
+                          : "border-border bg-background text-muted-foreground hover:bg-surface-raised"
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="clientId"
+                  className="block text-sm font-medium text-foreground"
+                >
+                  {t("ssoClientIdLabel")}{" "}
+                  <span className="text-xs text-muted-foreground">
+                    {tCommon("required")}
+                  </span>
+                </label>
+                <Input
+                  id="clientId"
+                  name="clientId"
+                  required
+                  value={clientId}
+                  onChange={(e) => setClientId(e.target.value)}
+                  placeholder="client-id-xyz.apps.googleusercontent.com"
+                  className="mt-1"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="clientSecret"
+                  className="block text-sm font-medium text-foreground"
+                >
+                  {t("ssoClientSecretLabel")}{" "}
+                  <span className="text-xs text-muted-foreground">
+                    {config
+                      ? t("ssoClientSecretLeaveBlank")
+                      : tCommon("required")}
+                  </span>
+                </label>
+                <Input
+                  id="clientSecret"
+                  name="clientSecret"
+                  type="password"
+                  required={!config}
+                  value={clientSecret}
+                  onChange={(e) => setClientSecret(e.target.value)}
+                  placeholder={config ? "••••••••••••••••" : "GOCSPX-..."}
+                  className="mt-1 font-mono"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="issuerUrl"
+                  className="block text-sm font-medium text-foreground"
+                >
+                  {t("ssoIssuerUrlLabel")}{" "}
+                  <span className="text-xs text-muted-foreground">
+                    {tCommon("required")}
+                  </span>
+                </label>
+                <Input
+                  id="issuerUrl"
+                  name="issuerUrl"
+                  required
+                  value={issuerUrl}
+                  onChange={(e) => setIssuerUrl(e.target.value)}
+                  placeholder="https://accounts.google.com"
+                  className="mt-1 font-mono text-xs"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="allowedDomains"
+                  className="block text-sm font-medium text-foreground"
+                >
+                  {t("ssoAllowedDomainsLabel")}{" "}
+                  <span className="text-xs text-muted-foreground">
+                    {tCommon("required")}
+                  </span>
+                </label>
+                <Input
+                  id="allowedDomains"
+                  name="allowedDomains"
+                  required
+                  value={allowedDomains}
+                  onChange={(e) => setAllowedDomains(e.target.value)}
+                  placeholder="acme.corp, acme.es"
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {t("ssoAllowedDomainsHint")}
                 </p>
               </div>
-            </div>
 
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              {t("ssoRedirectUriNotice")}
-            </p>
+              <div className="pt-2 border-t border-border space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div
+                      id="sso-enabled-label"
+                      className="text-sm font-medium text-foreground"
+                    >
+                      {t("ssoEnabledLabel")}
+                    </div>
+                    <div
+                      id="sso-enabled-hint"
+                      className="text-xs text-muted-foreground"
+                    >
+                      {t("ssoEnabledHint")}
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    aria-labelledby="sso-enabled-label"
+                    aria-describedby="sso-enabled-hint"
+                    checked={enabled}
+                    onChange={(e) => setEnabled(e.target.checked)}
+                    className="h-5 w-5 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                  />
+                </div>
 
-            <div className="rounded-input border border-border bg-background p-3 flex items-center justify-between gap-2">
-              <code className="text-xs font-mono break-all text-foreground select-all">
-                {callbackUrl}
-              </code>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={copyCallbackUrl}
-                className="h-8 shrink-0 text-xs flex items-center gap-1"
-              >
-                {copiedCallback ? (
-                  <>
-                    <Check className="h-3.5 w-3.5 text-success" />
-                    {tCommon("copied")}
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-3.5 w-3.5" />
-                    {tCommon("copy")}
-                  </>
-                )}
-              </Button>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div
+                      id="sso-enforce-label"
+                      className="text-sm font-medium text-foreground"
+                    >
+                      {t("ssoEnforceLabel")}
+                    </div>
+                    <div
+                      id="sso-enforce-hint"
+                      className="text-xs text-muted-foreground"
+                    >
+                      {t("ssoEnforceHint")}
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    aria-labelledby="sso-enforce-label"
+                    aria-describedby="sso-enforce-hint"
+                    checked={enforceSso}
+                    onChange={(e) => setEnforceSso(e.target.checked)}
+                    className="h-5 w-5 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <Button type="submit" isLoading={isSaving || isLoading}>
+                  {t("saveSsoButton")}
+                </Button>
+              </div>
+            </form>
+          </div>
+
+          {/* Callback URI Info Card */}
+          <div className="space-y-4">
+            <div className="rounded-card border border-border bg-surface p-6 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-input bg-primary/10">
+                  <Globe className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold text-foreground">
+                    {t("ssoRedirectUriTitle")}
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    {t("ssoRedirectUriSubtitle")}
+                  </p>
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {t("ssoRedirectUriNotice")}
+              </p>
+
+              <div className="rounded-input border border-border bg-background p-3 flex items-center justify-between gap-2">
+                <code className="text-xs font-mono break-all text-foreground select-all">
+                  {callbackUrl}
+                </code>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={copyCallbackUrl}
+                  className="h-8 shrink-0 text-xs flex items-center gap-1"
+                >
+                  {copiedCallback ? (
+                    <>
+                      <Check className="h-3.5 w-3.5 text-success" />
+                      {tCommon("copied")}
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3.5 w-3.5" />
+                      {tCommon("copy")}
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -899,6 +899,13 @@ export class LibreHrApiClient {
     });
   }
 
+  /** Switches a stored configuration off; works without a licence (LIC-003). */
+  async disableSsoConfig(): Promise<SsoConfig> {
+    return this.request<SsoConfig>('/v1/sso/config/disable', {
+      method: 'POST',
+    });
+  }
+
   async authorizeSso(data: SsoAuthorizeRequest): Promise<SsoAuthorizeResponse> {
     return this.request<SsoAuthorizeResponse>('/v1/sso/authorize', {
       method: 'POST',

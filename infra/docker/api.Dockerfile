@@ -1,15 +1,27 @@
 # Multi-stage Dockerfile for @librehr/api
+#
+# EDITION=community (default) builds the AGPL image: ee/ is not copied in, and
+# the API runs as the Community edition. EDITION=business adds ee/ (LibreHR
+# Enterprise License); it only unlocks features with a valid licence key.
+#   docker build -f infra/docker/api.Dockerfile --build-arg EDITION=business .
+ARG EDITION=community
 FROM node:22-alpine AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable && corepack prepare pnpm@12.18.0 --activate
 
-FROM base AS builder
+FROM base AS source-community
 WORKDIR /app
 COPY pnpm-lock.yaml package.json pnpm-workspace.yaml turbo.json ./
 COPY packages ./packages
-COPY ee ./ee
 COPY apps/api ./apps/api
+# Present in both editions so the runner can copy it; empty in Community.
+RUN mkdir -p ee
+
+FROM source-community AS source-business
+COPY ee ./ee
+
+FROM source-${EDITION} AS builder
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @librehr/api build
 

@@ -20,7 +20,7 @@ export interface ExtensionContext {
   createError: (init: AppErrorInit) => Error;
 }
 
-/** Routes of one Business feature, mounted under `/v1`. */
+/** Routes of one Business feature, mounted under its own `/v1` prefix. */
 export interface ApiExtension {
   feature: BusinessFeature;
   register: (router: Hono, context: ExtensionContext) => void;

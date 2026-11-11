@@ -6,10 +6,14 @@ import {
   type AuthUser,
   type ProblemDetails,
 } from "@librehr/contracts";
-import { signLicenseKey, type LicensePayload } from "@librehr/ee";
 import { createApp } from "../src/app.js";
 import { loadEdition } from "../src/extensions/load.js";
 import type { AuthPort } from "../src/ports/auth.js";
+import {
+  hasBusinessEdition,
+  signTestLicense,
+  type TestLicensePayload,
+} from "./support/business-edition.js";
 
 const ORG = "f1000000-0000-0000-0000-000000000001";
 const users: Record<string, AuthUser> = {
@@ -52,8 +56,8 @@ const privatePem = privateKey
   .export({ type: "pkcs8", format: "pem" })
   .toString();
 
-function key(overrides: Partial<LicensePayload> = {}): string {
-  return signLicenseKey(
+function key(overrides: Partial<TestLicensePayload> = {}): string {
+  return signTestLicense(
     {
       v: 1,
       licensee: "Example Cooperative SCCL",
@@ -106,36 +110,42 @@ describe("GET /v1/edition (LIC-001)", () => {
     });
   });
 
-  it("reports Business with a valid key and shows the licensee to admins only", async () => {
-    const app = await appFor(key());
+  it.skipIf(!hasBusinessEdition)(
+    "reports Business with a valid key and shows the licensee to admins only",
+    async () => {
+      const app = await appFor(key());
 
-    const adminRes = await getEdition(app, "admin");
-    const adminBody = EditionResponseSchema.parse(await adminRes.json());
-    expect(adminBody).toMatchObject({
-      edition: "business",
-      licenseStatus: "valid",
-      features: ["sso"],
-      licensee: "Example Cooperative SCCL",
-      expiresAt: "2099-01-01T00:00:00.000Z",
-    });
+      const adminRes = await getEdition(app, "admin");
+      const adminBody = EditionResponseSchema.parse(await adminRes.json());
+      expect(adminBody).toMatchObject({
+        edition: "business",
+        licenseStatus: "valid",
+        features: ["sso"],
+        licensee: "Example Cooperative SCCL",
+        expiresAt: "2099-01-01T00:00:00.000Z",
+      });
 
-    const employeeBody = EditionResponseSchema.parse(
-      await (await getEdition(app, "employee")).json(),
-    );
-    expect(employeeBody.edition).toBe("business");
-    expect(employeeBody.licensee).toBeUndefined();
-    expect(employeeBody.expiresAt).toBeUndefined();
-  });
+      const employeeBody = EditionResponseSchema.parse(
+        await (await getEdition(app, "employee")).json(),
+      );
+      expect(employeeBody.edition).toBe("business");
+      expect(employeeBody.licensee).toBeUndefined();
+      expect(employeeBody.expiresAt).toBeUndefined();
+    },
+  );
 
-  it("falls back to Community for an expired key", async () => {
-    const app = await appFor(key({ expiresAt: "2020-01-01T00:00:00.000Z" }));
-    const body = EditionResponseSchema.parse(
-      await (await getEdition(app, "admin")).json(),
-    );
-    expect(body.edition).toBe("community");
-    expect(body.licenseStatus).toBe("expired");
-    expect(body.features).toEqual([]);
-  });
+  it.skipIf(!hasBusinessEdition)(
+    "falls back to Community for an expired key",
+    async () => {
+      const app = await appFor(key({ expiresAt: "2020-01-01T00:00:00.000Z" }));
+      const body = EditionResponseSchema.parse(
+        await (await getEdition(app, "admin")).json(),
+      );
+      expect(body.edition).toBe("community");
+      expect(body.licenseStatus).toBe("expired");
+      expect(body.features).toEqual([]);
+    },
+  );
 });
 
 describe("loadEdition (LIC-002)", () => {
@@ -147,16 +157,19 @@ describe("loadEdition (LIC-002)", () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
-  it("warns without echoing the key when it is invalid", async () => {
-    const warn = vi.fn();
-    const bad = `${key()}x`;
-    const bundle = await loadEdition({
-      licenseKey: bad,
-      publicKeyPem: publicPem,
-      warn,
-    });
-    expect(bundle.license.edition).toBe("community");
-    expect(warn).toHaveBeenCalledOnce();
-    expect(JSON.stringify(warn.mock.calls)).not.toContain(bad);
-  });
+  it.skipIf(!hasBusinessEdition)(
+    "warns without echoing the key when it is invalid",
+    async () => {
+      const warn = vi.fn();
+      const bad = `${key()}x`;
+      const bundle = await loadEdition({
+        licenseKey: bad,
+        publicKeyPem: publicPem,
+        warn,
+      });
+      expect(bundle.license.edition).toBe("community");
+      expect(warn).toHaveBeenCalledOnce();
+      expect(JSON.stringify(warn.mock.calls)).not.toContain(bad);
+    },
+  );
 });
