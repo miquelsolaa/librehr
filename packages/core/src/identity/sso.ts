@@ -33,11 +33,15 @@ export function buildOidcAuthorizationUrl(params: {
   scopes?: string[];
 }): string {
   const cleanIssuer = trimTrailing(params.issuerUrl, "/");
-  const authEndpoint = cleanIssuer.includes("accounts.google.com")
-    ? "https://accounts.google.com/o/oauth2/v2/auth"
-    : cleanIssuer.includes("login.microsoftonline.com")
-      ? `${cleanIssuer}/oauth2/v2.0/authorize`
-      : `${cleanIssuer}/protocol/openid-connect/auth`;
+  // Match the exact host: a substring test would accept look-alikes such as
+  // accounts.google.com.example.invalid.
+  const host = new URL(cleanIssuer).hostname;
+  const authEndpoint =
+    host === "accounts.google.com"
+      ? "https://accounts.google.com/o/oauth2/v2/auth"
+      : host === "login.microsoftonline.com"
+        ? `${cleanIssuer}/oauth2/v2.0/authorize`
+        : `${cleanIssuer}/protocol/openid-connect/auth`;
 
   const scopes = params.scopes ?? ["openid", "profile", "email"];
 
