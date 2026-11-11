@@ -33,7 +33,7 @@ services:
 
   minio:
     # Chainguard only publishes `latest` publicly, so pin the digest instead.
-    image: cgr.dev/chainguard/minio@sha256:a1ac4589a5f8136b616e667b48a0bea9719bb10bd45799ea946f24bbedfafde4
+    image: cgr.dev/chainguard/minio@sha256:db3f583fa49121942168bd6383a773b2cde3384c9a99bf7193560b9a0f3a28fd
     restart: unless-stopped
     command: server /data --console-address ":9001"
     ports:
