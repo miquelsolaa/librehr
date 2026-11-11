@@ -29,10 +29,14 @@ packages/config Shared tsconfig, eslint, prettier, tailwind preset.
 packages/testing  Factories, fixtures, Testcontainers helpers.
 infra/          Dockerfiles, compose files, example env, reverse-proxy samples.
 docs/           ADRs, how-tos, user docs.
+ee/             Business edition (LibreHR Enterprise License, NOT AGPL). See ee/README.md and docs/adr/0004-open-core-licensing.md.
 ```
 
-Dependency direction (enforced by lint): `web -> contracts, ui, i18n` · `api -> core, db, contracts` · `worker -> core, db, emails` · `core -> (nothing internal)`.
+Dependency direction (enforced by lint): `web -> contracts, ui, i18n` · `api -> core, db, contracts` · `worker -> core, db, emails` · `core -> (nothing internal)` · `ee -> core, db, contracts`.
 `core` must never import `db`, `api`, `web`, or any I/O library.
+Nothing outside `ee/` imports `ee/`, except `apps/api/src/extensions/load.ts` and API tests. A build with `ee/` deleted must still work as the Community edition.
+
+**Licensing**: everything outside `ee/` is AGPL-3.0-or-later; `ee/` is source-available under `ee/LICENSE`. Contributions need the CLA (`CLA.md`) plus DCO sign-off. Legal-compliance features always belong in Community (`docs/editions.md`).
 
 ## 3. Commands
 
@@ -111,6 +115,7 @@ Use `pnpm` (via corepack). Never use npm or yarn.
 - Anything touching auth, session handling, RLS policies, encryption, or audit logging.
 - Adding any outbound network call, telemetry, analytics, or third-party service.
 - Changing a legal/compliance default (retention periods, working-time rules).
+- Moving a feature between Community and Business (`ee/`), adding a new Business feature, or changing `LICENSE`, `ee/LICENSE`, `CLA.md` or `TRADEMARKS.md`.
 
 **Never**
 
@@ -120,6 +125,8 @@ Use `pnpm` (via corepack). Never use npm or yarn.
 - Store plaintext secrets or sensitive personal data in logs, analytics, error messages, or test fixtures.
 - Introduce Google Fonts/CDNs or any third-party asset loaded at runtime (privacy: no IP leakage). Self-host assets.
 - Mark work as done without running `pnpm verify`.
+- Import `ee/` from Community code, put a legal-compliance feature behind a licence, or add licence checks that phone home or lock users out of their data.
+- Commit a licence signing private key.
 
 ## 9. Definition of done
 

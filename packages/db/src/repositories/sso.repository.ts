@@ -99,6 +99,20 @@ export class SsoRepository {
     return isEnvelope(stored) ? decryptEnvelope(stored) : stored;
   }
 
+  /**
+   * Switches the stored configuration off and lifts SSO enforcement, keeping
+   * everything else. Returns null when the organization has none.
+   */
+  async disableConfig(tx: TenantTx): Promise<SsoConfigRow | null> {
+    const rows = await tx<SsoConfigRow[]>`
+      UPDATE sso_configurations
+      SET enabled = false, enforce_sso = false, updated_at = now()
+      RETURNING ${tx.unsafe(COLUMNS)}
+    `;
+    const row = rows[0];
+    return row ? toRow(row) : null;
+  }
+
   async saveConfig(
     tx: TenantTx,
     data: SaveSsoConfigInput,

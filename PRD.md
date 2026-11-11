@@ -67,7 +67,7 @@ Priority: **P0** must for the release, **P1** should, **P2** nice. Each requirem
 - **AUTH-001 (P0)** Email + password sign-in with strong hashing, email verification, password reset. _Accept:_ reset links expire in 1 h and are single use; rate limiting on all auth endpoints.
 - **AUTH-002 (P0)** Session management: list active sessions, revoke, "sign out everywhere".
 - **AUTH-003 (P1)** TOTP two-factor authentication, recovery codes; organization-level "require 2FA".
-- **AUTH-004 (P1)** OIDC SSO (Google, Microsoft, generic OIDC) configurable per organization.
+- **AUTH-004 (P1, Business edition)** OIDC SSO (Google, Microsoft, generic OIDC) configurable per organization. Ships in `ee/` and needs a licence (`LIC-003`); see `docs/editions.md`.
 - **AUTH-005 (P0)** Invitations: admins invite employees by email; invite creates/links an employee record. _Accept:_ invite tokens expire in 7 days; re-sendable.
 - **AUTH-006 (P2)** Passkeys (WebAuthn).
 - Source: security best practice (OWASP ASVS L2).
@@ -167,6 +167,15 @@ Priority: **P0** must for the release, **P1** should, **P2** nice. Each requirem
 - **I18N-001 (P0)** UI and emails in `ca`, `es`, `en`; per-user locale; dates, numbers, and first day of week follow locale; no hard-coded strings.
 - **A11Y-001 (P0)** WCAG 2.2 AA: keyboard operable, visible focus, screen-reader labels, sufficient contrast, reduced motion respected.
 
+### 7.12 LIC - Editions and licensing
+
+Open-core model decided in `docs/adr/0004-open-core-licensing.md`: Community (AGPL) and Business (`ee/`, LibreHR Enterprise License). Legal-compliance features are always Community.
+
+- **LIC-001 (P1)** The instance reports its edition (`community` or `business`) and its licensed features through `GET /v1/edition` (authenticated). _Accept:_ with no licence key the instance runs as Community and every Community feature works; licensee name and expiry are visible to admins only.
+- **LIC-002 (P1)** Licence keys are verified offline: an Ed25519-signed token checked against a public key embedded in `ee/`. _Accept:_ no network call is ever made for licensing; a missing, malformed, tampered or expired key falls back to Community and logs a warning without PII; a Community build with `ee/` removed compiles and runs.
+- **LIC-003 (P1)** Business features without a valid licence respond `403` `application/problem+json` with `code: LICENSE_REQUIRED`, and the UI shows a translated "Requires LibreHR Business" notice. _Accept:_ data stored by a Business feature is never deleted or hidden when the licence lapses.
+- Source: business model decision (ADR 0004).
+
 ## 8. Non-functional requirements
 
 - **Performance:** p95 API latency < 300 ms for common reads at 500 employees; directory renders < 1 s on mid-range phones over 4G; supports 5,000 employees per organization with pagination.
@@ -175,7 +184,7 @@ Priority: **P0** must for the release, **P1** should, **P2** nice. Each requirem
 - **Privacy:** no telemetry by default; no third-party runtime assets; PII-free logs; data export and deletion per RGPD.
 - **Observability:** structured logs, health/readiness endpoints, optional OpenTelemetry export, Prometheus metrics endpoint.
 - **Compatibility:** latest two versions of evergreen browsers; iOS Safari 16+; Android Chrome latest.
-- **Licensing:** AGPL-3.0-or-later; all dependencies compatible; `NOTICE` and SBOM maintained.
+- **Licensing:** open core. AGPL-3.0-or-later outside `ee/`, LibreHR Enterprise License inside `ee/`; contributions under `CLA.md` + DCO; all dependencies AGPL-compatible; `NOTICE` and SBOM maintained.
 - **Docs:** user guide (ca/es/en), admin/self-hosting guide, API reference (OpenAPI), contributor guide.
 
 ## 9. Data model (overview)
@@ -205,11 +214,13 @@ See `ARCHITECTURE.md` section 6. Key aggregates: Organization, LegalEntity, Loca
 | Accidental copying of third-party material               | Legal           | `CLEANROOM.md`, PR attestation, review                                                                    |
 | Scope creep into payroll                                 | Delay           | Non-goal N1; export only                                                                                  |
 | Maintainer burnout                                       | Project failure | Small scope, good docs, CI, clear contribution paths                                                      |
+| Open-core backlash or hostile fork                       | Community loss  | Compliance always free, AGPL core, transparent `docs/editions.md`, trademark policy, CLA keeps options    |
+| No revenue to sustain development                        | Project failure | LibreHR Cloud first, Business licences, partner programme (ADR 0004)                                      |
 
 ## 13. Open questions
 
 1. Final project name and domain (trademark and domain check).
-2. Hosted offering later? (affects AGPL positioning and CLA vs DCO; current decision: DCO).
+2. ~~Hosted offering later?~~ Resolved 2026-11-10 by ADR 0004: open core (AGPL Community + `ee/` Business), LibreHR Cloud as the main offer, CLA + DCO for contributions.
 3. Which autonomous communities' holiday data to seed first? (Proposed: Catalunya, Madrid, Valencia, Andalucia, Pais Vasco.)
 4. Do we support multiple employments per person (pluriempleo) in v1.0 or later? (Proposed: later; data model allows it.)
 5. Minimum browser/device support for kiosk mode.

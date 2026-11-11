@@ -3,7 +3,7 @@ import {
   isAllowedEmailDomain,
   buildOidcAuthorizationUrl,
   decodeJwtClaims,
-} from "../src/identity/sso.js";
+} from "../src/sso/oidc.js";
 
 describe("SSO OIDC Helpers", () => {
   it("matches allowed email domains correctly", () => {

@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 import type { Sql } from "postgres";
 import { createApp } from "../src/app.js";
+import {
+  businessEdition,
+  hasBusinessEdition,
+} from "./support/business-edition.js";
 import type { AuthPort, AuthSession } from "../src/ports/auth.js";
 import type { AuthUser, ProblemDetails } from "@librehr/contracts";
 import { generateTotpSecret } from "@librehr/core";
@@ -75,6 +79,8 @@ describe("Enterprise Auth & Security Hardening API (AUTH-003, AUTH-004, DOC-007)
   const app = createApp({
     sql: fakeSql,
     authPort,
+    // SSO (AUTH-004) is a Business feature (LIC-003).
+    ...businessEdition(),
     config: { ssoEnabled: true },
   });
 
@@ -193,17 +199,20 @@ describe("Enterprise Auth & Security Hardening API (AUTH-003, AUTH-004, DOC-007)
     expect(problem.code).toBe("VALIDATION_ERROR");
   });
 
-  it("POST /v1/sso/authorize validates request and detects missing domain", async () => {
-    const res = await app.request("/v1/sso/authorize", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
-    });
+  it.skipIf(!hasBusinessEdition)(
+    "POST /v1/sso/authorize validates request and detects missing domain",
+    async () => {
+      const res = await app.request("/v1/sso/authorize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
 
-    expect(res.status).toBe(400);
-    const problem = (await res.json()) as ProblemDetails;
-    expect(problem.code).toBe("MISSING_DOMAIN");
-  });
+      expect(res.status).toBe(400);
+      const problem = (await res.json()) as ProblemDetails;
+      expect(problem.code).toBe("MISSING_DOMAIN");
+    },
+  );
 
   it("GET /v1/sso/config forbids non-admin users", async () => {
     const res = await app.request("/v1/sso/config", {

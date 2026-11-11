@@ -1,13 +1,11 @@
 import crypto from "node:crypto";
-import { Hono } from "hono";
-import type { Sql } from "postgres";
+import type { Hono } from "hono";
 import {
   type AuthUser,
   SaveSsoConfigRequestSchema,
   SsoAuthorizeRequestSchema,
   createProblemDetails,
 } from "@librehr/contracts";
-import { buildOidcAuthorizationUrl, isAllowedEmailDomain } from "@librehr/core";
 import {
   withTenant,
   SsoRepository,
@@ -15,39 +13,46 @@ import {
   IdentityRepository,
   SsoClientSecretRequiredError,
 } from "@librehr/db";
-import { requireAuth } from "../middleware/auth.js";
-import { NotFoundError, ValidationError } from "../errors/index.js";
+import type { EeApiExtension, EeExtensionContext } from "../extension.js";
+import { buildOidcAuthorizationUrl, isAllowedEmailDomain } from "./oidc.js";
 
-export interface SsoRouteOptions {
-  /** SSO_ENABLED: AUTH-004 has no callback yet, so it is off by default. */
-  enabled: boolean;
-  /** Public API base URL (BETTER_AUTH_URL); never the request Host header. */
-  publicApiUrl: string;
-}
+/**
+ * AUTH-004 OIDC single sign-on (Business edition, LIC-003). Mounted by the
+ * API only when the licence grants `sso`; SSO_ENABLED still gates it because
+ * the callback is not built yet.
+ */
+export const ssoExtension: EeApiExtension = {
+  feature: "sso",
+  register: registerSsoRoutes,
+};
 
-export function createSsoRoutes(sql: Sql, options: SsoRouteOptions) {
-  const router = new Hono();
+function registerSsoRoutes(router: Hono, context: EeExtensionContext): void {
+  const { sql, requireAuth, createError } = context;
   const ssoRepo = new SsoRepository();
   const auditRepo = new AuditRepository();
   const identityRepo = new IdentityRepository();
 
-  if (!options.enabled) {
-    router.all("/sso/*", () => {
-      throw new NotFoundError({
+  if (!context.ssoEnabled) {
+    const disabled = () => {
+      throw createError({
+        status: 404,
+        title: "Not Found",
         code: "SSO_DISABLED",
         detail: "Single sign-on is not available on this instance",
       });
-    });
-    return router;
+    };
+    router.all("/", disabled);
+    router.all("/*", disabled);
+    return;
   }
 
   const redirectUri = new URL(
     "/v1/sso/callback",
-    options.publicApiUrl,
+    context.publicApiUrl,
   ).toString();
 
   // 1. GET /v1/sso/config - View organization SSO configuration (admin/hr)
-  router.get("/sso/config", requireAuth, async (c) => {
+  router.get("/config", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
 
     if (user.role !== "admin" && user.role !== "hr_admin") {
@@ -90,7 +95,7 @@ export function createSsoRoutes(sql: Sql, options: SsoRouteOptions) {
   });
 
   // 2. POST /v1/sso/config - Configure or update SSO settings (admin only)
-  router.post("/sso/config", requireAuth, async (c) => {
+  router.post("/config", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
 
     if (user.role !== "admin") {
@@ -134,9 +139,12 @@ export function createSsoRoutes(sql: Sql, options: SsoRouteOptions) {
           .saveConfig(tx, parsed.data)
           .catch((err: unknown) => {
             if (err instanceof SsoClientSecretRequiredError) {
-              throw new ValidationError({
+              throw createError({
+                status: 400,
+                title: "Validation Error",
+                code: "VALIDATION_ERROR",
                 detail: "Invalid SSO configuration payload",
-                issues: [
+                errors: [
                   {
                     field: "clientSecret",
                     message: "Client Secret is required",
@@ -177,7 +185,7 @@ export function createSsoRoutes(sql: Sql, options: SsoRouteOptions) {
   });
 
   // 3. POST /v1/sso/authorize - Initiate SSO flow
-  router.post("/sso/authorize", async (c) => {
+  router.post("/authorize", async (c) => {
     const body = await c.req.json().catch(() => ({}));
     const parsed = SsoAuthorizeRequestSchema.safeParse(body);
 
@@ -247,6 +255,4 @@ export function createSsoRoutes(sql: Sql, options: SsoRouteOptions) {
       state,
     });
   });
-
-  return router;
 }

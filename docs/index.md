@@ -9,6 +9,7 @@ Welcome to the LibreHR documentation repository.
 - [ADR 0001: Technical Stack Decisions](adr/0001-tech-stack.md)
 - [ADR 0002: Initial Dependencies and Licensing Audit](adr/0002-initial-dependencies.md)
 - [ADR 0003: Multi-Tenancy Architecture and RLS](adr/0003-multi-tenancy-rls.md)
+- [ADR 0004: Open-Core Licensing, Editions and CLA](adr/0004-open-core-licensing.md)
 - [Architecture Blueprint](../ARCHITECTURE.md)
 - [UI Design Guidelines](../DESIGN.md)
 - [Stubs Registry](stubs.md)
@@ -21,6 +22,13 @@ Welcome to the LibreHR documentation repository.
 - [Compliance Changelog](compliance/changelog.md)
 - [Compliance Policy](../COMPLIANCE.md)
 - [Clean-Room Policy](../CLEANROOM.md)
+
+## Editions & Licensing
+
+- [Editions and Business Model](editions.md)
+- [Contributor License Agreement](../CLA.md)
+- [Trademark Policy](../TRADEMARKS.md)
+- [LibreHR Enterprise License (`ee/`)](../ee/LICENSE)
 
 ## Guides & Operations
 

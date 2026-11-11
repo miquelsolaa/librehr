@@ -101,6 +101,38 @@ describe("Import boundary rules (AGENTS.md section 2)", () => {
     });
   });
 
+  describe("Business edition boundary (ADR 0004)", () => {
+    const EE = "ee/core/src/sso/routes.ts";
+    const LOADER = "apps/api/src/extensions/load.ts";
+    const API_TEST = "apps/api/test/sso.int.test.ts";
+
+    it.each([
+      [CORE, "@librehr/ee"],
+      [WEB, "@librehr/ee"],
+      [WORKER, "@librehr/ee"],
+      [API, "@librehr/ee"],
+      [API, "../../../ee/core/src/index"],
+      [EE, "@librehr/api"],
+      [EE, "@librehr/web"],
+      [EE, "@librehr/worker"],
+      [EE, "@librehr/ui"],
+      [EE, "../../../../apps/api/src/app"],
+    ])("%s cannot import %s", async (file, specifier) => {
+      const messages = await restrictedImportMessages(specifier, file);
+      expect(messages.length).toBeGreaterThan(0);
+    });
+
+    it.each([
+      [EE, "@librehr/core"],
+      [EE, "@librehr/db"],
+      [EE, "@librehr/contracts"],
+      [LOADER, "@librehr/ee"],
+      [API_TEST, "@librehr/ee"],
+    ])("%s may import %s", async (file, specifier) => {
+      expect(await restrictedImportMessages(specifier, file)).toEqual([]);
+    });
+  });
+
   describe("core stays free of I/O", () => {
     it.each([
       "fs",

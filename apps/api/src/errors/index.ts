@@ -7,6 +7,7 @@ export {
 export {
   ConflictError,
   ForbiddenError,
+  LicenseRequiredError,
   NotFoundError,
   SelfApprovalForbiddenError,
   UnauthorizedError,

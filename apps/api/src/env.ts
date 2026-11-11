@@ -180,6 +180,13 @@ const RawEnvSchema = z
     SSO_ENABLED: booleanFlag,
     /** Development only: lets webhooks target http:// and private hosts. */
     WEBHOOKS_ALLOW_PRIVATE: booleanFlag,
+    /** LIC-002: LibreHR Business licence key; unset runs as Community. */
+    LIBREHR_LICENSE_KEY: optionalString,
+    /**
+     * Development only: verifies licence keys against this Ed25519 public key
+     * (PEM) instead of the embedded one; refused in production.
+     */
+    LIBREHR_LICENSE_PUBLIC_KEY: optionalString,
     // Number of reverse proxies in front of the API that append to
     // X-Forwarded-For (1 behind the bundled Caddy). 0 ignores the header and
     // rate-limits by socket address; never set it higher than the real hop
@@ -209,6 +216,14 @@ const RawEnvSchema = z
           message: `is missing or uses the public development default; set ${key} (or ${key}_FILE) to a unique value in production (${PROD_HINT})`,
         });
       }
+    }
+    if (env.LIBREHR_LICENSE_PUBLIC_KEY) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["LIBREHR_LICENSE_PUBLIC_KEY"],
+        message:
+          "must not be set in production: licence keys are verified against the embedded LibreHR public key",
+      });
     }
     if (env.WEBHOOKS_ALLOW_PRIVATE) {
       ctx.addIssue({
@@ -274,6 +289,8 @@ export interface ApiEnv {
   SSO_ENABLED: boolean;
   WEBHOOKS_ALLOW_PRIVATE: boolean;
   TRUST_PROXY: number;
+  LIBREHR_LICENSE_KEY?: string | undefined;
+  LIBREHR_LICENSE_PUBLIC_KEY?: string | undefined;
 }
 
 /**
@@ -335,5 +352,11 @@ export function loadEnv(envInput?: Record<string, string | undefined>): ApiEnv {
     SSO_ENABLED: parsed.SSO_ENABLED,
     WEBHOOKS_ALLOW_PRIVATE: parsed.WEBHOOKS_ALLOW_PRIVATE,
     TRUST_PROXY: parsed.TRUST_PROXY,
+    ...(parsed.LIBREHR_LICENSE_KEY
+      ? { LIBREHR_LICENSE_KEY: parsed.LIBREHR_LICENSE_KEY }
+      : {}),
+    ...(parsed.LIBREHR_LICENSE_PUBLIC_KEY
+      ? { LIBREHR_LICENSE_PUBLIC_KEY: parsed.LIBREHR_LICENSE_PUBLIC_KEY }
+      : {}),
   };
 }

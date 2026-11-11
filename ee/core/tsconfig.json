@@ -1,0 +1,7 @@
+{
+  "extends": "@librehr/config/tsconfig/node.json",
+  "compilerOptions": {
+    "rootDir": "."
+  },
+  "include": ["src/**/*", "test/**/*", "scripts/**/*"]
+}

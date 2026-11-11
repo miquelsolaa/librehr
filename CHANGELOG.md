@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [Unreleased]
+
+### Open core: Community and Business editions
+
+- **Licensing model (ADR 0004):** LibreHR is now open core. Code outside `ee/` stays AGPL-3.0-or-later; the new `ee/` directory is source-available under the LibreHR Enterprise License v1.0. Legal-compliance features remain in Community. See `docs/editions.md`.
+- **Contributor License Agreement:** contributions now require agreeing to `CLA.md` (pull request checkbox) in addition to the DCO sign-off.
+- **Trademark policy:** `TRADEMARKS.md` describes how the LibreHR name and logo may be used.
+- **PRD:** new `LIC-001`..`LIC-003` requirements; `AUTH-004` (SSO) becomes a Business feature.
+- **Editions and licence keys (`LIC-001`, `LIC-002`):** new `@librehr/ee` workspace package with offline Ed25519 licence key verification (no phone-home); API extension point (`apps/api/src/extensions/`) that mounts licensed Business routes and answers `403 LICENSE_REQUIRED` otherwise; `GET /v1/edition`; `LIBREHR_LICENSE_KEY` setting (self-hosting guide, compose, env examples). Lint keeps Community code from importing `ee/`. The production public key is a placeholder until generated, so every instance runs as Community for now.
+- **SSO moves to Business (`AUTH-004`, `LIC-003`):** the SSO routes and OIDC helpers move from `apps/api` and `packages/core` into `ee/core/src/sso/`. Without a licence granting `sso`, `/v1/sso/*` answers `403 LICENSE_REQUIRED` and `/settings/sso` explains it; the settings card shows a "Business" badge (ca/es/en). The SSO table, repository and contracts stay in Community. Two-factor authentication (`AUTH-003`) stays in Community.
+
 ## [1.2.0] - 2026-11-02
 
 ### Statutory Leaves, Municipal Calendars & Continuous Shift Systems

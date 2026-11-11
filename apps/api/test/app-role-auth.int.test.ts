@@ -9,6 +9,10 @@ import {
 import { TokenRepository, hashBearerToken, withTenant } from "@librehr/db";
 import { runMigrations } from "@librehr/db/migrate";
 import { createApp } from "../src/app.js";
+import {
+  businessEdition,
+  hasBusinessEdition,
+} from "./support/business-edition.js";
 import { BetterAuthAdapter } from "../src/adapters/better-auth.js";
 import { hashPassword } from "../src/lib/password.js";
 
@@ -86,7 +90,9 @@ describe("API on the restricted runtime role", () => {
       sql: db.appSql,
       authPort: new BetterAuthAdapter(db.appSql),
       sessionSecret,
-      // SSO is off by default (SSO_ENABLED); this suite covers its lookup.
+      // SSO is Business (LIC-003) and off by default (SSO_ENABLED); this
+      // suite covers its lookup.
+      ...businessEdition(),
       config: { ssoEnabled: true },
     });
   }, 60000);
@@ -287,25 +293,28 @@ describe("API on the restricted runtime role", () => {
     );
   });
 
-  it("finds the SSO provider for a domain across organizations", async () => {
-    await withTenant(
-      db.adminSql,
-      { organizationId: orgB },
-      (tx) =>
-        tx`INSERT INTO sso_configurations (provider, client_id, client_secret, issuer_url, enabled, allowed_domains)
+  it.skipIf(!hasBusinessEdition)(
+    "finds the SSO provider for a domain across organizations",
+    async () => {
+      await withTenant(
+        db.adminSql,
+        { organizationId: orgB },
+        (tx) =>
+          tx`INSERT INTO sso_configurations (provider, client_id, client_secret, issuer_url, enabled, allowed_domains)
         VALUES ('generic_oidc', 'client-b', 'secret', 'https://idp.example.invalid', true, ${tx.json(["@Sso-B.example.invalid"])})`,
-    );
+      );
 
-    const res = await json("/v1/sso/authorize", {
-      email: "person@sso-b.example.invalid",
-    });
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as { authorizationUrl: string };
-    expect(body.authorizationUrl).toContain("client_id=client-b");
+      const res = await json("/v1/sso/authorize", {
+        email: "person@sso-b.example.invalid",
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { authorizationUrl: string };
+      expect(body.authorizationUrl).toContain("client_id=client-b");
 
-    const missing = await json("/v1/sso/authorize", {
-      domain: "unknown.example.invalid",
-    });
-    expect(missing.status).toBe(404);
-  });
+      const missing = await json("/v1/sso/authorize", {
+        domain: "unknown.example.invalid",
+      });
+      expect(missing.status).toBe(404);
+    },
+  );
 });

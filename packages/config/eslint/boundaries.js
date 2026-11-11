@@ -3,6 +3,8 @@
 //   api    -> core, db, contracts
 //   worker -> core, db, emails
 //   core   -> nothing internal, and no I/O libraries
+//   ee     -> core, db, contracts (Business edition, ADR 0004)
+// Nothing imports ee except apps/api/src/extensions/load.ts and API tests.
 //
 // Every rule is a `patterns` entry with an anchored regex so that subpath
 // imports (`@librehr/db/schema`) and relative reach-arounds
@@ -21,6 +23,7 @@ const LAYERS = {
   ui: "packages/ui",
   i18n: "packages/i18n",
   emails: "packages/emails",
+  ee: "ee",
 };
 
 const escape = (s) => s.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
@@ -132,5 +135,19 @@ export const boundaryConfigs = [
   {
     files: ["apps/worker/**/*.{ts,tsx,js,mjs,cjs}"],
     rules: restrict(onlyAllow("worker", ["core", "db", "emails"])),
+  },
+  {
+    files: ["ee/**/*.{ts,tsx,js,mjs,cjs}"],
+    rules: restrict(onlyAllow("ee", ["core", "db", "contracts"])),
+  },
+  {
+    // The single Community entry point into ee (it uses a variable specifier,
+    // so this only matters for static imports) and the API tests that
+    // exercise Business routes.
+    files: [
+      "apps/api/src/extensions/load.ts",
+      "apps/api/test/**/*.{ts,tsx,js,mjs,cjs}",
+    ],
+    rules: restrict(onlyAllow("api", ["core", "db", "contracts", "ee"])),
   },
 ];

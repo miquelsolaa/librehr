@@ -269,6 +269,10 @@ importers:
       vitest:
         specifier: ^3.0.5
         version: 3.2.7(@types/node@22.20.5)(jiti@2.6.1)(supports-color@7.2.0)(tsx@4.23.15)(yaml@2.9.1)
+    optionalDependencies:
+      '@librehr/ee':
+        specifier: workspace:*
+        version: link:../../ee/core
 
   apps/web:
     dependencies:
@@ -394,6 +398,43 @@ importers:
       '@types/react':
         specifier: ^19.0.8
         version: 19.3.0
+      tsx:
+        specifier: ^4.19.2
+        version: 4.23.15
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^3.0.5
+        version: 3.2.7(@types/node@22.20.5)(jiti@2.6.1)(supports-color@7.2.0)(tsx@4.23.15)(yaml@2.9.1)
+
+  ee/core:
+    dependencies:
+      '@librehr/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@librehr/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      hono:
+        specifier: ^4.13.17
+        version: 4.13.17
+      postgres:
+        specifier: ^3.4.5
+        version: 3.4.9
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@librehr/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@types/node':
+        specifier: ^22.13.4
+        version: 22.20.5
+      fast-check:
+        specifier: ^3.23.2
+        version: 3.23.2
       tsx:
         specifier: ^4.19.2
         version: 4.23.15

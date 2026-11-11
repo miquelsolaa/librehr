@@ -1,0 +1,118 @@
+LibreHR Enterprise License
+Version 1.0 - 2026-11-10
+
+Copyright (c) 2026 Miquel Solà. Contributions by others are included under
+the LibreHR Contributor License Agreement (CLA.md).
+
+1. Definitions
+
+"Licensor" means Miquel Solà, or the successor legal entity that holds the
+rights in the Software under CLA.md section 8.
+"Software" means everything inside the "ee/" directory of the LibreHR
+repository, in any version, and any copy, modification or derivative work
+of it.
+"You" means the individual or legal entity that uses the Software, together
+with its affiliates that it controls.
+"Production" means any use with personal data of real people, or for real
+business operations. Use for development, testing or evaluation with
+synthetic data is not Production.
+"Order" means a LibreHR licence key, a LibreHR Cloud subscription, or
+another written agreement with the Licensor, together with the terms
+accepted when it was purchased.
+
+2. Scope
+
+This licence applies only to the Software. Everything outside "ee/" is
+licensed under the GNU Affero General Public License, version 3 or later
+(see the LICENSE file at the root of the repository). Nothing in this
+licence limits your rights under that licence. Third-party components used
+by the Software remain under their own licences.
+
+3. Use without an Order
+
+Free of charge, you may copy, modify and run the Software only to:
+  a. develop, test and debug LibreHR or the Software, without Production
+     use;
+  b. prepare contributions to the LibreHR project;
+  c. evaluate the Software outside Production for up to 30 days per
+     organisation.
+
+4. Production use
+
+Production use of the Software requires a valid Order. Your rights are
+limited to the features, number of employees or other limits, and term
+stated in the Order or in the licence key.
+When an Order expires or ends, your right to use the Software in
+Production ends with it. The Business features stop working. The
+Community edition and all your data remain available to you, and the
+Licensor will never block access to them.
+
+5. Contractors and service providers
+
+Your employees, and contractors or hosting providers acting on your behalf,
+may exercise your rights under this licence for your benefit only. You are
+responsible for their compliance with it.
+
+6. Restrictions
+
+Unless an Order says otherwise, you may not:
+  a. remove, disable or circumvent the licence key check;
+  b. change the key verification so that it accepts keys not issued by the
+     Licensor;
+  c. provide the Software, or any of its features, to third parties as a
+     hosted or managed service, except as allowed by section 5;
+  d. sell, rent, sublicense or distribute the Software, except unmodified
+     copies of the full LibreHR repository that keep this licence;
+  e. remove or alter this licence, or any copyright, licence or trademark
+     notice.
+
+7. Modifications and your data
+
+You may modify the Software for the uses this licence allows.
+Modifications you submit to the project are governed by CLA.md.
+All data you process with the Software is yours. The Licensor acquires no
+rights in it, and the Software does not send it, or any usage information,
+to the Licensor.
+
+8. Patents
+
+For the uses this licence allows, the Licensor grants you a non-exclusive,
+royalty-free licence under its patents that are necessarily infringed by
+the Software as distributed by the Licensor. This patent licence ends if
+you start litigation alleging that the Software or LibreHR infringes a
+patent.
+
+9. Trademarks
+
+This licence grants no right to use the LibreHR name or logo. See
+TRADEMARKS.md.
+
+10. No warranty
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT,
+EXCEPT AS STATED IN AN ORDER.
+
+11. Limitation of liability
+
+TO THE EXTENT PERMITTED BY LAW, AND EXCEPT AS STATED IN AN ORDER:
+  a. the Licensor is not liable for indirect or consequential damages, or
+     for loss of profits, revenue or data;
+  b. the Licensor's total liability is limited to the amounts you paid
+     under the relevant Order in the 12 months before the claim.
+This section does not limit liability for wilful misconduct or gross
+negligence. It also does not limit any other liability that cannot be
+limited by law, or mandatory consumer or data protection rights.
+
+12. Termination
+
+If you breach this licence, your rights under it end automatically. They
+are reinstated if you cure the breach within 30 days of receiving notice
+from the Licensor. This applies only to the first breach. Sections 7, 10,
+11 and 13 survive termination.
+
+13. Governing law and language
+
+This licence is governed by Spanish law. The courts of Barcelona, Spain
+have exclusive jurisdiction, unless mandatory law provides otherwise.
+If this licence is translated, the English version prevails.

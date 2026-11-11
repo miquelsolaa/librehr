@@ -4,6 +4,7 @@ import { runMigrations } from "@librehr/db/migrate";
 import { configureEnvelopeKey } from "@librehr/db";
 import { loadEnv } from "./env.js";
 import { createApp } from "./app.js";
+import { loadEdition } from "./extensions/load.js";
 import { BetterAuthAdapter } from "./adapters/better-auth.js";
 import { SmtpMailAdapter } from "./adapters/mail-smtp.js";
 import { logger } from "./middleware/logger.js";
@@ -47,10 +48,24 @@ async function bootstrap() {
     from: env.SMTP_FROM,
   });
 
-  // 3. Create Hono application
+  // 3. Resolve the edition offline (LIC-001/002); Community without a key.
+  const edition = await loadEdition({
+    licenseKey: env.LIBREHR_LICENSE_KEY,
+    publicKeyPem: env.LIBREHR_LICENSE_PUBLIC_KEY,
+    warn: (msg, status) => logger.warn({ msg, licenseStatus: status }),
+  });
+  logger.info({
+    msg: "LibreHR edition resolved",
+    edition: edition.license.edition,
+    features: edition.license.features,
+  });
+
+  // 4. Create Hono application
   const app = createApp({
     sql,
     authPort,
+    license: edition.license,
+    extensions: edition.extensions,
     mailPort,
     sessionSecret: env.SESSION_SECRET,
     timeChainKey: env.TIME_CHAIN_KEY,
@@ -66,7 +81,7 @@ async function bootstrap() {
     },
   });
 
-  // 4. Start HTTP server
+  // 5. Start HTTP server
   serve(
     {
       fetch: app.fetch,

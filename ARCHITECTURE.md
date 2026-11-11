@@ -187,3 +187,12 @@ Defense in depth: validation at edges, RLS in DB, least-privilege DB roles, encr
 ## 14. Extensibility
 
 Module boundaries (`leave`, `time`, `documents`...) are folders with explicit public exports. Future modules (expenses, recruiting, shifts) follow `/new-module`. Integrations use ports/adapters (`StoragePort`, `MailPort`, `AuthPort`, `ClockPort`).
+
+### 14.1 Editions and extensions (ADR 0004)
+
+- **Community** is everything outside `ee/` (AGPL-3.0-or-later). **Business** is `ee/` (LibreHR Enterprise License), a workspace package `@librehr/ee` that may import `core`, `db` and `contracts`.
+- The API defines an `ApiExtension` interface (`apps/api/src/extensions/types.ts`): a name, the licence feature it needs, and a `register(app, deps)` function that mounts routes under `/v1`. `createApp` mounts extensions after core routes.
+- `apps/api/src/extensions/load.ts` is the only Community file that imports `@librehr/ee`, through a dynamic `import()`. If the package is missing, the instance runs as Community. Lint enforces the boundary.
+- The licence key (`LIBREHR_LICENSE_KEY`) is an Ed25519-signed token, `base64url(payload).base64url(signature)`, verified offline against the public key in `ee/`. The result is a `LicenseState` (`edition`, `features`, `status`) exposed by `GET /v1/edition`.
+- Business routes not covered by a valid licence answer `403` with `code: LICENSE_REQUIRED`. Database tables, repositories and contracts used by Business features stay in Community (single migration chain); only behaviour lives in `ee/`.
+- The web app stays edition-agnostic: it reads `GET /v1/edition` and handles `LICENSE_REQUIRED`.

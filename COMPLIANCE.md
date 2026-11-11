@@ -5,7 +5,8 @@
 ## 1. Roles under GDPR
 
 - **Self-hosted:** the customer company is the **data controller**; the project is software only. Provide docs to help them meet obligations.
-- **If a hosted offering exists later:** the operator is a **processor**; provide a Data Processing Agreement (DPA), sub-processor list, and breach procedures.
+- **LibreHR Cloud (planned, `docs/adr/0004-open-core-licensing.md`):** the operator is a **processor**. Before launch, provide a Data Processing Agreement (DPA), sub-processor list, EU data location and breach procedures.
+- **Licence keys (Business edition):** verified offline; no instance or personal data is sent to the project. The key holds only the licensee's company name, features and dates.
 
 ## 2. GDPR / RGPD and LOPDGDD principles mapped to engineering
 

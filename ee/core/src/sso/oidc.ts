@@ -1,4 +1,13 @@
-import { trimTrailing } from "./trim-trailing.js";
+/**
+ * Removes trailing `char`s with a loop: `replace(/x+$/, "")` backtracks
+ * quadratically on long runs (CodeQL js/polynomial-redos). Kept local because
+ * ee/core does not depend on @librehr/core.
+ */
+function trimTrailing(value: string, char: string): string {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === char) end -= 1;
+  return value.slice(0, end);
+}
 
 /**
  * Validates whether an email domain is in the organization's allowed SSO domains.

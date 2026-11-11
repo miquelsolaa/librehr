@@ -529,7 +529,12 @@ Please review [`CONTRIBUTING.md`](CONTRIBUTING.md), [`CLEANROOM.md`](CLEANROOM.m
 
 ## License
 
-Distributed under the **GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later)**. See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE) for details.
+LibreHR is **open core**:
+
+- **Community edition**: everything outside `ee/`, distributed under the **GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later)**. It includes every feature needed for legal compliance. See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
+- **Business edition**: the `ee/` directory, source-available under the [LibreHR Enterprise License](ee/LICENSE). It is free for development and testing; production use needs a licence key or LibreHR Cloud.
+
+What is in each edition, and how LibreHR Cloud and the partner programme work, is described in [`docs/editions.md`](docs/editions.md) and [ADR 0004](docs/adr/0004-open-core-licensing.md). Contributions require the [CLA](CLA.md) plus DCO sign-off. The LibreHR name and logo are covered by the [trademark policy](TRADEMARKS.md).
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

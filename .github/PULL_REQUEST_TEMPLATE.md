@@ -31,6 +31,11 @@
 - [ ] Any third-party code or asset is listed in `NOTICE` with a compatible license.
 - [ ] I disclosed any prior exposure to a competing product's internals to a maintainer.
 
+## Contributor License Agreement (Mandatory)
+
+- [ ] I have read and agree to the LibreHR Contributor License Agreement (`CLA.md` at the repository root) for this and my future contributions.
+- [ ] If this PR touches `ee/`, I understand that code is licensed under the LibreHR Enterprise License (`ee/LICENSE`), not AGPL.
+
 ## Verification Checklist
 
 - [ ] `pnpm verify` passes locally (typecheck, lint, unit, integration, i18n check, build).

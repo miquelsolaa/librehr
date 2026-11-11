@@ -51,6 +51,8 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-}
       # OIDC SSO (AUTH-004) is incomplete; keep it off until it ships.
       SSO_ENABLED: ${SSO_ENABLED:-false}
+      # LibreHR Business licence key (docs/editions.md); empty = Community.
+      LIBREHR_LICENSE_KEY: ${LIBREHR_LICENSE_KEY:-}
       # Caddy is the one reverse proxy in front of the API: trust exactly one
       # X-Forwarded-For hop when rate-limiting by client IP.
       TRUST_PROXY: ${TRUST_PROXY:-1}

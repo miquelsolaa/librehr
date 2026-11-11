@@ -1,7 +1,10 @@
 LibreHR
 Copyright (c) 2026 LibreHR Contributors
 
-This product is licensed under the GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later).
+This product is licensed under the GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later),
+except for the contents of the "ee/" directory, which are licensed under the
+LibreHR Enterprise License (see ee/LICENSE). "LibreHR" and its logo are
+trademarks; see TRADEMARKS.md.
 
 Third-party software libraries and components:
 - Better Auth (Apache-2.0)

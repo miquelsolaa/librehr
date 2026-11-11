@@ -46,3 +46,6 @@ pnpm-debug.log*
 
 # Claude Code agent worktrees
 .claude/worktrees/
+
+# Licence signing keys never belong in the repository (AGENTS.md section 8).
+*.pem
