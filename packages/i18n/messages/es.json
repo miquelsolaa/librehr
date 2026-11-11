@@ -18,9 +18,7 @@
     "copied": "¡Copiado!",
     "back": "Volver",
     "or": "o",
-    "close": "Cerrar",
-    "changeLanguage": "Cambiar idioma",
-    "themeToggle": "Cambiar tema (actual: {theme})"
+    "close": "Cerrar"
   },
   "auth": {
     "signInTitle": "Iniciar sesión en LibreHR",
@@ -51,7 +49,6 @@
     "skipToContent": "Ir al contenido",
     "inspectionRecords": "Registros de inspección",
     "inspectionRecordsShort": "Registros",
-    "workspace": "Espacio de trabajo",
     "home": "Inicio",
     "people": "Equipo",
     "timeOff": "Vacaciones",
@@ -61,7 +58,11 @@
     "documents": "Documentos",
     "onboarding": "Acogida",
     "reports": "Informes",
-    "settings": "Configuración"
+    "settings": "Configuración",
+    "groupMe": "Yo",
+    "groupOrganization": "Organización",
+    "accountMenu": "Menú de la cuenta",
+    "theme": "Tema"
   },
   "errors": {
     "generic": "Se ha producido un error inesperado.",
@@ -396,7 +397,6 @@
     "cityPlaceholder": "p. ej., Barcelona",
     "locationsEmpty": "Todavía no hay centros de trabajo configurados.",
     "holidayYear": "Año",
-    "backToSettings": "Volver a la configuración",
     "ssoGenericOidc": "OIDC genérico",
     "disableTwoFactorDialogDescription": "Para desactivar la autenticación en dos pasos, introduce un código actual de tu aplicación autenticadora o uno de tus códigos de recuperación.",
     "disableTwoFactorCodeLabel": "Código de autenticación o de recuperación",

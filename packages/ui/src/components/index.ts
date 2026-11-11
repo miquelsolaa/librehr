@@ -4,6 +4,7 @@ export * from "./select.js";
 export * from "./checkbox.js";
 export * from "./switch.js";
 export * from "./dialog.js";
+export * from "./dropdown-menu.js";
 export * from "./sheet.js";
 export * from "./tooltip.js";
 export * from "./toast.js";

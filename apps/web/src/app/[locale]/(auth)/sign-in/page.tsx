@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Button, Input } from "@librehr/ui";
+import { Button, Input, LibreHRMark } from "@librehr/ui";
 import { getApiClient } from "@/lib/api-client";
 import { setStoredSession } from "@/lib/auth";
 
@@ -117,12 +117,11 @@ export default function SignInPage() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-surface px-4 py-12 sm:px-6 lg:px-8">
       <div className="w-full max-w-md space-y-8 rounded-card border border-border bg-background p-8 shadow-sm">
         <div className="text-center">
-          <div
+          <LibreHRMark
+            size={48}
             aria-hidden="true"
-            className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-xl font-bold text-primary-foreground"
-          >
-            LH
-          </div>
+            className="mx-auto text-primary"
+          />
           <h1 className="mt-4 text-2xl font-semibold tracking-tight text-foreground">
             {challengeToken ? tAuth("twoFactorTitle") : tAuth("signInTitle")}
           </h1>
