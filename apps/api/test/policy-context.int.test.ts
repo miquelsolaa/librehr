@@ -125,6 +125,37 @@ describe("policy context: manager scope on leave and time routes", () => {
     });
   });
 
+  describe("GET /v1/leave/balance history", () => {
+    it("returns the balance after each ledger entry, in date order", async () => {
+      await withTenant(db.sql, { organizationId: a.orgId }, async (tx) => {
+        const leave = new LeaveRepository();
+        // Appended out of order: the history is ordered by effective date.
+        await leave.appendLedgerEntry(tx, {
+          employeeId: a.report.employeeId,
+          entryType: "usage",
+          amount: -1.5,
+          effectiveDate: "2026-03-10",
+        });
+        await leave.appendLedgerEntry(tx, {
+          employeeId: a.report.employeeId,
+          entryType: "accrual",
+          amount: 22,
+          effectiveDate: "2026-01-01",
+        });
+      });
+      const res = await app.request("/v1/leave/balance", {
+        headers: as(a.report),
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        currentBalance: number;
+        entries: { amount: number; balanceAfter: number }[];
+      };
+      expect(body.entries.map((e) => e.balanceAfter)).toEqual([22, 20.5]);
+      expect(body.entries.at(-1)?.balanceAfter).toBe(body.currentBalance);
+    });
+  });
+
   describe("POST /v1/time/time-bank/entries", () => {
     const entry = (employeeId: string, who = a.manager) =>
       app.request("/v1/time/time-bank/entries", {

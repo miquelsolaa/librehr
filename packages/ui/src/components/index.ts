@@ -23,3 +23,5 @@ export * from "./bottom-nav.js";
 export * from "./confirm-dialog.js";
 export * from "./secret-field.js";
 export * from "./ui-strings.js";
+export * from "./day-ring.js";
+export * from "./stat-strip.js";

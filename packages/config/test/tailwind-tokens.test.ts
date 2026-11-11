@@ -84,6 +84,14 @@ describe("tailwind semantic tokens", () => {
     expect(findOffenders(pattern)).toEqual([]);
   });
 
+  it("source uses semantic colors, never raw Tailwind palette steps", () => {
+    // DESIGN.md §2.2: `text-emerald-600` bypasses theming and dark mode.
+    const pattern =
+      /(?<![w-])(?:bg|text|border|ring|outline|fill|stroke|divide|from|via|to)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-d{2,3}(?![w-])/g;
+
+    expect(findOffenders(pattern)).toEqual([]);
+  });
+
   it("source only uses radius tokens the preset or Tailwind defines", () => {
     const allowed = new Set([
       ...builtInRadii,

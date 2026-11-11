@@ -727,7 +727,7 @@ export default function EmployeeDetailPage() {
       <div className="rounded-card border border-border bg-surface p-6 space-y-4">
         <div className="flex items-center justify-between border-b border-border pb-3">
           <div className="flex items-center gap-2">
-            <ShieldAlert className="h-5 w-5 text-amber-500" />
+            <ShieldAlert className="h-5 w-5 text-warning" />
             <h2 className="text-base font-semibold text-foreground">
               {tProfile("sensitiveTitle")}
             </h2>

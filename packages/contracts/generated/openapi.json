@@ -1511,6 +1511,9 @@
                 "createdAt": {
                   "type": "string",
                   "format": "date-time"
+                },
+                "balanceAfter": {
+                  "type": "number"
                 }
               },
               "required": [
@@ -1572,6 +1575,9 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "balanceAfter": {
+            "type": "number"
           }
         },
         "required": [
@@ -8557,6 +8563,9 @@
                           "createdAt": {
                             "type": "string",
                             "format": "date-time"
+                          },
+                          "balanceAfter": {
+                            "type": "number"
                           }
                         },
                         "required": [
@@ -9255,6 +9264,9 @@
                     "createdAt": {
                       "type": "string",
                       "format": "date-time"
+                    },
+                    "balanceAfter": {
+                      "type": "number"
                     }
                   },
                   "required": [

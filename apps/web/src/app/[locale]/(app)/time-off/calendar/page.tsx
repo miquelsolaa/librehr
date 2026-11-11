@@ -127,7 +127,7 @@ export default function TeamCalendarPage() {
         }
       />
 
-      <div className="rounded-xl border border-border bg-surface p-6 shadow-sm space-y-4">
+      <div className="rounded-card border border-border bg-surface p-6 space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-border">
           <div className="flex items-center gap-2 text-sm font-medium text-foreground">
             <Users className="h-4 w-4 text-primary" aria-hidden="true" />

@@ -28,13 +28,14 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
 }) => (
   <header
     className={cn(
-      "flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between",
+      // Actions drop under the title when both do not fit: never squeeze it.
+      "flex flex-wrap items-end justify-between gap-4",
       className,
     )}
   >
-    <div className="min-w-0 space-y-1">
+    <div className="min-w-0 max-w-full flex-1 basis-80 space-y-1">
       {breadcrumb && <div className="mb-2 text-sm">{breadcrumb}</div>}
-      <h1 className="text-2xl font-semibold tracking-tight text-foreground [overflow-wrap:anywhere]">
+      <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground sm:text-3xl [overflow-wrap:anywhere]">
         {title}
       </h1>
       {description && (
@@ -44,7 +45,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       )}
     </div>
     {actions && (
-      <div className="flex shrink-0 flex-wrap items-center gap-2">
+      <div className="flex max-w-full flex-wrap items-center gap-2">
         {actions}
       </div>
     )}

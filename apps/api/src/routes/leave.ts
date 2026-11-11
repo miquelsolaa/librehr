@@ -15,6 +15,7 @@ import {
   calculateWorkingDays,
   checkBlackoutDate,
   evaluateTeamCoverage,
+  runningBalances,
 } from "@librehr/core";
 import {
   withTenant,
@@ -150,6 +151,7 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
 
         const balance = await leaveRepo.calculateBalance(tx, targetEmployeeId);
         const entries = await leaveRepo.getLedgerEntries(tx, targetEmployeeId);
+        const balances = runningBalances(entries);
 
         return {
           currentBalance: balance.currentBalance,
@@ -157,7 +159,8 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
           totalUsed: balance.totalUsed,
           totalCarryover: balance.totalCarryover,
           totalAdjustments: balance.totalAdjustments,
-          entries: entries.map((e) => ({
+          entries: entries.map((e, index) => ({
+            balanceAfter: balances[index],
             id: e.id,
             employeeId: e.employeeId,
             entryType: e.entryType,
