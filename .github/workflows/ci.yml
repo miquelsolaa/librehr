@@ -18,8 +18,12 @@ jobs:
   commits:
     # DCO sign-off and Conventional Commits are also enforced by local husky
     # hooks, but hooks can be skipped; this job is the authoritative check.
+    # Dependabot PRs are skipped: the DCO certifies a person's right to
+    # contribute, which a generated version bump does not carry, and its
+    # release-note bodies exceed commitlint's line length. Every other job
+    # still runs on them and a maintainer reviews the merge.
     name: Commit Hygiene (DCO + commitlint)
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
     env:
       BASE_SHA: ${{ github.event.pull_request.base.sha }}

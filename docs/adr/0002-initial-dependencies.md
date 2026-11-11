@@ -48,4 +48,4 @@ We adopt the following core dependencies:
 
 - Every direct and transitive dependency is compatible with the AGPL-3.0 license.
 - No third-party network calls, external fonts, or analytics libraries are loaded at runtime.
-- Upgrades will be tracked and kept current via Renovate / Dependabot.
+- Upgrades will be tracked and kept current via Dependabot.
