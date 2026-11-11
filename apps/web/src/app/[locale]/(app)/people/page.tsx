@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Users, Search, UserPlus, ChevronRight } from "lucide-react";
+import { Search, UserPlus, ChevronRight } from "lucide-react";
 import {
   Button,
   Input,
@@ -187,8 +187,8 @@ export default function PeoplePage() {
           item.status === "active"
             ? "active"
             : item.status === "on_leave"
-              ? "pending"
-              : "rejected";
+              ? "away"
+              : "inactive";
         const label =
           item.status === "active"
             ? t("statusActive")
@@ -250,7 +250,7 @@ export default function PeoplePage() {
                 </DialogHeader>
 
                 {inviteSuccess ? (
-                  <div className="rounded-card bg-emerald-500/10 p-4 text-center text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                  <div className="rounded-card bg-success/10 p-4 text-center text-sm font-medium text-success">
                     {tInvites("inviteSent")}
                   </div>
                 ) : (
@@ -412,7 +412,6 @@ export default function PeoplePage() {
         </div>
       ) : employees.length === 0 ? (
         <EmptyState
-          icon={<Users className="h-6 w-6" />}
           title={t("noEmployeesFound")}
           description={t("noEmployeesDescription")}
         />

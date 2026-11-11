@@ -261,10 +261,10 @@ export default function TokensSettingsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-foreground">
-              <Shield className="h-5 w-5 text-emerald-500" aria-hidden="true" />
+              <Shield className="h-5 w-5 text-success" aria-hidden="true" />
               <span>{t("createdTitle")}</span>
             </DialogTitle>
-            <DialogDescription className="text-amber-500 font-medium">
+            <DialogDescription className="text-warning font-medium">
               {t("revealedNotice")}
             </DialogDescription>
           </DialogHeader>
@@ -282,7 +282,7 @@ export default function TokensSettingsPage() {
               >
                 {copied ? (
                   <>
-                    <Check className="h-3.5 w-3.5 text-emerald-500" />
+                    <Check className="h-3.5 w-3.5 text-success" />
                     <span>{t("copied")}</span>
                   </>
                 ) : (

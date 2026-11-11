@@ -53,6 +53,8 @@ export const LeaveLedgerEntrySchema = z.object({
   note: z.string().nullable().optional(),
   effectiveDate: z.string(),
   createdAt: z.string().datetime(),
+  /** Balance once this entry is applied. Present in the balance history. */
+  balanceAfter: z.number().optional(),
 });
 export type LeaveLedgerEntry = z.infer<typeof LeaveLedgerEntrySchema>;
 

@@ -15,7 +15,6 @@ import {
 import {
   Button,
   Input,
-  Badge,
   Dialog,
   DialogTrigger,
   DialogContent,
@@ -26,6 +25,7 @@ import {
   PageHeader,
 } from "@librehr/ui";
 import { apiClient } from "../../../../../lib/api-client.js";
+import { formatCalendarDate } from "@/lib/format";
 import type { Location, Holiday, LegalEntityOption } from "@librehr/contracts";
 
 export default function LocationsSettingsPage() {
@@ -244,23 +244,15 @@ export default function LocationsSettingsPage() {
     }
   };
 
-  const getScopeBadge = (scope: string) => {
-    switch (scope) {
-      case "national":
-        return <Badge variant="info">{t("scopeNational")}</Badge>;
-      case "regional":
-        return (
-          <span className="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-700 dark:bg-purple-950/60 dark:text-purple-300">
-            {t("scopeRegional")}
-          </span>
-        );
-      case "local":
-        return <Badge variant="success">{t("scopeLocal")}</Badge>;
-      case "company":
-      default:
-        return <Badge variant="warning">{t("scopeCompany")}</Badge>;
-    }
-  };
+  // A holiday's scope is a category, not a state, so it reads as plain text.
+  const scopeLabel = (scope: string) =>
+    scope === "national"
+      ? t("scopeNational")
+      : scope === "regional"
+        ? t("scopeRegional")
+        : scope === "local"
+          ? t("scopeLocal")
+          : t("scopeCompany");
 
   return (
     <div className="space-y-6">
@@ -510,13 +502,10 @@ export default function LocationsSettingsPage() {
         open={Boolean(holidayLoc)}
         onOpenChange={(open) => !open && setHolidayLoc(null)}
       >
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent size="panel" className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CalendarDays className="h-5 w-5 text-primary" />
-              <span>
-                {t("holidaysForLocation", { location: holidayLoc?.name ?? "" })}
-              </span>
+            <DialogTitle>
+              {t("holidaysForLocation", { location: holidayLoc?.name ?? "" })}
             </DialogTitle>
             <DialogDescription>{t("holidaysDescription")}</DialogDescription>
           </DialogHeader>
@@ -552,7 +541,7 @@ export default function LocationsSettingsPage() {
                 disabled={seeding}
                 onClick={handleSeedHolidays}
               >
-                <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                <Sparkles className="h-3.5 w-3.5 text-warning" />
                 <span>
                   {seeding ? tCommon("loading") : t("seedOfficialHolidays")}
                 </span>
@@ -591,28 +580,35 @@ export default function LocationsSettingsPage() {
                 holidays.map((h) => (
                   <div
                     key={h.id}
-                    className="flex items-center justify-between p-3 text-xs"
+                    className="grid grid-cols-[4rem_minmax(0,1fr)_auto] items-center gap-x-3 py-1 pl-3 pr-1 text-sm sm:grid-cols-[4rem_minmax(0,1fr)_auto_auto]"
                   >
-                    <div className="flex items-center gap-3">
-                      <span className="font-mono font-medium text-foreground">
-                        {h.date}
+                    <time
+                      dateTime={h.date}
+                      className="tabular-nums text-muted-foreground"
+                    >
+                      {formatCalendarDate(h.date, locale, {
+                        dateStyle: undefined,
+                        day: "numeric",
+                        month: "short",
+                      })}
+                    </time>
+                    <span className="min-w-0 font-medium text-foreground">
+                      {h.name}
+                      <span className="block text-xs font-normal text-muted-foreground sm:hidden">
+                        {scopeLabel(h.scope)}
                       </span>
-                      <span className="font-medium text-foreground">
-                        {h.name}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      {getScopeBadge(h.scope)}
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteHoliday(h.id)}
-                        className="rounded p-1 text-muted-foreground hover:text-danger hover:bg-danger/10 transition-colors"
-                        title={tCommon("delete")}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
+                    </span>
+                    <span className="hidden text-xs text-muted-foreground sm:inline">
+                      {scopeLabel(h.scope)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteHoliday(h.id)}
+                      className="inline-flex h-11 w-11 items-center justify-center rounded-input text-muted-foreground transition-colors hover:bg-danger/10 hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                      aria-label={`${tCommon("delete")}: ${h.name}`}
+                    >
+                      <Trash2 aria-hidden="true" className="h-4 w-4" />
+                    </button>
                   </div>
                 ))
               )}

@@ -1,4 +1,4 @@
-import type { Preview } from "@storybook/react";
+import type { Preview } from "@storybook/react-vite";
 import "../src/tokens.css";
 
 const preview: Preview = {
@@ -11,11 +11,13 @@ const preview: Preview = {
       },
     },
     a11y: {
-      element: "#storybook-root",
+      context: "#storybook-root",
       config: {},
       options: {},
-      manual: false,
     },
+  },
+  initialGlobals: {
+    a11y: { manual: false },
   },
 };
 
