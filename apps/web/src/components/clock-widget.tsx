@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Play, Square, Coffee, Clock } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { Button, Skeleton, cn } from "@librehr/ui";
+import { Button, DayRing, Skeleton, type DayRingTone } from "@librehr/ui";
 import {
   useClockStatus,
   type ClockEventType,
@@ -14,6 +14,45 @@ const TICK_MS = 30_000;
 /** Whole minutes from `iso` to now; never negative (clock skew). */
 function minutesSince(iso: string, now: number): number {
   return Math.max(0, Math.floor((now - Date.parse(iso)) / 60_000));
+}
+
+const DIAL_MS = 12 * 60 * 60_000;
+
+/**
+ * Where a stretch that began at `iso` sits on a 12-hour clock face, in the
+ * viewer's local time: `from` is the start position and `span` the share of
+ * the dial covered so far. Display only; the record itself lives in the API.
+ */
+function dialArc(iso: string, now: number): { from: number; span: number } {
+  const start = new Date(iso);
+  return {
+    from: ((start.getHours() % 12) * 60 + start.getMinutes()) / 720,
+    span: Math.min(1, Math.max(0, (now - start.getTime()) / DIAL_MS)),
+  };
+}
+
+/** A work session as the timesheet reports it; only its bounds are drawn. */
+export interface DaySession {
+  clockIn: string;
+  clockOut?: string | undefined;
+}
+
+/** Today's sessions as faint arcs, limited to the twelve hours on the dial. */
+function dialStretches(
+  sessions: readonly DaySession[],
+  now: number,
+): { from: number; span: number }[] {
+  return sessions.flatMap((session) => {
+    const start = Math.max(Date.parse(session.clockIn), now - DIAL_MS);
+    const end = session.clockOut ? Date.parse(session.clockOut) : now;
+    if (!(end > start)) return [];
+    return [
+      {
+        ...dialArc(new Date(start).toISOString(), now),
+        span: (end - start) / DIAL_MS,
+      },
+    ];
+  });
 }
 
 /** Re-renders every 30 s while `active`, so elapsed time stays current. */
@@ -37,11 +76,14 @@ export interface ClockWidgetProps {
    * and only the next primary action.
    */
   density?: "full" | "compact";
+  /** Today's work sessions, drawn on the ring as the day so far. */
+  sessions?: readonly DaySession[] | undefined;
 }
 
 export function ClockWidget({
   onClockChange,
   density = "full",
+  sessions,
 }: ClockWidgetProps) {
   const t = useTranslations("timeTracking");
   const locale = useLocale();
@@ -174,18 +216,22 @@ export function ClockWidget({
     </div>
   );
 
-  // State is carried by text; the dot only reinforces it (DESIGN.md §1.2).
-  const dot = (
-    <span
-      aria-hidden="true"
-      className={cn(
-        "h-2 w-2 shrink-0 rounded-full",
-        status === "clocked_in"
-          ? "bg-success"
-          : status === "on_break"
-            ? "bg-warning"
-            : "bg-muted-foreground/50",
-      )}
+  // State is carried by text; the ring only reinforces it (DESIGN.md §1.2).
+  const tone: DayRingTone =
+    status === "clocked_in"
+      ? "working"
+      : status === "on_break"
+        ? "break"
+        : "idle";
+  const arc = since ? dialArc(since, now) : null;
+  const earlier = sessions ? dialStretches(sessions, now) : [];
+  const ring = (size: number) => (
+    <DayRing
+      size={size}
+      tone={tone}
+      from={arc?.from ?? null}
+      span={arc?.span ?? 0}
+      earlier={earlier}
     />
   );
 
@@ -193,7 +239,7 @@ export function ClockWidget({
     return (
       <div className="flex items-center gap-3" aria-busy={pending}>
         <div className="flex items-center gap-2 text-xs">
-          {dot}
+          {ring(18)}
           {/* Announced when the state changes, not on every tick. */}
           <span role="status" className="font-medium text-foreground">
             {shortLabel}
@@ -210,19 +256,21 @@ export function ClockWidget({
   }
 
   return (
-    <div className="space-y-3" aria-busy={pending}>
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-          {dot}
-          <span role="status">{sentence}</span>
-        </p>
-        {elapsed && (
-          <p className="text-sm tabular-nums text-muted-foreground">
-            {elapsed}
+    <div className="flex items-center gap-5" aria-busy={pending}>
+      {ring(88)}
+      <div className="min-w-0 space-y-3">
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-foreground">
+            <span role="status">{sentence}</span>
           </p>
-        )}
+          {elapsed && (
+            <p className="font-display text-3xl font-semibold tabular-nums tracking-tight text-foreground">
+              {elapsed}
+            </p>
+          )}
+        </div>
+        {actions}
       </div>
-      {actions}
     </div>
   );
 }

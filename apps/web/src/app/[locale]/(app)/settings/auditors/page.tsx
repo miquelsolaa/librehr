@@ -15,7 +15,7 @@ import { AuditorMaxDaysForm } from "@/components/auditor-max-days-form";
 import { AuditorPendingInvitations } from "@/components/auditor-pending-invitations";
 
 const CARD =
-  "rounded-card border border-border bg-surface p-4 shadow-sm space-y-4 sm:p-6";
+  "rounded-card border border-border bg-surface p-4 space-y-4 sm:p-6";
 
 /** TIM-008: Settings -> Inspector access (admins only). */
 export default function AuditorAccessSettingsPage() {
