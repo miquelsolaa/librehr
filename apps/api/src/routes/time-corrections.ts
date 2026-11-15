@@ -17,6 +17,7 @@ import {
 } from "@librehr/db";
 import { IdParamSchema, parseParams } from "../lib/validate.js";
 import { requireAuth } from "../middleware/auth.js";
+import { ConflictError } from "../errors/index.js";
 import { assertNotSelfApproval } from "../policies/approvals.js";
 import {
   canOnEmployee,
@@ -207,6 +208,16 @@ export function createTimeCorrectionRoutes(
 
         if (!allowed) {
           return { error: "FORBIDDEN" as const };
+        }
+
+        // Decided once: lock the row and re-read its status under the lock.
+        if (
+          (await correctionRepo.lockForDecision(tx, correctionId)) !== "pending"
+        ) {
+          throw new ConflictError({
+            code: "ALREADY_DECIDED",
+            detail: "This request has already been decided",
+          });
         }
 
         const approverEmp = await employeeRepo.findByUserId(tx, user.id);

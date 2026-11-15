@@ -99,6 +99,20 @@ export class TimeCorrectionRepository {
     return rows[0] ?? null;
   }
 
+  /**
+   * Locks the row for the rest of the transaction and returns its status, so
+   * two approvers deciding at once are serialised and the second sees the
+   * first one's decision (LEA-004 / TIM-003: decided once).
+   */
+  async lockForDecision(tx: TenantTx, id: string): Promise<string | null> {
+    const rows = await tx<{ status: string }[]>`
+      SELECT status FROM time_corrections
+      WHERE id = ${id} AND organization_id = ${tx.__tenantContext.organizationId}
+      FOR UPDATE
+    `;
+    return rows[0]?.status ?? null;
+  }
+
   async updateDecision(
     tx: TenantTx,
     id: string,
@@ -117,7 +131,7 @@ export class TimeCorrectionRepository {
           decision_reason = ${data.decisionReason ?? null},
           created_event_id = ${data.createdEventId ?? null},
           updated_at = now()
-      WHERE id = ${id}
+      WHERE id = ${id} AND status = 'pending'
       RETURNING id, organization_id as "organizationId", employee_id as "employeeId",
                 ref_event_id as "refEventId", proposed_event_type as "proposedEventType",
                 proposed_occurred_at as "proposedOccurredAt", reason, status,

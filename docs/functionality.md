@@ -96,6 +96,11 @@ tests.
   and HR Admin (both are `admin`), so an organization whose only approver is a
   single admin without a manager cannot get that admin's requests decided.
   Add a second admin, or set a manager for that admin; there is no override.
+  A request is decided once: deciding a leave request or time correction that
+  is no longer pending (another approver got there first, a double click, a
+  stale screen) answers 409 `ALREADY_DECIDED` and changes nothing. The row is
+  locked while it is decided, so two simultaneous approvals cannot both pass.
+  An approver's comment is kept on approvals as well as rejections.
 - Payslips (DOC-003): opened by the employee and by administrators (standing
   in for Owner/HR Admin until a Payroll role exists, ADM-001); not by managers
   or auditors. Every download is audited with ids only (ADM-002).
