@@ -65,9 +65,9 @@ Leave-type colors come from a fixed, color-blind-safe categorical palette (8 hue
 
 ## 3. Layout
 
-- **App shell (desktop):** left sidebar (modules grouped as **Me**: Home, Time off, Time tracking, Documents; and **Organization**: everything organization-wide; group labels only appear when a role sees both), top bar (global search, notifications, user menu, org switcher), content area with page header (title, breadcrumbs, primary action right-aligned).
+- **App shell (desktop):** left sidebar (modules grouped as **Me**: Home, Time off, Time tracking, Documents; and **Organization**: everything organization-wide, starting with **Approvals** for anyone who decides leave or time corrections, with the pending count as a badge; group labels only appear when a role sees both), top bar (global search, notifications, user menu, org switcher), content area with page header (title, breadcrumbs, primary action right-aligned).
 - **User menu:** the avatar button in the top bar, the same at every width. It holds who is signed in (name, translated role), language, theme and sign-out. Nothing else in the shell repeats these.
-- **App shell (mobile):** top bar (organization brand, notifications, user menu) + bottom navigation (Home, Time off, Clock, Documents, and "More" only when a role has further destinations). Admin features are reachable but optimized for desktop.
+- **App shell (mobile):** top bar (organization brand, notifications, user menu) + bottom navigation (Home, Time off, Clock, Documents, and "More" only when a role has further destinations; "More" shows the pending approvals count when Approvals is inside it). Admin features are reachable but optimized for desktop.
 - **Breakpoints:** 360, 640, 768, 1024, 1280. Test at 360 px.
 - **Home dashboards:** Employee: today first. The page header greets the person and shows today's date; the clock widget (current state, since when, next action) is the main block, and the leave balance is a single figure with "Request time off" next to it. Later: upcoming leave, tasks. Manager: approval inbox, who's away today, team alerts. HR: tasks needing attention, upcoming joiners/leavers, compliance warnings.
 

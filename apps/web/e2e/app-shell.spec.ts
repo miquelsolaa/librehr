@@ -66,7 +66,7 @@ test("managers see their own pages under Me and team pages under Organization", 
   ).toHaveText(["Home", "Time off", "Time tracking", "Documents"]);
   await expect(
     nav.getByRole("list", { name: "Organization" }).getByRole("link"),
-  ).toHaveText(["People", "Onboarding", "Reports"]);
+  ).toHaveText(["Approvals", "People", "Onboarding", "Reports"]);
 });
 
 test("auditors see one unlabelled read-only list", async ({

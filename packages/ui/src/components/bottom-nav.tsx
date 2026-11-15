@@ -8,6 +8,8 @@ export interface BottomNavProps {
   currentPath?: string;
   ariaLabel?: string;
   moreLabel?: string;
+  /** Spoken text for the count on "More", e.g. "2 pending". */
+  moreBadgeLabel?: (count: number) => string;
   /**
    * Content shown at the end of the "More" panel, below the overflow links
    * (for example a sign-out button). Its presence alone makes "More" appear.
@@ -22,6 +24,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   currentPath,
   ariaLabel = "Mobile Navigation",
   moreLabel = "More",
+  moreBadgeLabel = (count) => String(count),
   overflowFooter,
   className,
 }) => {
@@ -30,6 +33,10 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   const panelId = React.useId();
   const allItems = [...items, ...overflowItems];
   const hasOverflow = overflowItems.length > 0 || Boolean(overflowFooter);
+  const overflowCount = overflowItems.reduce(
+    (sum, item) => sum + (typeof item.badge === "number" ? item.badge : 0),
+    0,
+  );
   const activeHref = currentPath
     ? allItems
         .filter(
@@ -62,8 +69,14 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             href={item.href}
             aria-current={active ? "page" : undefined}
             // A short visible label keeps the full one as the accessible
-            // name; it contains the visible text (WCAG 2.5.3).
-            aria-label={item.shortLabel ? item.label : undefined}
+            // name; it contains the visible text (WCAG 2.5.3), count included.
+            aria-label={
+              item.shortLabel
+                ? item.badge !== undefined
+                  ? `${item.label}, ${item.badgeLabel ?? item.badge}`
+                  : item.label
+                : undefined
+            }
             className={cn(
               "flex min-h-[48px] min-w-[48px] flex-1 flex-col items-center justify-center gap-1 rounded-input px-0 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
               active
@@ -71,10 +84,16 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
-            <span className="shrink-0">{item.icon}</span>
+            <span className="relative shrink-0">
+              {item.icon}
+              {item.badge !== undefined && <CountBadge value={item.badge} />}
+            </span>
             <span className="max-w-full truncate text-xs tracking-tight">
               {item.shortLabel ?? item.label}
             </span>
+            {item.badge !== undefined && !item.shortLabel && (
+              <span className="sr-only">, {item.badgeLabel ?? item.badge}</span>
+            )}
           </a>
         );
       })}
@@ -99,7 +118,20 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                   )}
                 >
                   {item.icon}
-                  <span>{item.label}</span>
+                  <span className="flex-1">{item.label}</span>
+                  {item.badge !== undefined && (
+                    <>
+                      <span
+                        aria-hidden="true"
+                        className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary tabular-nums"
+                      >
+                        {item.badge}
+                      </span>
+                      <span className="sr-only">
+                        , {item.badgeLabel ?? item.badge}
+                      </span>
+                    </>
+                  )}
                 </a>
               ))}
               {overflowFooter && (
@@ -122,13 +154,27 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             onClick={() => setOpen((value) => !value)}
             className="flex min-h-[48px] min-w-[48px] flex-1 flex-col items-center justify-center gap-1 rounded-input px-1 py-1 text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
           >
-            <span aria-hidden="true" className="text-lg leading-4">
-              ⋯
+            <span className="relative text-lg leading-4">
+              <span aria-hidden="true">⋯</span>
+              {overflowCount > 0 && <CountBadge value={overflowCount} />}
             </span>
             <span className="text-xs">{moreLabel}</span>
+            {overflowCount > 0 && (
+              <span className="sr-only">, {moreBadgeLabel(overflowCount)}</span>
+            )}
           </button>
         </>
       )}
     </nav>
   );
 };
+
+/** Small count over a bottom-bar icon; the link names it in words (sr-only). */
+const CountBadge: React.FC<{ value: string | number }> = ({ value }) => (
+  <span
+    aria-hidden="true"
+    className="absolute -right-2.5 -top-1.5 min-w-4 rounded-full bg-primary px-1 text-center text-xs font-semibold leading-4 text-primary-foreground tabular-nums"
+  >
+    {typeof value === "number" && value > 9 ? "9+" : value}
+  </span>
+);

@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Plus, Users, ShieldAlert, UserCheck } from "lucide-react";
+import { Plus, Users, ShieldAlert, UserCheck, Inbox } from "lucide-react";
 import {
   Button,
   StatusPill,
@@ -39,6 +39,13 @@ export default function TimeOffPage() {
   const params = useParams();
   const locale = (params?.["locale"] as string | undefined) ?? "ca";
   const t = useTranslations("timeOff");
+  const tNav = useTranslations("nav");
+  // Approvers decide their team's requests in the approvals inbox.
+  const [canApprove, setCanApprove] = React.useState(false);
+  React.useEffect(() => {
+    const role = getStoredSession()?.role;
+    setCanApprove(role === "manager" || role === "admin");
+  }, []);
   const [data, setData] = React.useState<PageData | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<"session" | "load" | null>(null);
@@ -122,6 +129,14 @@ export default function TimeOffPage() {
         description={t("subtitle")}
         actions={
           <>
+            {canApprove && (
+              <Button asChild variant="outline" className="min-h-11 gap-2">
+                <Link href={`/${locale}/approvals`}>
+                  <Inbox aria-hidden="true" className="h-4 w-4" />
+                  {tNav("approvals")}
+                </Link>
+              </Button>
+            )}
             <Button asChild variant="outline" className="min-h-11 gap-2">
               <Link href={`/${locale}/time-off/calendar`}>
                 <Users aria-hidden="true" className="h-4 w-4" />
