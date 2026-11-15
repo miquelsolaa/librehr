@@ -621,8 +621,6 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
           userId: targetEmp.userId,
         });
 
-        const approverEmp = await employeeRepo.findByUserId(tx, user.id);
-
         // LEA-008: delegations only matter when the role itself does not
         // allow the decision, so they are loaded lazily.
         let delegatedManagerIds: string[] = [];
@@ -645,7 +643,8 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
           return { error: "FORBIDDEN" as const };
         }
 
-        const approverId = approverEmp ? approverEmp.id : req.employeeId;
+        // The same employee the checks above used (policy context).
+        const approverId = ctx.employeeId ?? req.employeeId;
 
         let updated;
         if (parsed.data.decision === "approve") {

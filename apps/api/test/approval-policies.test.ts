@@ -67,5 +67,6 @@ describe("approval predicates (LEA-004, LEA-008, TIM-003)", () => {
     const foreign = { ...laia, organizationId: "org-b" };
     expect(canDecideLeave(admin, foreign, [])).toBe(false);
     expect(canDecideCorrection(admin, foreign)).toBe(false);
+    expect(canDecideLeave(delegate, foreign, ["pere"])).toBe(false);
   });
 });

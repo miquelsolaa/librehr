@@ -1061,7 +1061,7 @@ registry.registerPath({
   method: "get",
   path: "/v1/approvals/pending",
   summary:
-    "Pending leave requests and time corrections the caller may decide, oldest first, at most 200 of each. Never includes the caller's own",
+    "Pending leave requests and time corrections the caller may decide, oldest submission first, at most 200 of each (`truncated` says more were waiting). Never includes the caller's own",
   responses: {
     200: {
       description: "Pending items, empty when the caller decides nothing",

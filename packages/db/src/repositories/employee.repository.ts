@@ -154,6 +154,34 @@ export class EmployeeRepository {
     return { ...row, reports: row.reports ?? [] };
   }
 
+  /**
+   * Scope fields of several employees in one query, for authorization checks
+   * over a list (no personal data is read).
+   */
+  async findScopeByIds(
+    tx: TenantTx,
+    ids: readonly string[],
+  ): Promise<
+    {
+      id: string;
+      organizationId: string;
+      userId: string | null;
+      managerId: string | null;
+      departmentId: string | null;
+      locationId: string | null;
+    }[]
+  > {
+    if (ids.length === 0) return [];
+    return tx`
+      SELECT id, organization_id as "organizationId", user_id as "userId",
+             manager_id as "managerId", department_id as "departmentId",
+             location_id as "locationId"
+      FROM employees
+      WHERE organization_id = ${tx.__tenantContext.organizationId}
+        AND id = ANY(${[...ids]}::uuid[])
+    `;
+  }
+
   async findByUserId(
     tx: TenantTx,
     userId: string,

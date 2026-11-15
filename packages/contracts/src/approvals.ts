@@ -15,5 +15,7 @@ export const PendingApprovalsSchema = z.object({
   timeCorrections: z
     .array(TimeCorrectionItemSchema)
     .max(PENDING_APPROVALS_LIMIT),
+  /** True when more items than the limit were waiting; the oldest are shown. */
+  truncated: z.boolean(),
 });
 export type PendingApprovals = z.infer<typeof PendingApprovalsSchema>;

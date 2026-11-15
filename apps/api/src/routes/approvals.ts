@@ -6,7 +6,6 @@ import {
   LeaveRepository,
   TimeCorrectionRepository,
   withTenant,
-  type TenantTx,
 } from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
 import { businessToday } from "../lib/business-date.js";
@@ -15,15 +14,23 @@ import {
   toTimeCorrectionResponse,
 } from "../lib/approval-items.js";
 import { canDecideCorrection, canDecideLeave } from "../policies/approvals.js";
-import {
-  resolvePolicyContext,
-  type ScopedEmployee,
-} from "../policies/context.js";
+import { resolvePolicyContext } from "../policies/context.js";
+
+/** Oldest submission first; the id breaks ties so the order is stable. */
+function bySubmission(
+  a: { createdAt: Date; id: string },
+  b: { createdAt: Date; id: string },
+): number {
+  return (
+    a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id)
+  );
+}
 
 /**
  * LEA-004 / LEA-008 / TIM-003: the approvals inbox. Every pending row of the
- * organization is checked with the same predicates the decide endpoints use,
- * so the inbox never offers a decision the API would refuse.
+ * organization is checked with the predicates the decide endpoints use
+ * (`canDecideLeave`, `canDecideCorrection`), so the inbox never offers a
+ * decision the API would refuse.
  */
 export function createApprovalRoutes(sql: Sql) {
   const router = new Hono();
@@ -49,33 +56,48 @@ export function createApprovalRoutes(sql: Sql) {
             ).map((d) => d.managerEmployeeId)
           : [];
 
-        const employees = employeeLoader(tx, employeeRepo);
-        const leave = (
-          await leaveRepo.getLeaveRequests(tx, { status: "pending" })
-        ).reverse(); // oldest first
+        const leave = await leaveRepo.getLeaveRequests(tx, {
+          status: "pending",
+        });
         const corrections = await correctionRepo.list(tx, {
           status: "pending",
         });
+        // One query for the scope fields of everyone involved (no N+1).
+        const scopes = new Map(
+          (
+            await employeeRepo.findScopeByIds(tx, [
+              ...new Set([
+                ...leave.map((r) => r.employeeId),
+                ...corrections.map((r) => r.employeeId),
+              ]),
+            ])
+          ).map((e) => [e.id, e]),
+        );
 
-        const leaveRequests = [];
-        for (const r of leave) {
-          if (leaveRequests.length === PENDING_APPROVALS_LIMIT) break;
-          const target = await employees(r.employeeId);
-          if (target && canDecideLeave(ctx, target, delegatedManagerIds)) {
-            leaveRequests.push(toLeaveRequestResponse(r));
-          }
-        }
-        const timeCorrections = [];
-        for (const r of [...corrections].sort(
-          (x, y) => x.createdAt.getTime() - y.createdAt.getTime(),
-        )) {
-          if (timeCorrections.length === PENDING_APPROVALS_LIMIT) break;
-          const target = await employees(r.employeeId);
-          if (target && canDecideCorrection(ctx, target)) {
-            timeCorrections.push(toTimeCorrectionResponse(r));
-          }
-        }
-        return { leaveRequests, timeCorrections };
+        const decidableLeave = leave
+          .filter((r) => {
+            const target = scopes.get(r.employeeId);
+            return target && canDecideLeave(ctx, target, delegatedManagerIds);
+          })
+          .sort(bySubmission);
+        const decidableCorrections = corrections
+          .filter((r) => {
+            const target = scopes.get(r.employeeId);
+            return target && canDecideCorrection(ctx, target);
+          })
+          .sort(bySubmission);
+
+        return {
+          leaveRequests: decidableLeave
+            .slice(0, PENDING_APPROVALS_LIMIT)
+            .map(toLeaveRequestResponse),
+          timeCorrections: decidableCorrections
+            .slice(0, PENDING_APPROVALS_LIMIT)
+            .map(toTimeCorrectionResponse),
+          truncated:
+            decidableLeave.length > PENDING_APPROVALS_LIMIT ||
+            decidableCorrections.length > PENDING_APPROVALS_LIMIT,
+        };
       },
     );
 
@@ -83,17 +105,4 @@ export function createApprovalRoutes(sql: Sql) {
   });
 
   return router;
-}
-
-/** Loads each employee once per request (many items share an employee). */
-function employeeLoader(tx: TenantTx, repo: EmployeeRepository) {
-  const cache = new Map<string, Promise<ScopedEmployee | null>>();
-  return (id: string) => {
-    let hit = cache.get(id);
-    if (!hit) {
-      hit = repo.findById(tx, id);
-      cache.set(id, hit);
-    }
-    return hit;
-  };
 }

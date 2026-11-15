@@ -17,10 +17,12 @@ import {
 } from "@librehr/db";
 import { IdParamSchema, parseParams } from "../lib/validate.js";
 import { requireAuth } from "../middleware/auth.js";
-import { assertNotSelfApproval } from "../policies/approvals.js";
+import {
+  assertNotSelfApproval,
+  canDecideCorrection,
+} from "../policies/approvals.js";
 import { toTimeCorrectionResponse } from "../lib/approval-items.js";
 import {
-  canOnEmployee,
   inEmployeeFilter,
   resolvePolicyContext,
   scopedEmployeeFilter,
@@ -187,9 +189,7 @@ export function createTimeCorrectionRoutes(
           employeeId: targetEmp.id,
           userId: targetEmp.userId,
         });
-        const allowed = canOnEmployee(ctx, "time.record.correct", targetEmp);
-
-        if (!allowed) {
+        if (!canDecideCorrection(ctx, targetEmp)) {
           return { error: "FORBIDDEN" as const };
         }
 

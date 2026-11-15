@@ -63,7 +63,9 @@ export function canDecideLeave(
   }
   if (canOnEmployee(ctx, "leave.request.approve", target)) return true;
   return (
-    target.managerId !== null && delegatedManagerIds.includes(target.managerId)
+    target.organizationId === ctx.organizationId &&
+    target.managerId !== null &&
+    delegatedManagerIds.includes(target.managerId)
   );
 }
 

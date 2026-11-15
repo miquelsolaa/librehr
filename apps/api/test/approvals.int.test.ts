@@ -98,6 +98,11 @@ describe("GET /v1/approvals/pending", () => {
     return (await res.json()) as PendingApprovals;
   }
 
+  const nothing: PendingApprovals = {
+    leaveRequests: [],
+    timeCorrections: [],
+    truncated: false,
+  };
   const leaveIds = (p: PendingApprovals) => p.leaveRequests.map((r) => r.id);
   const correctionIds = (p: PendingApprovals) =>
     p.timeCorrections.map((r) => r.id);
@@ -111,6 +116,8 @@ describe("GET /v1/approvals/pending", () => {
     b = await seedScopedOrg(db.sql, "approvals-b");
     const typeA = await seedLeaveType(a.orgId);
     const typeB = await seedLeaveType(b.orgId);
+    ids["typeA"] = typeA;
+    ids["typeB"] = typeB;
 
     ids["reportLeave"] = await seedLeave(a.orgId, typeA, a.report.employeeId);
     ids["reportApproved"] = await seedLeave(
@@ -129,6 +136,11 @@ describe("GET /v1/approvals/pending", () => {
       a.orgId,
       a.manager.employeeId,
     );
+    ids["reportDecidedCorrection"] = await seedCorrection(
+      a.orgId,
+      a.report.employeeId,
+    );
+    await db.sql`UPDATE time_corrections SET status = 'approved' WHERE id = ${ids["reportDecidedCorrection"]}`;
     ids["bReportLeave"] = await seedLeave(b.orgId, typeB, b.report.employeeId);
 
     // a.peer covers for a.manager now; b.peer's cover ended long ago.
@@ -164,14 +176,14 @@ describe("GET /v1/approvals/pending", () => {
     expect(p.leaveRequests[0]?.employeeName).toBe("Fixture report");
   });
 
-  it("gives an admin every pending item except their own", async () => {
+  it("gives an admin every pending item except their own, oldest first", async () => {
     const p = await pending(a.admin);
-    expect(leaveIds(p).sort()).toEqual(
-      [ids["reportLeave"], ids["managerLeave"]].sort(),
-    );
-    expect(correctionIds(p).sort()).toEqual(
-      [ids["reportCorrection"], ids["managerCorrection"]].sort(),
-    );
+    expect(leaveIds(p)).toEqual([ids["reportLeave"], ids["managerLeave"]]);
+    expect(correctionIds(p)).toEqual([
+      ids["reportCorrection"],
+      ids["managerCorrection"],
+    ]);
+    expect(p.truncated).toBe(false);
   });
 
   it("gives an active delegate the absent manager's team leave only", async () => {
@@ -181,24 +193,47 @@ describe("GET /v1/approvals/pending", () => {
   });
 
   it("gives nothing to a delegate whose delegation has ended", async () => {
-    const p = await pending(b.peer);
-    expect(p).toEqual({ leaveRequests: [], timeCorrections: [] });
+    expect(await pending(b.peer)).toEqual(nothing);
   });
 
   it("gives nothing to an employee or an auditor", async () => {
-    expect(await pending(a.report)).toEqual({
-      leaveRequests: [],
-      timeCorrections: [],
-    });
-    expect(await pending(a.auditor)).toEqual({
-      leaveRequests: [],
-      timeCorrections: [],
-    });
+    expect(await pending(a.report)).toEqual(nothing);
+    expect(await pending(a.auditor)).toEqual(nothing);
   });
 
   it("never returns another organization's items", async () => {
     const p = await pending(b.manager);
     expect(leaveIds(p)).toEqual([ids["bReportLeave"]]);
     expect(p.timeCorrections).toEqual([]);
+  });
+
+  // The decide route shares canDecideLeave with the inbox; these cover the
+  // LEA-008 delegate branch through the real endpoint.
+  describe("POST /v1/leave/requests/:id/decide as a delegate", () => {
+    const approve = (id: string, who: FixturePerson) =>
+      app.request(`/v1/leave/requests/${id}/decide`, {
+        method: "POST",
+        headers: as(who, true),
+        body: JSON.stringify({ decision: "approve" }),
+      });
+
+    it("lets an active delegate approve the absent manager's report", async () => {
+      const id = await seedLeave(a.orgId, ids["typeA"]!, a.report.employeeId);
+      const res = await approve(id, a.peer);
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { status: string; approverId: string };
+      expect(body.status).toBe("approved");
+      expect(body.approverId).toBe(a.peer.employeeId);
+    });
+
+    it("refuses a delegate outside the delegating manager's team", async () => {
+      const id = await seedLeave(a.orgId, ids["typeA"]!, a.admin.employeeId);
+      expect((await approve(id, a.peer)).status).toBe(403);
+    });
+
+    it("refuses a delegate whose delegation has ended", async () => {
+      const id = await seedLeave(b.orgId, ids["typeB"]!, b.report.employeeId);
+      expect((await approve(id, b.peer)).status).toBe(403);
+    });
   });
 });
