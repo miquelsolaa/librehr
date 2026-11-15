@@ -27,6 +27,7 @@ import {
   AuditRepository,
 } from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
+import { ConflictError } from "../errors/index.js";
 import { can } from "../policies/can.js";
 import { assertNotSelfApproval } from "../policies/approvals.js";
 import { canOnEmployee, resolvePolicyContext } from "../policies/context.js";
@@ -666,6 +667,14 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
           return { error: "FORBIDDEN" as const };
         }
 
+        // Decided once: lock the row and re-read its status under the lock.
+        if ((await leaveRepo.lockForDecision(tx, requestId)) !== "pending") {
+          throw new ConflictError({
+            code: "ALREADY_DECIDED",
+            detail: "This request has already been decided",
+          });
+        }
+
         const approverId = approverEmp ? approverEmp.id : req.employeeId;
 
         let updated;
@@ -674,6 +683,7 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
             tx,
             requestId,
             approverId,
+            parsed.data.reason,
           );
         } else {
           updated = await leaveRepo.rejectLeaveRequest(
