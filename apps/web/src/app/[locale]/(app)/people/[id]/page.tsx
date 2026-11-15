@@ -36,6 +36,7 @@ import {
 } from "@librehr/ui";
 import { apiClient } from "../../../../../lib/api-client.js";
 import { EmploymentHistory } from "@/components/employment-history";
+import { localIsoDate } from "@/lib/format";
 import type {
   EmployeeProfile,
   TerminationReason,
@@ -99,9 +100,7 @@ export default function EmployeeDetailPage() {
 
   // Termination modal state
   const [termOpen, setTermOpen] = React.useState(false);
-  const [termDate, setTermDate] = React.useState(
-    new Date().toISOString().slice(0, 10),
-  );
+  const [termDate, setTermDate] = React.useState(() => localIsoDate());
   const [termReason, setTermReason] = React.useState<TerminationReason>(
     "voluntary_resignation",
   );
