@@ -8,14 +8,14 @@ import { Button, Input, StatusPill, type StatusPillType } from "@librehr/ui";
 import { ArrowLeft, CheckCircle2, Clock } from "lucide-react";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
+import { localIsoDate } from "@/lib/format";
 import type { TimeCorrectionItem } from "@librehr/contracts";
 
 export default function TimeCorrectionsPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const locale = (params?.["locale"] as string | undefined) ?? "ca";
-  const defaultDate =
-    searchParams.get("date") ?? new Date().toISOString().slice(0, 10);
+  const defaultDate = searchParams.get("date") ?? localIsoDate();
 
   const t = useTranslations("timeTracking");
   const tTimeOff = useTranslations("timeOff");
