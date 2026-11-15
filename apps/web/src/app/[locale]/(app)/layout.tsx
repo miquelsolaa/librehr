@@ -18,13 +18,17 @@ import {
   IconReports,
   IconSettings,
 } from "@librehr/ui";
-import { Home, Tablet, FileText } from "lucide-react";
+import { Home, Tablet, FileText, Inbox } from "lucide-react";
 import { NotificationBell } from "../../../components/notification-bell";
 import { ClockWidget } from "../../../components/clock-widget";
 import { ClockStatusProvider } from "../../../components/clock-status-provider";
 import { UserMenu } from "../../../components/user-menu";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
+import {
+  APPROVALS_CHANGED_EVENT,
+  type ApprovalsChangedDetail,
+} from "@/lib/approvals-events";
 
 /**
  * Destinations about the signed-in person: everything an employee sees, and
@@ -42,6 +46,37 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [userName, setUserName] = React.useState<string | null>(null);
   const [userRole, setUserRole] = React.useState<string | null>(null);
   const [orgName, setOrgName] = React.useState("LibreHR");
+  const [approvalCount, setApprovalCount] = React.useState(0);
+
+  // LEA-004 / TIM-003: pending decisions for the nav badge. Fetched once and
+  // again whenever the approvals page reports a decision; no polling.
+  React.useEffect(() => {
+    if (!userRole || userRole === "auditor") return;
+    let active = true;
+    const refresh = () => {
+      void getApiClient()
+        .listPendingApprovals()
+        .then((p) => {
+          if (active) {
+            setApprovalCount(p.leaveRequests.length + p.timeCorrections.length);
+          }
+        })
+        .catch(() => {
+          // The badge is a hint; the page itself reports failures.
+        });
+    };
+    const onChanged = (event: Event) => {
+      const { count } = (event as CustomEvent<ApprovalsChangedDetail>).detail;
+      if (typeof count === "number") setApprovalCount(count);
+      else refresh();
+    };
+    refresh();
+    window.addEventListener(APPROVALS_CHANGED_EVENT, onChanged);
+    return () => {
+      active = false;
+      window.removeEventListener(APPROVALS_CHANGED_EVENT, onChanged);
+    };
+  }, [userRole]);
 
   React.useEffect(() => {
     const session = getStoredSession();
@@ -67,6 +102,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       href: `/${locale}/home`,
       label: tNav("home"),
       icon: <Home className="h-4 w-4" />,
+    },
+    {
+      href: `/${locale}/approvals`,
+      label: tNav("approvals"),
+      icon: <Inbox className="h-4 w-4" />,
+      ...(approvalCount > 0
+        ? {
+            badge: approvalCount,
+            badgeLabel: tNav("pendingCount", { count: approvalCount }),
+          }
+        : {}),
     },
     {
       href: `/${locale}/people`,
@@ -139,6 +185,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const managerPaths = new Set([
     "home",
+    "approvals",
     "people",
     "time-off",
     "time",
@@ -153,9 +200,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         ? standardNavItems
         : standardNavItems.filter((item) => {
             const path = item.href.slice(`/${locale}/`.length);
-            return userRole === "manager"
-              ? managerPaths.has(path)
-              : PERSONAL_PATHS.has(path);
+            if (userRole === "manager") return managerPaths.has(path);
+            // LEA-008: an employee covering for an absent manager.
+            if (path === "approvals") return approvalCount > 0;
+            return PERSONAL_PATHS.has(path);
           });
 
   const mobilePrimaryPaths =
@@ -257,6 +305,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             currentPath={pathname}
             ariaLabel={tNav("mobileNavigation")}
             moreLabel={tNav("more")}
+            moreBadgeLabel={(count) => tNav("pendingCount", { count })}
           />
         </div>
       </div>

@@ -486,7 +486,7 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
               title: "New Leave Request",
               body: `${targetEmp.firstName} ${targetEmp.lastName} requested ${workingDaysCalc.totalWorkingDays} day(s) off (${reqData.startDate} to ${reqData.endDate}).`,
               category: "leave_request",
-              link: `/time-off`,
+              link: "/approvals",
             });
           }
         }

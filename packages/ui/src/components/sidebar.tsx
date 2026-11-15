@@ -10,6 +10,11 @@ export interface NavItem {
   icon: React.ReactNode;
   isActive?: boolean;
   badge?: string | number;
+  /**
+   * What a screen reader says for the badge, e.g. "3 pending". The number
+   * alone would be read without context.
+   */
+  badgeLabel?: string;
 }
 
 export interface NavGroup {
@@ -109,9 +114,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <span className="shrink-0">{item.icon}</span>
                         <span className="truncate flex-1">{item.label}</span>
                         {item.badge !== undefined && (
-                          <span className="ml-auto rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary tabular-nums">
-                            {item.badge}
-                          </span>
+                          <>
+                            <span
+                              aria-hidden="true"
+                              className="ml-auto rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary tabular-nums"
+                            >
+                              {item.badge}
+                            </span>
+                            <span className="sr-only">
+                              , {item.badgeLabel ?? item.badge}
+                            </span>
+                          </>
                         )}
                       </a>
                     </li>

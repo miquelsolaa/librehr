@@ -207,6 +207,51 @@ describe("GET /v1/approvals/pending", () => {
     expect(p.timeCorrections).toEqual([]);
   });
 
+  it("points the manager's new-correction notification at the inbox", async () => {
+    const res = await app.request("/v1/time/corrections", {
+      method: "POST",
+      headers: as(a.report, true),
+      body: JSON.stringify({
+        proposedEventType: "clock_out",
+        proposedOccurredAt: "2026-03-02T17:00:00.000Z",
+        reason: "Forgot to clock out",
+      }),
+    });
+    expect(res.status).toBe(201);
+    const rows = await db.sql<{ link: string | null }[]>`
+      SELECT link FROM notifications
+      WHERE user_id = ${a.manager.id} AND category = 'time_correction'
+    `;
+    expect(rows.map((r) => r.link)).toEqual(["/approvals"]);
+  });
+
+  it("points the manager's new-leave notification at the inbox", async () => {
+    await withTenant(db.sql, { organizationId: a.orgId }, (tx) =>
+      new LeaveRepository().appendLedgerEntry(tx, {
+        employeeId: a.report.employeeId,
+        entryType: "adjustment",
+        amount: 5,
+        note: "Fixture balance",
+        effectiveDate: "2027-01-01",
+      }),
+    );
+    const res = await app.request("/v1/leave/requests", {
+      method: "POST",
+      headers: as(a.report, true),
+      body: JSON.stringify({
+        leaveTypeId: ids["typeA"],
+        startDate: "2027-02-10",
+        endDate: "2027-02-10",
+      }),
+    });
+    expect(res.status, await res.clone().text()).toBe(201);
+    const rows = await db.sql<{ link: string | null }[]>`
+      SELECT link FROM notifications
+      WHERE user_id = ${a.manager.id} AND category = 'leave_request'
+    `;
+    expect(rows.map((r) => r.link)).toEqual(["/approvals"]);
+  });
+
   // The decide route shares canDecideLeave with the inbox; these cover the
   // LEA-008 delegate branch through the real endpoint.
   describe("POST /v1/leave/requests/:id/decide as a delegate", () => {

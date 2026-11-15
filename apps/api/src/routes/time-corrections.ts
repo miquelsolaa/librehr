@@ -112,7 +112,7 @@ export function createTimeCorrectionRoutes(
               title: "Timesheet Correction Request",
               body: `${emp.firstName} ${emp.lastName} requested a timesheet correction (${parsed.data.proposedEventType}).`,
               category: "time_correction",
-              link: "/time/corrections",
+              link: "/approvals",
             });
           }
         }

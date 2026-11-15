@@ -102,6 +102,12 @@ tests.
   active LEA-008 delegate gets the absent manager's team's leave (never time
   corrections). Employees without a delegation and auditors get empty lists.
   Oldest submission first, at most 200 of each (`truncated` flags more).
+  In the web app this is the **Approvals** page (`/approvals`), in the
+  Organization nav group with the pending count as a badge. Approving takes an
+  optional comment; the page asks for one (at least 5 characters) to reject,
+  so the employee learns why. The API itself keeps the reason optional. A
+  request decided elsewhere meanwhile (403, 404 or 409) is dropped from the
+  list with a notice. New-request notifications link there.
 - Payslips (DOC-003): opened by the employee and by administrators (standing
   in for Owner/HR Admin until a Payroll role exists, ADM-001); not by managers
   or auditors. Every download is audited with ids only (ADM-002).
