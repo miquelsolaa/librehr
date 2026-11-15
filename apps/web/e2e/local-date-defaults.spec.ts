@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { mockRoute } from "./support/mock-api";
+import { mockRoute, seedProfile } from "./support/mock-api";
 
 // 00:30 on 11 March in Madrid is still 10 March in UTC. Form defaults must use
 // the user's calendar day, not the UTC day from toISOString().
@@ -8,18 +8,7 @@ const justAfterMidnightInMadrid = new Date("2026-03-10T23:30:00.000Z");
 
 test.beforeEach(async ({ page }) => {
   await page.clock.setFixedTime(justAfterMidnightInMadrid);
-  await page.addInitScript(() =>
-    localStorage.setItem(
-      "librehr_auth_session",
-      JSON.stringify({
-        userId: "sample",
-        organizationId: "sample",
-        email: "sample@example.invalid",
-        role: "admin",
-        token: "sample",
-      }),
-    ),
-  );
+  await seedProfile(page, { role: "admin" });
 });
 
 test("time correction defaults to today's local date", async ({ page }) => {
