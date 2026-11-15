@@ -96,6 +96,11 @@ tests.
   and HR Admin (both are `admin`), so an organization whose only approver is a
   single admin without a manager cannot get that admin's requests decided.
   Add a second admin, or set a manager for that admin; there is no override.
+  A request is decided once: deciding a leave request or time correction that
+  is no longer pending (another approver got there first, a double click, a
+  stale screen) answers 409 `ALREADY_DECIDED` and changes nothing. The row is
+  locked while it is decided, so two simultaneous approvals cannot both pass.
+  An approver's comment is kept on approvals as well as rejections.
   `GET /v1/approvals/pending` lists the pending leave requests and time
   corrections the caller may decide, using the same checks as the decide
   endpoints: managers get their direct reports, admins everyone else, and an

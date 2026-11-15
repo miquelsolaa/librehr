@@ -379,10 +379,25 @@ export class LeaveRepository {
     return full!;
   }
 
+  /**
+   * Locks the row for the rest of the transaction and returns its status, so
+   * two approvers deciding at once are serialised and the second sees the
+   * first one's decision (LEA-004 / TIM-003: decided once).
+   */
+  async lockForDecision(tx: TenantTx, id: string): Promise<string | null> {
+    const rows = await tx<{ status: string }[]>`
+      SELECT status FROM leave_requests
+      WHERE id = ${id} AND organization_id = ${tx.__tenantContext.organizationId}
+      FOR UPDATE
+    `;
+    return rows[0]?.status ?? null;
+  }
+
   async approveLeaveRequest(
     tx: TenantTx,
     id: string,
     approverId: string,
+    reason?: string | undefined,
   ): Promise<LeaveRequestRow> {
     const req = await this.getLeaveRequestById(tx, id);
     if (!req) throw new Error("Leave request not found");
@@ -393,7 +408,7 @@ export class LeaveRepository {
     await tx`
       UPDATE leave_requests
       SET status = 'approved', approver_id = ${approverId},
-          decided_at = now(), updated_at = now()
+          decision_reason = ${reason ?? null}, decided_at = now(), updated_at = now()
       WHERE id = ${id}
     `;
 
