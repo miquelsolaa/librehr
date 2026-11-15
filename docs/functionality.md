@@ -96,6 +96,12 @@ tests.
   and HR Admin (both are `admin`), so an organization whose only approver is a
   single admin without a manager cannot get that admin's requests decided.
   Add a second admin, or set a manager for that admin; there is no override.
+  `GET /v1/approvals/pending` lists the pending leave requests and time
+  corrections the caller may decide, using the same checks as the decide
+  endpoints: managers get their direct reports, admins everyone else, and an
+  active LEA-008 delegate gets the absent manager's team's leave (never time
+  corrections). Employees without a delegation and auditors get empty lists.
+  Oldest first, at most 200 of each.
 - Payslips (DOC-003): opened by the employee and by administrators (standing
   in for Owner/HR Admin until a Payroll role exists, ADM-001); not by managers
   or auditors. Every download is audited with ids only (ADM-002).

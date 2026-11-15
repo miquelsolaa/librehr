@@ -21,4 +21,5 @@ export * from "./org-chart.js";
 export * from "./webhooks.js";
 export * from "./shifts.js";
 export * from "./edition.js";
+export * from "./approvals.js";
 export * from "../generated/client.js";

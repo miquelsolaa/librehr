@@ -96,6 +96,7 @@ import {
   TimeBankSummarySchema,
   CreateTimeBankEntrySchema,
 } from "../src/time.js";
+import { PendingApprovalsSchema } from "../src/approvals.js";
 import {
   DocumentItemSchema,
   CreateDocumentRequestSchema,
@@ -202,6 +203,7 @@ registry.register("PeriodTimesheetResponse", PeriodTimesheetResponseSchema);
 registry.register("CreateTimeCorrection", CreateTimeCorrectionSchema);
 registry.register("DecideTimeCorrection", DecideTimeCorrectionSchema);
 registry.register("TimeCorrectionItem", TimeCorrectionItemSchema);
+registry.register("PendingApprovals", PendingApprovalsSchema);
 registry.register("OfficialExportResponse", OfficialExportResponseSchema);
 registry.register("ExportEmployeesResponse", ExportEmployeesResponseSchema);
 registry.register("KioskClockRequest", KioskClockRequestSchema);
@@ -1050,6 +1052,24 @@ registry.registerPath({
     200: {
       description: "Team absence schedule",
       content: { "application/json": { schema: z.array(TeamAbsenceSchema) } },
+    },
+  },
+});
+
+// Approvals inbox (LEA-004, LEA-008, TIM-003)
+registry.registerPath({
+  method: "get",
+  path: "/v1/approvals/pending",
+  summary:
+    "Pending leave requests and time corrections the caller may decide, oldest first, at most 200 of each. Never includes the caller's own",
+  responses: {
+    200: {
+      description: "Pending items, empty when the caller decides nothing",
+      content: { "application/json": { schema: PendingApprovalsSchema } },
+    },
+    401: {
+      description: "Not authenticated",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
   },
 });
@@ -1912,6 +1932,7 @@ import type {
   TimeBankSummary,
   CreateTimeBankEntry,
 } from '../src/time.js';
+import type { PendingApprovals } from '../src/approvals.js';
 import type {
   DocumentItem,
   CreateDocumentRequest,
@@ -2445,6 +2466,10 @@ export class LibreHrApiClient {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  }
+
+  async listPendingApprovals(): Promise<PendingApprovals> {
+    return this.request<PendingApprovals>('/v1/approvals/pending');
   }
 
   // Tablet Kiosk Mode (TIM-010)

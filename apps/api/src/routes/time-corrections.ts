@@ -18,6 +18,7 @@ import {
 import { IdParamSchema, parseParams } from "../lib/validate.js";
 import { requireAuth } from "../middleware/auth.js";
 import { assertNotSelfApproval } from "../policies/approvals.js";
+import { toTimeCorrectionResponse } from "../lib/approval-items.js";
 import {
   canOnEmployee,
   inEmployeeFilter,
@@ -60,24 +61,7 @@ export function createTimeCorrectionRoutes(
       },
     );
 
-    return c.json(
-      items.map((i) => ({
-        id: i.id,
-        employeeId: i.employeeId,
-        employeeName: i.employeeName,
-        refEventId: i.refEventId,
-        proposedEventType: i.proposedEventType,
-        proposedOccurredAt: i.proposedOccurredAt.toISOString(),
-        reason: i.reason,
-        status: i.status,
-        approverId: i.approverId,
-        approverName: i.approverName,
-        decidedAt: i.decidedAt ? i.decidedAt.toISOString() : null,
-        decisionReason: i.decisionReason,
-        createdEventId: i.createdEventId,
-        createdAt: i.createdAt.toISOString(),
-      })),
-    );
+    return c.json(items.map(toTimeCorrectionResponse));
   });
 
   // 2. POST /time/corrections - Submit a forgotten clocking correction

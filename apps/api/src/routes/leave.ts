@@ -28,7 +28,11 @@ import {
 } from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
 import { can } from "../policies/can.js";
-import { assertNotSelfApproval } from "../policies/approvals.js";
+import {
+  assertNotSelfApproval,
+  canDecideLeave,
+} from "../policies/approvals.js";
+import { toLeaveRequestResponse } from "../lib/approval-items.js";
 import { canOnEmployee, resolvePolicyContext } from "../policies/context.js";
 import { businessToday } from "../lib/business-date.js";
 import type { MailPort } from "../ports/mail.js";
@@ -229,29 +233,7 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
       },
     );
 
-    return c.json(
-      result.map((r) => ({
-        id: r.id,
-        employeeId: r.employeeId,
-        employeeName: r.employeeName ?? "",
-        leaveTypeId: r.leaveTypeId,
-        leaveTypeName: r.leaveTypeName ?? "",
-        leaveTypeCode: r.leaveTypeCode ?? "",
-        leaveTypeColor: r.leaveTypeColor ?? "#3b82f6",
-        startDate: r.startDate,
-        endDate: r.endDate,
-        halfDayStart: r.halfDayStart,
-        halfDayEnd: r.halfDayEnd,
-        workingDays: r.workingDays,
-        status: r.status,
-        notes: r.notes,
-        approverId: r.approverId,
-        approverName: r.approverName,
-        decidedAt: r.decidedAt ? r.decidedAt.toISOString() : null,
-        decisionReason: r.decisionReason,
-        createdAt: r.createdAt.toISOString(),
-      })),
-    );
+    return c.json(result.map(toLeaveRequestResponse));
   });
 
   // 5. POST /leave/requests - Submit a leave request
@@ -639,30 +621,27 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
           userId: targetEmp.userId,
         });
 
-        // Permission check: managerId is an employee id, compared to the
-        // approver's linked employee by the policy context.
-        const allowed = canOnEmployee(ctx, "leave.request.approve", targetEmp);
-
         const approverEmp = await employeeRepo.findByUserId(tx, user.id);
-        let isAuthorized = allowed;
 
-        // LEA-008: Check manager absence approval delegation
-        if (!isAuthorized && approverEmp && targetEmp.managerId) {
-          // Delegations are organization-wide date ranges (LEA-008).
+        // LEA-008: delegations only matter when the role itself does not
+        // allow the decision, so they are loaded lazily.
+        let delegatedManagerIds: string[] = [];
+        if (
+          !canOnEmployee(ctx, "leave.request.approve", targetEmp) &&
+          ctx.employeeId &&
+          targetEmp.managerId
+        ) {
           const today = await businessToday(c, tx);
-          const delegations = await leaveRepo.getActiveDelegationsForDelegate(
-            tx,
-            approverEmp.id,
-            today,
-          );
-          if (
-            delegations.some((d) => d.managerEmployeeId === targetEmp.managerId)
-          ) {
-            isAuthorized = true;
-          }
+          delegatedManagerIds = (
+            await leaveRepo.getActiveDelegationsForDelegate(
+              tx,
+              ctx.employeeId,
+              today,
+            )
+          ).map((d) => d.managerEmployeeId);
         }
 
-        if (!isAuthorized) {
+        if (!canDecideLeave(ctx, targetEmp, delegatedManagerIds)) {
           return { error: "FORBIDDEN" as const };
         }
 

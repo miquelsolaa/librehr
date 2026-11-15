@@ -2640,6 +2640,220 @@
           "createdAt"
         ]
       },
+      "PendingApprovals": {
+        "type": "object",
+        "properties": {
+          "leaveRequests": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "employeeId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "employeeName": {
+                  "type": "string"
+                },
+                "leaveTypeId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "leaveTypeName": {
+                  "type": "string"
+                },
+                "leaveTypeCode": {
+                  "type": "string"
+                },
+                "leaveTypeColor": {
+                  "type": "string"
+                },
+                "startDate": {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                },
+                "endDate": {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                },
+                "halfDayStart": {
+                  "type": "boolean"
+                },
+                "halfDayEnd": {
+                  "type": "boolean"
+                },
+                "workingDays": {
+                  "type": "number"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "approved",
+                    "rejected",
+                    "cancelled"
+                  ]
+                },
+                "notes": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "approverId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
+                },
+                "approverName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "decidedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "decisionReason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "id",
+                "employeeId",
+                "leaveTypeId",
+                "startDate",
+                "endDate",
+                "halfDayStart",
+                "halfDayEnd",
+                "workingDays",
+                "status",
+                "createdAt"
+              ]
+            },
+            "maxItems": 200
+          },
+          "timeCorrections": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "employeeId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "employeeName": {
+                  "type": "string"
+                },
+                "refEventId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
+                },
+                "proposedEventType": {
+                  "type": "string",
+                  "enum": [
+                    "clock_in",
+                    "clock_out",
+                    "break_start",
+                    "break_end",
+                    "correction"
+                  ]
+                },
+                "proposedOccurredAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "approved",
+                    "rejected"
+                  ]
+                },
+                "approverId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
+                },
+                "approverName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "decidedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "decisionReason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "createdEventId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "id",
+                "employeeId",
+                "proposedEventType",
+                "proposedOccurredAt",
+                "reason",
+                "status",
+                "createdAt"
+              ]
+            },
+            "maxItems": 200
+          }
+        },
+        "required": [
+          "leaveRequests",
+          "timeCorrections"
+        ]
+      },
       "OfficialExportResponse": {
         "type": "object",
         "properties": {
@@ -10455,6 +10669,290 @@
                       "status"
                     ]
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/approvals/pending": {
+      "get": {
+        "summary": "Pending leave requests and time corrections the caller may decide, oldest first, at most 200 of each. Never includes the caller's own",
+        "responses": {
+          "200": {
+            "description": "Pending items, empty when the caller decides nothing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "leaveRequests": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "employeeId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "employeeName": {
+                            "type": "string"
+                          },
+                          "leaveTypeId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "leaveTypeName": {
+                            "type": "string"
+                          },
+                          "leaveTypeCode": {
+                            "type": "string"
+                          },
+                          "leaveTypeColor": {
+                            "type": "string"
+                          },
+                          "startDate": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                          },
+                          "endDate": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                          },
+                          "halfDayStart": {
+                            "type": "boolean"
+                          },
+                          "halfDayEnd": {
+                            "type": "boolean"
+                          },
+                          "workingDays": {
+                            "type": "number"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "approved",
+                              "rejected",
+                              "cancelled"
+                            ]
+                          },
+                          "notes": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "approverId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "uuid"
+                          },
+                          "approverName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "decidedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          },
+                          "decisionReason": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "employeeId",
+                          "leaveTypeId",
+                          "startDate",
+                          "endDate",
+                          "halfDayStart",
+                          "halfDayEnd",
+                          "workingDays",
+                          "status",
+                          "createdAt"
+                        ]
+                      },
+                      "maxItems": 200
+                    },
+                    "timeCorrections": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "employeeId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "employeeName": {
+                            "type": "string"
+                          },
+                          "refEventId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "uuid"
+                          },
+                          "proposedEventType": {
+                            "type": "string",
+                            "enum": [
+                              "clock_in",
+                              "clock_out",
+                              "break_start",
+                              "break_end",
+                              "correction"
+                            ]
+                          },
+                          "proposedOccurredAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "reason": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "approved",
+                              "rejected"
+                            ]
+                          },
+                          "approverId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "uuid"
+                          },
+                          "approverName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "decidedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          },
+                          "decisionReason": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "createdEventId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "uuid"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "employeeId",
+                          "proposedEventType",
+                          "proposedOccurredAt",
+                          "reason",
+                          "status",
+                          "createdAt"
+                        ]
+                      },
+                      "maxItems": 200
+                    }
+                  },
+                  "required": [
+                    "leaveRequests",
+                    "timeCorrections"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
                 }
               }
             }

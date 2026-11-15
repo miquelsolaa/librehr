@@ -1,5 +1,6 @@
 import { SelfApprovalForbiddenError } from "../errors/index.js";
 import type { PolicyUserContext } from "./can.js";
+import { canOnEmployee, type ScopedEmployee } from "./context.js";
 
 /** The person a leave request or time correction belongs to. */
 export interface ApprovalSubject {
@@ -41,4 +42,45 @@ export function assertNotSelfApproval(
   if (isOwnRequest(ctx, subject)) {
     throw new SelfApprovalForbiddenError();
   }
+}
+
+/**
+ * LEA-004 / LEA-008: whether the caller may approve or reject a leave request
+ * of `target`. True when their role allows `leave.request.approve` on that
+ * employee, or when an active delegation from the employee's manager names
+ * them. Never for the caller's own request.
+ *
+ * @example
+ * canDecideLeave(ctx, employee, ["<manager employee id>"]);
+ */
+export function canDecideLeave(
+  ctx: PolicyUserContext,
+  target: ScopedEmployee,
+  delegatedManagerIds: readonly string[],
+): boolean {
+  if (isOwnRequest(ctx, { employeeId: target.id, userId: target.userId })) {
+    return false;
+  }
+  if (canOnEmployee(ctx, "leave.request.approve", target)) return true;
+  return (
+    target.managerId !== null && delegatedManagerIds.includes(target.managerId)
+  );
+}
+
+/**
+ * TIM-003: whether the caller may approve or reject a time correction of
+ * `target`. Delegations do not apply to time records. Never for the caller's
+ * own correction.
+ *
+ * @example
+ * canDecideCorrection(ctx, employee);
+ */
+export function canDecideCorrection(
+  ctx: PolicyUserContext,
+  target: ScopedEmployee,
+): boolean {
+  return (
+    !isOwnRequest(ctx, { employeeId: target.id, userId: target.userId }) &&
+    canOnEmployee(ctx, "time.record.correct", target)
+  );
 }
