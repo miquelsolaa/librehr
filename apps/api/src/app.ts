@@ -37,6 +37,7 @@ import {
 } from "./routes/time-export.js";
 import { createTimeExportEmployeesRoutes } from "./routes/time-export-employees.js";
 import { createTimeCorrectionRoutes } from "./routes/time-corrections.js";
+import { createApprovalRoutes } from "./routes/approvals.js";
 import { createTimeKioskRoutes } from "./routes/time-kiosk.js";
 import {
   createTimeChainSigner,
@@ -264,6 +265,7 @@ export function createApp(deps: AppDependencies) {
   );
   app.route("/v1", createAuditRoutes(deps.sql));
   app.route("/v1", createLeaveRoutes(deps.sql, deps.mailPort));
+  app.route("/v1", createApprovalRoutes(deps.sql));
   app.route("/v1", createCalendarRoutes(deps.sql));
   app.route("/v1", createNotificationRoutes(deps.sql));
   app.route(

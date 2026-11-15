@@ -18,9 +18,12 @@ import {
 import { IdParamSchema, parseParams } from "../lib/validate.js";
 import { requireAuth } from "../middleware/auth.js";
 import { ConflictError } from "../errors/index.js";
-import { assertNotSelfApproval } from "../policies/approvals.js";
 import {
-  canOnEmployee,
+  assertNotSelfApproval,
+  canDecideCorrection,
+} from "../policies/approvals.js";
+import { toTimeCorrectionResponse } from "../lib/approval-items.js";
+import {
   inEmployeeFilter,
   resolvePolicyContext,
   scopedEmployeeFilter,
@@ -61,24 +64,7 @@ export function createTimeCorrectionRoutes(
       },
     );
 
-    return c.json(
-      items.map((i) => ({
-        id: i.id,
-        employeeId: i.employeeId,
-        employeeName: i.employeeName,
-        refEventId: i.refEventId,
-        proposedEventType: i.proposedEventType,
-        proposedOccurredAt: i.proposedOccurredAt.toISOString(),
-        reason: i.reason,
-        status: i.status,
-        approverId: i.approverId,
-        approverName: i.approverName,
-        decidedAt: i.decidedAt ? i.decidedAt.toISOString() : null,
-        decisionReason: i.decisionReason,
-        createdEventId: i.createdEventId,
-        createdAt: i.createdAt.toISOString(),
-      })),
-    );
+    return c.json(items.map(toTimeCorrectionResponse));
   });
 
   // 2. POST /time/corrections - Submit a forgotten clocking correction
@@ -204,9 +190,7 @@ export function createTimeCorrectionRoutes(
           employeeId: targetEmp.id,
           userId: targetEmp.userId,
         });
-        const allowed = canOnEmployee(ctx, "time.record.correct", targetEmp);
-
-        if (!allowed) {
+        if (!canDecideCorrection(ctx, targetEmp)) {
           return { error: "FORBIDDEN" as const };
         }
 

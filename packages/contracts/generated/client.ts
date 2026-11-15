@@ -103,6 +103,7 @@ import type {
   TimeBankSummary,
   CreateTimeBankEntry,
 } from '../src/time.js';
+import type { PendingApprovals } from '../src/approvals.js';
 import type {
   DocumentItem,
   CreateDocumentRequest,
@@ -636,6 +637,10 @@ export class LibreHrApiClient {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  }
+
+  async listPendingApprovals(): Promise<PendingApprovals> {
+    return this.request<PendingApprovals>('/v1/approvals/pending');
   }
 
   // Tablet Kiosk Mode (TIM-010)
