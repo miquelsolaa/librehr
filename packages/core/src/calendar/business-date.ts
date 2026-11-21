@@ -141,3 +141,38 @@ export function isBeforeDate(date: string, other: string): boolean {
     ) < 0
   );
 }
+
+/**
+ * The first and last calendar day of a month (`YYYY-MM`), e.g. a timesheet
+ * closure period (TIM-004). Leap years are handled by the calendar.
+ *
+ * @example
+ * monthPeriod("2028-02"); // => { startDate: "2028-02-01", endDate: "2028-02-29" }
+ */
+export function monthPeriod(month: string): {
+  startDate: string;
+  endDate: string;
+} {
+  const ym = Temporal.PlainYearMonth.from(month);
+  return {
+    startDate: ym.toPlainDate({ day: 1 }).toString(),
+    endDate: ym.toPlainDate({ day: ym.daysInMonth }).toString(),
+  };
+}
+
+/**
+ * The month (`YYYY-MM`) holding both dates, or null when they fall in
+ * different months.
+ *
+ * @example
+ * monthContaining("2026-03-02", "2026-03-31"); // => "2026-03"
+ * monthContaining("2026-03-30", "2026-04-02"); // => null
+ */
+export function monthContaining(
+  startDate: string,
+  endDate: string,
+): string | null {
+  const start = Temporal.PlainDate.from(startDate).toPlainYearMonth();
+  const end = Temporal.PlainDate.from(endDate).toPlainYearMonth();
+  return start.equals(end) ? start.toString() : null;
+}

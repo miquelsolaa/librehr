@@ -57,20 +57,25 @@ async function startWorker() {
       processBatch(queue, jobs, handler, logger),
     );
 
+  // Tenant reads and writes go through withTenant, so RLS still applies to this pool.
+  const sql = createDatabaseClient(env.DATABASE_URL);
+
   await register("email.send", (job) => handleEmailSend(job, mailer));
-  await register("leave.accrue", (job) => handleLeaveAccrue(job, logger));
-  await register("time.close-day", (job) => handleTimeCloseDay(job, logger));
+  await register("leave.accrue", (job) =>
+    handleLeaveAccrue(job, { sql, logger }),
+  );
   await register("retention.enforce", (job) =>
     handleRetentionEnforce(job, logger),
   );
-  // Tenant reads go through withTenant, so RLS still applies to this pool.
-  const sql = createDatabaseClient(env.DATABASE_URL);
   await register("audit.verify-chain", (job) =>
     handleAuditVerifyChain(job, {
       sql,
       timeChainKey: env.TIME_CHAIN_KEY,
       logger,
     }),
+  );
+  await register("time.close-day", (job) =>
+    handleTimeCloseDay(job, { sql, logger }),
   );
 
   const shutdown = async (signal: string) => {

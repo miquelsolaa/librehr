@@ -8,7 +8,9 @@ import {
   boolean,
   timestamp,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { primaryId, organizationIdCol, timestamps } from "./common.js";
 import { organizations, locations } from "./platform.js";
 import { employees } from "./people.js";
@@ -36,6 +38,10 @@ export const leaveLedger = pgTable(
   (table) => [
     index("leave_ledger_org_idx").on(table.organizationId),
     index("leave_ledger_employee_idx").on(table.employeeId),
+    // LEA-002: one accrual per employee, policy and month (migration 0030).
+    uniqueIndex("leave_ledger_accrual_once")
+      .on(table.organizationId, table.employeeId, table.sourceRef)
+      .where(sql`${table.entryType} = 'accrual'`),
   ],
 );
 

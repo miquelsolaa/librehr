@@ -96,6 +96,12 @@ const API_FIXTURES: Record<string, unknown> = {
     records: [],
   },
   "/v1/time/corrections": [],
+  "/v1/time/closures": {
+    month: "2026-01",
+    periodStart: "2026-01-01",
+    periodEnd: "2026-01-31",
+    items: [],
+  },
   "/v1/leave/balance": {
     currentBalance: 22,
     totalAccrued: 22,

@@ -11,7 +11,12 @@ import { withTenant } from "../src/with-tenant.js";
 import { hashBearerToken } from "../src/crypto/token-hash.js";
 import { seedDevDatabase } from "../seeds/dev.js";
 
-const APPEND_ONLY_TABLES = ["time_events", "leave_ledger", "audit_log"];
+const APPEND_ONLY_TABLES = [
+  "time_events",
+  "leave_ledger",
+  "audit_log",
+  "timesheet_closures",
+];
 // Callable by librehr_app: each one is keyed by a secret the caller holds.
 const LOOKUP_FUNCTIONS = [
   "librehr_auth_session",

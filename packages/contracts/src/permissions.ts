@@ -21,6 +21,8 @@ export const Permissions = [
   "time.record.correct",
   // TIM-010: operate a shared kiosk that clocks other employees in by PIN.
   "time.kiosk",
+  // TIM-004: close or reopen a month's timesheets (snapshot of totals).
+  "time.period.close",
   "document.read",
   "document.write",
   "audit.read",
@@ -47,6 +49,7 @@ export const ROLE_PERMISSIONS: Record<string, readonly ScopedPermission[]> = {
     { permission: "time.record.read", scope: "organization" },
     { permission: "time.record.correct", scope: "organization" },
     { permission: "time.kiosk", scope: "organization" },
+    { permission: "time.period.close", scope: "organization" },
     { permission: "document.read", scope: "organization" },
     { permission: "document.write", scope: "organization" },
     { permission: "audit.read", scope: "organization" },

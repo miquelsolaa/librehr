@@ -42,6 +42,34 @@ export class NotificationRepository {
     return rows[0]!;
   }
 
+  /**
+   * Creates the notification unless the user already has one with the same
+   * category and link, which together act as its idempotency key. A
+   * transaction-scoped advisory lock on that key serializes concurrent
+   * callers. Returns null when it already existed.
+   */
+  async createOnce(
+    tx: TenantTx,
+    data: {
+      userId: string;
+      title: string;
+      body: string;
+      category: string;
+      link: string;
+    },
+  ): Promise<NotificationRow | null> {
+    const lockKey = `notification:${tx.__tenantContext.organizationId}:${data.userId}:${data.category}:${data.link}`;
+    await tx`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
+    const existing = await tx<{ id: string }[]>`
+      SELECT id FROM notifications
+      WHERE user_id = ${data.userId} AND category = ${data.category}
+        AND link = ${data.link}
+      LIMIT 1
+    `;
+    if (existing.length > 0) return null;
+    return this.create(tx, data);
+  }
+
   async getForUser(
     tx: TenantTx,
     userId: string,
