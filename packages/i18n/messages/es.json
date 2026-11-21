@@ -585,6 +585,7 @@
     "selfApproveTitle": "Aprobar tu propia solicitud",
     "selfApproveComment": "Motivo para aprobar tu propia solicitud",
     "selfApprovalNote": "Es tu solicitud. Nadie más de la organización puede aprobarla, así que puedes aprobarla tú indicando un motivo. La aprobación queda registrada en el registro de auditoría.",
+    "selfApprovalGone": "Ahora otra persona puede decidir tu solicitud, así que se ha quitado de tu lista. Sigue pendiente.",
     "confirmApprove": "Aprobar",
     "confirmReject": "Rechazar",
     "cancel": "Cancelar",

@@ -2,7 +2,9 @@
 
 ## Status
 
-Proposed (needs human review; nothing in this ADR is implemented yet)
+Proposed, needs human review. The roles in "Proposal" are not implemented.
+The "Decision: sole-approver exception" section records what PR #108
+implements.
 
 ## Date
 
@@ -18,38 +20,74 @@ today.
 
 Two problems follow from that.
 
-1. **Self-approval in small organizations (#36).** Nobody may decide their
-   own leave request (LEA-004), so an organization whose only approver is one
-   admin cannot get that admin's leave decided. PR #36 adds a narrow
-   exception: when nobody else could decide the request (no other live member
-   holds `leave.request.approve` over that employee, and no active LEA-008
-   delegate exists), the requester may approve their own leave with a
-   reason, audited as `leave.request.self_approve` (ADM-002). A separate HR
-   Admin role would let an owner hand approvals to someone else instead of
-   relying on that exception.
+1. **Self-approval in small organizations (issue #36).** Nobody may decide
+   their own leave request (LEA-004), so an organization whose only approver
+   is one admin cannot get that admin's leave decided. PR #108 adds a narrow
+   exception, recorded below under "Decision: sole-approver exception". A
+   separate HR Admin role would let an owner hand approvals to someone else
+   instead of relying on that exception.
 2. **Kiosk devices (TIM-010).** The kiosk route needs a session holding
    `time.kiosk`, and only `admin` has that permission. A shared device
    therefore signs in as an administrator, with access to everything an
    admin can do if the device is left unattended or its session is stolen.
+   Such a device account also counts as another admin for the sole-approver
+   exception, so the real admin cannot use the exception.
 
 The code also checks role strings that no built-in role has. These checks are
 dead branches today, or they grant nothing, and they disagree with each other
 about the name of the HR role:
 
-| Location                                      | Check                                     | Effect today                                                                                                       |
-| --------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `apps/api/src/routes/custom-fields.ts:49`     | `role !== "admin" && role !== "hr"`       | Only `admin` can create custom fields                                                                              |
-| `apps/api/src/routes/custom-fields.ts:99`     | `role !== "admin" && role !== "hr"`       | Only `admin` can update custom fields                                                                              |
-| `apps/api/src/routes/employees.ts:733`        | `role === "admin" \|\| role === "hr"`     | Only `admin` (or the employee) sets a kiosk PIN                                                                    |
-| `apps/api/src/routes/sso-stored-config.ts:45` | `role !== "admin" && role !== "hr_admin"` | Only `admin` manages stored SSO configuration                                                                      |
-| `apps/api/src/routes/documents.ts:642`        | `role !== "admin" && role !== "hr_admin"` | Only `admin` creates document templates                                                                            |
-| `apps/api/src/routes/documents.ts:881`        | `role !== "admin" && role !== "hr_admin"` | Only `admin` deletes document templates                                                                            |
-| `ee/core/src/sso/routes.ts:58`                | `role !== "admin" && role !== "hr_admin"` | Only `admin` manages SSO (Business edition)                                                                        |
-| `apps/api/src/policies/custom-fields.ts:19`   | `role === "admin" ? "admin" : "hr"`       | Maps any organization-scoped employee reader to the `"hr"` visibility tier. This is a visibility tier, not a role. |
-| `packages/db/src/schema/identity.ts:79`       | comment lists `hr_admin`                  | Documentation only                                                                                                 |
+| Where (handler or function)                               | Check                                     | Effect today                                                                            |
+| --------------------------------------------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------- |
+| `POST /custom-fields` (`routes/custom-fields.ts`)         | `role !== "admin" && role !== "hr"`       | Only `admin` creates custom fields                                                      |
+| `DELETE /custom-fields/:id` (same file)                   | `role !== "admin" && role !== "hr"`       | Only `admin` deletes custom fields                                                      |
+| `PATCH /people/:id/pin` (`routes/employees.ts`)           | `role === "admin" \|\| role === "hr"`     | Only `admin` (or the employee) sets a kiosk PIN                                         |
+| `GET /sso/config` (`routes/sso-stored-config.ts`)         | `role !== "admin" && role !== "hr_admin"` | Only `admin` reads stored SSO configuration                                             |
+| `POST /documents/templates` (`routes/documents.ts`)       | `role !== "admin" && role !== "hr_admin"` | Only `admin` creates document templates                                                 |
+| `DELETE /documents/templates/:id` (same file)             | `role !== "admin" && role !== "hr_admin"` | Only `admin` deletes document templates                                                 |
+| `GET /config` (`ee/core/src/sso/routes.ts`)               | `role !== "admin" && role !== "hr_admin"` | Only `admin` reads SSO configuration (Business edition)                                 |
+| `customFieldViewer` (`policies/custom-fields.ts`)         | `role === "admin" ? "admin" : "hr"`       | Maps other organization-wide readers to the `"hr"` visibility tier (a tier, not a role) |
+| `memberships.role` (`packages/db/src/schema/identity.ts`) | comment lists `hr_admin`                  | Documentation only                                                                      |
 
 The `"hr"` value in `custom_fields.visibility` (contracts, repository and web
 settings page) is a field visibility level, not a role. It stays as it is.
+
+## Decision: sole-approver exception (accepted, implemented in PR #108)
+
+**Context.** With the strict LEA-004 rule, an organization's only approver
+can never get their own leave approved.
+
+**Decision.** The caller may approve (never reject) their own leave request
+only when all of these hold:
+
+- their role holds `leave.request.approve` organization-wide;
+- no other member who can sign in could decide it. That means another
+  organization-wide approver, or their manager. Department and location
+  scopes count too, so the check fails closed.
+- no active LEA-008 delegate of their manager can sign in.
+
+A non-empty reason is required. The approval is audited as
+`leave.request.self_approve` with ids only. Time corrections and shift swaps
+have no exception.
+
+**Alternatives considered.**
+
+- Keep the strict rule and tell owners to add a second admin. That forces an
+  extra account, or a shared one.
+- An organization setting that allows self-approval. That is broader than
+  needed and easy to leave on.
+- Have the system approve automatically. Nobody would be accountable for the
+  decision.
+
+**Consequences.**
+
+- An admin can make the exception apply by removing or expiring the only
+  other approver. Those membership changes are audited, and so is the
+  self-approval.
+- The check and the commit are not atomic. An approver added at the same
+  moment does not invalidate a decision that was valid when it was checked,
+  so this race is benign.
+- Adding `hr_admin` (below) means fewer organizations need the exception.
 
 ## Proposal
 
@@ -83,7 +121,7 @@ is an open question below.
 
 Because `hr_admin` holds `leave.request.approve` at organization scope, an
 organization with an owner and an HR admin has two possible approvers, and
-the self-approval exception from #36 no longer applies to either of them.
+the sole-approver exception no longer applies to either of them.
 
 ### 2. Add a `kiosk` device role (TIM-010)
 
@@ -113,6 +151,10 @@ Every check in the inventory above becomes a `can(ctx, permission)` call:
 
 No route should compare `user.role` with a literal string after this change.
 A lint rule could enforce that.
+
+This step must land before, or together with, adding the `hr_admin` role.
+Otherwise the existing `"hr_admin"` checks would start granting an
+`hr_admin` member SSO configuration and document templates as a side effect.
 
 ## Consequences
 

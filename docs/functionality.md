@@ -100,7 +100,8 @@ tests.
   covers them, an organization-wide approver may approve (never reject) their
   own leave request. A non-empty reason is required (400
   `SELF_APPROVAL_REASON_REQUIRED` without one). The approval is audited as
-  `leave.request.self_approve` with ids only. Expired memberships and
+  `leave.request.self_approve` with ids only. Cancelling a request keeps its
+  decision reason; who cancelled is in the `leave.request.cancel` audit entry. Expired memberships and
   terminated employees do not count as other approvers. Time corrections and
   shift swaps have no exception. Separate HR Admin and kiosk-device roles are
   proposed in `docs/adr/0005-hr-and-kiosk-roles.md`.

@@ -1,11 +1,11 @@
+import { ROLE_PERMISSIONS, type Scope } from "@librehr/contracts";
 import {
-  EmployeeRepository,
   LeaveRepository,
-  type ActiveMemberRole,
+  type LeaveDeciderCandidate,
   type TenantTx,
 } from "@librehr/db";
 import { SelfApprovalForbiddenError } from "../errors/index.js";
-import { permissionScope, type PolicyUserContext } from "./can.js";
+import type { PolicyUserContext } from "./can.js";
 import { canOnEmployee, type ScopedEmployee } from "./context.js";
 
 /** The person a leave request or time correction belongs to. */
@@ -92,43 +92,37 @@ export function canDecideCorrection(
   );
 }
 
+/** Scope a role holds for `leave.request.approve`, or null without it. */
+function approveScope(role: string): Scope | null {
+  const permissions = ROLE_PERMISSIONS[role] ?? [];
+  return (
+    permissions.find((p) => p.permission === "leave.request.approve")?.scope ??
+    null
+  );
+}
+
 /**
  * LEA-004 / LEA-008: whether anyone other than the caller could decide a
- * leave request of `target` (the caller's own employee): another live member
- * whose role allows `leave.request.approve` over that employee, or an active
- * delegate of the employee's manager who can sign in. Department and
+ * leave request of the caller's own employee: another live member whose role
+ * allows `leave.request.approve` organization-wide, the requester's manager
+ * (reports scope), or an active delegate of that manager. Department and
  * location scopes are not used by built-in roles; they count as "someone
  * else could decide" so the exception fails closed.
  *
  * @example
- * hasOtherLeaveDecider(ctx, employee, members, ["<delegate employee id>"]);
+ * hasOtherLeaveDecider("<caller user id>", candidates);
  */
 export function hasOtherLeaveDecider(
-  ctx: PolicyUserContext,
-  target: ScopedEmployee,
-  others: readonly ActiveMemberRole[],
-  activeDelegateEmployeeIds: readonly string[],
+  callerUserId: string,
+  candidates: readonly LeaveDeciderCandidate[],
 ): boolean {
-  const candidates = others.filter(
-    (m) =>
-      m.userId !== ctx.userId &&
-      (m.employeeId === null || m.employeeId !== ctx.employeeId),
-  );
-  for (const member of candidates) {
-    const scope = permissionScope(
-      { ...ctx, userId: member.userId, role: member.role },
-      "leave.request.approve",
-    );
-    if (scope === null || scope === "self") continue;
-    if (scope !== "reports") return true;
-    if (member.employeeId !== null && member.employeeId === target.managerId) {
-      return true;
-    }
-  }
-  const liveEmployees = new Set(candidates.map((m) => m.employeeId));
-  return activeDelegateEmployeeIds.some(
-    (id) => id !== ctx.employeeId && liveEmployees.has(id),
-  );
+  return candidates.some((m) => {
+    if (m.userId === callerUserId) return false;
+    if (m.isDelegate) return true;
+    const scope = approveScope(m.role);
+    if (scope === null || scope === "self") return false;
+    return scope !== "reports" || m.isManager;
+  });
 }
 
 /**
@@ -151,21 +145,12 @@ export async function canSelfApproveLeave(
     return false;
   }
   if (target.organizationId !== ctx.organizationId) return false;
-  if (permissionScope(ctx, "leave.request.approve") !== "organization") {
-    return false;
-  }
-  const others = await new EmployeeRepository().listOtherActiveMemberRoles(
-    tx,
-    ctx.userId,
-  );
-  const delegates = target.managerId
-    ? (
-        await new LeaveRepository().getActiveDelegatesForManager(
-          tx,
-          target.managerId,
-          today,
-        )
-      ).map((d) => d.delegateEmployeeId)
-    : [];
-  return !hasOtherLeaveDecider(ctx, target, others, delegates);
+  if (approveScope(ctx.role) !== "organization") return false;
+  const candidates =
+    await new LeaveRepository().listOtherLeaveDeciderCandidates(tx, {
+      excludeUserId: ctx.userId,
+      managerEmployeeId: target.managerId,
+      onDate: today,
+    });
+  return !hasOtherLeaveDecider(ctx.userId, candidates);
 }

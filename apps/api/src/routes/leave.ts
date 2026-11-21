@@ -6,6 +6,7 @@ import {
   CreateLeaveTypeRequestSchema,
   CreateLeaveRequestSchema,
   DecideLeaveRequestSchema,
+  hasDecisionReason,
   AdjustBalanceRequestSchema,
   CreateBlackoutPeriodSchema,
   CreateApprovalDelegationSchema,
@@ -632,7 +633,7 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
             await businessToday(c, tx),
           ));
         if (!selfApproval) assertNotSelfApproval(ctx, subject);
-        if (selfApproval && !parsed.data.reason?.trim()) {
+        if (selfApproval && !hasDecisionReason(parsed.data.reason)) {
           throw new ValidationError({
             code: "SELF_APPROVAL_REASON_REQUIRED",
             detail: "Approving your own request requires a reason",
@@ -810,7 +811,6 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
           const cancelled = await leaveRepo.cancelLeaveRequest(
             tx,
             requestId,
-            user.id,
             today,
           );
 

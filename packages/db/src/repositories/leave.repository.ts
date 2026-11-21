@@ -86,6 +86,16 @@ export interface TeamAbsenceRow {
   status: string;
 }
 
+/** A live member who might decide a leave request (LEA-004 exception). */
+export interface LeaveDeciderCandidate {
+  userId: string;
+  role: string;
+  /** Linked to the requester's manager employee. */
+  isManager: boolean;
+  /** Linked to an active LEA-008 delegate of the requester's manager. */
+  isDelegate: boolean;
+}
+
 export class LeaveRepository {
   async getLeaveTypes(tx: TenantTx): Promise<LeaveTypeRow[]> {
     return tx<LeaveTypeRow[]>`
@@ -451,12 +461,13 @@ export class LeaveRepository {
   /**
    * `today` is the business date of the cancellation in the employee's
    * location (or organization) time zone; a compensating reversal takes
-   * effect on it.
+   * effect on it. The decision reason is kept: who cancelled is in the
+   * `leave.request.cancel` audit entry, and an approver's reason (for
+   * example a LEA-004 self-approval) must survive cancellation.
    */
   async cancelLeaveRequest(
     tx: TenantTx,
     id: string,
-    cancelledById: string,
     today: string,
   ): Promise<LeaveRequestRow> {
     const req = await this.getLeaveRequestById(tx, id);
@@ -483,7 +494,7 @@ export class LeaveRepository {
     await tx`
       UPDATE leave_requests
       SET status = 'cancelled', reversal_ledger_entry_id = ${reversalEntryId},
-          decision_reason = ${`Cancelled by ${cancelledById}`}, updated_at = now()
+          updated_at = now()
       WHERE id = ${id}
     `;
 
@@ -724,18 +735,52 @@ export class LeaveRepository {
     `;
   }
 
-  /** LEA-008: employees standing in for `managerEmployeeId` on `onDate`. */
-  async getActiveDelegatesForManager(
+  /**
+   * LEA-004 / LEA-008: members other than `excludeUserId` who can sign in
+   * right now (membership not expired, TIM-008; termination not yet
+   * effective, EMP-007: the conditions of `librehr_auth_membership`), with
+   * whether each one is the requester's manager or an active delegate of
+   * that manager on `onDate`. Roles and flags only, no personal data.
+   */
+  async listOtherLeaveDeciderCandidates(
     tx: TenantTx,
-    managerEmployeeId: string,
-    onDate: string,
-  ): Promise<{ delegateEmployeeId: string }[]> {
-    return tx<{ delegateEmployeeId: string }[]>`
-      SELECT delegate_employee_id as "delegateEmployeeId"
-      FROM approval_delegations
-      WHERE manager_employee_id = ${managerEmployeeId}
-        AND start_date <= ${onDate}
-        AND end_date >= ${onDate}
+    input: {
+      excludeUserId: string;
+      managerEmployeeId: string | null;
+      onDate: string;
+    },
+  ): Promise<LeaveDeciderCandidate[]> {
+    const orgId = tx.__tenantContext.organizationId;
+    const managerId = input.managerEmployeeId;
+    return tx<LeaveDeciderCandidate[]>`
+      SELECT m.user_id AS "userId", m.role,
+             EXISTS (
+               SELECT 1 FROM employees e
+               WHERE e.id = ${managerId}::uuid AND e.user_id = m.user_id
+             ) AS "isManager",
+             EXISTS (
+               SELECT 1 FROM approval_delegations ad
+               JOIN employees d ON d.id = ad.delegate_employee_id
+               WHERE ad.manager_employee_id = ${managerId}::uuid
+                 AND d.user_id = m.user_id
+                 AND ad.start_date <= ${input.onDate}
+                 AND ad.end_date >= ${input.onDate}
+             ) AS "isDelegate"
+      FROM memberships m
+      JOIN organizations o ON o.id = m.organization_id
+      WHERE m.organization_id = ${orgId}
+        AND m.user_id <> ${input.excludeUserId}
+        AND (m.access_expires_at IS NULL OR m.access_expires_at > now())
+        AND NOT EXISTS (
+          SELECT 1 FROM employees e
+          WHERE e.organization_id = m.organization_id
+            AND e.user_id = m.user_id
+            AND e.status = 'terminated'
+            AND (
+              e.termination_date IS NULL
+              OR e.termination_date <= (now() AT TIME ZONE o.timezone)::date
+            )
+        )
     `;
   }
 }

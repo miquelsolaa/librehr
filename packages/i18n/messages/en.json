@@ -585,6 +585,7 @@
     "selfApproveTitle": "Approve your own request",
     "selfApproveComment": "Reason for approving your own request",
     "selfApprovalNote": "Your own request. Nobody else in the organization can approve it, so you may approve it yourself with a reason. The approval is recorded in the audit log.",
+    "selfApprovalGone": "Someone else can now decide your request, so it was removed from your list. It is still pending.",
     "confirmApprove": "Approve",
     "confirmReject": "Reject",
     "cancel": "Cancel",

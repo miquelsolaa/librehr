@@ -121,49 +121,7 @@ export interface EmployeePolicyIdentity {
   reports: string[];
 }
 
-/** A membership whose access is live, with its linked employee if any. */
-export interface ActiveMemberRole {
-  userId: string;
-  role: string;
-  employeeId: string | null;
-}
-
 export class EmployeeRepository {
-  /**
-   * LEA-004: members of the current organization, other than `excludeUserId`,
-   * who can sign in right now: the membership has not expired (TIM-008) and
-   * the linked employee's termination is not yet effective (EMP-007). The
-   * same conditions as `librehr_auth_membership` (migration 0029). Reads
-   * roles and ids only.
-   */
-  async listOtherActiveMemberRoles(
-    tx: TenantTx,
-    excludeUserId: string,
-  ): Promise<ActiveMemberRole[]> {
-    const orgId = tx.__tenantContext.organizationId;
-    return tx<ActiveMemberRole[]>`
-      SELECT m.user_id AS "userId", m.role,
-             (SELECT e.id FROM employees e
-              WHERE e.user_id = m.user_id AND e.organization_id = m.organization_id
-              LIMIT 1) AS "employeeId"
-      FROM memberships m
-      JOIN organizations o ON o.id = m.organization_id
-      WHERE m.organization_id = ${orgId}
-        AND m.user_id <> ${excludeUserId}
-        AND (m.access_expires_at IS NULL OR m.access_expires_at > now())
-        AND NOT EXISTS (
-          SELECT 1 FROM employees e
-          WHERE e.organization_id = m.organization_id
-            AND e.user_id = m.user_id
-            AND e.status = 'terminated'
-            AND (
-              e.termination_date IS NULL
-              OR e.termination_date <= (now() AT TIME ZONE o.timezone)::date
-            )
-        )
-    `;
-  }
-
   /**
    * Resolves the employee linked to a user in the current organization and
    * their direct reports, for authorization scope checks.

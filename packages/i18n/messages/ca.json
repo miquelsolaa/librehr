@@ -585,6 +585,7 @@
     "selfApproveTitle": "Aprovar la teva pròpia sol·licitud",
     "selfApproveComment": "Motiu per aprovar la teva pròpia sol·licitud",
     "selfApprovalNote": "És la teva sol·licitud. Ningú més de l'organització la pot aprovar, així que la pots aprovar tu indicant un motiu. L'aprovació queda registrada al registre d'auditoria.",
+    "selfApprovalGone": "Ara una altra persona pot decidir la teva sol·licitud, així que s'ha tret de la teva llista. Continua pendent.",
     "confirmApprove": "Aprovar",
     "confirmReject": "Rebutjar",
     "cancel": "Cancel·lar",

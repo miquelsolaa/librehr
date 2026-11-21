@@ -184,6 +184,30 @@ test.describe("approvals page", () => {
     ]);
   });
 
+  test("explains why your own request left the list on 403", async ({
+    page,
+  }) => {
+    const own = { ...leave, notes: "Own trip", selfApproval: true };
+    await mockInbox(
+      page,
+      { leaveRequests: [own], timeCorrections: [], truncated: false },
+      403,
+    );
+    await page.goto("/en/approvals");
+    await page.getByRole("button", { name: /^Approve: Alex Example/ }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog
+      .getByLabel("Reason for approving your own request")
+      .fill("No other approver yet");
+    await dialog.getByRole("button", { name: "Approve" }).click();
+    await expect(
+      page.getByText(
+        "Someone else can now decide your request, so it was removed from your list. It is still pending.",
+      ),
+    ).toBeVisible();
+    await expect(page.getByText("Own trip")).toHaveCount(0);
+  });
+
   test("keeps the request when saving the decision fails", async ({ page }) => {
     await mockInbox(page, fullInbox(), 503);
     await page.goto("/en/approvals");

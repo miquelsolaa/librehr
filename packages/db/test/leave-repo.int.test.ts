@@ -99,7 +99,6 @@ describe("LeaveRepository & Ledger Invariance (LEA-001, LEA-004, LEA-005)", () =
       const cancelled = await leaveRepo.cancelLeaveRequest(
         tx,
         req.id,
-        employee.id,
         "2026-07-01",
       );
       expect(cancelled.status).toBe("cancelled");

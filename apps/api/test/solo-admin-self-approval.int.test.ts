@@ -30,11 +30,13 @@ describe("sole approver self-approval of leave", () => {
   let pair: ScopedOrgFixture;
   /** One admin whose manager has delegated approvals to a colleague. */
   let delegated: ScopedOrgFixture;
+  let secondAdmin: FixturePerson;
   const leaveTypes = new Map<string, string>();
 
   async function seedAdmin(
     orgId: string,
     accessExpiresAt: Date | null = null,
+    withEmployee = true,
   ): Promise<FixturePerson> {
     const id = randomUUID();
     const employeeId = randomUUID();
@@ -44,10 +46,12 @@ describe("sole approver self-approval of leave", () => {
       INSERT INTO memberships (organization_id, user_id, role, access_expires_at)
       VALUES (${orgId}, ${id}, 'admin', ${accessExpiresAt})
     `;
-    await db.sql`
-      INSERT INTO employees (id, organization_id, user_id, first_name, last_name, email)
-      VALUES (${employeeId}, ${orgId}, ${id}, 'Fixture', 'admin', ${email})
-    `;
+    if (withEmployee) {
+      await db.sql`
+        INSERT INTO employees (id, organization_id, user_id, first_name, last_name, email)
+        VALUES (${employeeId}, ${orgId}, ${id}, 'Fixture', 'admin', ${email})
+      `;
+    }
     return {
       id,
       email,
@@ -84,6 +88,88 @@ describe("sole approver self-approval of leave", () => {
   const codeOf = async (res: Response) =>
     ((await res.json()) as { code: string }).code;
 
+  const terminate = (employeeId: string, days: number) => db.sql`
+    UPDATE employees
+    SET status = 'terminated', termination_date = current_date + ${days}::int
+    WHERE id = ${employeeId}
+  `;
+  const expire = (userId: string) => db.sql`
+    UPDATE memberships SET access_expires_at = now() - interval '1 day'
+    WHERE user_id = ${userId}
+  `;
+  const setManager = (f: ScopedOrgFixture, managerEmployeeId: string) => db.sql`
+    UPDATE employees SET manager_id = ${managerEmployeeId}
+    WHERE id = ${f.admin.employeeId}
+  `;
+  const delegate = (f: ScopedOrgFixture, start: string, end: string) => db.sql`
+    INSERT INTO approval_delegations
+      (organization_id, manager_employee_id, delegate_employee_id, start_date, end_date)
+    VALUES (${f.orgId}, ${f.peer.employeeId}, ${f.report.employeeId},
+            ${start}::date, ${end}::date)
+  `;
+
+  /** Who else exists in the admin's organization, and the expected answer. */
+  const scenarios: {
+    name: string;
+    setup: (f: ScopedOrgFixture) => Promise<unknown>;
+    status: 200 | 403;
+  }[] = [
+    {
+      name: "another admin terminated before today does not block",
+      setup: async (f) => terminate((await seedAdmin(f.orgId)).employeeId, -1),
+      status: 200,
+    },
+    {
+      name: "another admin terminated in the future blocks",
+      setup: async (f) => terminate((await seedAdmin(f.orgId)).employeeId, 30),
+      status: 403,
+    },
+    {
+      name: "another admin membership without an employee blocks",
+      setup: (f) => seedAdmin(f.orgId, null, false),
+      status: 403,
+    },
+    {
+      name: "the requester's manager blocks",
+      setup: (f) => setManager(f, f.manager.employeeId),
+      status: 403,
+    },
+    {
+      name: "the requester's manager with expired access does not block",
+      setup: async (f) => {
+        await setManager(f, f.manager.employeeId);
+        await expire(f.manager.id);
+      },
+      status: 200,
+    },
+    {
+      name: "the requester's terminated manager does not block",
+      setup: async (f) => {
+        await setManager(f, f.manager.employeeId);
+        await terminate(f.manager.employeeId, -1);
+      },
+      status: 200,
+    },
+    {
+      name: "an ended delegation does not block",
+      setup: async (f) => {
+        await setManager(f, f.peer.employeeId);
+        await delegate(f, "2000-01-01", "2000-01-02");
+      },
+      status: 200,
+    },
+    {
+      name: "an active delegate with expired access does not block",
+      setup: async (f) => {
+        await setManager(f, f.peer.employeeId);
+        await delegate(f, "2000-01-01", "2999-12-31");
+        await expire(f.report.id);
+      },
+      status: 200,
+    },
+  ];
+  const scenarioOrgs = new Map<string, ScopedOrgFixture>();
+
   beforeAll(async () => {
     const database = await getTestDatabase();
     if (!database) throw new Error("Docker is required for this suite");
@@ -94,7 +180,7 @@ describe("sole approver self-approval of leave", () => {
     delegated = await seedScopedOrg(db.sql, "deleg-appr");
     // An admin whose access ended yesterday cannot decide anything.
     await seedAdmin(solo.orgId, new Date(Date.now() - 86_400_000));
-    const secondAdmin = await seedAdmin(pair.orgId);
+    secondAdmin = await seedAdmin(pair.orgId);
     // The admin reports to an employee (no approve permission) who has
     // delegated approvals to the report (LEA-008).
     await db.sql`
@@ -107,7 +193,12 @@ describe("sole approver self-approval of leave", () => {
       VALUES (${delegated.orgId}, ${delegated.peer.employeeId}, ${delegated.report.employeeId},
               current_date - 1, current_date + 30)
     `;
-    for (const fixture of [solo, pair, delegated]) {
+    for (const [i, scenario] of scenarios.entries()) {
+      const fixture = await seedScopedOrg(db.sql, `self-appr-${i}`);
+      await scenario.setup(fixture);
+      scenarioOrgs.set(scenario.name, fixture);
+    }
+    for (const fixture of [solo, pair, delegated, ...scenarioOrgs.values()]) {
       leaveTypes.set(
         fixture.orgId,
         await withTenant(
@@ -130,9 +221,23 @@ describe("sole approver self-approval of leave", () => {
         pair.admin,
         secondAdmin,
         delegated.admin,
+        ...[...scenarioOrgs.values()].map((f) => f.admin),
       ]),
     });
-  }, 60000);
+  }, 120000);
+
+  it.each(scenarios.map((s) => [s.name, s.status] as const))(
+    "%s",
+    async (name, status) => {
+      const f = scenarioOrgs.get(name)!;
+      const id = await seedLeave(f, f.admin.employeeId);
+      const res = await decide(id, f.admin, {
+        decision: "approve",
+        reason: "Checking who else can decide",
+      });
+      expect(res.status).toBe(status);
+    },
+  );
   afterAll(async () => {
     if (db) await db.close();
   });
@@ -263,6 +368,61 @@ describe("sole approver self-approval of leave", () => {
     });
     expect(res.status).toBe(403);
     expect(await codeOf(res)).toBe("SELF_APPROVAL_FORBIDDEN");
+
+    const inbox = (await (
+      await app.request("/v1/approvals/pending", {
+        headers: as(delegated.admin),
+      })
+    ).json()) as { leaveRequests: { id: string }[] };
+    expect(inbox.leaveRequests.map((r) => r.id)).not.toContain(id);
+  });
+
+  it("keeps the self-approval reason when the request is cancelled", async () => {
+    const id = await seedLeave(solo, solo.admin.employeeId);
+    const reason = "Sole admin, approved before the trip";
+    expect(
+      (await decide(id, solo.admin, { decision: "approve", reason })).status,
+    ).toBe(200);
+    const cancel = await app.request(`/v1/leave/requests/${id}/cancel`, {
+      method: "POST",
+      headers: as(solo.admin, true),
+    });
+    expect(cancel.status).toBe(200);
+    const rows = await withTenant(
+      db.sql,
+      { organizationId: solo.orgId },
+      (tx) =>
+        tx`SELECT status, decision_reason FROM leave_requests WHERE id = ${id}`,
+    );
+    expect(rows[0]).toEqual({ status: "cancelled", decision_reason: reason });
+  });
+
+  it("never audits a normal admin decision as a self-approval", async () => {
+    const approved = await seedLeave(pair, pair.admin.employeeId);
+    const rejected = await seedLeave(pair, pair.admin.employeeId);
+    expect(
+      (await decide(approved, secondAdmin, { decision: "approve" })).status,
+    ).toBe(200);
+    expect(
+      (
+        await decide(rejected, secondAdmin, {
+          decision: "reject",
+          reason: "No",
+        })
+      ).status,
+    ).toBe(200);
+    const actions = await withTenant(
+      db.sql,
+      { organizationId: pair.orgId },
+      (tx) => tx`
+        SELECT action FROM audit_log
+        WHERE resource_id IN (${approved}, ${rejected}) ORDER BY action
+      `,
+    );
+    expect(actions.map((a) => a["action"])).toEqual([
+      "leave.request.approve",
+      "leave.request.reject",
+    ]);
   });
 
   it("returns 404 for another tenant's request", async () => {

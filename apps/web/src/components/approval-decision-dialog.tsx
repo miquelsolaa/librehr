@@ -11,11 +11,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@librehr/ui";
+import { DECISION_REASON_MAX_LENGTH } from "@librehr/contracts";
 
-/** Shortest required comment, matching the correction reason rule. */
+/**
+ * Shortest required comment, matching the correction reason rule. Stricter
+ * than the API, which only needs a non-empty reason (`hasDecisionReason`).
+ */
 const MIN_REQUIRED_COMMENT = 5;
-/** Longest comment; a note to a person, not a document. */
-const MAX_COMMENT = 1000;
+const MAX_COMMENT = DECISION_REASON_MAX_LENGTH;
 
 export type Decision = "approve" | "reject";
 

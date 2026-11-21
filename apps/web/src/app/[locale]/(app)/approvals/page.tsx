@@ -29,12 +29,14 @@ type Item =
   | { kind: "leave"; item: PendingLeaveApproval }
   | { kind: "correction"; item: TimeCorrectionItem };
 
+const statusOf = (error: unknown) =>
+  typeof error === "object" && error !== null
+    ? (error as { status?: unknown }).status
+    : undefined;
+
 /** 403 / 404 / 409: decided elsewhere or no longer ours to decide. */
 const isGone = (error: unknown) => {
-  const status =
-    typeof error === "object" && error !== null
-      ? (error as { status?: unknown }).status
-      : undefined;
+  const status = statusOf(error);
   return status === 403 || status === 404 || status === 409;
 };
 
@@ -185,7 +187,14 @@ export default function ApprovalsPage() {
       if (isGone(e)) {
         remove(entry);
         setDialogOpen(false);
-        setNotice(t("gone"));
+        // 403 on your own request: someone else can now decide it.
+        setNotice(
+          t(
+            isSelfApproval(entry) && statusOf(e) === 403
+              ? "selfApprovalGone"
+              : "gone",
+          ),
+        );
       } else {
         setFailure(t("decideFailed"));
       }
