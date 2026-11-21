@@ -247,7 +247,7 @@ describe("createInspectionExport (TIM-006)", () => {
     const nameChars = fc.constantFrom(
       ..."ab ,\"'\n\r\t=+-@#·çñàé😀".split(/(?:)/u),
     );
-    const name = fc.oneof(fc.string(), fc.stringOf(nameChars));
+    const name = fc.oneof(fc.string(), fc.string({ unit: nameChars }));
     fc.assert(
       fc.property(fc.array(name, { minLength: 1, maxLength: 4 }), (names) => {
         const result = createInspectionExport(
