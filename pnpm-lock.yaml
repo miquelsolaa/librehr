@@ -246,7 +246,7 @@ importers:
         version: 4.13.17
       nodemailer:
         specifier: ^10.3.1
-        version: 10.5.0
+        version: 10.6.0
       pino:
         specifier: ^10.4.0
         version: 10.4.0
@@ -378,7 +378,7 @@ importers:
         version: 2.0.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       nodemailer:
         specifier: ^10.3.1
-        version: 10.5.0
+        version: 10.6.0
       pg-boss:
         specifier: ^12.38.0
         version: 12.38.2(@opentelemetry/api@1.10.0)
@@ -5020,8 +5020,8 @@ packages:
     resolution: {integrity: sha512-6li2QanLsAXpIH2R6j77MzRyvOyrvdTqlKtO4CgBdHGNvN99ZZfyxszHc5o5+IZBWD5u6Hzwg83JoGXmqZNG9Q==}
     engines: {node: '>=18'}
 
-  nodemailer@10.5.0:
-    resolution: {integrity: sha512-L/w/HH5MqpzMDuZD7fQdt/+KqymuvrpaApaIjAH2XA3ILePwlcvXCVVvP75xVrXCEt2ggK2marrrHHFB5Qu0kA==}
+  nodemailer@10.6.0:
+    resolution: {integrity: sha512-jWanL7D9GD3jvUDYKmoC5rWTiG8MnBgnN2yV68bgMKip1zUJhiSTyz7Eg+18y8sk5OvdVDzws5nZK5arSI4f5Q==}
     engines: {node: '>=20.0.0'}
 
   non-error@0.1.0:
@@ -9856,7 +9856,7 @@ snapshots:
 
   node-releases@2.0.63: {}
 
-  nodemailer@10.5.0: {}
+  nodemailer@10.6.0: {}
 
   non-error@0.1.0: {}
 
