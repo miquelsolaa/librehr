@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { storableText } from "./common.js";
+import { TimesheetClosureInfoSchema } from "./time-closures.js";
 
 export const TimeEventTypeSchema = z.enum([
   "clock_in",
@@ -131,6 +132,11 @@ export const PeriodTimesheetResponseSchema = z.object({
   totalBreakMinutes: z.number(),
   totalExpectedHours: z.number(),
   totalOvertimeMinutes: z.number(),
+  /**
+   * TIM-004: present only when the requested range lies within one calendar
+   * month that is currently closed for the employee.
+   */
+  closure: TimesheetClosureInfoSchema.optional(),
 });
 export type PeriodTimesheetResponse = z.infer<
   typeof PeriodTimesheetResponseSchema

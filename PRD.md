@@ -111,7 +111,7 @@ Priority: **P0** must for the release, **P1** should, **P2** nice. Each requirem
 - **TIM-001 (P0)** Clock in / clock out / start break / end break from web and phone (PWA), one-tap widget on the home screen.
 - **TIM-002 (P0)** Records are **append-only events**. Each event stores actor, timestamp (server time, UTC), source (web/mobile/manual/import), optional note, and a hash linking to the previous event of the employee (tamper evidence).
 - **TIM-003 (P0)** Corrections/forgotten clock-outs: employee proposes a correction with reason; manager/HR approves; original events remain visible; a correction event references the original.
-- **TIM-004 (P0)** Daily/weekly/monthly timesheet view per employee with worked, break, and overtime totals computed against the employee's working-time schedule.
+- **TIM-004 (P0)** Daily/weekly/monthly timesheet view per employee with worked, break, and overtime totals computed against the employee's working-time schedule. An administrator can close a month per employee, which stores a snapshot of its totals; corrections recorded after the close are flagged against the snapshot, never blocked, and a closed month can be reopened with a reason.
 - **TIM-005 (P0)** Working-time schedules: fixed, flexible, split shifts, part-time; maximum daily/weekly hours and minimum rest (12 h between workdays, configurable) produce warnings.
 - **TIM-006 (P0)** Exports: CSV and PDF per employee/period/organization for the Labour Inspectorate, signed with a content hash and generation metadata.
 - **TIM-007 (P0)** Retention: records kept at least **4 years**, available to employees, their representatives, and inspectors; deletion blocked before the retention period ends.

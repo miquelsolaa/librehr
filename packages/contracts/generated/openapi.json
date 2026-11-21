@@ -2486,6 +2486,81 @@
           },
           "totalOvertimeMinutes": {
             "type": "number"
+          },
+          "closure": {
+            "type": "object",
+            "properties": {
+              "closedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "periodStart": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              "periodEnd": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              "totals": {
+                "type": "object",
+                "properties": {
+                  "totalWorkedMinutes": {
+                    "type": "number"
+                  },
+                  "totalBreakMinutes": {
+                    "type": "number"
+                  },
+                  "totalExpectedHours": {
+                    "type": "number"
+                  },
+                  "totalOvertimeMinutes": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "totalWorkedMinutes",
+                  "totalBreakMinutes",
+                  "totalExpectedHours",
+                  "totalOvertimeMinutes"
+                ]
+              },
+              "postCloseChanges": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "eventId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "refEventId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uuid"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "eventId",
+                    "refEventId",
+                    "createdAt"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "closedAt",
+              "periodStart",
+              "periodEnd",
+              "totals",
+              "postCloseChanges"
+            ]
           }
         },
         "required": [
@@ -3274,6 +3349,267 @@
           "type",
           "minutes",
           "referenceDate"
+        ]
+      },
+      "CloseTimesheetPeriodRequest": {
+        "type": "object",
+        "properties": {
+          "month": {
+            "type": "string",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+          },
+          "employeeIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "minItems": 1,
+            "maxItems": 1000
+          }
+        },
+        "required": [
+          "month"
+        ]
+      },
+      "CloseTimesheetPeriodResponse": {
+        "type": "object",
+        "properties": {
+          "month": {
+            "type": "string",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+          },
+          "periodStart": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "periodEnd": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "employeeId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "closed",
+                    "already_closed",
+                    "schedule_not_configured"
+                  ]
+                },
+                "closedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "employeeId",
+                "status",
+                "closedAt"
+              ]
+            }
+          }
+        },
+        "required": [
+          "month",
+          "periodStart",
+          "periodEnd",
+          "results"
+        ]
+      },
+      "ReopenTimesheetPeriodRequest": {
+        "type": "object",
+        "properties": {
+          "month": {
+            "type": "string",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+          },
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "month",
+          "employeeId",
+          "reason"
+        ]
+      },
+      "TimesheetClosureItem": {
+        "type": "object",
+        "properties": {
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeeName": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "closed",
+              "reopened"
+            ]
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "totals": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "totalWorkedMinutes": {
+                "type": "number"
+              },
+              "totalBreakMinutes": {
+                "type": "number"
+              },
+              "totalExpectedHours": {
+                "type": "number"
+              },
+              "totalOvertimeMinutes": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "totalWorkedMinutes",
+              "totalBreakMinutes",
+              "totalExpectedHours",
+              "totalOvertimeMinutes"
+            ]
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "employeeId",
+          "employeeName",
+          "status",
+          "at",
+          "actorId",
+          "totals",
+          "reason"
+        ]
+      },
+      "TimesheetClosuresResponse": {
+        "type": "object",
+        "properties": {
+          "month": {
+            "type": "string",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+          },
+          "periodStart": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "periodEnd": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "employeeId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "employeeName": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "closed",
+                    "reopened"
+                  ]
+                },
+                "at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "actorId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "totals": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "totalWorkedMinutes": {
+                      "type": "number"
+                    },
+                    "totalBreakMinutes": {
+                      "type": "number"
+                    },
+                    "totalExpectedHours": {
+                      "type": "number"
+                    },
+                    "totalOvertimeMinutes": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "totalWorkedMinutes",
+                    "totalBreakMinutes",
+                    "totalExpectedHours",
+                    "totalOvertimeMinutes"
+                  ]
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "employeeId",
+                "employeeName",
+                "status",
+                "at",
+                "actorId",
+                "totals",
+                "reason"
+              ]
+            }
+          }
+        },
+        "required": [
+          "month",
+          "periodStart",
+          "periodEnd",
+          "items"
         ]
       },
       "DocumentItem": {
@@ -12286,6 +12622,7 @@
     "/v1/time/timesheet": {
       "get": {
         "summary": "Get a configured employee timesheet",
+        "description": "TIM-004: when the range lies within one calendar month that is currently closed for the employee, the response carries `closure` (close instant, frozen totals, and the time events recorded in that month after the close). Corrections after a close are flagged there, never blocked. A range spanning more than one month never carries `closure`.",
         "parameters": [
           {
             "schema": {
@@ -12431,6 +12768,81 @@
                     },
                     "totalOvertimeMinutes": {
                       "type": "number"
+                    },
+                    "closure": {
+                      "type": "object",
+                      "properties": {
+                        "closedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "periodStart": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                        },
+                        "periodEnd": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                        },
+                        "totals": {
+                          "type": "object",
+                          "properties": {
+                            "totalWorkedMinutes": {
+                              "type": "number"
+                            },
+                            "totalBreakMinutes": {
+                              "type": "number"
+                            },
+                            "totalExpectedHours": {
+                              "type": "number"
+                            },
+                            "totalOvertimeMinutes": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "totalWorkedMinutes",
+                            "totalBreakMinutes",
+                            "totalExpectedHours",
+                            "totalOvertimeMinutes"
+                          ]
+                        },
+                        "postCloseChanges": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "eventId": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "refEventId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "format": "uuid"
+                              },
+                              "createdAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            },
+                            "required": [
+                              "eventId",
+                              "refEventId",
+                              "createdAt"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "closedAt",
+                        "periodStart",
+                        "periodEnd",
+                        "totals",
+                        "postCloseChanges"
+                      ]
                     }
                   },
                   "required": [
@@ -13097,6 +13509,1061 @@
           },
           "429": {
             "description": "RATE_LIMIT_EXCEEDED, with a Retry-After header",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/time/closures": {
+      "post": {
+        "summary": "Close a month's timesheets (TIM-004)",
+        "description": "Requires time.period.close (admin, organization scope). Snapshots the month's timesheet totals (local calendar days in each employee's business time zone) for every listed employee, or by default every employee in scope employed during the month. A month already closed is reported as already_closed (idempotent); an employee without a schedule for every day is reported as schedule_not_configured and the others are still closed. Each close writes a time.period.close audit entry (ids only). At most 1000 employees per request.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "month": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+                  },
+                  "employeeIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "minItems": 1,
+                    "maxItems": 1000
+                  }
+                },
+                "required": [
+                  "month"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Per-employee result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "month": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+                    },
+                    "periodStart": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "periodEnd": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "employeeId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "closed",
+                              "already_closed",
+                              "schedule_not_configured"
+                            ]
+                          },
+                          "closedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "employeeId",
+                          "status",
+                          "closedAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "month",
+                    "periodStart",
+                    "periodEnd",
+                    "results"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid month or employee ids",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No time.period.close permission, or an employee outside scope",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Employee not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "PERIOD_IN_FUTURE or CLOSE_TOO_LARGE",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "Closure state of a month (TIM-004)",
+        "description": "Requires time.period.close. The newest close or reopen of every employee in scope with a closure history for the month.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+            },
+            "required": true,
+            "name": "month",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Closure state per employee",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "month": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+                    },
+                    "periodStart": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "periodEnd": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "employeeId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "employeeName": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "closed",
+                              "reopened"
+                            ]
+                          },
+                          "at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "actorId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "totals": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "totalWorkedMinutes": {
+                                "type": "number"
+                              },
+                              "totalBreakMinutes": {
+                                "type": "number"
+                              },
+                              "totalExpectedHours": {
+                                "type": "number"
+                              },
+                              "totalOvertimeMinutes": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "totalWorkedMinutes",
+                              "totalBreakMinutes",
+                              "totalExpectedHours",
+                              "totalOvertimeMinutes"
+                            ]
+                          },
+                          "reason": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "employeeId",
+                          "employeeName",
+                          "status",
+                          "at",
+                          "actorId",
+                          "totals",
+                          "reason"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "month",
+                    "periodStart",
+                    "periodEnd",
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid month",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No time.period.close permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/time/closures/reopen": {
+      "post": {
+        "summary": "Reopen one employee's closed month (TIM-004)",
+        "description": "Requires time.period.close. Appends a reopen with the mandatory reason; the closure history is never edited. Writes a time.period.reopen audit entry (ids only, not the reason).",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "month": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+                  },
+                  "employeeId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 5,
+                    "maxLength": 1000
+                  }
+                },
+                "required": [
+                  "month",
+                  "employeeId",
+                  "reason"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The month's new state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "employeeId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "employeeName": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "closed",
+                        "reopened"
+                      ]
+                    },
+                    "at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "actorId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "totals": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "totalWorkedMinutes": {
+                          "type": "number"
+                        },
+                        "totalBreakMinutes": {
+                          "type": "number"
+                        },
+                        "totalExpectedHours": {
+                          "type": "number"
+                        },
+                        "totalOvertimeMinutes": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "totalWorkedMinutes",
+                        "totalBreakMinutes",
+                        "totalExpectedHours",
+                        "totalOvertimeMinutes"
+                      ]
+                    },
+                    "reason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "employeeId",
+                    "employeeName",
+                    "status",
+                    "at",
+                    "actorId",
+                    "totals",
+                    "reason"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid month, employee id or missing reason",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No time.period.close permission, or employee outside scope",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Employee not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "PERIOD_NOT_CLOSED",
             "content": {
               "application/problem+json": {
                 "schema": {

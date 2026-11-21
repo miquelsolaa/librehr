@@ -37,6 +37,7 @@ import {
 } from "./routes/time-export.js";
 import { createTimeExportEmployeesRoutes } from "./routes/time-export-employees.js";
 import { createTimeCorrectionRoutes } from "./routes/time-corrections.js";
+import { createTimeClosureRoutes } from "./routes/time-closures.js";
 import { createApprovalRoutes } from "./routes/approvals.js";
 import { createTimeKioskRoutes } from "./routes/time-kiosk.js";
 import {
@@ -300,6 +301,7 @@ export function createApp(deps: AppDependencies) {
     "/v1",
     createTimeCorrectionRoutes(deps.sql, { sign: signTimeEvent }),
   );
+  app.route("/v1", createTimeClosureRoutes(deps.sql));
   app.route("/v1", createScheduleRoutes(deps.sql));
 
   // M4 & M5 Modules

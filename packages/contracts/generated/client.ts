@@ -103,6 +103,13 @@ import type {
   TimeBankSummary,
   CreateTimeBankEntry,
 } from '../src/time.js';
+import type {
+  CloseTimesheetPeriodRequest,
+  CloseTimesheetPeriodResponse,
+  ReopenTimesheetPeriodRequest,
+  TimesheetClosureItem,
+  TimesheetClosuresResponse,
+} from '../src/time-closures.js';
 import type { PendingApprovals } from '../src/approvals.js';
 import type {
   DocumentItem,
@@ -615,6 +622,25 @@ export class LibreHrApiClient {
       endDate: params.endDate,
     });
     return this.request<ExportEmployeesResponse>(`/v1/time/export/employees?${searchParams.toString()}`);
+  }
+
+  async listTimesheetClosures(params: { month: string }): Promise<TimesheetClosuresResponse> {
+    const searchParams = new URLSearchParams({ month: params.month });
+    return this.request<TimesheetClosuresResponse>(`/v1/time/closures?${searchParams.toString()}`);
+  }
+
+  async closeTimesheetPeriod(data: CloseTimesheetPeriodRequest): Promise<CloseTimesheetPeriodResponse> {
+    return this.request<CloseTimesheetPeriodResponse>('/v1/time/closures', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async reopenTimesheetPeriod(data: ReopenTimesheetPeriodRequest): Promise<TimesheetClosureItem> {
+    return this.request<TimesheetClosureItem>('/v1/time/closures/reopen', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   async listTimeCorrections(params?: { employeeId?: string; status?: string }): Promise<TimeCorrectionItem[]> {
