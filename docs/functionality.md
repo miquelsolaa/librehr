@@ -92,10 +92,18 @@ tests.
 - Approvals (LEA-004, TIM-003, TIM-005): nobody approves or rejects their own
   leave request, time correction or shift swap (as requester or as target),
   administrators included; the API answers 403
-  with code `SELF_APPROVAL_FORBIDDEN`. Built-in roles do not separate Owner
-  and HR Admin (both are `admin`), so an organization whose only approver is a
-  single admin without a manager cannot get that admin's requests decided.
-  Add a second admin, or set a manager for that admin; there is no override.
+  with code `SELF_APPROVAL_FORBIDDEN`. One exception, for leave only (#36):
+  built-in roles do not separate Owner and HR Admin (both are `admin`), so an
+  organization can have a single admin whom nobody else can approve. When no
+  other member who can sign in holds `leave.request.approve` over that
+  person (another admin, or their manager) and no active LEA-008 delegate
+  covers them, an organization-wide approver may approve (never reject) their
+  own leave request. A non-empty reason is required (400
+  `SELF_APPROVAL_REASON_REQUIRED` without one). The approval is audited as
+  `leave.request.self_approve` with ids only. Expired memberships and
+  terminated employees do not count as other approvers. Time corrections and
+  shift swaps have no exception. Separate HR Admin and kiosk-device roles are
+  proposed in `docs/adr/0005-hr-and-kiosk-roles.md`.
   A request is decided once: deciding a leave request or time correction that
   is no longer pending (another approver got there first, a double click, a
   stale screen) answers 409 `ALREADY_DECIDED` and changes nothing. The row is
@@ -106,6 +114,9 @@ tests.
   endpoints: managers get their direct reports, admins everyone else, and an
   active LEA-008 delegate gets the absent manager's team's leave (never time
   corrections). Employees without a delegation and auditors get empty lists.
+  The caller's own leave appears only under the exception above, flagged
+  `selfApproval: true`; the page then offers Approve only and asks for a
+  reason.
   Oldest submission first, at most 200 of each (`truncated` flags more).
   In the web app this is the **Approvals** page (`/approvals`), in the
   Organization nav group with the pending count as a badge. Approving takes an

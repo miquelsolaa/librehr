@@ -2733,6 +2733,9 @@
                 "createdAt": {
                   "type": "string",
                   "format": "date-time"
+                },
+                "selfApproval": {
+                  "type": "boolean"
                 }
               },
               "required": [
@@ -2745,7 +2748,8 @@
                 "halfDayEnd",
                 "workingDays",
                 "status",
-                "createdAt"
+                "createdAt",
+                "selfApproval"
               ]
             },
             "maxItems": 200
@@ -10781,6 +10785,9 @@
                           "createdAt": {
                             "type": "string",
                             "format": "date-time"
+                          },
+                          "selfApproval": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -10793,7 +10800,8 @@
                           "halfDayEnd",
                           "workingDays",
                           "status",
-                          "createdAt"
+                          "createdAt",
+                          "selfApproval"
                         ]
                       },
                       "maxItems": 200

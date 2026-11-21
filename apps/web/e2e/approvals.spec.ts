@@ -22,6 +22,7 @@ const leave = {
   workingDays: 3,
   status: "pending",
   notes: "Family trip",
+  selfApproval: false as boolean,
   createdAt: "2026-11-01T09:00:00.000Z",
 };
 
@@ -125,6 +126,61 @@ test.describe("approvals page", () => {
     await expect(page.getByText("Forgot to clock out")).toHaveCount(0);
     expect(decisions).toEqual([
       { decision: "reject", reason: "No record of a late shift" },
+    ]);
+  });
+
+  test("approves your own request as sole approver only with a reason", async ({
+    page,
+  }) => {
+    const own = {
+      ...leave,
+      employeeName: "Morgan Manager",
+      notes: "Own trip",
+      selfApproval: true,
+    };
+    const decisions = await mockInbox(page, {
+      leaveRequests: [own],
+      timeCorrections: [],
+      truncated: false,
+    });
+    await page.goto("/en/approvals");
+
+    await expect(
+      page.getByText(
+        "Your own request. Nobody else in the organization can approve it",
+        { exact: false },
+      ),
+    ).toBeVisible();
+    // Your own request can be approved, never rejected.
+    await expect(
+      page.getByRole("button", { name: /^Reject: Morgan Manager/ }),
+    ).toHaveCount(0);
+
+    await page
+      .getByRole("button", { name: /^Approve: Morgan Manager/ })
+      .click();
+    const dialog = page.getByRole("dialog");
+    await expect(
+      dialog.getByRole("heading", { name: "Approve your own request" }),
+    ).toBeVisible();
+    await dialog.getByRole("button", { name: "Approve" }).click();
+    await expect(dialog.getByRole("alert")).toHaveText(
+      "Explain the reason in at least 5 characters.",
+    );
+    expect(decisions).toEqual([]);
+    const axe = await new AxeBuilder({ page })
+      .include("[role=dialog]")
+      .withTags(WCAG_TAGS)
+      .analyze();
+    expect(axe.violations).toEqual([]);
+
+    await dialog
+      .getByLabel("Reason for approving your own request")
+      .fill("No other approver yet");
+    await dialog.getByRole("button", { name: "Approve" }).click();
+    await expect(page.getByText("Own trip")).toHaveCount(0);
+    expect(decisions).toEqual([
+      { decision: "approve", reason: "No other approver yet" },
     ]);
   });
 

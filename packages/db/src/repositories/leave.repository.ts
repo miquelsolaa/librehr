@@ -723,4 +723,19 @@ export class LeaveRepository {
         AND end_date >= ${onDate}
     `;
   }
+
+  /** LEA-008: employees standing in for `managerEmployeeId` on `onDate`. */
+  async getActiveDelegatesForManager(
+    tx: TenantTx,
+    managerEmployeeId: string,
+    onDate: string,
+  ): Promise<{ delegateEmployeeId: string }[]> {
+    return tx<{ delegateEmployeeId: string }[]>`
+      SELECT delegate_employee_id as "delegateEmployeeId"
+      FROM approval_delegations
+      WHERE manager_employee_id = ${managerEmployeeId}
+        AND start_date <= ${onDate}
+        AND end_date >= ${onDate}
+    `;
+  }
 }

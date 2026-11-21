@@ -27,11 +27,13 @@ import {
   AuditRepository,
 } from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
-import { ConflictError } from "../errors/index.js";
+import { ConflictError, ValidationError } from "../errors/index.js";
 import { can } from "../policies/can.js";
 import {
   assertNotSelfApproval,
   canDecideLeave,
+  canSelfApproveLeave,
+  isOwnRequest,
 } from "../policies/approvals.js";
 import { toLeaveRequestResponse } from "../lib/approval-items.js";
 import { canOnEmployee, resolvePolicyContext } from "../policies/context.js";
@@ -615,17 +617,34 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
         if (!targetEmp) return { error: "NOT_FOUND" as const };
 
         const ctx = await resolvePolicyContext(c, tx);
+        const subject = { employeeId: targetEmp.id, userId: targetEmp.userId };
         // LEA-004: nobody decides their own request, admins and delegates
-        // included. Checked first so the caller gets the specific reason.
-        assertNotSelfApproval(ctx, {
-          employeeId: targetEmp.id,
-          userId: targetEmp.userId,
-        });
+        // included, unless they are the only one who could approve it: then
+        // they may approve (never reject) with a reason, audited separately.
+        // Checked first so the caller gets the specific reason.
+        const selfApproval =
+          isOwnRequest(ctx, subject) &&
+          parsed.data.decision === "approve" &&
+          (await canSelfApproveLeave(
+            tx,
+            ctx,
+            targetEmp,
+            await businessToday(c, tx),
+          ));
+        if (!selfApproval) assertNotSelfApproval(ctx, subject);
+        if (selfApproval && !parsed.data.reason?.trim()) {
+          throw new ValidationError({
+            code: "SELF_APPROVAL_REASON_REQUIRED",
+            detail: "Approving your own request requires a reason",
+            issues: [{ field: "reason", message: "Required" }],
+          });
+        }
 
         // LEA-008: delegations only matter when the role itself does not
         // allow the decision, so they are loaded lazily.
         let delegatedManagerIds: string[] = [];
         if (
+          !selfApproval &&
           !canOnEmployee(ctx, "leave.request.approve", targetEmp) &&
           ctx.employeeId &&
           targetEmp.managerId
@@ -640,7 +659,10 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
           ).map((d) => d.managerEmployeeId);
         }
 
-        if (!canDecideLeave(ctx, targetEmp, delegatedManagerIds)) {
+        if (
+          !selfApproval &&
+          !canDecideLeave(ctx, targetEmp, delegatedManagerIds)
+        ) {
           return { error: "FORBIDDEN" as const };
         }
 
@@ -672,17 +694,29 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
           );
         }
 
-        // Audit log
-        await auditRepo.log(tx, {
-          actorId: user.id,
-          action: `leave.request.${parsed.data.decision}`,
-          resourceType: "leave_request",
-          resourceId: requestId,
-          metadata: {
-            decision: parsed.data.decision,
-            reason: parsed.data.reason ?? null,
-          },
-        });
+        // Audit log. A self-approval gets its own action and carries ids
+        // only (ADM-002); the reason stays on the request itself.
+        await auditRepo.log(
+          tx,
+          selfApproval
+            ? {
+                actorId: user.id,
+                action: "leave.request.self_approve",
+                resourceType: "leave_request",
+                resourceId: requestId,
+                metadata: { decision: "approve", employeeId: targetEmp.id },
+              }
+            : {
+                actorId: user.id,
+                action: `leave.request.${parsed.data.decision}`,
+                resourceType: "leave_request",
+                resourceId: requestId,
+                metadata: {
+                  decision: parsed.data.decision,
+                  reason: parsed.data.reason ?? null,
+                },
+              },
+        );
 
         // Notify employee
         if (targetEmp.userId) {

@@ -4,6 +4,7 @@ import type { ScopedEmployee } from "../src/policies/context.js";
 import {
   canDecideCorrection,
   canDecideLeave,
+  hasOtherLeaveDecider,
 } from "../src/policies/approvals.js";
 
 describe("approval predicates (LEA-004, LEA-008, TIM-003)", () => {
@@ -68,5 +69,90 @@ describe("approval predicates (LEA-004, LEA-008, TIM-003)", () => {
     expect(canDecideLeave(admin, foreign, [])).toBe(false);
     expect(canDecideCorrection(admin, foreign)).toBe(false);
     expect(canDecideLeave(delegate, foreign, ["pere"])).toBe(false);
+  });
+});
+
+describe("hasOtherLeaveDecider (LEA-004 sole-approver exception)", () => {
+  const org = "org-a";
+  const admin: PolicyUserContext = {
+    userId: "user-marta",
+    employeeId: "marta",
+    organizationId: org,
+    role: "admin",
+    reports: [],
+  };
+  const marta = (managerId: string | null = null): ScopedEmployee => ({
+    id: "marta",
+    organizationId: org,
+    userId: "user-marta",
+    managerId,
+    departmentId: null,
+    locationId: null,
+  });
+  const member = (id: string, role: string) => ({
+    userId: `user-${id}`,
+    role,
+    employeeId: id as string | null,
+  });
+
+  it("is false for a sole admin with no manager and no delegate", () => {
+    expect(hasOtherLeaveDecider(admin, marta(), [], [])).toBe(false);
+    expect(
+      hasOtherLeaveDecider(
+        admin,
+        marta(),
+        [
+          member("pere", "manager"),
+          member("laia", "employee"),
+          member("anna", "auditor"),
+          member("x", "no-such-role"),
+        ],
+        [],
+      ),
+    ).toBe(false);
+  });
+
+  it("ignores the caller's own membership", () => {
+    expect(
+      hasOtherLeaveDecider(admin, marta(), [member("marta", "admin")], []),
+    ).toBe(false);
+  });
+
+  it("is true when another organization-wide approver exists", () => {
+    expect(
+      hasOtherLeaveDecider(admin, marta(), [member("jordi", "admin")], []),
+    ).toBe(true);
+    expect(
+      hasOtherLeaveDecider(
+        admin,
+        marta(),
+        [{ userId: "user-x", role: "admin", employeeId: null }],
+        [],
+      ),
+    ).toBe(true);
+  });
+
+  it("is true only when the reports-scoped approver is the caller's manager", () => {
+    const managers = [member("pere", "manager")];
+    expect(hasOtherLeaveDecider(admin, marta("pere"), managers, [])).toBe(true);
+    expect(hasOtherLeaveDecider(admin, marta("other"), managers, [])).toBe(
+      false,
+    );
+  });
+
+  it("counts an active delegate of the caller's manager who can sign in", () => {
+    const pere = member("pere", "employee");
+    const joan = member("joan", "employee");
+    expect(
+      hasOtherLeaveDecider(admin, marta("pere"), [pere, joan], ["joan"]),
+    ).toBe(true);
+    // A delegate without a live membership cannot act.
+    expect(hasOtherLeaveDecider(admin, marta("pere"), [pere], ["joan"])).toBe(
+      false,
+    );
+    // Delegating to the caller does not create another decider.
+    expect(
+      hasOtherLeaveDecider(admin, marta("pere"), [pere, joan], ["marta"]),
+    ).toBe(false);
   });
 });

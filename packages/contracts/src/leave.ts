@@ -112,6 +112,12 @@ export const CreateLeaveRequestSchema = z.object({
 });
 export type CreateLeaveRequest = z.infer<typeof CreateLeaveRequestSchema>;
 
+/**
+ * LEA-004: `reason` is optional, except when approving your own request as
+ * its only possible approver: then a non-empty reason is required (400
+ * `SELF_APPROVAL_REASON_REQUIRED`). Rejecting your own request is never
+ * allowed (403 `SELF_APPROVAL_FORBIDDEN`).
+ */
 export const DecideLeaveRequestSchema = z.object({
   decision: z.enum(["approve", "reject"]),
   reason: z.string().optional(),

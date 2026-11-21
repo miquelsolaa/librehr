@@ -176,9 +176,20 @@ describe("GET /v1/approvals/pending", () => {
     expect(p.leaveRequests[0]?.employeeName).toBe("Fixture report");
   });
 
-  it("gives an admin every pending item except their own, oldest first", async () => {
+  it("gives an admin every pending item, oldest first, their own leave only as sole approver", async () => {
     const p = await pending(a.admin);
-    expect(leaveIds(p)).toEqual([ids["reportLeave"], ids["managerLeave"]]);
+    // a.admin is the only one who could decide their own leave (LEA-004
+    // sole-approver exception); their own correction never appears.
+    expect(leaveIds(p)).toEqual([
+      ids["reportLeave"],
+      ids["managerLeave"],
+      ids["adminLeave"],
+    ]);
+    expect(p.leaveRequests.map((r) => r.selfApproval)).toEqual([
+      false,
+      false,
+      true,
+    ]);
     expect(correctionIds(p)).toEqual([
       ids["reportCorrection"],
       ids["managerCorrection"],

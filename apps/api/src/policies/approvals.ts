@@ -1,5 +1,11 @@
+import {
+  EmployeeRepository,
+  LeaveRepository,
+  type ActiveMemberRole,
+  type TenantTx,
+} from "@librehr/db";
 import { SelfApprovalForbiddenError } from "../errors/index.js";
-import type { PolicyUserContext } from "./can.js";
+import { permissionScope, type PolicyUserContext } from "./can.js";
 import { canOnEmployee, type ScopedEmployee } from "./context.js";
 
 /** The person a leave request or time correction belongs to. */
@@ -26,11 +32,10 @@ export function isOwnRequest(
  * already blocked through `NOT_SELF_APPROVABLE` in `can.ts`; this extends the
  * rule to organization-scoped approvers (admins) and to LEA-008 delegates.
  *
- * Known limitation: an organization whose only approver is a single admin
- * with no manager of their own cannot get that admin's requests decided in
- * the product. Their requests need another admin, or a manager set as their
- * manager, to decide them. There is deliberately no override; see
- * docs/functionality.md ("Approvals").
+ * One exception, for leave only: when nobody else could decide the request
+ * (`canSelfApproveLeave`), an organization-wide approver may approve their
+ * own leave with a reason. Routes check that before calling this guard.
+ * Time corrections and shift swaps have no exception.
  *
  * @example
  * assertNotSelfApproval(ctx, { employeeId: req.employeeId, userId: emp.userId });
@@ -85,4 +90,82 @@ export function canDecideCorrection(
     !isOwnRequest(ctx, { employeeId: target.id, userId: target.userId }) &&
     canOnEmployee(ctx, "time.record.correct", target)
   );
+}
+
+/**
+ * LEA-004 / LEA-008: whether anyone other than the caller could decide a
+ * leave request of `target` (the caller's own employee): another live member
+ * whose role allows `leave.request.approve` over that employee, or an active
+ * delegate of the employee's manager who can sign in. Department and
+ * location scopes are not used by built-in roles; they count as "someone
+ * else could decide" so the exception fails closed.
+ *
+ * @example
+ * hasOtherLeaveDecider(ctx, employee, members, ["<delegate employee id>"]);
+ */
+export function hasOtherLeaveDecider(
+  ctx: PolicyUserContext,
+  target: ScopedEmployee,
+  others: readonly ActiveMemberRole[],
+  activeDelegateEmployeeIds: readonly string[],
+): boolean {
+  const candidates = others.filter(
+    (m) =>
+      m.userId !== ctx.userId &&
+      (m.employeeId === null || m.employeeId !== ctx.employeeId),
+  );
+  for (const member of candidates) {
+    const scope = permissionScope(
+      { ...ctx, userId: member.userId, role: member.role },
+      "leave.request.approve",
+    );
+    if (scope === null || scope === "self") continue;
+    if (scope !== "reports") return true;
+    if (member.employeeId !== null && member.employeeId === target.managerId) {
+      return true;
+    }
+  }
+  const liveEmployees = new Set(candidates.map((m) => m.employeeId));
+  return activeDelegateEmployeeIds.some(
+    (id) => id !== ctx.employeeId && liveEmployees.has(id),
+  );
+}
+
+/**
+ * LEA-004 exception for an organization's sole approver: the caller may
+ * approve (never reject) their own leave request when their role allows
+ * `leave.request.approve` organization-wide and nobody else could decide it
+ * (`hasOtherLeaveDecider`). The route then requires a reason and audits
+ * `leave.request.self_approve`.
+ *
+ * @example
+ * await canSelfApproveLeave(tx, ctx, employee, today);
+ */
+export async function canSelfApproveLeave(
+  tx: TenantTx,
+  ctx: PolicyUserContext,
+  target: ScopedEmployee,
+  today: string,
+): Promise<boolean> {
+  if (!isOwnRequest(ctx, { employeeId: target.id, userId: target.userId })) {
+    return false;
+  }
+  if (target.organizationId !== ctx.organizationId) return false;
+  if (permissionScope(ctx, "leave.request.approve") !== "organization") {
+    return false;
+  }
+  const others = await new EmployeeRepository().listOtherActiveMemberRoles(
+    tx,
+    ctx.userId,
+  );
+  const delegates = target.managerId
+    ? (
+        await new LeaveRepository().getActiveDelegatesForManager(
+          tx,
+          target.managerId,
+          today,
+        )
+      ).map((d) => d.delegateEmployeeId)
+    : [];
+  return !hasOtherLeaveDecider(ctx, target, others, delegates);
 }

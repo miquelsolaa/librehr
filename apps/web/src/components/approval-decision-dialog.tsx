@@ -12,8 +12,8 @@ import {
   DialogTitle,
 } from "@librehr/ui";
 
-/** Shortest rejection comment, matching the correction reason rule. */
-const MIN_REJECT_COMMENT = 5;
+/** Shortest required comment, matching the correction reason rule. */
+const MIN_REQUIRED_COMMENT = 5;
 /** Longest comment; a note to a person, not a document. */
 const MAX_COMMENT = 1000;
 
@@ -31,6 +31,11 @@ export interface ApprovalDecisionDialogProps {
   onOpenChange: (open: boolean) => void;
   onConfirm: (comment: string | undefined) => void;
   /**
+   * LEA-004 sole-approver exception: the caller approves their own request,
+   * which the API only accepts with a reason.
+   */
+  selfApproval?: boolean | undefined;
+  /**
    * Where focus goes when the dialog closes. Without it, focus returns to the
    * button that opened it, which is gone once the request is decided.
    */
@@ -39,7 +44,8 @@ export interface ApprovalDecisionDialogProps {
 
 /**
  * LEA-004 / TIM-003: confirms a decision. The comment is optional when
- * approving and required when rejecting, so the employee learns why.
+ * approving and required when rejecting, so the employee learns why. It is
+ * also required when approving your own request as its sole approver.
  */
 export function ApprovalDecisionDialog({
   open,
@@ -50,6 +56,7 @@ export function ApprovalDecisionDialog({
   failure,
   onOpenChange,
   onConfirm,
+  selfApproval = false,
   onCloseAutoFocus,
 }: ApprovalDecisionDialogProps) {
   const t = useTranslations("approvals");
@@ -59,6 +66,7 @@ export function ApprovalDecisionDialog({
   const fieldId = React.useId();
   const errorId = React.useId();
   const reject = decision === "reject";
+  const required = reject || selfApproval;
 
   React.useEffect(() => {
     if (open) {
@@ -70,7 +78,7 @@ export function ApprovalDecisionDialog({
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
     const trimmed = comment.trim();
-    if (reject && trimmed.length < MIN_REJECT_COMMENT) {
+    if (required && trimmed.length < MIN_REQUIRED_COMMENT) {
       setError(true);
       fieldRef.current?.focus();
       return;
@@ -98,7 +106,11 @@ export function ApprovalDecisionDialog({
               htmlFor={fieldId}
               className="block text-sm font-medium text-foreground"
             >
-              {reject ? t("rejectComment") : t("approveComment")}
+              {reject
+                ? t("rejectComment")
+                : selfApproval
+                  ? t("selfApproveComment")
+                  : t("approveComment")}
             </label>
             <textarea
               ref={fieldRef}
@@ -110,14 +122,14 @@ export function ApprovalDecisionDialog({
               }}
               rows={3}
               maxLength={MAX_COMMENT}
-              required={reject}
+              required={required}
               aria-invalid={error || undefined}
               aria-describedby={error ? errorId : undefined}
               className="w-full rounded-md border border-border bg-background p-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
             />
             {error && (
               <p id={errorId} role="alert" className="text-sm text-danger">
-                {t("rejectCommentRequired", { min: MIN_REJECT_COMMENT })}
+                {t("rejectCommentRequired", { min: MIN_REQUIRED_COMMENT })}
               </p>
             )}
           </div>
