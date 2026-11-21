@@ -67,7 +67,7 @@ describe("Worker Queue Handlers", () => {
   });
 
   it("rejects an invalid time.close-day payload before touching the database", async () => {
-    const logger = { info: vi.fn() };
+    const logger = { info: vi.fn(), error: vi.fn() };
     await expect(
       handleTimeCloseDay(
         {

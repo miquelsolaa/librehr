@@ -84,7 +84,7 @@ describe("time.close-day (TIM-003)", () => {
   }
 
   const run = (organizationId: string, closeDate = DAY) => {
-    const logger = { info: vi.fn() };
+    const logger = { info: vi.fn(), error: vi.fn() };
     return {
       logger,
       result: handleTimeCloseDay(
@@ -128,6 +128,7 @@ describe("time.close-day (TIM-003)", () => {
       employeesChecked: 2,
       open: 1,
       notified: 1,
+      failed: 0,
     });
     expect(await notificationsOf(open.userId!)).toEqual([
       {
@@ -149,6 +150,30 @@ describe("time.close-day (TIM-003)", () => {
     expect(await notificationsOf(open.userId!)).toHaveLength(1);
     // Never writes time events.
     expect(await eventCount(orgId)).toBe(eventsBefore);
+  });
+
+  it("skips an employee with a malformed chain and still notifies the rest", async () => {
+    const orgId = await newOrg();
+    const broken = await addEmployee(orgId);
+    const open = await addEmployee(orgId);
+    await punch(orgId, broken.employeeId, "clock_in", "2026-11-02T08:00:00Z");
+    await punch(orgId, open.employeeId, "clock_in", "2026-11-02T08:00:00Z");
+    // A correction pointing at no event, as only direct SQL could store it.
+    await db.sql.begin(async (tx) => {
+      await tx`SET LOCAL session_replication_role = replica`;
+      await tx`
+        INSERT INTO time_events (organization_id, employee_id, event_type, occurred_at, actor_id, ref_event_id, reason, hash)
+        VALUES (${orgId}, ${broken.employeeId}, 'correction', '2026-11-02T09:00:00Z',
+                ${broken.employeeId}, ${randomUUID()}, 'note', 'forged')
+      `;
+    });
+
+    const { result, logger } = run(orgId);
+    expect(await result).toMatchObject({ notified: 1, failed: 1 });
+    expect(await notificationsOf(open.userId!)).toHaveLength(1);
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ employeeId: broken.employeeId }),
+    );
   });
 
   it("leaves another organization untouched under RLS", async () => {

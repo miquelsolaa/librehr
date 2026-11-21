@@ -156,7 +156,7 @@ describe("openAtDayEnd (TIM-003)", () => {
     });
     expect(
       openAtDayEnd([clockIn, clockOut, moved], "2026-11-02", MADRID),
-    ).toBeNull(); // closed by a clock-out after midnight (night-shift rule)
+    ).toEqual({ state: "clocked_in", clockIn: "2026-11-02T08:00:00Z" });
     const fixed = event("d", "correction", "2026-11-02T17:00:00Z", {
       recordedAt: "2026-11-04T10:00:00Z",
       refEventId: "c",
@@ -174,29 +174,31 @@ describe("openAtDayEnd (TIM-003)", () => {
     ).toEqual({ state: "on_break", clockIn: "2026-11-02T08:00:00Z" });
   });
 
-  it("does not flag a night shift closed after midnight", () => {
+  it("flags a forgotten clock-out even when the next punch is a clock-out", () => {
+    // Forgot to clock out on 2 Nov; the app then only offers a clock-out.
     const events = [
-      event("a", "clock_in", "2026-11-02T21:00:00Z"),
-      event("b", "break_start", "2026-11-03T01:00:00Z"),
-      event("c", "break_end", "2026-11-03T01:30:00Z"),
-      event("d", "clock_out", "2026-11-03T05:00:00Z"),
+      event("a", "clock_in", "2026-11-02T08:00:00Z"),
+      event("b", "clock_out", "2026-11-03T16:00:00Z"),
     ];
-    expect(openAtDayEnd(events, "2026-11-02", MADRID)).toBeNull();
-    // The next day's only events close a session: nothing is left open.
+    const expected = { state: "clocked_in", clockIn: "2026-11-02T08:00:00Z" };
+    expect(openAtDayEnd(events, "2026-11-02", MADRID)).toEqual(expected);
+    // Same answer before the next punch exists: independent of run time.
+    expect(openAtDayEnd(events.slice(0, 1), "2026-11-02", MADRID)).toEqual(
+      expected,
+    );
+    // The next day only closes the session: nothing left open.
     expect(openAtDayEnd(events, "2026-11-03", MADRID)).toBeNull();
   });
 
-  it("flags a session whose next event is a new clock-in", () => {
-    expect(
-      openAtDayEnd(
-        [
-          event("a", "clock_in", "2026-11-02T08:00:00Z"),
-          event("b", "clock_in", "2026-11-03T08:00:00Z"),
-        ],
-        "2026-11-02",
-        MADRID,
-      ),
-    ).toEqual({ state: "clocked_in", clockIn: "2026-11-02T08:00:00Z" });
+  it("flags a night shift still open at local midnight", () => {
+    const events = [
+      event("a", "clock_in", "2026-11-02T21:00:00Z"),
+      event("b", "clock_out", "2026-11-03T05:00:00Z"),
+    ];
+    expect(openAtDayEnd(events, "2026-11-02", MADRID)).toEqual({
+      state: "clocked_in",
+      clockIn: "2026-11-02T21:00:00Z",
+    });
   });
 
   it("flags a session opened the day before when the day's events leave it open", () => {

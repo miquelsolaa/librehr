@@ -29,8 +29,10 @@ export const timeCloseDaySingletonKey = (
 export const MISSING_CLOCK_OUT_CATEGORY = "time_missing_clock_out";
 
 /**
- * Notifications are stored as text, so they are written in the
- * organization's default locale. `{date}` is the ISO close date.
+ * Notifications are stored as rendered text (like the API's), so they are
+ * written in the organization's default locale; users have no stored locale.
+ * The copy lives here because the worker may not import `@librehr/i18n`
+ * (dependency rule: worker -> core, db, emails). `{date}` is the ISO date.
  */
 const MISSING_CLOCK_OUT_TEXT = {
   ca: {
@@ -57,7 +59,7 @@ function missingClockOutText(locale: string, date: string) {
 
 export interface TimeCloseDayDeps {
   sql: Sql;
-  logger: { info(obj: object): void };
+  logger: { info(obj: object): void; error(obj: object): void };
 }
 
 export interface TimeCloseDayReport {
@@ -67,6 +69,8 @@ export interface TimeCloseDayReport {
   /** Employees left clocked in or on a break at the end of the day. */
   open: number;
   notified: number;
+  /** Employees whose events could not be read or folded (logged by id). */
+  failed: number;
 }
 
 function toTimeEvent(row: TimeEventRow): TimeEvent {
@@ -90,9 +94,8 @@ function toTimeEvent(row: TimeEventRow): TimeEvent {
  * them clocked in or on a break that day, so they can request a correction.
  *
  * The day is the employee's business day (location zone, else organization
- * zone). Events from the day before to the day after are read, so a session
- * opened the day before or a night shift closed after midnight is folded
- * whole (`openAtDayEnd`). Employees without a user account have no inbox and
+ * zone). Events from the day before are read too, so a session opened the
+ * day before is known; later events are not needed (`openAtDayEnd`). Employees without a user account have no inbox and
  * are skipped.
  *
  * Never writes `time_events`; the only write is the notification, created at
@@ -132,35 +135,50 @@ export async function handleTimeCloseDay(
 
   let open = 0;
   let notified = 0;
+  let failed = 0;
   for (const employee of employees) {
-    const window = localPeriodBounds(
-      addDays(data.closeDate, -1),
-      addDays(data.closeDate, 1),
-      employee.timeZone,
-    );
-    const created = await withTenant(deps.sql, tenant, async (tx) => {
-      const rows = await timeRepo.getEventsForPeriod(
-        tx,
-        employee.employeeId,
-        window.start,
-        window.end,
-      );
-      const left = openAtDayEnd(
-        rows.map(toTimeEvent),
+    try {
+      const window = localPeriodBounds(
+        addDays(data.closeDate, -1),
         data.closeDate,
         employee.timeZone,
       );
-      if (!left) return null;
-      open++;
-      return notificationRepo.createOnce(tx, {
-        userId: employee.userId,
-        title: text.title,
-        body: text.body,
-        category: MISSING_CLOCK_OUT_CATEGORY,
-        link,
+      const outcome = await withTenant(deps.sql, tenant, async (tx) => {
+        const rows = await timeRepo.getEventsForPeriod(
+          tx,
+          employee.employeeId,
+          window.start,
+          window.end,
+        );
+        const left = openAtDayEnd(
+          rows.map(toTimeEvent),
+          data.closeDate,
+          employee.timeZone,
+        );
+        if (!left) return "closed" as const;
+        const created = await notificationRepo.createOnce(tx, {
+          userId: employee.userId,
+          title: text.title,
+          body: text.body,
+          category: MISSING_CLOCK_OUT_CATEGORY,
+          link,
+        });
+        return created ? ("notified" as const) : ("open" as const);
       });
-    });
-    if (created) notified++;
+      if (outcome !== "closed") open++;
+      if (outcome === "notified") notified++;
+    } catch (err) {
+      // One malformed chain must not starve the rest of the organization.
+      failed++;
+      deps.logger.error({
+        msg: "time close-day skipped an employee",
+        requirement: "TIM-003",
+        jobId: job.id,
+        organizationId: data.organizationId,
+        employeeId: employee.employeeId,
+        error: err instanceof Error ? err.name : "unknown",
+      });
+    }
   }
 
   const report: TimeCloseDayReport = {
@@ -169,6 +187,7 @@ export async function handleTimeCloseDay(
     employeesChecked: employees.length,
     open,
     notified,
+    failed,
   };
   deps.logger.info({
     msg: "time close-day finished",

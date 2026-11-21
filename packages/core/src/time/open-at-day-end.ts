@@ -18,11 +18,13 @@ export interface OpenAtDayEnd {
  * Corrections replace the events they reference first (`resolveCorrections`).
  * The day runs from local midnight to the next local midnight, so it lasts 23
  * or 25 hours on DST change days. A clock-out exactly at the closing midnight
- * still closes the day. Returns null when:
- * - no effective event falls on that day (an older open session was the
- *   previous day's to report), or
- * - the session is closed, including by a clock-out recorded after midnight
- *   (a night shift that ends the next day is not a missing clock-out).
+ * still closes the day. Events after the day are ignored: the employee's next
+ * punch cannot tell a night shift from a forgotten clock-out (after a
+ * forgotten one the next punch is a clock-out too), so a session still open
+ * at midnight is always reported and the result does not depend on when the
+ * caller runs. Returns null when the session is closed, or when no effective
+ * event falls on that day (an older open session was the previous day's to
+ * report).
  *
  * Pass events from before the day too, so a session opened the day before is
  * known. Pure: no I/O, no clock.
@@ -43,7 +45,8 @@ export function openAtDayEnd(
   const start = day.toZonedDateTime(timeZone).epochMilliseconds;
   const end = day.add({ days: 1 }).toZonedDateTime(timeZone).epochMilliseconds;
 
-  // Stable sort: same-instant events keep their stored (seq) order.
+  // Stable sort: same-instant events keep the order in which their originals
+  // appear in `events` (callers pass them in stored order).
   const effective = resolveCorrections(events)
     .map((event) => ({ event, at: Date.parse(event.occurredAt) }))
     .sort((a, b) => a.at - b.at);
@@ -51,9 +54,7 @@ export function openAtDayEnd(
   let state: OpenDayState | null = null;
   let clockIn: string | null = null;
   let eventsOnDay = 0;
-  let index = 0;
-  for (; index < effective.length; index++) {
-    const { event, at } = effective[index]!;
+  for (const { event, at } of effective) {
     const inDay = at < end || (at === end && event.eventType === "clock_out");
     if (!inDay) break;
     if (at >= start) eventsOnDay++;
@@ -77,13 +78,5 @@ export function openAtDayEnd(
     }
   }
   if (state === null || clockIn === null || eventsOnDay === 0) return null;
-
-  // The first later clock-in or clock-out decides: a clock-out closes the
-  // night shift; a new clock-in means this session was never closed.
-  for (; index < effective.length; index++) {
-    const type = effective[index]!.event.eventType;
-    if (type === "clock_out") return null;
-    if (type === "clock_in") break;
-  }
   return { state, clockIn };
 }
