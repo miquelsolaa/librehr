@@ -268,7 +268,9 @@ export const timesheetClosures = pgTable(
     periodStart: date("period_start").notNull(),
     periodEnd: date("period_end").notNull(),
     action: text("action").notNull(), // close, reopen
-    totals: jsonb("totals"), // PeriodTimesheetSummary snapshot; null for reopen
+    totals: jsonb("totals"), // totals snapshot (no clock instants); null for reopen
+    lastEventSeq: bigint("last_event_seq", { mode: "number" }), // chain high-water mark at close
+    timeZone: text("time_zone"), // zone of the snapshot's local days (close only)
     reason: text("reason"), // required for reopen
     actorId: uuid("actor_id").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })

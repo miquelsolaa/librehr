@@ -30,9 +30,11 @@ export function closureTotals(
  * TIM-004: closure state for a timesheet response. Only a range inside one
  * calendar month is matched against that month's closure (a multi-month
  * range never carries one), and only while its newest row is a close.
- * Post-close changes are the employee's time events recorded after the
- * close that occurred in the month (local days in `timeZone`) or correct an
- * event that did; they are flagged, never blocked.
+ * Post-close changes are the employee's time events appended after the
+ * close (past its chain high-water mark) that occurred in the month (local
+ * days in the zone the snapshot used) or correct an event that did; they are
+ * flagged, never blocked. A change that only affects a session crossing the
+ * month's last midnight into the next month is not flagged.
  */
 export async function loadTimesheetClosure(
   tx: TenantTx,
@@ -55,12 +57,12 @@ export async function loadTimesheetClosure(
   const bounds = localPeriodBounds(
     period.startDate,
     period.endDate,
-    args.timeZone,
+    latest.timeZone ?? args.timeZone,
   );
   const changes = await closureRepo.listEventsAfterClose(
     tx,
-    latest.id,
     args.employeeId,
+    latest.lastEventSeq,
     bounds.start,
     bounds.end,
   );

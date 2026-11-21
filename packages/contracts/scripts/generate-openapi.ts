@@ -1393,7 +1393,7 @@ registry.registerPath({
   path: "/v1/time/closures",
   summary: "Close a month's timesheets (TIM-004)",
   description:
-    "Requires time.period.close (admin, organization scope). Snapshots the month's timesheet totals (local calendar days in each employee's business time zone) for every listed employee, or by default every employee in scope employed during the month. A month already closed is reported as already_closed (idempotent); an employee without a schedule for every day is reported as schedule_not_configured and the others are still closed. Each close writes a time.period.close audit entry (ids only). At most 1000 employees per request.",
+    "Requires time.period.close (admin, organization scope). Only a month that has ended in the organization time zone can be closed. Snapshots the month's timesheet totals (local calendar days in each employee's business time zone) for every listed employee, or by default every employee in scope employed during the month. A month already closed is reported as already_closed (idempotent); an employee without a schedule for every day is reported as schedule_not_configured and the others are still closed. Each close writes a time.period.close audit entry (ids only). At most 1000 employees per request.",
   request: {
     body: {
       content: {
@@ -1426,7 +1426,8 @@ registry.registerPath({
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
     422: {
-      description: "PERIOD_IN_FUTURE or CLOSE_TOO_LARGE",
+      description:
+        "PERIOD_NOT_ENDED (the current or a future month) or CLOSE_TOO_LARGE",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
   },

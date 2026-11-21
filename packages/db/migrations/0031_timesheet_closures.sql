@@ -1,8 +1,8 @@
 -- 0031_timesheet_closures.sql
 -- TIM-004 (#31): monthly timesheet closure.
 --
--- An admin closes an employee's month: the API stores a snapshot of the
--- month's timesheet summary as it was at that instant. Reopening appends a
+-- An admin closes an employee's month once it has ended: the API stores a
+-- snapshot of the month's timesheet totals as they were at that instant. Reopening appends a
 -- 'reopen' row with a mandatory reason. Nothing is ever updated or deleted,
 -- so the current state of a month is its newest row (close or reopen).
 --
@@ -23,8 +23,17 @@ CREATE TABLE IF NOT EXISTS "timesheet_closures" (
   "period_start" date NOT NULL,
   "period_end" date NOT NULL,
   "action" text NOT NULL,
-  -- PeriodTimesheetSummary at closing time; NULL for a reopen.
+  -- Totals at closing time (period and per-day figures, no clock instants);
+  -- NULL for a reopen.
   "totals" jsonb NULL,
+  -- High-water mark of the employee's time_events chain (seq) read before
+  -- the snapshot. seq is allocated under the chain's advisory lock, so it
+  -- follows commit order: events with a greater seq were not in the
+  -- snapshot and are flagged. NULL when the employee had no v2 event yet.
+  "last_event_seq" bigint NULL,
+  -- Zone whose local days bounded the snapshot, so later flagging uses the
+  -- same month bounds even if the location's or organization's zone changes.
+  "time_zone" text NULL,
   "reason" text NULL,
   "actor_id" uuid NOT NULL,
   "created_at" timestamptz NOT NULL DEFAULT now(),
@@ -34,7 +43,7 @@ CREATE TABLE IF NOT EXISTS "timesheet_closures" (
     CHECK ("period_end" >= "period_start"),
   CONSTRAINT "timesheet_closures_payload_check"
     CHECK (
-      ("action" = 'close' AND "totals" IS NOT NULL)
+      ("action" = 'close' AND "totals" IS NOT NULL AND "time_zone" IS NOT NULL)
       OR ("action" = 'reopen' AND "totals" IS NULL
           AND "reason" IS NOT NULL AND length(btrim("reason")) > 0)
     )

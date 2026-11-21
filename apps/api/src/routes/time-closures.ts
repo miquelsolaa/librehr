@@ -10,7 +10,11 @@ import {
   ReopenTimesheetPeriodRequestSchema,
   TimesheetClosuresQuerySchema,
 } from "@librehr/contracts";
-import { monthContaining, monthPeriod } from "@librehr/core";
+import {
+  monthContaining,
+  monthPeriod,
+  type PeriodTimesheetSummary,
+} from "@librehr/core";
 import {
   withTenant,
   AuditRepository,
@@ -54,10 +58,11 @@ function requireClosePermission(ctx: PolicyUserContext): void {
 }
 
 /**
- * A month can be closed once it has started in the organization's zone;
- * a future month has nothing to snapshot.
+ * A month can be closed once it has ended in the organization's zone: a
+ * snapshot of a month in progress would be partial, and every ordinary
+ * clocking for the rest of it would be flagged as a post-close change.
  */
-async function requireStartedMonth(
+async function requireEndedMonth(
   c: Context,
   tx: TenantTx,
   month: string,
@@ -65,13 +70,34 @@ async function requireStartedMonth(
   const today = await businessToday(c, tx);
   const current = monthContaining(today, today);
   // Both are zero-padded YYYY-MM, so string order is calendar order.
-  if (current !== null && month > current) {
+  if (current !== null && month >= current) {
     throw new ValidationError({
       status: 422,
-      code: "PERIOD_IN_FUTURE",
-      detail: "A month can only be closed once it has started",
+      code: "PERIOD_NOT_ENDED",
+      detail: "A month can only be closed once it has ended",
     });
   }
+}
+
+/**
+ * The stored snapshot: period and per-day totals, without the sessions'
+ * clock instants, which stay in time_events (data minimisation).
+ */
+function snapshotTotals(summary: PeriodTimesheetSummary) {
+  return {
+    totalWorkedMinutes: summary.totalWorkedMinutes,
+    totalBreakMinutes: summary.totalBreakMinutes,
+    totalExpectedHours: summary.totalExpectedHours,
+    totalOvertimeMinutes: summary.totalOvertimeMinutes,
+    days: summary.days.map((day) => ({
+      date: day.date,
+      totalWorkedMinutes: day.totalWorkedMinutes,
+      totalBreakMinutes: day.totalBreakMinutes,
+      expectedHours: day.expectedHours,
+      overtimeMinutes: day.overtimeMinutes,
+      hasAnomaly: day.hasAnomaly,
+    })),
+  };
 }
 
 function toItem(
@@ -113,7 +139,7 @@ export function createTimeClosureRoutes(sql: Sql) {
       async (tx) => {
         const ctx = await resolvePolicyContext(c, tx);
         requireClosePermission(ctx);
-        await requireStartedMonth(c, tx, body.month);
+        await requireEndedMonth(c, tx, body.month);
 
         let subjects: { id: string; locationId: string | null }[];
         if (body.employeeIds) {
@@ -168,7 +194,13 @@ export function createTimeClosureRoutes(sql: Sql) {
             });
             continue;
           }
-          const { timesheet } = await buildTimesheet(c, tx, {
+          // Read before the snapshot, so a concurrent clocking can only be
+          // flagged needlessly, never missed (see chainHighWaterMark).
+          const lastEventSeq = await closureRepo.chainHighWaterMark(
+            tx,
+            subject.id,
+          );
+          const { timesheet, timeZone } = await buildTimesheet(c, tx, {
             employeeId: subject.id,
             locationId: subject.locationId,
             startDate: period.startDate,
@@ -187,7 +219,9 @@ export function createTimeClosureRoutes(sql: Sql) {
             periodStart: period.startDate,
             periodEnd: period.endDate,
             action: "close",
-            totals: { ...timesheet.summary },
+            totals: snapshotTotals(timesheet.summary),
+            lastEventSeq,
+            timeZone,
             reason: null,
             actorId: user.id,
           });
@@ -253,6 +287,8 @@ export function createTimeClosureRoutes(sql: Sql) {
           periodEnd: period.endDate,
           action: "reopen",
           totals: null,
+          lastEventSeq: null,
+          timeZone: null,
           reason: body.reason,
           actorId: user.id,
         });

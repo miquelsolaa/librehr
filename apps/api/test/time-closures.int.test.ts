@@ -170,12 +170,23 @@ describe("timesheet closures (TIM-004)", () => {
     );
   });
 
-  it("refuses a month that has not started yet", async () => {
-    const res = await post("/v1/time/closures", a.admin, { month: "2999-01" });
-    expect(res.status).toBe(422);
-    expect(((await res.json()) as { code: string }).code).toBe(
-      "PERIOD_IN_FUTURE",
-    );
+  it("refuses a month that has not ended yet (the current or a future one)", async () => {
+    const [org] = await db.sql<{ timezone: string }[]>`
+      SELECT timezone FROM organizations WHERE id = ${a.orgId}`;
+    // Today's month in the organization's zone (en-CA formats YYYY-MM-DD).
+    const current = new Intl.DateTimeFormat("en-CA", {
+      timeZone: org!.timezone,
+    })
+      .format(new Date())
+      .slice(0, 7);
+    for (const month of [current, "2999-01"]) {
+      const res = await post("/v1/time/closures", a.admin, { month });
+      expect(res.status).toBe(422);
+      expect(((await res.json()) as { code: string }).code).toBe(
+        "PERIOD_NOT_ENDED",
+      );
+    }
+    expect(await closureRows(a.peer.employeeId)).toHaveLength(0);
   });
 
   it("forbids managers, employees and auditors (time.period.close is admin-only)", async () => {
@@ -363,6 +374,36 @@ describe("timesheet closures (TIM-004)", () => {
       });
       expect(res.status).toBe(400);
     }
+  });
+
+  it("returns 404 when reopening an unknown employee", async () => {
+    const res = await post("/v1/time/closures/reopen", a.admin, {
+      month: MONTH,
+      employeeId: "00000000-0000-4000-8000-000000000000",
+      reason: "Late overtime approval",
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it("shows the closure to a manager reading a direct report's timesheet", async () => {
+    const res = await get(
+      `/v1/time/timesheet?${JANUARY}&employeeId=${a.report.employeeId}`,
+      a.manager,
+    );
+    expect(res.status).toBe(200);
+    const sheet = (await res.json()) as PeriodTimesheetResponse;
+    expect(sheet.closure?.periodStart).toBe("2026-01-01");
+    expect(sheet.closure?.postCloseChanges).toEqual([]);
+  });
+
+  it("stores totals without clock instants", async () => {
+    const [row] = await db.sql<{ totals: string }[]>`
+      SELECT totals::text AS totals FROM timesheet_closures
+      WHERE employee_id = ${a.peer.employeeId} AND action = 'close'
+      LIMIT 1`;
+    expect(row!.totals).toContain("totalWorkedMinutes");
+    expect(row!.totals).not.toContain("sessions");
+    expect(row!.totals).not.toContain("clockIn");
   });
 
   it("reopens with a reason, then the month can be closed again", async () => {
