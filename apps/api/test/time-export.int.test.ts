@@ -212,7 +212,8 @@ describe("GET /v1/time/export (TIM-006)", () => {
         locale: "es",
         periodStart: "2026-11-02",
         periodEnd: "2026-11-04",
-        employeeCount: 5,
+        // The fixture auditor is not an employee (#39).
+        employeeCount: 4,
         contentHash: org.headers.get("x-content-sha256"),
       },
     });
