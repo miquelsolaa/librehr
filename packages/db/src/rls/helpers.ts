@@ -44,6 +44,7 @@ export const TENANT_TABLES = [
   "shift_pattern_steps",
   "shift_assignments",
   "shift_swaps",
+  "timesheet_closures",
 ] as const;
 
 export type TenantTable = (typeof TENANT_TABLES)[number];

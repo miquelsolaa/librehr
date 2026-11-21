@@ -12,6 +12,7 @@ import {
   smallint,
   bigint,
   uniqueIndex,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { primaryId, organizationIdCol, timestamps } from "./common.js";
 import { organizations } from "./platform.js";
@@ -245,6 +246,45 @@ export const timeBankRecords = pgTable(
     index("time_bank_records_emp_idx").on(
       table.organizationId,
       table.employeeId,
+    ),
+  ],
+);
+
+/**
+ * TIM-004 (#31): append-only month close/reopen log (0031). The newest row
+ * per employee and period is the month's current state; corrections after a
+ * close are flagged, never blocked.
+ */
+export const timesheetClosures = pgTable(
+  "timesheet_closures",
+  {
+    id: primaryId(),
+    organizationId: organizationIdCol().references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    employeeId: uuid("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    periodStart: date("period_start").notNull(),
+    periodEnd: date("period_end").notNull(),
+    action: text("action").notNull(), // close, reopen
+    totals: jsonb("totals"), // PeriodTimesheetSummary snapshot; null for reopen
+    reason: text("reason"), // required for reopen
+    actorId: uuid("actor_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("timesheet_closures_employee_period_idx").on(
+      table.organizationId,
+      table.employeeId,
+      table.periodStart,
+      table.createdAt,
+    ),
+    index("timesheet_closures_org_period_idx").on(
+      table.organizationId,
+      table.periodStart,
     ),
   ],
 );

@@ -17,6 +17,7 @@ export * from "./time.repository.js";
 export * from "./schedule.repository.js";
 export * from "./time-correction.repository.js";
 export * from "./time-bank.repository.js";
+export * from "./timesheet-closure.repository.js";
 export * from "./document.repository.js";
 export * from "./checklist.repository.js";
 export * from "./dsr.repository.js";
