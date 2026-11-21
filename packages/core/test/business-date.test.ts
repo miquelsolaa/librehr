@@ -10,6 +10,8 @@ import {
   localDayLengthMinutes,
   localPeriodBounds,
   localTimeOfDay,
+  monthContaining,
+  monthPeriod,
   todayInZone,
 } from "../src/calendar/business-date.js";
 import type { Clock } from "../src/ports/clock.js";
@@ -238,6 +240,47 @@ describe("localTimeOfDay", () => {
   it("drops seconds instead of rounding", () => {
     expect(localTimeOfDay("2026-11-02T07:59:59Z", "Europe/Madrid")).toBe(
       "08:59",
+    );
+  });
+});
+
+describe("monthPeriod / monthContaining (TIM-004 closures)", () => {
+  it("bounds a month by its first and last calendar day", () => {
+    expect(monthPeriod("2026-01")).toEqual({
+      startDate: "2026-01-01",
+      endDate: "2026-01-31",
+    });
+    expect(monthPeriod("2026-04").endDate).toBe("2026-04-30");
+    expect(monthPeriod("2026-12").endDate).toBe("2026-12-31");
+  });
+
+  it("handles February in leap and common years", () => {
+    expect(monthPeriod("2028-02").endDate).toBe("2028-02-29");
+    expect(monthPeriod("2027-02").endDate).toBe("2027-02-28");
+    expect(monthPeriod("2100-02").endDate).toBe("2100-02-28");
+  });
+
+  it("names the month only when both dates share it", () => {
+    expect(monthContaining("2026-03-01", "2026-03-31")).toBe("2026-03");
+    expect(monthContaining("2026-03-29", "2026-03-29")).toBe("2026-03");
+    expect(monthContaining("2026-03-30", "2026-04-02")).toBeNull();
+    expect(monthContaining("2026-12-31", "2027-01-01")).toBeNull();
+    expect(monthContaining("2026-01-05", "2027-01-05")).toBeNull();
+  });
+
+  it("covers every day of the month it names", () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 1970, max: 2200 }),
+        fc.integer({ min: 1, max: 12 }),
+        (year, monthNumber) => {
+          const month = `${year}-${String(monthNumber).padStart(2, "0")}`;
+          const { startDate, endDate } = monthPeriod(month);
+          expect(monthContaining(startDate, endDate)).toBe(month);
+          expect(monthContaining(startDate, addDays(endDate, 1))).toBeNull();
+          expect(monthContaining(addDays(startDate, -1), endDate)).toBeNull();
+        },
+      ),
     );
   });
 });

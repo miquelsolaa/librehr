@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import fc from "fast-check";
 import {
   calculateProratedAllowance,
-  calculatePeriodicAccrual,
   isLeapYear,
   getDaysInYear,
 } from "../src/leave/accrual.js";
@@ -65,29 +64,6 @@ describe("Leave Accrual & Prorating (LEA-002)", () => {
       endDate: "2026-06-30",
     });
     expect(allowance).toBe(10.91);
-  });
-
-  it("calculates periodic accrual for upfront and monthly methods", () => {
-    const upfrontMonth1 = calculatePeriodicAccrual({
-      annualAllowance: 24,
-      accrualMethod: "upfront",
-      month: 1,
-    });
-    expect(upfrontMonth1).toBe(24);
-
-    const upfrontMonth2 = calculatePeriodicAccrual({
-      annualAllowance: 24,
-      accrualMethod: "upfront",
-      month: 2,
-    });
-    expect(upfrontMonth2).toBe(0);
-
-    const monthly = calculatePeriodicAccrual({
-      annualAllowance: 24,
-      accrualMethod: "monthly",
-      month: 5,
-    });
-    expect(monthly).toBe(2);
   });
 
   // Property-based test

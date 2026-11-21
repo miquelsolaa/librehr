@@ -96,6 +96,14 @@ import {
   TimeBankSummarySchema,
   CreateTimeBankEntrySchema,
 } from "../src/time.js";
+import {
+  CloseTimesheetPeriodRequestSchema,
+  CloseTimesheetPeriodResponseSchema,
+  ReopenTimesheetPeriodRequestSchema,
+  TimesheetClosureItemSchema,
+  TimesheetClosuresQuerySchema,
+  TimesheetClosuresResponseSchema,
+} from "../src/time-closures.js";
 import { PendingApprovalsSchema } from "../src/approvals.js";
 import {
   DocumentItemSchema,
@@ -212,6 +220,20 @@ registry.register("SetEmployeePin", SetEmployeePinSchema);
 registry.register("TimeBankRecord", TimeBankRecordSchema);
 registry.register("TimeBankSummary", TimeBankSummarySchema);
 registry.register("CreateTimeBankEntry", CreateTimeBankEntrySchema);
+registry.register(
+  "CloseTimesheetPeriodRequest",
+  CloseTimesheetPeriodRequestSchema,
+);
+registry.register(
+  "CloseTimesheetPeriodResponse",
+  CloseTimesheetPeriodResponseSchema,
+);
+registry.register(
+  "ReopenTimesheetPeriodRequest",
+  ReopenTimesheetPeriodRequestSchema,
+);
+registry.register("TimesheetClosureItem", TimesheetClosureItemSchema);
+registry.register("TimesheetClosuresResponse", TimesheetClosuresResponseSchema);
 registry.register("DocumentItem", DocumentItemSchema);
 registry.register("CreateDocumentRequest", CreateDocumentRequestSchema);
 registry.register("BulkPayslipReport", BulkPayslipReportSchema);
@@ -1298,6 +1320,8 @@ registry.registerPath({
   method: "get",
   path: "/v1/time/timesheet",
   summary: "Get a configured employee timesheet",
+  description:
+    "TIM-004: when the range lies within one calendar month that is currently closed for the employee, the response carries `closure` (close instant, frozen totals, and the time events recorded in that month after the close). Corrections after a close are flagged there, never blocked. A range spanning more than one month never carries `closure`.",
   request: { query: TimesheetQuerySchema },
   responses: {
     200: {
@@ -1359,6 +1383,121 @@ registry.registerPath({
     },
     429: {
       description: "RATE_LIMIT_EXCEEDED, with a Retry-After header",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/time/closures",
+  summary: "Close a month's timesheets (TIM-004)",
+  description:
+    "Requires time.period.close (admin, organization scope). Only a month that has ended in the organization time zone can be closed. Snapshots the month's timesheet totals (local calendar days in each employee's business time zone) for every listed employee, or by default every employee in scope employed during the month. A month already closed is reported as already_closed (idempotent); an employee without a schedule for every day is reported as schedule_not_configured and the others are still closed. Each close writes a time.period.close audit entry (ids only). At most 1000 employees per request.",
+  request: {
+    body: {
+      content: {
+        "application/json": { schema: CloseTimesheetPeriodRequestSchema },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Per-employee result",
+      content: {
+        "application/json": { schema: CloseTimesheetPeriodResponseSchema },
+      },
+    },
+    400: {
+      description: "Invalid month or employee ids",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    401: {
+      description: "Not authenticated",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    403: {
+      description:
+        "No time.period.close permission, or an employee outside scope",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    404: {
+      description: "Employee not found",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    422: {
+      description:
+        "PERIOD_NOT_ENDED (the current or a future month) or CLOSE_TOO_LARGE",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/time/closures/reopen",
+  summary: "Reopen one employee's closed month (TIM-004)",
+  description:
+    "Requires time.period.close. Appends a reopen with the mandatory reason; the closure history is never edited. Writes a time.period.reopen audit entry (ids only, not the reason).",
+  request: {
+    body: {
+      content: {
+        "application/json": { schema: ReopenTimesheetPeriodRequestSchema },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "The month's new state",
+      content: { "application/json": { schema: TimesheetClosureItemSchema } },
+    },
+    400: {
+      description: "Invalid month, employee id or missing reason",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    401: {
+      description: "Not authenticated",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    403: {
+      description: "No time.period.close permission, or employee outside scope",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    404: {
+      description: "Employee not found",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    409: {
+      description: "PERIOD_NOT_CLOSED",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/v1/time/closures",
+  summary: "Closure state of a month (TIM-004)",
+  description:
+    "Requires time.period.close. The newest close or reopen of every employee in scope with a closure history for the month.",
+  request: { query: TimesheetClosuresQuerySchema },
+  responses: {
+    200: {
+      description: "Closure state per employee",
+      content: {
+        "application/json": { schema: TimesheetClosuresResponseSchema },
+      },
+    },
+    400: {
+      description: "Invalid month",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    401: {
+      description: "Not authenticated",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    403: {
+      description: "No time.period.close permission",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
   },
@@ -1932,6 +2071,13 @@ import type {
   TimeBankSummary,
   CreateTimeBankEntry,
 } from '../src/time.js';
+import type {
+  CloseTimesheetPeriodRequest,
+  CloseTimesheetPeriodResponse,
+  ReopenTimesheetPeriodRequest,
+  TimesheetClosureItem,
+  TimesheetClosuresResponse,
+} from '../src/time-closures.js';
 import type { PendingApprovals } from '../src/approvals.js';
 import type {
   DocumentItem,
@@ -2444,6 +2590,25 @@ export class LibreHrApiClient {
       endDate: params.endDate,
     });
     return this.request<ExportEmployeesResponse>(\`/v1/time/export/employees?\${searchParams.toString()}\`);
+  }
+
+  async listTimesheetClosures(params: { month: string }): Promise<TimesheetClosuresResponse> {
+    const searchParams = new URLSearchParams({ month: params.month });
+    return this.request<TimesheetClosuresResponse>(\`/v1/time/closures?\${searchParams.toString()}\`);
+  }
+
+  async closeTimesheetPeriod(data: CloseTimesheetPeriodRequest): Promise<CloseTimesheetPeriodResponse> {
+    return this.request<CloseTimesheetPeriodResponse>('/v1/time/closures', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async reopenTimesheetPeriod(data: ReopenTimesheetPeriodRequest): Promise<TimesheetClosureItem> {
+    return this.request<TimesheetClosureItem>('/v1/time/closures/reopen', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   async listTimeCorrections(params?: { employeeId?: string; status?: string }): Promise<TimeCorrectionItem[]> {
