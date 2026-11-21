@@ -36,15 +36,13 @@ describe("GET /v1/time/export/employees (TIM-006, TIM-008)", () => {
     return ((await res.json()) as ExportEmployeesResponse).items;
   };
 
-  // Employed in the period. Org A's peer left before it (see beforeAll).
+  // Employed in the period. Org A's peer left before it (see beforeAll). The
+  // fixture auditor has the employee row older invitations created (#39):
+  // not employed, so never listed.
   const employed = (org: ScopedOrgFixture) =>
-    [
-      org.admin,
-      org.manager,
-      org.report,
-      org.auditor,
-      ...(org === a ? [] : [org.peer]),
-    ].map((p) => p.employeeId);
+    [org.admin, org.manager, org.report, ...(org === a ? [] : [org.peer])].map(
+      (p) => p.employeeId,
+    );
 
   // Owner connection (RLS bypassed): filter by organization explicitly.
   const pickerAudits = (orgId: string) =>
@@ -125,6 +123,13 @@ describe("GET /v1/time/export/employees (TIM-006, TIM-008)", () => {
     expect(names).toContain("Fixture report");
     for (const item of list) {
       expect(Object.keys(item).sort()).toEqual(["id", "name"]);
+    }
+  });
+
+  it("never lists an auditor's employee row from an older invitation (#39)", async () => {
+    for (const person of [a.admin, a.auditor]) {
+      const ids = (await items(person)).map((e) => e.id);
+      expect(ids).not.toContain(a.auditor.employeeId);
     }
   });
 

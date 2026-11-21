@@ -309,8 +309,9 @@ export class EmployeeRepository {
    * - an employment record overlaps the period, its end clipped to the
    *   termination date when it started on or before it (a later re-hire
    *   is not clipped, so it is not dropped);
-   * - they have no employment record (hire date unknown) and did not leave
-   *   before the period;
+   * - they have no employment record (hire date unknown), did not leave
+   *   before the period and are not an auditor (TIM-008: auditors are not
+   *   employees, but older invitations created a row for them);
    * - they have a time event in the period, in their business zone
    *   (location, else organization): recorded work is never left out of an
    *   official record because HR data disagrees.
@@ -347,6 +348,13 @@ export class EmployeeRepository {
               WHERE emp.employee_id = e.id AND emp.organization_id = ${orgId}
             )
             AND (e.termination_date IS NULL OR e.termination_date >= ${startDate}::date)
+            -- Auditors were given an employee row on invitation before #39;
+            -- they are not employed, so they never count as "hire date unknown".
+            AND NOT EXISTS (
+              SELECT 1 FROM memberships m
+              WHERE m.user_id = e.user_id AND m.organization_id = ${orgId}
+                AND m.role = 'auditor'
+            )
           )
           OR EXISTS (
             -- Local midnights of the period in the employee's zone.

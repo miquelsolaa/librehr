@@ -601,5 +601,31 @@ describe("auditor access expiry (TIM-008)", () => {
       expect(row?.role).toBe("auditor");
       expect(row?.at.getTime()).toBe(at.getTime());
     });
+
+    it("creates no employee record for an auditor, but does for an employee (#39)", async () => {
+      const employeesOf = (email: string) =>
+        db.adminSql<{ id: string }[]>`
+          SELECT e.id FROM employees e JOIN users u ON u.id = e.user_id
+          WHERE u.email = ${email} AND e.organization_id = ${a.orgId}`;
+
+      const at = new Date(Date.now() + 20 * 24 * 3600 * 1000);
+      const auditor = await createInvite(
+        a.orgId,
+        "no-employee@example.invalid",
+        "auditor",
+        at,
+      );
+      expect((await accept(auditor.token)).status).toBe(200);
+      expect(await employeesOf("no-employee@example.invalid")).toHaveLength(0);
+
+      const employee = await createInvite(
+        a.orgId,
+        "new-hire@example.invalid",
+        "employee",
+        null,
+      );
+      expect((await accept(employee.token)).status).toBe(200);
+      expect(await employeesOf("new-hire@example.invalid")).toHaveLength(1);
+    });
   });
 });

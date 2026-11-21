@@ -113,7 +113,6 @@ describe("GET /v1/time/export (TIM-006)", () => {
     expect(doc.scope).toBe("organization");
     expect(doc.employees.map((e) => e.name)).toEqual([
       "Fixture admin",
-      "Fixture auditor",
       "Fixture manager",
       "Fixture peer",
       "Fixture report",
@@ -127,7 +126,7 @@ describe("GET /v1/time/export (TIM-006)", () => {
     expect(peerRows).toEqual([
       expect.arrayContaining(["", "Schedule not configured"]),
     ]);
-    expect(doc.rows).toHaveLength(4 * 3 + 1);
+    expect(doc.rows).toHaveLength(3 * 3 + 1);
   });
 
   it.each([

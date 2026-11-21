@@ -80,9 +80,7 @@ describe("GET /v1/time/export limits (TIM-006)", () => {
     const text = await res.text();
     const doc = JSON.parse(text) as OfficialExportResponse;
     expect(doc.employees.map((e) => e.employeeId).sort()).toEqual(
-      [b.admin, b.manager, b.report, b.peer, b.auditor]
-        .map((p) => p.employeeId)
-        .sort(),
+      [b.admin, b.manager, b.report, b.peer].map((p) => p.employeeId).sort(),
     );
     for (const p of [a.admin, a.manager, a.report, a.peer, a.auditor]) {
       expect(text).not.toContain(p.employeeId);
