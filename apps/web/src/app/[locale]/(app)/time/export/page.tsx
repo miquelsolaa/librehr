@@ -44,7 +44,12 @@ export default function TimeExportPage() {
   // The cached profile lives in localStorage: read it after mount so the
   // server render and the first client render agree.
   const [role, setRole] = React.useState<string | undefined>(undefined);
-  React.useEffect(() => setRole(getStoredSession()?.role), []);
+  React.useEffect(() => {
+    const current = getStoredSession()?.role;
+    setRole(current);
+    // TIM-008: auditors have no own record, so "myself" is never a choice.
+    if (current === "auditor") setScope("organization");
+  }, []);
   const allowOrganization = canExportOrganization(role);
   const allowOthers = canExportOthers(role);
 
@@ -158,6 +163,7 @@ export default function TimeExportPage() {
           onEmployeeChange={picker.selectEmployee}
           allowOrganization={allowOrganization}
           allowOthers={allowOthers}
+          allowSelf={role !== "auditor"}
           directory={picker.directory}
           directoryFailed={picker.directoryFailed}
           directoryLoading={picker.directoryLoading}
@@ -172,7 +178,11 @@ export default function TimeExportPage() {
             : downloaded
               ? t("exportDownloaded", { filename: downloaded })
               : picker.selectionReset
-                ? t("exportEmployeeReset")
+                ? t(
+                    role === "auditor"
+                      ? "exportEmployeeResetChoose"
+                      : "exportEmployeeReset",
+                  )
                 : ""}
         </p>
 

@@ -165,12 +165,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       icon: <Home className="h-4 w-4" />,
     },
     {
-      href: `/${locale}/time`,
-      label: tNav("time"),
-      shortLabel: tNav("timeShort"),
-      icon: <IconClockIn size={16} />,
-    },
-    {
       href: `/${locale}/time/export`,
       label: tNav("inspectionRecords"),
       shortLabel: tNav("inspectionRecordsShort"),
@@ -208,7 +202,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const mobilePrimaryPaths =
     userRole === "auditor"
-      ? ["home", "time", "time/export"]
+      ? ["home", "time/export", "reports"]
       : ["home", "time-off", "time", "documents"];
   const mobileNavItems = mobilePrimaryPaths
     .map((path) => navItems.find((item) => item.href === `/${locale}/${path}`))
@@ -275,7 +269,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             }
             actions={
               <div className="flex items-center gap-2">
-                {!pageHasClock && (
+                {/* TIM-008: auditors have no own time record to clock. */}
+                {!pageHasClock && userRole !== "auditor" && (
                   <div className="hidden sm:block">
                     <ClockWidget density="compact" />
                   </div>

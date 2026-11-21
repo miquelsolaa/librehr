@@ -26,6 +26,8 @@ export interface TimeExportFormProps {
   onEmployeeChange: (value: string) => void;
   allowOrganization: boolean;
   allowOthers: boolean;
+  /** Whether the caller has an own record to export (auditors do not, TIM-008). */
+  allowSelf: boolean;
   directory: readonly PickerEmployee[];
   directoryFailed: boolean;
   directoryLoading: boolean;
@@ -52,6 +54,7 @@ export function TimeExportForm({
   onEmployeeChange,
   allowOrganization,
   allowOthers,
+  allowSelf,
   directory,
   directoryFailed,
   directoryLoading,
@@ -65,6 +68,12 @@ export function TimeExportForm({
     e.preventDefault();
     onRun("json");
   };
+
+  // Without an own record, an employee export needs someone picked.
+  const blocked =
+    busy !== null ||
+    pickerLoading ||
+    (!allowSelf && scope === "employee" && employeeId === "");
 
   return (
     <form onSubmit={onSubmit} aria-busy={busy !== null} className="space-y-4">
@@ -149,7 +158,13 @@ export function TimeExportForm({
               }
               className={SELECT}
             >
-              <option value="">{t("exportEmployeeSelf")}</option>
+              {allowSelf ? (
+                <option value="">{t("exportEmployeeSelf")}</option>
+              ) : (
+                <option value="" disabled>
+                  {t("exportEmployeeChoose")}
+                </option>
+              )}
               {directory.map((e) => (
                 <option key={e.id} value={e.id}>
                   {e.name}
@@ -171,7 +186,7 @@ export function TimeExportForm({
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
         <Button
           type="submit"
-          disabled={busy !== null || pickerLoading}
+          disabled={blocked}
           isLoading={busy === "json"}
           className="gap-2"
         >
@@ -181,7 +196,7 @@ export function TimeExportForm({
         <Button
           type="button"
           variant="outline"
-          disabled={busy !== null || pickerLoading}
+          disabled={blocked}
           isLoading={busy === "csv"}
           onClick={() => onRun("csv")}
           className="gap-2"
@@ -194,7 +209,7 @@ export function TimeExportForm({
         <Button
           type="button"
           variant="outline"
-          disabled={busy !== null || pickerLoading}
+          disabled={blocked}
           isLoading={busy === "pdf"}
           onClick={() => onRun("pdf")}
           className="gap-2"

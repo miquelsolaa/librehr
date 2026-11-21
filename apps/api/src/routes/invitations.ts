@@ -343,18 +343,22 @@ export function createInvitationRoutes(
           SET role = EXCLUDED.role, access_expires_at = EXCLUDED.access_expires_at
         `;
 
-        // 5. Create Employee record if not existing
-        const nameParts = name.trim().split(" ");
-        const firstName = nameParts[0] ?? name;
-        const lastName = nameParts.slice(1).join(" ") || "Employee";
+        // 5. Create the Employee record. Auditors (TIM-008) only get read
+        // access: they are not employed, so they must not appear in time
+        // exports or headcount.
+        if (invite.role !== "auditor") {
+          const nameParts = name.trim().split(" ");
+          const firstName = nameParts[0] ?? name;
+          const lastName = nameParts.slice(1).join(" ") || "Employee";
 
-        await employeeRepo.create(tx, {
-          userId: user.id,
-          firstName,
-          lastName,
-          email: user.email,
-          departmentId: null,
-        });
+          await employeeRepo.create(tx, {
+            userId: user.id,
+            firstName,
+            lastName,
+            email: user.email,
+            departmentId: null,
+          });
+        }
 
         await auditRepo.log(tx, {
           actorId: user.id,

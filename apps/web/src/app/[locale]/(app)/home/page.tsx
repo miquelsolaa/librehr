@@ -17,6 +17,7 @@ const linkClass =
 
 export default function HomePage() {
   const t = useTranslations("home");
+  const tTime = useTranslations("timeTracking");
   const locale = String(useParams()?.["locale"] ?? "ca");
   const [session, setSession] =
     React.useState<ReturnType<typeof getStoredSession>>(null);
@@ -53,7 +54,8 @@ export default function HomePage() {
       }).format(new Date()),
     );
     setReady(true);
-    if (current) void loadBalance();
+    // TIM-008: auditors have no own leave or time record.
+    if (current && current.role !== "auditor") void loadBalance();
   }, [locale, loadBalance]);
 
   // Today's sessions feed the ring only. Without them (no schedule yet, or
@@ -62,7 +64,7 @@ export default function HomePage() {
   const lastEventId = lastEvent?.id;
   const [sessions, setSessions] = React.useState<readonly DaySession[]>();
   React.useEffect(() => {
-    if (!session) return;
+    if (!session || session.role === "auditor") return;
     let current = true;
     const today = localIsoDate();
     getApiClient()
@@ -99,6 +101,24 @@ export default function HomePage() {
           <p>{t("signInPrompt")}</p>
           <Button asChild>
             <Link href={`/${locale}/sign-in`}>{t("signIn")}</Link>
+          </Button>
+        </section>
+      ) : session.role === "auditor" ? (
+        <section
+          aria-labelledby="home-inspection"
+          className="space-y-3 rounded-card border border-border bg-surface p-6"
+        >
+          <h2
+            id="home-inspection"
+            className="text-base font-semibold text-foreground"
+          >
+            {tTime("inspectorRoleNotice")}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {tTime("inspectorAuditLogNotice")}
+          </p>
+          <Button asChild>
+            <Link href={`/${locale}/time/export`}>{tTime("exportTitle")}</Link>
           </Button>
         </section>
       ) : (

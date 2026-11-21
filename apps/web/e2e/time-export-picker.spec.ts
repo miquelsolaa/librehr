@@ -18,7 +18,7 @@ const BLAKE = { id: REPORT_ID, name: "Blake Sample" };
 test("a date change that drops the selected employee resets to own record and says so", async ({
   page,
 }) => {
-  await seedProfile(page, { role: "auditor" });
+  await seedProfile(page, { role: "admin" });
   const exportRequests: URL[] = [];
   await mockJsonExport(page, exportRequests);
   // Blake is not employed in February.

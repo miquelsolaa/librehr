@@ -146,9 +146,18 @@ test("auditor picks one employee and previews their record", async ({
   expect(pickerRequests.at(-1)?.searchParams.get("startDate")).toBe(
     "2026-01-01",
   );
-  await page
-    .getByLabel("Employee", { exact: true })
-    .selectOption({ label: "Alex Example" });
+  // TIM-008: auditors start on the whole organization and have no own record.
+  const scope = page.getByLabel("Who to export");
+  await expect(scope).toHaveValue("organization");
+  await scope.selectOption("employee");
+  const picker = page.getByLabel("Employee", { exact: true });
+  await expect(picker.getByRole("option")).toHaveText([
+    "Choose an employee",
+    "Alex Example",
+    "Blake Sample",
+  ]);
+  await expect(page.getByRole("button", { name: "Preview" })).toBeDisabled();
+  await picker.selectOption({ label: "Alex Example" });
   await page.getByRole("button", { name: "Preview" }).click();
 
   await expect(page.getByTestId("export-receipt-id")).toHaveText(EXPORT_ID);

@@ -80,9 +80,7 @@ describe("GET /v1/time/export limits (TIM-006)", () => {
     const text = await res.text();
     const doc = JSON.parse(text) as OfficialExportResponse;
     expect(doc.employees.map((e) => e.employeeId).sort()).toEqual(
-      [b.admin, b.manager, b.report, b.peer, b.auditor]
-        .map((p) => p.employeeId)
-        .sort(),
+      [b.admin, b.manager, b.report, b.peer].map((p) => p.employeeId).sort(),
     );
     for (const p of [a.admin, a.manager, a.report, a.peer, a.auditor]) {
       expect(text).not.toContain(p.employeeId);
@@ -127,7 +125,7 @@ describe("GET /v1/time/export limits (TIM-006)", () => {
   );
 
   it("refuses an organization export over the employee-days cap with 422", async () => {
-    // Org A lists 5 employees: 5 × 2 days = 10 > 6, while 5 × 1 fits.
+    // Org A lists 4 employees (its auditor is not one): 4 × 2 days = 8 > 6, while 4 × 1 fits.
     const capped = await appWith({
       maxEmployeeDays: 6,
       rateLimit: { windowMs: 60_000, max: 1000 },

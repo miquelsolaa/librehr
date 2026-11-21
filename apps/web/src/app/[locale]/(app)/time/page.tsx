@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button, PageHeader, Skeleton, StatStrip } from "@librehr/ui";
 import {
@@ -36,6 +36,7 @@ export default function TimeTrackingPage() {
   const locale = (params?.["locale"] as string | undefined) ?? "ca";
 
   const t = useTranslations("timeTracking");
+  const router = useRouter();
 
   const [timesheet, setTimesheet] =
     React.useState<PeriodTimesheetResponse | null>(null);
@@ -70,6 +71,11 @@ export default function TimeTrackingPage() {
     if (!session) {
       setLoadError("unavailable");
       setLoading(false);
+      return;
+    }
+    // TIM-008: auditors have no own time record; their view is the export.
+    if (session.role === "auditor") {
+      router.replace(`/${locale}/time/export`);
       return;
     }
 
@@ -108,7 +114,7 @@ export default function TimeTrackingPage() {
     } finally {
       setLoading(false);
     }
-  }, [monthStart]);
+  }, [router, locale, monthStart]);
 
   React.useEffect(() => {
     void fetchTimesheet();
