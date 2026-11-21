@@ -71,7 +71,7 @@ describe("time.close-day (TIM-003)", () => {
     eventType: TimeEventKind,
     occurredAt: string,
   ) {
-    await withTenant(app, { organizationId: orgId }, (tx) =>
+    return withTenant(app, { organizationId: orgId }, (tx) =>
       repo.appendEvent(tx, (link) => computeEventHashV2(KEY, link), {
         organizationId: orgId,
         employeeId,
@@ -157,14 +157,21 @@ describe("time.close-day (TIM-003)", () => {
     const broken = await addEmployee(orgId);
     const open = await addEmployee(orgId);
     await punch(orgId, broken.employeeId, "clock_in", "2026-11-02T08:00:00Z");
-    await punch(orgId, open.employeeId, "clock_in", "2026-11-02T08:00:00Z");
-    // A correction pointing at no event, as only direct SQL could store it.
+    const other = await punch(
+      orgId,
+      open.employeeId,
+      "clock_in",
+      "2026-11-02T08:00:00Z",
+    );
+    // A correction referencing another employee's event, which the write
+    // path refuses. Stored as a legacy v1 row (no seq) with the append-only
+    // trigger skipped, as only direct SQL could; the FK still holds.
     await db.sql.begin(async (tx) => {
       await tx`SET LOCAL session_replication_role = replica`;
       await tx`
-        INSERT INTO time_events (organization_id, employee_id, event_type, occurred_at, actor_id, ref_event_id, reason, hash)
+        INSERT INTO time_events (organization_id, employee_id, event_type, occurred_at, actor_id, ref_event_id, reason, prev_hash, hash, hash_version)
         VALUES (${orgId}, ${broken.employeeId}, 'correction', '2026-11-02T09:00:00Z',
-                ${broken.employeeId}, ${randomUUID()}, 'note', 'forged')
+                ${broken.employeeId}, ${other.id}, 'note', NULL, 'forged', 1)
       `;
     });
 
