@@ -6,7 +6,6 @@ import { processBatch } from "../src/lib/process-batch.js";
 import { enqueue } from "../src/lib/enqueue.js";
 import {
   InvalidPayloadError,
-  MissingPolicyError,
   NotImplementedError,
   SmtpNotConfiguredError,
 } from "../src/lib/job-errors.js";
@@ -48,10 +47,10 @@ describe("payload validation", () => {
 
   it("rejects an invalid accrual payload", async () => {
     await expect(
-      handleLeaveAccrue(
-        job("j1", { organizationId: 7, runDate: "nope" }),
-        silent,
-      ),
+      handleLeaveAccrue(job("j1", { organizationId: 7, runDate: "nope" }), {
+        sql: vi.fn() as never,
+        logger: silent,
+      }),
     ).rejects.toBeInstanceOf(InvalidPayloadError);
   });
 
@@ -78,31 +77,19 @@ describe("payload validation", () => {
 });
 
 describe("leave.accrue", () => {
-  it("fails when the policy allowance is missing (no hard-coded default)", async () => {
-    await expect(
-      handleLeaveAccrue(
-        job("j1", {
-          organizationId: "org-1",
-          runDate: "2026-11-01",
-          accrualMethod: "monthly",
-        }),
-        silent,
-      ),
-    ).rejects.toBeInstanceOf(MissingPolicyError);
-  });
-
-  it("fails loudly because the ledger write is deferred (LEA-002)", async () => {
+  it("rejects policy values in the payload: they are read from leave_policies", async () => {
+    const sql = vi.fn();
     const err = await handleLeaveAccrue(
       job("j1", {
-        organizationId: "org-1",
+        organizationId: "00000000-0000-4000-8000-000000000001",
         runDate: "2026-11-01",
         accrualMethod: "monthly",
         annualAllowanceDays: 24,
       }),
-      silent,
+      { sql: sql as never, logger: silent },
     ).catch((e: unknown) => e);
-    expect(err).toBeInstanceOf(NotImplementedError);
-    expect(String(err)).toContain("ledger write deferred (LEA-002)");
+    expect(err).toBeInstanceOf(InvalidPayloadError);
+    expect(sql).not.toHaveBeenCalled();
   });
 });
 
