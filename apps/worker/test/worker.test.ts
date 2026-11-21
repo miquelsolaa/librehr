@@ -66,20 +66,18 @@ describe("Worker Queue Handlers", () => {
     );
   });
 
-  it("fails time.close-day loudly and logs TIM-003", async () => {
-    const warn = vi.fn();
-    const err = await handleTimeCloseDay(
-      {
-        id: "j-close",
-        data: { organizationId: "org-1", closeDate: "2026-11-01" },
-      },
-      { warn },
-    ).catch((e: unknown) => e);
-    expect(err).toBeInstanceOf(NotImplementedError);
-    expect(String(err)).toContain("TIM-003");
-    expect(warn).toHaveBeenCalledWith(
-      expect.objectContaining({ requirement: "TIM-003", jobId: "j-close" }),
-    );
+  it("rejects an invalid time.close-day payload before touching the database", async () => {
+    const logger = { info: vi.fn() };
+    await expect(
+      handleTimeCloseDay(
+        {
+          id: "j-close",
+          data: { organizationId: "org-1", closeDate: "2026-11-01" },
+        },
+        { sql: {} as never, logger },
+      ),
+    ).rejects.toThrow(/invalid time.close-day payload/);
+    expect(logger.info).not.toHaveBeenCalled();
   });
 
   it("fails retention.enforce loudly and logs ADM-005", async () => {
