@@ -1,5 +1,3 @@
-import type { AccrualMethod } from "./types.js";
-
 export interface ProratedAllowanceOptions {
   annualAllowance: number;
   year: number;
@@ -81,47 +79,4 @@ export function calculateProratedAllowance(
   const rawProrated = annualAllowance * fractionOfYear * fteRatio;
 
   return roundToPrecision(rawProrated, roundingPrecision);
-}
-
-export interface PeriodicAccrualOptions {
-  annualAllowance: number;
-  accrualMethod: AccrualMethod;
-  month: number; // 1 to 12
-  year?: number | undefined;
-  fteRatio?: number | undefined;
-  roundingPrecision?: "exact" | "half_day" | "quarter_day" | undefined;
-}
-
-/**
- * Calculates leave accrued for a specific period (e.g. monthly scheduled pg-boss worker run).
- */
-export function calculatePeriodicAccrual(
-  options: PeriodicAccrualOptions,
-): number {
-  const {
-    annualAllowance,
-    accrualMethod,
-    month,
-    fteRatio = 1.0,
-    roundingPrecision = "exact",
-  } = options;
-
-  if (annualAllowance <= 0 || fteRatio <= 0) {
-    return 0;
-  }
-
-  if (accrualMethod === "upfront") {
-    // Granted fully at the start of the year (month 1)
-    const amount = month === 1 ? annualAllowance * fteRatio : 0;
-    return roundToPrecision(amount, roundingPrecision);
-  }
-
-  if (accrualMethod === "monthly") {
-    const monthlyRate = (annualAllowance / 12) * fteRatio;
-    return roundToPrecision(monthlyRate, roundingPrecision);
-  }
-
-  // Daily accrual fallback (approximated for 1 month of 30.4 days)
-  const monthlyApprox = (annualAllowance / 365) * 30.416 * fteRatio;
-  return roundToPrecision(monthlyApprox, roundingPrecision);
 }

@@ -48,10 +48,10 @@ describe("payload validation", () => {
 
   it("rejects an invalid accrual payload", async () => {
     await expect(
-      handleLeaveAccrue(
-        job("j1", { organizationId: 7, runDate: "nope" }),
-        silent,
-      ),
+      handleLeaveAccrue(job("j1", { organizationId: 7, runDate: "nope" }), {
+        sql: vi.fn() as never,
+        logger: silent,
+      }),
     ).rejects.toBeInstanceOf(InvalidPayloadError);
   });
 
@@ -78,31 +78,54 @@ describe("payload validation", () => {
 });
 
 describe("leave.accrue", () => {
-  it("fails when the policy allowance is missing (no hard-coded default)", async () => {
-    await expect(
-      handleLeaveAccrue(
-        job("j1", {
-          organizationId: "org-1",
-          runDate: "2026-11-01",
-          accrualMethod: "monthly",
-        }),
-        silent,
-      ),
-    ).rejects.toBeInstanceOf(MissingPolicyError);
-  });
-
-  it("fails loudly because the ledger write is deferred (LEA-002)", async () => {
+  it("rejects policy values in the payload: they are read from leave_policies", async () => {
+    const sql = vi.fn();
     const err = await handleLeaveAccrue(
       job("j1", {
-        organizationId: "org-1",
+        organizationId: "00000000-0000-4000-8000-000000000001",
         runDate: "2026-11-01",
         accrualMethod: "monthly",
         annualAllowanceDays: 24,
       }),
-      silent,
+      { sql: sql as never, logger: silent },
     ).catch((e: unknown) => e);
-    expect(err).toBeInstanceOf(NotImplementedError);
-    expect(String(err)).toContain("ledger write deferred (LEA-002)");
+    expect(err).toBeInstanceOf(InvalidPayloadError);
+    expect(sql).not.toHaveBeenCalled();
+  });
+
+  it("fails without writing on an unknown accrual_method, naming the policy", async () => {
+    const queries: string[] = [];
+    // Stands in for a postgres transaction: only the assignment read returns rows.
+    const tx = (strings: TemplateStringsArray) => {
+      const text = strings.join("?");
+      queries.push(text);
+      return Promise.resolve(
+        text.includes("leave_policy_assignments")
+          ? [
+              {
+                assignmentId: "a1",
+                employeeId: "e1",
+                policyId: "p-weekly",
+                annualAllowanceDays: 22,
+                accrualMethod: "weekly",
+                start: "2026-01-01",
+                end: null,
+              },
+            ]
+          : [],
+      );
+    };
+    const sql = { begin: (fn: (t: typeof tx) => unknown) => fn(tx) };
+    const err = await handleLeaveAccrue(
+      job("j1", {
+        organizationId: "00000000-0000-4000-8000-000000000001",
+        runDate: "2026-11-01",
+      }),
+      { sql: sql as never, logger: silent },
+    ).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(MissingPolicyError);
+    expect(String(err)).toContain("p-weekly");
+    expect(queries.some((q) => q.includes("INSERT"))).toBe(false);
   });
 });
 
