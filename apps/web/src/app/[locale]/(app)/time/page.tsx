@@ -11,15 +11,25 @@ import {
   Tablet,
   Hourglass,
   Repeat,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { getStoredSession } from "@/lib/auth";
 import { ClockWidget } from "@/components/clock-widget";
+import { MonthClosureBanner } from "@/components/month-closure-banner";
+import { MonthClosurePanel } from "@/components/month-closure-panel";
 import { getApiClient } from "@/lib/api-client";
 import { formatCalendarDate, localIsoDate } from "@/lib/format";
 import type {
   PeriodTimesheetResponse,
   TimeBankSummary,
 } from "@librehr/contracts";
+
+/** First day of the viewer's current local month. */
+const currentMonthStart = () => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), 1);
+};
 
 export default function TimeTrackingPage() {
   const params = useParams();
@@ -35,6 +45,22 @@ export default function TimeTrackingPage() {
     "unavailable" | "schedule" | null
   >(null);
   const [timeBankError, setTimeBankError] = React.useState(false);
+  // TIM-004: the month shown (local calendar), never later than this one.
+  const [monthStart, setMonthStart] = React.useState(currentMonthStart);
+  const [isAdmin, setIsAdmin] = React.useState(false);
+  const isCurrentMonth = monthStart.getTime() === currentMonthStart().getTime();
+  const monthKey = localIsoDate(monthStart).slice(0, 7);
+  const monthLabel = new Intl.DateTimeFormat(locale, {
+    month: "long",
+    year: "numeric",
+  }).format(monthStart);
+  const shiftMonth = (delta: number) =>
+    setMonthStart((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1));
+
+  React.useEffect(() => {
+    // Read after mount: the stored profile is not available on the server.
+    setIsAdmin(getStoredSession()?.role === "admin");
+  }, []);
 
   const fetchTimesheet = React.useCallback(async () => {
     setLoading(true);
@@ -48,13 +74,10 @@ export default function TimeTrackingPage() {
     }
 
     try {
-      const now = new Date();
       // Local days: toISOString() would shift the month by a day in UTC+ zones.
-      const startOfMonth = localIsoDate(
-        new Date(now.getFullYear(), now.getMonth(), 1),
-      );
+      const startOfMonth = localIsoDate(monthStart);
       const endOfMonth = localIsoDate(
-        new Date(now.getFullYear(), now.getMonth() + 1, 0),
+        new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0),
       );
 
       const client = getApiClient();
@@ -85,7 +108,7 @@ export default function TimeTrackingPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [monthStart]);
 
   React.useEffect(() => {
     void fetchTimesheet();
@@ -164,6 +187,53 @@ export default function TimeTrackingPage() {
           }
         />
       </section>
+
+      <nav
+        aria-label={t("monthNavigation")}
+        className="flex items-center justify-between gap-2"
+      >
+        <Button
+          variant="ghost"
+          className="min-h-11 gap-1"
+          onClick={() => shiftMonth(-1)}
+        >
+          <ChevronLeft aria-hidden="true" className="h-4 w-4" />
+          <span className="sr-only sm:not-sr-only">{t("previousMonth")}</span>
+        </Button>
+        <h2
+          aria-live="polite"
+          className="text-center text-base font-semibold capitalize text-foreground"
+        >
+          {monthLabel}
+        </h2>
+        <Button
+          variant="ghost"
+          className="min-h-11 gap-1"
+          disabled={isCurrentMonth}
+          onClick={() => shiftMonth(1)}
+        >
+          <span className="sr-only sm:not-sr-only">{t("nextMonth")}</span>
+          <ChevronRight aria-hidden="true" className="h-4 w-4" />
+        </Button>
+      </nav>
+
+      {timesheet?.closure && !loadError && (
+        <MonthClosureBanner
+          closure={timesheet.closure}
+          locale={locale}
+          formatMinutes={formatMinutes}
+        />
+      )}
+
+      {isAdmin && (
+        <MonthClosurePanel
+          month={monthKey}
+          monthLabel={monthLabel}
+          monthEnded={!isCurrentMonth}
+          locale={locale}
+          onChanged={() => void fetchTimesheet()}
+        />
+      )}
 
       {loadError && (
         <div
