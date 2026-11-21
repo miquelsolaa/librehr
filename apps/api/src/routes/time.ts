@@ -21,6 +21,7 @@ import { permissionScope } from "../policies/can.js";
 import { TimeEventOutOfWindowError } from "../errors/index.js";
 import { parseJsonBody } from "../lib/validate.js";
 import { buildTimesheet } from "../lib/timesheet.js";
+import { loadTimesheetClosure } from "../lib/timesheet-closure.js";
 import type { TimeTrackingConfig } from "../lib/time-tracking-config.js";
 import {
   canOnEmployee,
@@ -229,14 +230,20 @@ export function createTimeRoutes(
           }
         }
 
-        const { timesheet } = await buildTimesheet(c, tx, {
+        const { timesheet, timeZone } = await buildTimesheet(c, tx, {
           employeeId,
           locationId,
           startDate,
           endDate,
         });
         if (!timesheet.ok) return "SCHEDULE_NOT_CONFIGURED" as const;
-        return timesheet.summary;
+        const closure = await loadTimesheetClosure(tx, {
+          employeeId,
+          startDate,
+          endDate,
+          timeZone,
+        });
+        return closure ? { ...timesheet.summary, closure } : timesheet.summary;
       },
     );
 
