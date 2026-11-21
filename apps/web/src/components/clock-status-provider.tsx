@@ -42,6 +42,14 @@ export function ClockStatusProvider({
   const [pending, setPending] = React.useState(false);
 
   const refresh = React.useCallback(async () => {
+    // TIM-008: auditors have no own time record; nothing shows a clock to them.
+    if (getStoredSession()?.role === "auditor") {
+      setStatus(null);
+      setLastEvent(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       if (!getStoredSession()) throw new Error("Session unavailable");
