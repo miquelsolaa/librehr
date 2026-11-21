@@ -12,6 +12,7 @@ import {
 } from "../src/lib/job-errors.js";
 
 const silent = pino({ level: "silent" });
+const ORG = "00000000-0000-4000-8000-000000000001";
 
 function job<T>(id: string, data: T) {
   return { id, data };
@@ -58,7 +59,7 @@ describe("payload validation", () => {
   it("refuses to enqueue an invalid payload", async () => {
     const boss = { send: vi.fn() };
     await expect(
-      enqueue(boss, "time.close-day", { organizationId: "org-1" }),
+      enqueue(boss, "time.close-day", { organizationId: ORG }),
     ).rejects.toBeInstanceOf(InvalidPayloadError);
     expect(boss.send).not.toHaveBeenCalled();
   });
@@ -66,13 +67,13 @@ describe("payload validation", () => {
   it("enqueues with a deterministic singletonKey", async () => {
     const boss = { send: vi.fn().mockResolvedValue("id-1") };
     await enqueue(boss, "time.close-day", {
-      organizationId: "org-1",
+      organizationId: ORG,
       closeDate: "2026-11-01",
     });
     expect(boss.send).toHaveBeenCalledWith(
       "time.close-day",
-      { organizationId: "org-1", closeDate: "2026-11-01" },
-      { singletonKey: "org-1:2026-11-01" },
+      { organizationId: ORG, closeDate: "2026-11-01" },
+      { singletonKey: `${ORG}:2026-11-01` },
     );
   });
 });

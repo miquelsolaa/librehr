@@ -64,7 +64,6 @@ async function startWorker() {
   await register("leave.accrue", (job) =>
     handleLeaveAccrue(job, { sql, logger }),
   );
-  await register("time.close-day", (job) => handleTimeCloseDay(job, logger));
   await register("retention.enforce", (job) =>
     handleRetentionEnforce(job, logger),
   );
@@ -74,6 +73,9 @@ async function startWorker() {
       timeChainKey: env.TIME_CHAIN_KEY,
       logger,
     }),
+  );
+  await register("time.close-day", (job) =>
+    handleTimeCloseDay(job, { sql, logger }),
   );
 
   const shutdown = async (signal: string) => {

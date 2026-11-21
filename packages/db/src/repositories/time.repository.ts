@@ -223,6 +223,37 @@ export class TimeRepository {
     return rows.map((r) => r.employeeId);
   }
 
+  /**
+   * TIM-003: employees with a user account and at least one time event on
+   * local day `date` of their business zone (location, else organization),
+   * with that zone.
+   */
+  async listUsersWithEventsOnLocalDay(
+    tx: TenantTx,
+    date: string,
+  ): Promise<{ employeeId: string; userId: string; timeZone: string }[]> {
+    const orgId = tx.__tenantContext.organizationId;
+    return tx<{ employeeId: string; userId: string; timeZone: string }[]>`
+      SELECT e.id as "employeeId", e.user_id as "userId",
+             COALESCE(l.timezone, o.timezone) as "timeZone"
+      FROM employees e
+      JOIN organizations o ON o.id = e.organization_id
+      LEFT JOIN locations l
+        ON l.id = e.location_id AND l.organization_id = e.organization_id
+      WHERE e.organization_id = ${orgId}
+        AND e.user_id IS NOT NULL
+        AND EXISTS (
+          SELECT 1 FROM time_events te
+          WHERE te.employee_id = e.id AND te.organization_id = ${orgId}
+            AND te.occurred_at >= (${date}::date::timestamp
+              AT TIME ZONE COALESCE(l.timezone, o.timezone))
+            AND te.occurred_at < ((${date}::date + 1)::timestamp
+              AT TIME ZONE COALESCE(l.timezone, o.timezone))
+        )
+      ORDER BY e.id
+    `;
+  }
+
   async getLatestEvent(
     tx: TenantTx,
     employeeId: string,
