@@ -189,7 +189,11 @@ test("auditors land on the inspection view, never on a personal clock or balance
       .locator("main")
       .getByRole("link", { name: "Official Labour Inspection Export" }),
   ).toBeVisible();
-  await expect(page.getByRole("alert")).toHaveCount(0);
+  // Scoped to the page body: Next.js's route announcer is role="alert" too.
+  await expect(page.locator("main").getByRole("alert")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: /retry|try again/i }),
+  ).toHaveCount(0);
   expect(personalCalls).toEqual([]);
 
   const results = await new AxeBuilder({ page })
