@@ -35,6 +35,19 @@ describe("TIM-006 export repositories", () => {
               ${opts.terminationDate ?? null}, ${opts.locationId ?? null})`;
     return id;
   };
+  /** An employee row whose user is an auditor in the org (#39 legacy rows). */
+  const addAuditorEmployee = async (label: string) => {
+    const userId = randomUUID();
+    await db.sql`
+      INSERT INTO users (id, email, name)
+      VALUES (${userId}, ${`${label}-user@fixture.invalid`}, 'Repo auditor')`;
+    await db.sql`
+      INSERT INTO memberships (organization_id, user_id, role, access_expires_at)
+      VALUES (${orgId}, ${userId}, 'auditor', now() + interval '30 days')`;
+    const id = await addEmployee(label);
+    await db.sql`UPDATE employees SET user_id = ${userId} WHERE id = ${id}`;
+    return id;
+  };
   const employment = (employeeId: string, start: string, end: string | null) =>
     db.sql`
       INSERT INTO employments (organization_id, employee_id, job_title, start_date, end_date)
@@ -104,6 +117,18 @@ describe("TIM-006 export repositories", () => {
     });
     await employment(punchedCanary, "2026-12-01", null);
     await punch(punchedCanary, "2026-11-01T23:30:00Z");
+    // TIM-008 (#39): an auditor's row alone is not employment, but an
+    // employment record or recorded work in the period still counts.
+    await addAuditorEmployee("auditorOnly");
+    await employment(
+      await addAuditorEmployee("auditorEmployed"),
+      "2026-01-01",
+      null,
+    );
+    await punch(
+      await addAuditorEmployee("auditorPunched"),
+      "2026-11-03T08:00:00Z",
+    );
   }, 60000);
 
   afterAll(async () => {
@@ -126,6 +151,9 @@ describe("TIM-006 export repositories", () => {
       noRecordLeft: false,
       punchedMadrid: true,
       punchedCanary: false,
+      auditorOnly: false,
+      auditorEmployed: true,
+      auditorPunched: true,
     };
     for (const [label, included] of Object.entries(expected)) {
       expect([label, listed.has(label)]).toEqual([label, included]);

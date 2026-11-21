@@ -77,9 +77,9 @@ test("auditors see one unlabelled read-only list", async ({
   await seedProfile(page, { role: "auditor", name: "Sample Person" });
   await page.goto("/en/home");
   const nav = page.getByRole("navigation", { name: "Main navigation" });
+  // TIM-008: auditors have no own time record, so no personal time page.
   await expect(nav.getByRole("link")).toHaveText([
     "Home",
-    "Time tracking",
     "Inspection records",
     "Reports",
   ]);

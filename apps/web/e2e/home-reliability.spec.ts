@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { test, expect } from "@playwright/test";
 import { mockRoute, seedProfile } from "./support/mock-api";
 
@@ -154,4 +155,49 @@ test("failed team absences on home can be retried and are not shown as nobody aw
   await expect(away).not.toContainText("Nobody is away");
   await away.getByRole("button", { name: "Try again" }).click();
   await expect(away).toContainText("Nobody is away in the next seven days.");
+});
+
+test("auditors land on the inspection view, never on a personal clock or balance", async ({
+  page,
+}) => {
+  await seedProfile(page, { role: "auditor", name: "Sample Inspector" });
+  // TIM-008: an auditor has no employee record, so personal endpoints 404.
+  const personalCalls: string[] = [];
+  for (const path of ["current-status", "timesheet**"]) {
+    await mockRoute(page, `**/v1/time/${path}`, (route) => {
+      personalCalls.push(route.request().url());
+      return route.fulfill({
+        status: 404,
+        contentType: "application/problem+json",
+        json: { status: 404, code: "EMPLOYEE_NOT_FOUND", title: "Not found" },
+      });
+    });
+  }
+  await mockRoute(page, "**/v1/leave/balance", (route) => {
+    personalCalls.push(route.request().url());
+    return route.fulfill({ status: 404, json: { status: 404 } });
+  });
+
+  await page.goto("/en/home");
+  await expect(
+    page.getByRole("heading", {
+      name: "Labour Inspectorate (Inspección de Trabajo) Certified View",
+    }),
+  ).toBeVisible();
+  await expect(
+    page
+      .locator("main")
+      .getByRole("link", { name: "Official Labour Inspection Export" }),
+  ).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  expect(personalCalls).toEqual([]);
+
+  const results = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  expect(results.violations).toEqual([]);
+
+  // The personal time page is not theirs: it hands over to the export.
+  await page.goto("/en/time");
+  await expect(page).toHaveURL(/\/en\/time\/export$/);
 });
