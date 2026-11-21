@@ -6,6 +6,7 @@ import { processBatch } from "../src/lib/process-batch.js";
 import { enqueue } from "../src/lib/enqueue.js";
 import {
   InvalidPayloadError,
+  MissingPolicyError,
   NotImplementedError,
   SmtpNotConfiguredError,
 } from "../src/lib/job-errors.js";
@@ -90,6 +91,41 @@ describe("leave.accrue", () => {
     ).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(InvalidPayloadError);
     expect(sql).not.toHaveBeenCalled();
+  });
+
+  it("fails without writing on an unknown accrual_method, naming the policy", async () => {
+    const queries: string[] = [];
+    // Stands in for a postgres transaction: only the assignment read returns rows.
+    const tx = (strings: TemplateStringsArray) => {
+      const text = strings.join("?");
+      queries.push(text);
+      return Promise.resolve(
+        text.includes("leave_policy_assignments")
+          ? [
+              {
+                assignmentId: "a1",
+                employeeId: "e1",
+                policyId: "p-weekly",
+                annualAllowanceDays: 22,
+                accrualMethod: "weekly",
+                start: "2026-01-01",
+                end: null,
+              },
+            ]
+          : [],
+      );
+    };
+    const sql = { begin: (fn: (t: typeof tx) => unknown) => fn(tx) };
+    const err = await handleLeaveAccrue(
+      job("j1", {
+        organizationId: "00000000-0000-4000-8000-000000000001",
+        runDate: "2026-11-01",
+      }),
+      { sql: sql as never, logger: silent },
+    ).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(MissingPolicyError);
+    expect(String(err)).toContain("p-weekly");
+    expect(queries.some((q) => q.includes("INSERT"))).toBe(false);
   });
 });
 

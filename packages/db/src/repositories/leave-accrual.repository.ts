@@ -58,6 +58,29 @@ export class LeaveAccrualRepository {
   }
 
   /**
+   * Accrual already in the ledger for each employee and policy in `year`, in
+   * integer cents of a day. Entries are matched by their source reference,
+   * `accrual:<policyId>:<YYYY-MM>`, so a policy's total ignores other
+   * policies of the same employee.
+   */
+  async listAccruedCents(
+    tx: TenantTx,
+    year: number,
+  ): Promise<{ employeeId: string; policyId: string; cents: number }[]> {
+    const orgId = tx.__tenantContext.organizationId;
+    return tx<{ employeeId: string; policyId: string; cents: number }[]>`
+      SELECT employee_id AS "employeeId",
+             split_part(source_ref, ':', 2) AS "policyId",
+             SUM(round(amount * 100))::int AS cents
+      FROM leave_ledger
+      WHERE organization_id = ${orgId}
+        AND entry_type = 'accrual'
+        AND source_ref LIKE ${`accrual:%:${year}-%`}
+      GROUP BY 1, 2
+    `;
+  }
+
+  /**
    * Appends an accrual entry once: a second insert with the same employee
    * and `sourceRef` is ignored (unique index `leave_ledger_accrual_once`).
    * Returns false when the entry already existed.

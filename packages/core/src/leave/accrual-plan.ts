@@ -8,7 +8,7 @@ export interface AccrualSpan {
   end: string | null;
 }
 
-export interface AccrualPlanInput {
+export interface AccrualTargetInput {
   /** Every number comes from the organization's `leave_policies` row. */
   policy: {
     id: string;
@@ -16,11 +16,11 @@ export interface AccrualPlanInput {
     accrualMethod: AccrualMethod;
   };
   /**
-   * Dates the policy applies to the employee: from the assignment's
-   * `effective_from` to the day before the next assignment for the same leave
-   * type (null while it is the latest one).
+   * Every window in which this policy applies to the employee: from an
+   * assignment's `effective_from` to the day before the next assignment for
+   * the same leave type (null while it is the latest one).
    */
-  assignment: AccrualSpan;
+  assignments: readonly AccrualSpan[];
   /** Employment spans, already cut at the termination date. */
   employment: readonly AccrualSpan[];
   /** Full-time equivalent in (0, 1]. */
@@ -29,16 +29,23 @@ export interface AccrualPlanInput {
   period: string;
 }
 
-export interface AccrualPlan {
-  /** Days, rounded to 2 decimals (`leave_ledger.amount` is numeric(5,2)). */
-  amount: number;
-  /** `accrual:<policyId>:<YYYY-MM>`: one accrual per policy and month. */
-  sourceRef: string;
-  /** First active day of the employee in the accrued range. */
-  effectiveDate: string;
+export interface AccrualPlanInput extends AccrualTargetInput {
+  /** Sum of this policy's accrual entries of the period's year, in cents. */
+  accruedCents: number;
 }
 
-const PERIOD = /^\d{4}-(0[1-9]|1[0-2])$/;
+export type AccrualPlan =
+  | {
+      status: "accrue";
+      /** Days, 2 decimals (`leave_ledger.amount` is numeric(5,2)). */
+      amount: number;
+      /** `accrual:<policyId>:<YYYY-MM>`: at most one entry per month. */
+      sourceRef: string;
+      effectiveDate: string;
+    }
+  | { status: "up_to_date" }
+  /** More was accrued than is now due (e.g. a termination recorded late). */
+  | { status: "over_accrued"; excessCents: number };
 
 export interface AccrualPeriod {
   /** `YYYY-MM` */
@@ -48,6 +55,8 @@ export interface AccrualPeriod {
   yearStart: string;
   yearEnd: string;
 }
+
+const PERIOD = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 /**
  * The accrual month of a run date and its bounds (local dates).
@@ -68,120 +77,171 @@ export function accrualPeriodOf(runDate: string): AccrualPeriod {
   };
 }
 
-interface ActiveDays {
-  days: number;
-  first: string;
+/** `accrual:<policyId>:<YYYY>-`: prefix of a policy's entries in a year. */
+export function accrualSourceRefPrefix(policyId: string, year: number): string {
+  return `accrual:${policyId}:${year}-`;
 }
 
+interface Range {
+  start: string;
+  end: string;
+}
+
+const maxDate = (a: string, b: string) => (a > b ? a : b);
+const minDate = (a: string, b: string) => (a < b ? a : b);
+const dayAfter = (d: string) =>
+  Temporal.PlainDate.from(d).add({ days: 1 }).toString();
+const length = (r: Range) =>
+  Temporal.PlainDate.from(r.start).until(Temporal.PlainDate.from(r.end)).days +
+  1;
+
 /**
- * Days in [from, to] covered by both the assignment and an employment span.
- * Spans are merged first, so overlapping employment rows never count a day
- * twice. Null when no day is covered.
+ * Days covered by both an assignment window and an employment span, clipped
+ * to [from, to] and merged, so overlapping rows never count a day twice.
  */
-function activeDaysIn(
-  assignment: AccrualSpan,
-  employment: readonly AccrualSpan[],
+function activeRanges(
+  input: AccrualTargetInput,
   from: string,
   to: string,
-): ActiveDays | null {
-  const clipped: { start: string; end: string }[] = [];
-  for (const span of employment) {
-    const start = [span.start, assignment.start, from].reduce((a, b) =>
-      a > b ? a : b,
-    );
-    const end = [span.end ?? to, assignment.end ?? to, to].reduce((a, b) =>
-      a < b ? a : b,
-    );
-    if (start <= end) clipped.push({ start, end });
-  }
-  if (clipped.length === 0) return null;
-  clipped.sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0));
-
-  let days = 0;
-  let current = clipped[0]!;
-  const count = (s: { start: string; end: string }) =>
-    Temporal.PlainDate.from(s.start).until(Temporal.PlainDate.from(s.end))
-      .days + 1;
-  for (const span of clipped.slice(1)) {
-    const dayAfter = Temporal.PlainDate.from(current.end)
-      .add({ days: 1 })
-      .toString();
-    if (span.start <= dayAfter) {
-      if (span.end > current.end) current = { ...current, end: span.end };
-    } else {
-      days += count(current);
-      current = span;
+): Range[] {
+  const clipped: Range[] = [];
+  for (const job of input.employment) {
+    for (const window of input.assignments) {
+      const start = maxDate(maxDate(job.start, window.start), from);
+      const end = minDate(minDate(job.end ?? to, window.end ?? to), to);
+      if (start <= end) clipped.push({ start, end });
     }
   }
-  days += count(current);
-  return { days, first: clipped[0]!.start };
+  clipped.sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0));
+  const merged: Range[] = [];
+  for (const r of clipped) {
+    const last = merged[merged.length - 1];
+    if (last && r.start <= dayAfter(last.end)) {
+      last.end = maxDate(last.end, r.end);
+    } else {
+      merged.push({ ...r });
+    }
+  }
+  return merged;
+}
+
+const daysIn = (ranges: readonly Range[], from: string, to: string) =>
+  ranges.reduce((sum, r) => {
+    const start = maxDate(r.start, from);
+    const end = minDate(r.end, to);
+    return start <= end ? sum + length({ start, end }) : sum;
+  }, 0);
+
+function validate(input: AccrualTargetInput): Temporal.PlainYearMonth {
+  if (!PERIOD.test(input.period)) {
+    throw new RangeError("period must be a calendar month (YYYY-MM)");
+  }
+  if (!(input.fteRatio > 0 && input.fteRatio <= 1)) {
+    throw new RangeError("fteRatio must be in (0, 1]");
+  }
+  return Temporal.PlainYearMonth.from(input.period);
 }
 
 /**
- * Plans the accrual ledger entry of one policy assignment for one calendar
- * month (LEA-002), or null when nothing accrues.
+ * Entitlement due for one policy from 1 January through the end of `period`,
+ * in integer cents of a day (LEA-002). Rounded once, on the cumulative value,
+ * so the monthly entries of a full year add up to the allowance exactly.
  *
- * - `upfront`: the whole year's allowance, prorated by the active days of the
- *   year known today, in the employee's first active month of the year
- *   (January, or the start month for a mid-year joiner).
- * - `monthly`: allowance / 12 per month, prorated by the active days of a
- *   month in which the employee starts, leaves or changes policy.
- * - `daily`: allowance × active days in the month / days in the year, so a
- *   full year adds up to the allowance in leap and common years alike.
+ * - `upfront`: the whole year, prorated by the year's active days, from the
+ *   employee's first active month of the year on.
+ * - `monthly`: allowance / 12 per month, prorated by the active days of each
+ *   month.
+ * - `daily`: allowance × active days / days in the year (leap years count 366).
  *
- * Every amount is multiplied by the FTE ratio. Pure: deterministic for the
- * same input, so a re-run plans the same `sourceRef` and the ledger's unique
- * index turns it into a no-op.
+ * Active days are covered by an employment span and a window of the policy.
+ * The FTE ratio multiplies every method.
+ *
+ * @example
+ * accrualTargetCents({
+ *   policy: { id: "p1", annualAllowanceDays: 22, accrualMethod: "monthly" },
+ *   assignments: [{ start: "2026-01-01", end: null }],
+ *   employment: [{ start: "2020-01-01", end: null }],
+ *   fteRatio: 1,
+ *   period: "2026-12",
+ * }); // => 2200
+ */
+export function accrualTargetCents(input: AccrualTargetInput): number {
+  const month = validate(input);
+  const allowanceCents = Math.round(input.policy.annualAllowanceDays * 100);
+  if (!(allowanceCents > 0)) return 0;
+
+  const year = month.year;
+  const yearStart = `${year}-01-01`;
+  const yearEnd = `${year}-12-31`;
+  const monthEnd = month.toPlainDate({ day: month.daysInMonth }).toString();
+  const ranges = activeRanges(input, yearStart, yearEnd);
+  if (ranges.length === 0) return 0;
+  const daysInYear = getDaysInYear(year);
+
+  let fraction: number;
+  switch (input.policy.accrualMethod) {
+    case "upfront":
+      if (ranges[0]!.start > monthEnd) return 0;
+      fraction = daysIn(ranges, yearStart, yearEnd) / daysInYear;
+      break;
+    case "daily":
+      fraction = daysIn(ranges, yearStart, monthEnd) / daysInYear;
+      break;
+    case "monthly": {
+      let months = 0;
+      for (let m = 1; m <= month.month; m++) {
+        const ym = Temporal.PlainYearMonth.from({ year, month: m });
+        const from = ym.toPlainDate({ day: 1 }).toString();
+        const to = ym.toPlainDate({ day: ym.daysInMonth }).toString();
+        months += daysIn(ranges, from, to) / ym.daysInMonth;
+      }
+      fraction = months / 12;
+      break;
+    }
+  }
+  return Math.round(allowanceCents * fraction * input.fteRatio);
+}
+
+/**
+ * Plans this month's accrual entry of one policy for one employee: the
+ * year-to-date target minus what the ledger already holds for the policy and
+ * year. A missed month is caught up by the next run, a policy whose method
+ * changes mid-year never double counts, and re-running a month plans the
+ * same `sourceRef`, which the ledger's unique index turns into a no-op.
+ *
+ * The entry is dated on the employee's first active day in the month, or
+ * their last active day before it when catching up after they left.
  *
  * @example
  * planAccrual({
  *   policy: { id: "p1", annualAllowanceDays: 24, accrualMethod: "monthly" },
- *   assignment: { start: "2026-01-01", end: null },
+ *   assignments: [{ start: "2026-01-01", end: null }],
  *   employment: [{ start: "2026-03-16", end: null }],
  *   fteRatio: 1,
  *   period: "2026-03",
+ *   accruedCents: 0,
  * });
- * // => { amount: 1.03, sourceRef: "accrual:p1:2026-03", effectiveDate: "2026-03-16" }
+ * // => { status: "accrue", amount: 1.03, sourceRef: "accrual:p1:2026-03",
+ * //      effectiveDate: "2026-03-16" }
  */
-export function planAccrual(input: AccrualPlanInput): AccrualPlan | null {
-  const { policy, assignment, employment, fteRatio, period } = input;
-  if (!PERIOD.test(period)) {
-    throw new RangeError("period must be a calendar month (YYYY-MM)");
-  }
-  if (!(fteRatio > 0 && fteRatio <= 1)) {
-    throw new RangeError("fteRatio must be in (0, 1]");
-  }
-  const allowance = policy.annualAllowanceDays;
-  if (!Number.isFinite(allowance) || allowance <= 0) return null;
+export function planAccrual(input: AccrualPlanInput): AccrualPlan {
+  const diff = accrualTargetCents(input) - input.accruedCents;
+  if (diff < 0) return { status: "over_accrued", excessCents: -diff };
+  if (diff === 0) return { status: "up_to_date" };
 
-  const month = Temporal.PlainYearMonth.from(period);
+  const month = Temporal.PlainYearMonth.from(input.period);
   const monthStart = month.toPlainDate({ day: 1 }).toString();
   const monthEnd = month.toPlainDate({ day: month.daysInMonth }).toString();
-  const daysInYear = getDaysInYear(month.year);
-
-  let raw: number;
-  let effectiveDate: string;
-  if (policy.accrualMethod === "upfront") {
-    const year = activeDaysIn(
-      assignment,
-      employment,
-      `${month.year}-01-01`,
-      `${month.year}-12-31`,
-    );
-    if (year === null || year.first.slice(0, 7) !== period) return null;
-    raw = (allowance * year.days) / daysInYear;
-    effectiveDate = year.first;
-  } else {
-    const active = activeDaysIn(assignment, employment, monthStart, monthEnd);
-    if (active === null) return null;
-    raw =
-      policy.accrualMethod === "monthly"
-        ? (allowance / 12) * (active.days / month.daysInMonth)
-        : (allowance * active.days) / daysInYear;
-    effectiveDate = active.first;
-  }
-
-  const amount = Math.round(raw * fteRatio * 100) / 100;
-  if (amount <= 0) return null;
-  return { amount, sourceRef: `accrual:${policy.id}:${period}`, effectiveDate };
+  const ranges = activeRanges(input, `${month.year}-01-01`, monthEnd);
+  const inMonth = ranges.find((r) => r.end >= monthStart);
+  // diff > 0 implies an active day on or before the month's end.
+  const effectiveDate = inMonth
+    ? maxDate(inMonth.start, monthStart)
+    : ranges[ranges.length - 1]!.end;
+  return {
+    status: "accrue",
+    amount: diff / 100,
+    sourceRef: `accrual:${input.policy.id}:${input.period}`,
+    effectiveDate,
+  };
 }

@@ -39,3 +39,4 @@ Welcome to the LibreHR documentation repository.
 - [Translation Guide](guides/translations.md)
 - [Adding Holiday Calendars](guides/adding-a-holiday-calendar.md)
 - [Working-Time Exports (TIM-006)](guides/time-exports.md)
+- [Leave Accrual (LEA-002)](guides/leave-accrual.md)

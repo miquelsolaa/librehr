@@ -12,6 +12,12 @@
 -- release, so no existing rows can collide. Partial (entry_type = 'accrual'),
 -- so usage, adjustment and reversal rows are unaffected.
 --
+-- The runner wraps each migration in a transaction, so CREATE INDEX
+-- CONCURRENTLY is not available: the build holds a SHARE lock on
+-- leave_ledger, so reads continue but ledger writes (approvals,
+-- cancellations, adjustments) wait until it finishes. The scan is short on
+-- typical ledgers; on very large ones upgrade in a quiet window.
+--
 -- Rollback note: DROP INDEX leave_ledger_accrual_once; (re-enables duplicate
 -- accruals on retried jobs).
 
