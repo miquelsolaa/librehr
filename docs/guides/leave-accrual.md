@@ -70,7 +70,7 @@ While it is off, the year-end close carries the **whole** remaining balance
 over and never writes a `forfeit` or an `expiry`: `carryover_max_days` and
 `carryover_expiry_months` have no effect. Turning it on (audited) applies
 the cap, the forfeit and the expiry below. Even then, employees protected by
-ET art. 38.3 never lose days (see [Protected leave](#protected-leave-et-art-383)).
+ET art. 38.3 keep their days at the closes of the year of the protected leave and of the year after (see [Protected leave](#protected-leave-et-art-383)).
 
 The ledger is cumulative: a leave type's balance is the sum of all of its
 entries, so what is left at year end is already in next year's balance. The
@@ -125,30 +125,43 @@ date has passed are expired:
    starts by the expiry date and runs past it counts entirely against carried
    days. A request cancelled after the expiry ran gives its days back as
    ordinary balance, not as carried days. An employee with protected leave
-   between 1 January and the expiry date keeps the carried days; they are
-   closed again with the next year's balance.
+   between 1 January and the expiry date keeps the carried days (see below).
 
 ### Protected leave (ET art. 38.3)
 
 Vacation that could not be taken because of temporary incapacity,
 pregnancy (including risk during pregnancy), birth, adoption or
-breastfeeding may be taken after that leave ends. So, even on an enforced
-policy, an employee with **approved** leave of such a type overlapping the
-year being closed is carried over in full (no forfeit, no expiry date), and
-an expiry is skipped for an employee with such leave between 1 January and
-the expiry date. Leave types only have a free-text code, so the rule is
-cautious (`protectsVacation` in `packages/core`):
+breastfeeding may be taken after that leave ends (for incapacity, up to
+18 months after the end of the year in which it accrued). So, even on an
+enforced policy:
+
+- an employee with **approved** leave of such a type overlapping the year
+  being closed **or the year before** is carried over in full (no forfeit,
+  no expiry date). Looking back one year means days carried over whole
+  because of protected leave are not capped again at the next close;
+- an expiry is not applied for an employee with such leave between
+  1 January and the expiry date. A zero `expiry` entry records that nothing
+  expired, so the carry-over is settled and reported once.
+
+Beyond that (the close two years after the protected leave), the cap
+applies again. Leave approved after the close ran is not taken into
+account: restore those days with an adjustment. Leave types only have a
+free-text code, so the rule is cautious (`protectsVacation` in
+`packages/core`):
 
 - the codes `sick_leave`, `temporary_incapacity`, `pregnancy_risk`,
   `prenatal_exams`, `maternity`, `paternity`, `birth_childcare`, `adoption`,
   `breastfeeding` and `breastfeeding_risk` always protect;
 - any other leave type that is not an entitlement of the employee (no
-  policy) protects too, unless its code is a known ordinary permit
-  (`marriage`, `moving`, `bereavement`, `unpaid_leave`, ...). A custom type
-  coded `other` therefore protects, as the safe fallback.
+  policy by the end of the period) protects too, unless its code is a
+  known ordinary permit (`marriage`, `moving`, `bereavement`,
+  `unpaid_leave`, ...). A custom type coded `other` therefore protects, as
+  the safe fallback. `prenatal_exams` is a paid permit rather than an ET
+  38.3 case and is listed on the safe side; counsel should confirm the list.
 
-The worker logs a warning with ids only (employee, leave type of the
-balance, policy), never the protected absence or its type, and counts it in
+The worker logs a neutral warning ("statutory exemption") with ids only
+(employee, leave type of the balance, policy), never the protected absence
+or its type, and counts it in
 the job report (`yearEnd.protectedFromForfeit`, `protectedFromExpiry`).
 There is no in-app notification yet; HR can follow the job report. Grant
 extra days or restore forfeited ones with an adjustment.

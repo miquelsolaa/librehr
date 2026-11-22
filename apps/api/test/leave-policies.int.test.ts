@@ -300,6 +300,36 @@ describe("/v1/leave/policies", () => {
       expect(audit[0]!.metadata["previousCarryoverEnforced"]).toBe(false);
     });
 
+    it("updates both settings in one request, with one audit entry", async () => {
+      const created = await create(a.admin, {
+        ...validPolicy,
+        leaveTypeId: agreementA,
+        name: "Both",
+      });
+      const policy = (await created.json()) as LeavePolicy;
+      const res = await patch(a.admin, policy.id, {
+        fullTimeHoursPerWeek: 37.5,
+        carryoverEnforced: true,
+      });
+      expect(res.status).toBe(200);
+      expect(await res.json()).toMatchObject({
+        fullTimeHoursPerWeek: 37.5,
+        carryoverEnforced: true,
+      });
+      const audit = await db.sql<{ metadata: Record<string, unknown> }[]>`
+        SELECT metadata FROM audit_log
+        WHERE organization_id = ${a.orgId} AND resource_id = ${policy.id}
+          AND action = 'leave.policy.update'`;
+      expect(audit.map((r) => r.metadata)).toEqual([
+        {
+          previousFullTimeHoursPerWeek: null,
+          fullTimeHoursPerWeek: 37.5,
+          previousCarryoverEnforced: false,
+          carryoverEnforced: true,
+        },
+      ]);
+    });
+
     it("rejects an empty or invalid update", async () => {
       for (const body of [{}, { carryoverEnforced: "yes" }]) {
         const res = await patch(a.admin, policyA, body);

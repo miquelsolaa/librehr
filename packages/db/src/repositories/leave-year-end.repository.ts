@@ -171,7 +171,7 @@ export class LeaveYearEndRepository {
 
   /**
    * Employees with approved leave overlapping [from, to], with each leave
-   * type's code and whether the employee has (or had) a policy for it. The
+   * type's code and whether the employee had a policy for it by `to`. The
    * caller decides which of them ET art. 38.3 protects
    * (`protectsVacation` in core).
    */
@@ -190,6 +190,9 @@ export class LeaveYearEndRepository {
                WHERE a.organization_id = ${orgId}
                  AND a.employee_id = r.employee_id
                  AND p.leave_type_id = r.leave_type_id
+                 -- An assignment that only started after the period does not
+                 -- make earlier leave of that type an entitlement.
+                 AND a.effective_from <= ${to}::date
              ) AS entitled
       FROM leave_requests r
       JOIN leave_types t

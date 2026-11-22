@@ -168,8 +168,15 @@ export function createLeavePolicyRoutes(sql: Sql) {
             body.carryoverEnforced,
           );
         }
-        // The schema requires at least one field, and the row is locked.
-        const row = updated!;
+        // The schema requires at least one field and the row is locked, so
+        // this only guards against a policy removed under our feet.
+        if (!updated) {
+          throw new NotFoundError({
+            code: "LEAVE_POLICY_NOT_FOUND",
+            detail: "Leave policy not found",
+          });
+        }
+        const row = updated;
         // Turning on the cap, forfeit and expiry can cost employees days:
         // audited with the previous value (compliance setting, #132).
         await auditRepo.log(tx, {

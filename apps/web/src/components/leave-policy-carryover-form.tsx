@@ -58,9 +58,13 @@ export function LeavePolicyCarryoverForm({
             setEnforced(event.target.checked);
             setSaved(false);
           }}
-          aria-describedby={`${fieldId}-hint`}
-          className="mt-1 h-4 w-4 rounded border-border"
+          // The policy's name tells the rows apart for screen readers.
+          aria-describedby={`${fieldId}-hint ${fieldId}-policy`}
+          className="mt-0.5 h-6 w-6 rounded border-border"
         />
+        <span id={`${fieldId}-policy`} className="sr-only">
+          {policy.name}
+        </span>
         <label htmlFor={fieldId} className="text-sm font-medium">
           {t("carryoverLabel")}
         </label>
@@ -72,7 +76,8 @@ export function LeavePolicyCarryoverForm({
         {policy.carryoverEnforced
           ? t("carryoverOn", {
               days: policy.carryoverMaxDays,
-              months: policy.carryoverExpiryMonths,
+              // The close clamps the months to 1..12 (core `carryover.ts`).
+              months: Math.min(12, Math.max(1, policy.carryoverExpiryMonths)),
             })
           : t("carryoverOff")}
       </p>
@@ -80,6 +85,7 @@ export function LeavePolicyCarryoverForm({
         type="submit"
         variant="outline"
         disabled={saving || enforced === policy.carryoverEnforced}
+        aria-describedby={`${fieldId}-policy`}
       >
         {t("carryoverSave")}
       </Button>

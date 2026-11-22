@@ -164,7 +164,8 @@ If you opted in to `leave.accrue`, from this release it also:
   Leave policies). Only then do `carryover_max_days` and
   `carryover_expiry_months` (defaults: 5 days, 3 months) apply, and even
   then employees with leave protected by ET art. 38.3 (incapacity,
-  pregnancy, birth, adoption, breastfeeding) keep their whole balance.
+  pregnancy, birth, adoption, breastfeeding) in that year or the year before
+  keep their whole balance.
   Check your collective agreement and those two settings before turning it
   on. Entries without a leave type (the "unassigned" bucket) are never
   touched.

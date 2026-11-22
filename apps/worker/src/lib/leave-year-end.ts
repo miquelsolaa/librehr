@@ -1,4 +1,5 @@
 import {
+  expirySourceRef,
   isCarryoverDue,
   planCarryoverExpiry,
   planYearEnd,
@@ -132,8 +133,12 @@ export async function closeLeaveYear(
   counts.balances = open.length;
   if (open.length === 0) return counts;
 
+  // Protected leave in the closed year or the year before: days carried over
+  // whole because of protected leave in year N are not capped again at the
+  // close of N+1 (ET art. 38.3 allows them to be taken after the leave ends;
+  // for incapacity, up to 18 months after the end of year N).
   const isProtected = open.some((p) => p.carryoverEnforced)
-    ? await protectedEmployees(repo, tx, `${year}-01-01`, yearEnd)
+    ? await protectedEmployees(repo, tx, `${year - 1}-01-01`, yearEnd)
     : new Set<string>();
 
   const entries = new Map<string, LedgerRow[]>();
@@ -186,9 +191,10 @@ export async function closeLeaveYear(
     if (forfeited) counts.forfeits++;
     if (shielded && balanceCents > 0) {
       counts.protectedFromForfeit++;
-      // Ids only: never the leave type of the protected absence or a reason.
+      // Ids only and a neutral message: never the protected absence, its
+      // type or a reason (special-category data).
       deps.logger.warn({
-        msg: "leave year close: carried the whole balance over (ET art. 38.3 protected leave)",
+        msg: "leave year close: carry-over limit not applied (statutory exemption)",
         ...ctx.logIds,
         employeeId: p.employeeId,
         leaveTypeId: p.leaveTypeId,
@@ -202,8 +208,9 @@ export async function closeLeaveYear(
 /**
  * Expires the days carried over from `year` by an enforced close that were
  * not used by their `expires_on` date (fixed at the close). Employees with
- * protected leave from 1 January to that date keep the days; they are
- * closed with the next year's balance.
+ * protected leave from 1 January to that date keep the days (a zero `expiry`
+ * entry records it); the next close also spares them, as it looks back to
+ * the previous year for protected leave.
  */
 export async function expireCarryovers(
   ctx: StepContext,
@@ -241,11 +248,22 @@ export async function expireCarryovers(
       shielded.set(c.expiresOn, isProtected);
     }
     if (isProtected.has(c.employeeId)) {
-      counts.protectedFromExpiry++;
-      // Warn in the run for the expiry month only, not every later month.
-      if (runDate.slice(0, 7) === c.expiresOn.slice(0, 7)) {
+      // A zero `expiry` entry records that nothing expired, so the carry-over
+      // is settled: later runs neither recount nor rewarn it, and a catch-up
+      // run after a missed month still reports it once.
+      const inserted = await repo.appendYearEndOnce(tx, {
+        employeeId: c.employeeId,
+        leaveTypeId: c.leaveTypeId,
+        entryType: "expiry",
+        amount: 0,
+        sourceRef: expirySourceRef(c.leaveTypeId, year),
+        effectiveDate: c.expiresOn,
+        expiresOn: null,
+      });
+      if (inserted) {
+        counts.protectedFromExpiry++;
         deps.logger.warn({
-          msg: "carry-over expiry skipped: ET art. 38.3 protected leave",
+          msg: "carry-over expiry not applied (statutory exemption)",
           ...ctx.logIds,
           employeeId: c.employeeId,
           leaveTypeId: c.leaveTypeId,

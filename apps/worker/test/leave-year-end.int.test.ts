@@ -723,13 +723,88 @@ describe("leave.accrue year end (LEA-002)", () => {
       expiries: 0,
       protectedFromExpiry: 1,
     });
+    // Nothing expired: a zero entry settles the carry-over.
     expect(
       (await ledger(orgId)).filter((r) => r.entryType === "expiry"),
-    ).toEqual([]);
+    ).toEqual([
+      expect.objectContaining({
+        amount: 0,
+        sourceRef: `expiry:${vacation}:2026`,
+        effectiveDate: "2027-03-31",
+      }),
+    ]);
     expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({ employeeId: employee, leaveTypeId: vacation }),
     );
-    expect(JSON.stringify(logger.warn.mock.calls)).not.toContain(birth);
+    const warnings = JSON.stringify(logger.warn.mock.calls);
+    expect(warnings).not.toContain(birth);
+    expect(warnings).not.toContain("example.invalid");
+
+    // Later runs neither recount nor rewarn it.
+    for (const runDate of ["2027-04-30", "2027-12-31"]) {
+      const later = run(orgId, runDate);
+      expect(await later.result).toMatchObject({
+        expiries: 0,
+        protectedFromExpiry: 0,
+      });
+      expect(later.logger.warn).not.toHaveBeenCalled();
+    }
+  });
+
+  it("does not forfeit protected days at the next year's close either", async () => {
+    const { orgId, vacation } = await newOrg();
+    const sick = await newType(orgId, "sick_leave");
+    const policyId = await newPolicy(orgId, vacation, {
+      allowance: 24,
+      method: "monthly",
+      cap: 5,
+      expiry: 3,
+    });
+    const employee = await newEmployee(orgId, "2024-01-01");
+    await assign(orgId, employee, policyId, "2026-01-01");
+    // Sick for the end of 2026, none in 2027.
+    await approvedLeave(orgId, employee, sick, "2026-10-01", "2026-12-31");
+
+    await run(orgId, "2026-12-31").result;
+    await run(orgId, "2027-01-31").result; // closes 2026: 24 carried whole
+    await run(orgId, "2027-12-31").result; // 2027 accrued: 24
+    expect(await run(orgId, "2028-01-31").result).toMatchObject({
+      yearEnd: { year: 2027, forfeits: 0, protectedFromForfeit: 1 },
+    });
+    const forfeits = (await yearEndRows(orgId)).filter(
+      (r) => r.entryType === "forfeit",
+    );
+    expect(forfeits).toEqual([]);
+  });
+
+  it("is not protected by pending leave or by another organization's leave", async () => {
+    const a = await newOrg();
+    const b = await newOrg();
+    const sickA = await newType(a.orgId, "sick_leave");
+    const sickB = await newType(b.orgId, "sick_leave");
+    const policyId = await newPolicy(a.orgId, a.vacation, {
+      allowance: 24,
+      method: "monthly",
+      cap: 5,
+      expiry: 3,
+    });
+    const pending = await newEmployee(a.orgId, "2024-01-01");
+    await assign(a.orgId, pending, policyId, "2026-01-01");
+    await db.sql`
+      INSERT INTO leave_requests (organization_id, employee_id, leave_type_id,
+        start_date, end_date, working_days, status)
+      VALUES (${a.orgId}, ${pending}, ${sickA}, '2026-11-02', '2026-11-06', 5,
+        'pending')
+    `;
+    // Same employee id cannot exist in B; an approved sick leave of B's own
+    // employee must not leak into A's close.
+    const other = await newEmployee(b.orgId, "2024-01-01");
+    await approvedLeave(b.orgId, other, sickB, "2026-11-02", "2026-11-06");
+
+    await run(a.orgId, "2026-12-31").result;
+    expect(await run(a.orgId, "2027-01-31").result).toMatchObject({
+      yearEnd: { balances: 1, forfeits: 1, protectedFromForfeit: 0 },
+    });
   });
 
   it("never reads, closes or expires another organization's balances", async () => {
