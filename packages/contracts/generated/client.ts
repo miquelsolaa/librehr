@@ -61,6 +61,9 @@ import type {
   CreateLeaveRequest,
   DecideLeaveRequest,
   AdjustBalanceRequest,
+  LeavePolicy,
+  CreateLeavePolicyRequest,
+  UpdateLeavePolicyRequest,
   Holiday,
   CreateHolidayRequest,
   SeedStatutoryHolidaysRequest,
@@ -424,6 +427,24 @@ export class LibreHrApiClient {
   async adjustLeaveBalance(data: AdjustBalanceRequest): Promise<LeaveLedgerEntry> {
     return this.request<LeaveLedgerEntry>('/v1/leave/adjust', {
       method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async listLeavePolicies(): Promise<LeavePolicy[]> {
+    return this.request<LeavePolicy[]>('/v1/leave/policies');
+  }
+
+  async createLeavePolicy(data: CreateLeavePolicyRequest): Promise<LeavePolicy> {
+    return this.request<LeavePolicy>('/v1/leave/policies', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateLeavePolicy(id: string, data: UpdateLeavePolicyRequest): Promise<LeavePolicy> {
+    return this.request<LeavePolicy>(`/v1/leave/policies/${id}`, {
+      method: 'PATCH',
       body: JSON.stringify(data),
     });
   }

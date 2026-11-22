@@ -1154,5 +1154,25 @@
     "cancelInvitationTitle": "¿Cancelar esta invitación?",
     "cancelInvitationDescription": "El enlace de invitación para {email} deja de funcionar. Queda registrado.",
     "invitationCancelled": "Invitación cancelada."
+  },
+  "leavePolicies": {
+    "title": "Políticas de ausencias",
+    "description": "Derechos y devengo de cada tipo de ausencia, y si se prorratean para contratos a tiempo parcial.",
+    "linkDescription": "Derechos de ausencia, devengo y prorrateo a tiempo parcial.",
+    "loadError": "No se han podido cargar las políticas de ausencias.",
+    "retry": "Reintentar",
+    "empty": "Todavía no hay políticas de ausencias.",
+    "summary": "{type} · {days, plural, one {# día} other {# días}} al año · {method}",
+    "methodUpfront": "concedidos al inicio",
+    "methodMonthly": "devengo mensual",
+    "methodDaily": "devengo diario",
+    "fullTimeLabel": "Horas semanales a tiempo completo (prorrateo a tiempo parcial)",
+    "fullTimeHint": "Déjalo vacío para las vacaciones legales: las personas a tiempo parcial tienen los mismos días de vacaciones que a tiempo completo (ET art. 12.4.d), así que no se pueden prorratear. Indica la jornada completa de tu convenio colectivo (como máximo 40 horas, la jornada ordinaria máxima del ET art. 34.1) solo para un derecho que este prorratee en contratos a tiempo parcial; el devengo se multiplica entonces por horas del contrato ÷ horas a tiempo completo (como máximo 1), así que un contrato de 40 horas nunca se reduce. El cambio se aplica a todo el año en curso, incluidos los meses ya devengados. Las horas del contrato salen de cada registro de contratación (40 por defecto).",
+    "notProrated": "Sin prorrateo: todos los contratos devengan el derecho completo.",
+    "prorated": "Prorrateado sobre una jornada completa de {hours, number} horas semanales.",
+    "hoursInvalid": "Indica entre 0,01 y 40 horas, con dos decimales como máximo, o déjalo vacío.",
+    "actionError": "No se ha podido guardar el cambio. Inténtalo de nuevo.",
+    "save": "Guardar",
+    "saved": "Guardado."
   }
 }

@@ -1482,6 +1482,12 @@
           },
           "allowNegativeBalance": {
             "type": "boolean"
+          },
+          "fullTimeHoursPerWeek": {
+            "type": [
+              "number",
+              "null"
+            ]
           }
         },
         "required": [
@@ -1492,8 +1498,81 @@
           "accrualMethod",
           "carryoverMaxDays",
           "carryoverExpiryMonths",
-          "allowNegativeBalance"
+          "allowNegativeBalance",
+          "fullTimeHoursPerWeek"
         ]
+      },
+      "CreateLeavePolicyRequest": {
+        "type": "object",
+        "properties": {
+          "leaveTypeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "annualAllowanceDays": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 999.99
+          },
+          "accrualMethod": {
+            "type": "string",
+            "enum": [
+              "upfront",
+              "monthly",
+              "daily"
+            ]
+          },
+          "carryoverMaxDays": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 999.99
+          },
+          "carryoverExpiryMonths": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 24
+          },
+          "allowNegativeBalance": {
+            "type": "boolean"
+          },
+          "fullTimeHoursPerWeek": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "exclusiveMinimum": 0,
+            "maximum": 40,
+            "default": null
+          }
+        },
+        "required": [
+          "leaveTypeId",
+          "name",
+          "annualAllowanceDays",
+          "accrualMethod"
+        ]
+      },
+      "UpdateLeavePolicyRequest": {
+        "type": "object",
+        "properties": {
+          "fullTimeHoursPerWeek": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "exclusiveMinimum": 0,
+            "maximum": 40
+          }
+        },
+        "required": [
+          "fullTimeHoursPerWeek"
+        ],
+        "additionalProperties": false
       },
       "LeaveTypeBalance": {
         "type": "object",
@@ -11125,6 +11204,303 @@
                     "unit",
                     "effectiveDate",
                     "createdAt"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/leave/policies": {
+      "get": {
+        "summary": "List leave policies (admin)",
+        "responses": {
+          "200": {
+            "description": "Leave policies of the organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "leaveTypeId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "annualAllowanceDays": {
+                        "type": "number"
+                      },
+                      "accrualMethod": {
+                        "type": "string",
+                        "enum": [
+                          "upfront",
+                          "monthly",
+                          "daily"
+                        ]
+                      },
+                      "carryoverMaxDays": {
+                        "type": "number"
+                      },
+                      "carryoverExpiryMonths": {
+                        "type": "number"
+                      },
+                      "allowNegativeBalance": {
+                        "type": "boolean"
+                      },
+                      "fullTimeHoursPerWeek": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "leaveTypeId",
+                      "name",
+                      "annualAllowanceDays",
+                      "accrualMethod",
+                      "carryoverMaxDays",
+                      "carryoverExpiryMonths",
+                      "allowNegativeBalance",
+                      "fullTimeHoursPerWeek"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a leave policy (admin, audited)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "leaveTypeId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "annualAllowanceDays": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 999.99
+                  },
+                  "accrualMethod": {
+                    "type": "string",
+                    "enum": [
+                      "upfront",
+                      "monthly",
+                      "daily"
+                    ]
+                  },
+                  "carryoverMaxDays": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 999.99
+                  },
+                  "carryoverExpiryMonths": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 24
+                  },
+                  "allowNegativeBalance": {
+                    "type": "boolean"
+                  },
+                  "fullTimeHoursPerWeek": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "exclusiveMinimum": 0,
+                    "maximum": 40,
+                    "default": null
+                  }
+                },
+                "required": [
+                  "leaveTypeId",
+                  "name",
+                  "annualAllowanceDays",
+                  "accrualMethod"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Leave policy created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "leaveTypeId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "annualAllowanceDays": {
+                      "type": "number"
+                    },
+                    "accrualMethod": {
+                      "type": "string",
+                      "enum": [
+                        "upfront",
+                        "monthly",
+                        "daily"
+                      ]
+                    },
+                    "carryoverMaxDays": {
+                      "type": "number"
+                    },
+                    "carryoverExpiryMonths": {
+                      "type": "number"
+                    },
+                    "allowNegativeBalance": {
+                      "type": "boolean"
+                    },
+                    "fullTimeHoursPerWeek": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "leaveTypeId",
+                    "name",
+                    "annualAllowanceDays",
+                    "accrualMethod",
+                    "carryoverMaxDays",
+                    "carryoverExpiryMonths",
+                    "allowNegativeBalance",
+                    "fullTimeHoursPerWeek"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/leave/policies/{id}": {
+      "patch": {
+        "summary": "Set or clear a leave policy's full-time week for part-time proration (admin, audited)",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fullTimeHoursPerWeek": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "exclusiveMinimum": 0,
+                    "maximum": 40
+                  }
+                },
+                "required": [
+                  "fullTimeHoursPerWeek"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Leave policy updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "leaveTypeId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "annualAllowanceDays": {
+                      "type": "number"
+                    },
+                    "accrualMethod": {
+                      "type": "string",
+                      "enum": [
+                        "upfront",
+                        "monthly",
+                        "daily"
+                      ]
+                    },
+                    "carryoverMaxDays": {
+                      "type": "number"
+                    },
+                    "carryoverExpiryMonths": {
+                      "type": "number"
+                    },
+                    "allowNegativeBalance": {
+                      "type": "boolean"
+                    },
+                    "fullTimeHoursPerWeek": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "leaveTypeId",
+                    "name",
+                    "annualAllowanceDays",
+                    "accrualMethod",
+                    "carryoverMaxDays",
+                    "carryoverExpiryMonths",
+                    "allowNegativeBalance",
+                    "fullTimeHoursPerWeek"
                   ]
                 }
               }

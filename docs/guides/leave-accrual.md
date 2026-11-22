@@ -27,6 +27,44 @@ termination date) and an assignment window. An assignment applies from its
 `effective_from` until the day before the next assignment for the same
 employee and leave type.
 
+## Part-time contracts (issue #118)
+
+By default every contract accrues the full entitlement (FTE 1.0). That is
+the **compliance default and must stay so for statutory vacation**: in Spain
+part-time staff are entitled to the same vacation days as full-time staff
+(ET art. 12.4.d).
+
+A policy can opt in to proration by setting `full_time_hours_per_week`
+(migration 0034; Settings > Leave policies, or
+`PATCH /v1/leave/policies/{id}`), the full-time week of the collective
+agreement (at most 40 hours). Accrual then weights each active day by
+
+    min(1, employments.working_hours_per_week / full_time_hours_per_week)
+
+of the employment row covering it, so a change of contract mid-year counts
+each part at its own ratio. Ratios are kept in parts per million of a day
+(integers) and the target is still rounded once, to cents, on the cumulative
+value; with no full-time week every amount is exactly what it was before.
+
+- The API refuses a full-time week on a policy whose leave type is the
+  statutory `vacation` (422 `STATUTORY_LEAVE_NOT_PRORATABLE`).
+- The target is cumulative from 1 January, so setting or changing the
+  full-time week mid-year recalculates the whole year, months already
+  accrued included (a lower target is not trued up, see below).
+- The full-time week is capped at 40 hours, the maximum ordinary
+  full-time week (ET art. 34.1), in the API and in the database check. A
+  contract on the default 40 hours therefore never has its accrual reduced.
+- Contract hours come from `employments.working_hours_per_week`, which
+  defaults to 40 and is not yet editable in the app (only through data
+  imports or the database; issue #131).
+- A legacy employee without employment rows has no recorded hours and
+  accrues at 1.
+- If a prorated policy meets an employment row whose hours are not a
+  positive number, the run fails with `InvalidEmploymentDataError` (naming the
+  employee ids) before anything is written.
+- Reducing hours mid-year lowers the cumulative target; if the ledger
+  already holds more, the run writes nothing (no true-up, see below).
+
 The target is rounded to cents of a day once, on the cumulative value, so the
 monthly entries of a full year add up to the allowance exactly (22 days gives
 22.00, not 21.96).
@@ -92,10 +130,6 @@ longer limits requests at all: assign policies to enforce entitlements.
 - **No true-up.** If the ledger already holds more than is due (for example a
   termination recorded after the month was accrued), the run writes nothing
   and logs a warning with ids only. Corrections are a manual adjustment.
-- **FTE is 1.0.** There is no full-time reference to divide
-  `employments.working_hours_per_week` by, so part-time contracts accrue like
-  full-time ones. This matches statutory vacation in Spain (ET art. 12.4.d)
-  but may not suit every leave type.
 - **No carry-over or expiry runs** yet.
 - If a month's entry already exists and a backdated change raises the target,
   the difference is written by the next month's run (for December, not at

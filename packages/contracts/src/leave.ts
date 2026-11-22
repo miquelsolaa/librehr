@@ -40,8 +40,49 @@ export const LeavePolicySchema = z.object({
   carryoverMaxDays: z.number(),
   carryoverExpiryMonths: z.number(),
   allowNegativeBalance: z.boolean(),
+  /**
+   * LEA-002 (#118): the full-time week of the collective agreement. When set,
+   * accrual is prorated by `working_hours_per_week / fullTimeHoursPerWeek`
+   * (capped at 1). Null (the default) keeps FTE 1.0, which statutory
+   * vacation requires (ET art. 12.4.d).
+   */
+  fullTimeHoursPerWeek: z.number().nullable(),
 });
 export type LeavePolicy = z.infer<typeof LeavePolicySchema>;
+
+/**
+ * Hours of a full-time week: positive, cents of an hour, at most 40 (the
+ * maximum ordinary full-time week, ET art. 34.1), so a contract on the
+ * default 40 h is never prorated down.
+ */
+const FullTimeHoursSchema = z
+  .number()
+  .positive("Must be greater than 0")
+  .max(40, "Must be at most 40 hours (ET art. 34.1)")
+  .multipleOf(0.01)
+  .nullable();
+
+export const CreateLeavePolicyRequestSchema = z.object({
+  leaveTypeId: z.guid(),
+  name: z.string().trim().min(1, "Name is required").max(200),
+  annualAllowanceDays: z.number().min(0).max(999.99),
+  accrualMethod: z.enum(["upfront", "monthly", "daily"]),
+  carryoverMaxDays: z.number().min(0).max(999.99).optional(),
+  carryoverExpiryMonths: z.number().int().min(0).max(24).optional(),
+  allowNegativeBalance: z.boolean().optional(),
+  fullTimeHoursPerWeek: FullTimeHoursSchema.default(null),
+});
+export type CreateLeavePolicyRequest = z.input<
+  typeof CreateLeavePolicyRequestSchema
+>;
+
+export const UpdateLeavePolicyRequestSchema = z.strictObject({
+  /** Null turns part-time proration off (FTE 1.0). */
+  fullTimeHoursPerWeek: FullTimeHoursSchema,
+});
+export type UpdateLeavePolicyRequest = z.infer<
+  typeof UpdateLeavePolicyRequestSchema
+>;
 
 export const LeaveLedgerEntrySchema = z.object({
   id: z.guid(),

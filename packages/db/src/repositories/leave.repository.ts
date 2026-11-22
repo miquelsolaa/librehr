@@ -27,9 +27,19 @@ export interface LeavePolicyRow {
   carryoverMaxDays: number;
   carryoverExpiryMonths: number;
   allowNegativeBalance: boolean;
+  /** LEA-002 (0034): null keeps FTE 1.0 (no part-time proration). */
+  fullTimeHoursPerWeek: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
+
+const POLICY_COLUMNS = `id, organization_id as "organizationId", leave_type_id as "leaveTypeId",
+  name, annual_allowance_days::float as "annualAllowanceDays",
+  accrual_method as "accrualMethod", carryover_max_days::float as "carryoverMaxDays",
+  carryover_expiry_months as "carryoverExpiryMonths",
+  allow_negative_balance as "allowNegativeBalance",
+  full_time_hours_per_week::float as "fullTimeHoursPerWeek",
+  created_at as "createdAt", updated_at as "updatedAt"`;
 
 export interface LeaveLedgerRow {
   id: string;
@@ -196,12 +206,7 @@ export class LeaveRepository {
 
   async getLeavePolicies(tx: TenantTx): Promise<LeavePolicyRow[]> {
     return tx<LeavePolicyRow[]>`
-      SELECT id, organization_id as "organizationId", leave_type_id as "leaveTypeId",
-             name, annual_allowance_days::float as "annualAllowanceDays",
-             accrual_method as "accrualMethod", carryover_max_days::float as "carryoverMaxDays",
-             carryover_expiry_months as "carryoverExpiryMonths",
-             allow_negative_balance as "allowNegativeBalance",
-             created_at as "createdAt", updated_at as "updatedAt"
+      SELECT ${tx.unsafe(POLICY_COLUMNS)}
       FROM leave_policies
       ORDER BY name ASC
     `;
@@ -217,12 +222,14 @@ export class LeaveRepository {
       carryoverMaxDays?: number | undefined;
       carryoverExpiryMonths?: number | undefined;
       allowNegativeBalance?: boolean | undefined;
+      fullTimeHoursPerWeek?: number | null | undefined;
     },
   ): Promise<LeavePolicyRow> {
     const rows = await tx<LeavePolicyRow[]>`
       INSERT INTO leave_policies (
         leave_type_id, name, annual_allowance_days, accrual_method,
-        carryover_max_days, carryover_expiry_months, allow_negative_balance
+        carryover_max_days, carryover_expiry_months, allow_negative_balance,
+        full_time_hours_per_week
       ) VALUES (
         ${data.leaveTypeId},
         ${data.name},
@@ -230,16 +237,56 @@ export class LeaveRepository {
         ${data.accrualMethod ?? "monthly"},
         ${data.carryoverMaxDays ?? 5.0},
         ${data.carryoverExpiryMonths ?? 3},
-        ${data.allowNegativeBalance ?? false}
+        ${data.allowNegativeBalance ?? false},
+        ${data.fullTimeHoursPerWeek ?? null}
       )
-      RETURNING id, organization_id as "organizationId", leave_type_id as "leaveTypeId",
-                name, annual_allowance_days::float as "annualAllowanceDays",
-                accrual_method as "accrualMethod", carryover_max_days::float as "carryoverMaxDays",
-                carryover_expiry_months as "carryoverExpiryMonths",
-                allow_negative_balance as "allowNegativeBalance",
-                created_at as "createdAt", updated_at as "updatedAt"
+      RETURNING ${tx.unsafe(POLICY_COLUMNS)}
     `;
     return rows[0]!;
+  }
+
+  /**
+   * Locks one policy of the current tenant for an update and returns its
+   * current full-time week and its leave type's code, or null.
+   */
+  async lockLeavePolicy(
+    tx: TenantTx,
+    id: string,
+  ): Promise<{
+    fullTimeHoursPerWeek: number | null;
+    leaveTypeCode: string;
+  } | null> {
+    const orgId = tx.__tenantContext.organizationId;
+    const rows = await tx<
+      { fullTimeHoursPerWeek: number | null; leaveTypeCode: string }[]
+    >`
+      SELECT p.full_time_hours_per_week::float AS "fullTimeHoursPerWeek",
+             t.code AS "leaveTypeCode"
+      FROM leave_policies p
+      JOIN leave_types t ON t.id = p.leave_type_id AND t.organization_id = ${orgId}
+      WHERE p.id = ${id} AND p.organization_id = ${orgId}
+      FOR UPDATE OF p
+    `;
+    return rows[0] ?? null;
+  }
+
+  /**
+   * Sets or clears a policy's full-time week (LEA-002, issue #118). Null
+   * turns part-time proration off (FTE 1.0). Returns null when the policy is
+   * not the current tenant's.
+   */
+  async updateLeavePolicyFullTimeHours(
+    tx: TenantTx,
+    id: string,
+    fullTimeHoursPerWeek: number | null,
+  ): Promise<LeavePolicyRow | null> {
+    const rows = await tx<LeavePolicyRow[]>`
+      UPDATE leave_policies
+      SET full_time_hours_per_week = ${fullTimeHoursPerWeek}, updated_at = now()
+      WHERE id = ${id} AND organization_id = ${tx.__tenantContext.organizationId}
+      RETURNING ${tx.unsafe(POLICY_COLUMNS)}
+    `;
+    return rows[0] ?? null;
   }
 
   async getLedgerEntries(
