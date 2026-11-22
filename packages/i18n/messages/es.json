@@ -618,7 +618,11 @@
     "title": "Notificaciones",
     "empty": "No tienes notificaciones pendientes",
     "markRead": "Marcar como leída",
-    "unreadCount": "{count} notificaciones no leídas"
+    "unreadCount": "{count} notificaciones no leídas",
+    "missingClockOut": {
+      "title": "Falta el fichaje de salida",
+      "body": "Tu registro de jornada del {date} sigue abierto. Solicita una corrección con la hora en que terminaste."
+    }
   },
   "timeTracking": {
     "scheduleNotConfigured": "Pide a una persona administradora que configure un horario para cada día de este periodo.",

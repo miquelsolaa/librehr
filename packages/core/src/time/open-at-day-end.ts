@@ -22,9 +22,10 @@ export interface OpenAtDayEnd {
  * punch cannot tell a night shift from a forgotten clock-out (after a
  * forgotten one the next punch is a clock-out too), so a session still open
  * at midnight is always reported and the result does not depend on when the
- * caller runs. Returns null when the session is closed, or when no effective
- * event falls on that day (an older open session was the previous day's to
- * report).
+ * caller runs. The roster can tell them apart: see `coveredByOvernightShift`
+ * and `overnightStillOpenAtDayEnd`, which callers apply. Returns null when
+ * the session is closed, or when no effective event falls on that day (an
+ * older open session was the previous day's to report).
  *
  * Pass events from before the day too, so a session opened the day before is
  * known. Pure: no I/O, no clock.
@@ -41,6 +42,27 @@ export function openAtDayEnd(
   date: string,
   timeZone: string,
 ): OpenAtDayEnd | null {
+  const { open, eventsOnDay } = foldToDayEnd(events, date, timeZone);
+  return eventsOnDay === 0 ? null : open;
+}
+
+/**
+ * The session left open at the end of local day `date`, whether or not any
+ * event falls on that day, and how many effective events do. Shared by
+ * `openAtDayEnd` and `overnightStillOpenAtDayEnd`. Pure.
+ *
+ * @example
+ * foldToDayEnd(
+ *   [{ id: "a", eventType: "clock_in", occurredAt: "2026-11-02T21:00:00Z", ... }],
+ *   "2026-11-03",
+ *   "Europe/Madrid",
+ * ); // => { open: { state: "clocked_in", clockIn: "2026-11-02T21:00:00Z" }, eventsOnDay: 0 }
+ */
+export function foldToDayEnd(
+  events: readonly TimeEvent[],
+  date: string,
+  timeZone: string,
+): { open: OpenAtDayEnd | null; eventsOnDay: number } {
   const day = Temporal.PlainDate.from(date);
   const start = day.toZonedDateTime(timeZone).epochMilliseconds;
   const end = day.add({ days: 1 }).toZonedDateTime(timeZone).epochMilliseconds;
@@ -77,6 +99,6 @@ export function openAtDayEnd(
         break;
     }
   }
-  if (state === null || clockIn === null || eventsOnDay === 0) return null;
-  return { state, clockIn };
+  if (state === null || clockIn === null) return { open: null, eventsOnDay };
+  return { open: { state, clockIn }, eventsOnDay };
 }
