@@ -102,6 +102,8 @@ export function createTimeRoutes(
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
     // TIM-001 / TIM-008: only roles that keep their own time record may punch.
     // An auditor's event would put them back into the organization's exports.
+    // Role check only: the self scope is enforced by resolving the employee
+    // from user.id below, so a wider scope would grant nothing more here.
     if (
       !permissionScope(
         {

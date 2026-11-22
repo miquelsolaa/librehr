@@ -60,7 +60,7 @@ describe("Time Tracking API Integration Tests (TIM-001 - TIM-006)", () => {
 
   const auditorUser: AuthUser = {
     id: "33333333-3333-3333-3333-333333333333",
-    email: "inspector@meyss.gob.es",
+    email: "inspector@librehr.test",
     name: "Labour Inspector",
     role: "auditor",
     organizationId: orgId,
