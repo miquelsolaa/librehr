@@ -19,6 +19,10 @@ import {
   AuditVerifyChainPayloadSchema,
   auditVerifyChainSingletonKey,
 } from "../queues/audit.verify-chain.js";
+import {
+  SchedulerTickPayloadSchema,
+  schedulerTickSingletonKey,
+} from "../queues/scheduler.tick.js";
 import { parsePayload } from "./payload.js";
 
 export { AuditVerifyChainPayloadSchema };
@@ -50,6 +54,10 @@ export const QUEUES = {
     schema: AuditVerifyChainPayloadSchema,
     key: auditVerifyChainSingletonKey,
   },
+  "scheduler.tick": {
+    schema: SchedulerTickPayloadSchema,
+    key: schedulerTickSingletonKey,
+  },
 } as const;
 
 export type QueueName = keyof typeof QUEUES;
@@ -73,10 +81,19 @@ export async function enqueue<Q extends QueueName>(
   queue: Q,
   payload: unknown,
 ): Promise<string | null> {
+  const { data, singletonKey } = prepareJob(queue, payload);
+  return boss.send(queue, data, { singletonKey });
+}
+
+/** Validates a payload and derives its `singletonKey`, as {@link enqueue} sends it. */
+export function prepareJob<Q extends QueueName>(
+  queue: Q,
+  payload: unknown,
+): { data: object; singletonKey: string } {
   const { schema, key } = QUEUES[queue];
   const data = parsePayload(queue, schema, payload);
   // The union of per-queue key functions is not callable with a union argument; the pairing
   // is guaranteed by QUEUES itself.
   const singletonKey = (key as (p: typeof data) => string)(data);
-  return boss.send(queue, data, { singletonKey });
+  return { data, singletonKey };
 }

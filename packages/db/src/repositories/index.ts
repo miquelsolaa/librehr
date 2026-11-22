@@ -29,3 +29,4 @@ export * from "./emergency-contact.repository.js";
 export * from "./sso.repository.js";
 export * from "./webhook.repository.js";
 export * from "./shift.repository.js";
+export * from "./scheduler.repository.js";

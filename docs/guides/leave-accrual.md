@@ -46,8 +46,15 @@ monthly entries of a full year add up to the allowance exactly (22 days gives
 
 ## Known limitations
 
-- **No scheduler yet.** Nothing enqueues `leave.accrue`; it must be enqueued
-  per organization and month by an operator or a future scheduler.
+- **Scheduling is opt-in.** When `SCHEDULER_JOBS` lists `leave.accrue`, the
+  worker's scheduler enqueues it for each organization once a month has ended
+  in its local time, with `runDate` set to the month's last day
+  ([job scheduler](job-scheduler.md)). It is off by default because a first
+  run does not subtract manual `adjustment` entries; see
+  [upgrading](upgrading.md#job-scheduler-migration-0035). It catches up
+  the last 2 days only; a run missed for longer must be enqueued by hand.
+  Because runs follow the month, an `upfront` allowance is first credited
+  after January ends (open product decision).
 - **No true-up.** If the ledger already holds more than is due (for example a
   termination recorded after the month was accrued), the run writes nothing
   and logs a warning with ids only. Corrections are a manual adjustment.
