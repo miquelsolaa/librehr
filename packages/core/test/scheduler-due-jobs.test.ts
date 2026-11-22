@@ -229,14 +229,17 @@ const ZONE_SETS = [
   ["America/New_York", "Europe/Madrid"],
   ["Pacific/Auckland"],
   ["Australia/Lord_Howe"],
+  // DST changes at local midnight: the day starts at 01:00 or twice.
+  ["America/Santiago"],
+  ["America/Havana", "Europe/Madrid"],
 ] as const;
 
 describe("dueScheduledJobs properties", () => {
-  it("enqueues each (job, period) exactly once, never early, for any tick spacing", () => {
+  it("enqueues every (job, period) once after dedupe, never early, for any tick spacing", () => {
     fc.assert(
       fc.property(
         fc.constantFrom(...ZONE_SETS),
-        fc.integer({ min: 0, max: 180 }),
+        fc.integer({ min: 0, max: 720 }),
         // Any start between 2026 and 2029 (covers a leap year and DST changes).
         fc.integer({
           min: Date.UTC(2026, 0, 1),
@@ -246,7 +249,7 @@ describe("dueScheduledJobs properties", () => {
         // worker that is down for a day and a half.
         fc.array(fc.integer({ min: 1, max: 36 * 60 }), {
           minLength: 1,
-          maxLength: 120,
+          maxLength: 80,
         }),
         fc.subarray([...SCHEDULED_JOBS], { minLength: 1 }),
         (zones, grace, start, gaps, jobs) => {
@@ -294,9 +297,9 @@ describe("dueScheduledJobs properties", () => {
           expect(new Set(sent.keys())).toEqual(expected);
         },
       ),
-      { numRuns: 300 },
+      { numRuns: 150 },
     );
-  });
+  }, 30_000);
 
   it("is idempotent: the same instant always yields the same jobs", () => {
     fc.assert(

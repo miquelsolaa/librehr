@@ -12,14 +12,13 @@ export interface ScheduledOrganization {
  *
  * `listOrganizations` is the scheduler's only read without a tenant context.
  * It calls the SECURITY DEFINER function of migration 0035, which returns ids
- * and time zones only and is executable by the worker's role (the owner), not
- * by the API's runtime role.
+ * and time zones only and is executable by the worker's role (the owner) only.
  */
 export class SchedulerRepository {
   async listOrganizations(sql: Sql): Promise<ScheduledOrganization[]> {
     return sql<ScheduledOrganization[]>`
       SELECT organization_id AS "organizationId", timezone AS "timeZone"
-      FROM librehr_scheduler_organizations()
+      FROM public.librehr_scheduler_organizations()
     `;
   }
 

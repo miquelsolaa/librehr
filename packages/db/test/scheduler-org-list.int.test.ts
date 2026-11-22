@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import postgres, { type Sql } from "postgres";
 import {
@@ -9,6 +12,14 @@ import {
 import { runMigrations } from "../src/migrate.js";
 import { withTenant } from "../src/with-tenant.js";
 import { SchedulerRepository } from "../src/repositories/scheduler.repository.js";
+
+const MIGRATION_0035 = fs.readFileSync(
+  path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../migrations/0035_scheduler_org_list.sql",
+  ),
+  "utf-8",
+);
 
 // Issue #115: the scheduler's cross-tenant organization list (migration 0035)
 // returns ids and zones only, to the worker's role only, and opens no other
@@ -140,5 +151,33 @@ describe("scheduler organization list (0035)", () => {
     );
     expect(zonesA).toEqual([]);
     expect(zonesB).toEqual(["Atlantic/Canary"]);
+  });
+
+  it("hands the function to librehr_owner when the migration runs as the bootstrap superuser", async () => {
+    const [{ bootstrap } = { bootstrap: "" }] = await db.adminSql<
+      { bootstrap: string }[]
+    >`SELECT current_user AS bootstrap`;
+    await db.adminSql.unsafe(
+      `ALTER FUNCTION public.librehr_scheduler_organizations() OWNER TO "${bootstrap}"`,
+    );
+
+    await db.adminSql.unsafe(MIGRATION_0035);
+
+    const [row] = await db.adminSql<
+      { owner: string; owner_exec: boolean; app_exec: boolean }[]
+    >`
+      SELECT pg_get_userbyid(p.proowner) AS owner,
+             has_function_privilege('librehr_owner', p.oid, 'EXECUTE') AS owner_exec,
+             has_function_privilege('librehr_app', p.oid, 'EXECUTE') AS app_exec
+      FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public' AND p.proname = 'librehr_scheduler_organizations'`;
+    expect(row).toEqual({
+      owner: "librehr_owner",
+      owner_exec: true,
+      app_exec: false,
+    });
+    expect(
+      await owner`SELECT * FROM librehr_scheduler_organizations()`,
+    ).toHaveLength(2);
   });
 });

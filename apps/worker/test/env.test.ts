@@ -137,6 +137,15 @@ describe("worker env", () => {
       });
     });
 
+    it("treats empty values as the defaults", () => {
+      const env = loadWorkerEnv({
+        NODE_ENV: "test",
+        SCHEDULER_ENABLED: "",
+        SCHEDULER_GRACE_MINUTES: "",
+      });
+      expect(env.SCHEDULER).toMatchObject({ enabled: true, graceMinutes: 30 });
+    });
+
     it("treats an empty job list as every job", () => {
       expect(
         loadWorkerEnv({ NODE_ENV: "test", SCHEDULER_JOBS: "" }).SCHEDULER.jobs,

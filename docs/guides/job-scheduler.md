@@ -59,22 +59,29 @@ The tick reads the organization list through the SQL function
 `librehr_scheduler_organizations()` (migration 0035). It returns only
 `(organization_id, timezone)`, is `SECURITY DEFINER` with a pinned
 `search_path`, and only `librehr_owner`, the worker's role, may call it; the
-API's `librehr_app` role and `PUBLIC` may not. Everything else the scheduler
-and the jobs read goes through `withTenant` and Row-Level Security. The worker
-must therefore connect as `librehr_owner` (`DATABASE_MIGRATION_URL`), as the
-bundled compose file does.
+API's `librehr_app` role and `PUBLIC` may not. It does not by itself hide
+tenant ids: `organizations` has no Row-Level Security and `librehr_app` can
+read it directly. It is the scheduler's one narrow read without a tenant
+context. Everything else the scheduler and the jobs read goes through
+`withTenant` and Row-Level Security. The worker must therefore connect as
+`librehr_owner` (`DATABASE_MIGRATION_URL`), as the bundled compose file does;
+otherwise every tick fails with `permission denied`.
 
 ## Configuration
 
 | Variable                  | Default        | Meaning                                                                |
 | ------------------------- | -------------- | ---------------------------------------------------------------------- |
 | `SCHEDULER_ENABLED`       | `true`         | `false` removes the stored tick schedule at worker start               |
-| `SCHEDULER_TICK_CRON`     | `*/15 * * * *` | Five-field cron, in UTC, of the dispatcher tick                        |
+| `SCHEDULER_TICK_CRON`     | `*/15 * * * *` | Five-field cron, in UTC, of the dispatcher tick; at least once a day   |
 | `SCHEDULER_GRACE_MINUTES` | `30`           | Minutes after local midnight before a day counts as closed (0 to 720)  |
 | `SCHEDULER_JOBS`          | all            | Comma-separated subset of the four jobs above; empty means all of them |
 
-Invalid values stop the worker at startup. Every worker instance installs the
-same schedule; pg-boss sends one tick per occurrence however many run.
+Invalid values stop the worker at startup, including a tick cron with gaps of
+more than 24 hours (periods older than the catch-up window would be lost).
+Every worker instance installs the schedule and the last one to start wins,
+so give every instance the same `SCHEDULER_*` values; pg-boss sends one tick
+per occurrence however many instances run. A tick that reaches a worker with
+`SCHEDULER_ENABLED=false` does nothing.
 
 ## Known limitations
 
@@ -82,8 +89,12 @@ same schedule; pg-boss sends one tick per occurrence however many run.
   daily but dead-letters by design until it is, so each organization gets one
   failed `retention.enforce` job per day, which makes the gap visible (see
   `COMPLIANCE.md` §5). Leave it out with `SCHEDULER_JOBS` if you prefer. The
-  scheduler sends no `dryRun` flag, so the job's own default applies once
-  ADM-005 ships.
+  scheduler always sends `dryRun: true`: turning scheduled purges on is a
+  compliance decision for ADM-005, not a scheduler default.
+- **Accrual is credited after the month.** `leave.accrue` runs once a month
+  has ended, so an `upfront` policy's annual allowance is first credited
+  after 31 January, and `monthly` and `daily` credits arrive the following
+  month. Crediting at the start of a period is an open product decision.
 - A tick logs organization ids and counts only. An organization whose time
-  zone is invalid is skipped and logged by id (`msg: "scheduler skipped an
-organization"`); the others still run.
+  zone is invalid is skipped and logged by id (the log message is
+  `scheduler skipped an organization`); the others still run.

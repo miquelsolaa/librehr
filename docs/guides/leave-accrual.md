@@ -50,6 +50,8 @@ monthly entries of a full year add up to the allowance exactly (22 days gives
   organization once a month has ended in its local time, with `runDate` set
   to the month's last day ([job scheduler](job-scheduler.md)). It catches up
   the last 2 days only; a run missed for longer must be enqueued by hand.
+  Because runs follow the month, an `upfront` allowance is first credited
+  after January ends (open product decision).
 - **No true-up.** If the ledger already holds more than is due (for example a
   termination recorded after the month was accrued), the run writes nothing
   and logs a warning with ids only. Corrections are a manual adjustment.

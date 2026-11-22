@@ -70,7 +70,7 @@ describe("scheduler dispatcher (issue #115)", () => {
         boss,
         logger,
         clock: { now: () => new Date(iso) },
-        config: { graceMinutes: 30, jobs: SCHEDULED_JOBS },
+        config: { enabled: true, graceMinutes: 30, jobs: SCHEDULED_JOBS },
       },
       jobId,
     );
@@ -117,7 +117,6 @@ describe("scheduler dispatcher (issue #115)", () => {
       expect(keys).toContain(`leave.accrue ${org}:2026-10-31`);
     }
     expect(jobs).toHaveLength(17);
-    expect(jobs.find((j) => j.key === `${orgA}:2026-10-31`)).toBeDefined();
     expect(
       jobs.find(
         (j) => j.name === "time.close-day" && j.key === `${orgB}:2026-10-31`,

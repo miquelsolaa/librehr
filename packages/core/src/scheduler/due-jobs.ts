@@ -90,15 +90,11 @@ export function lastClosedLocalDate(
   const shifted = Temporal.Instant.fromEpochMilliseconds(
     instant.getTime(),
   ).subtract({ minutes: graceMinutes });
-  let earliest: Temporal.PlainDate | null = null;
-  for (const zone of timeZones) {
-    const local = shifted.toZonedDateTimeISO(zone).toPlainDate();
-    if (earliest === null || Temporal.PlainDate.compare(local, earliest) < 0) {
-      earliest = local;
-    }
-  }
-  // `earliest` is the first local day that has not closed everywhere yet.
-  return earliest!.subtract({ days: 1 }).toString();
+  // The first local day that has not closed everywhere yet.
+  const earliest = timeZones
+    .map((zone) => shifted.toZonedDateTimeISO(zone).toPlainDate())
+    .reduce((a, b) => (Temporal.PlainDate.compare(b, a) < 0 ? b : a));
+  return earliest.subtract({ days: 1 }).toString();
 }
 
 /**

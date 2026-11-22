@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { SCHEDULED_JOBS } from "@librehr/core";
+import { PgBoss } from "pg-boss";
+import { SCHEDULED_JOBS, SCHEDULER_CATCH_UP_DAYS } from "@librehr/core";
 import type { Sql } from "@librehr/db";
 
 // Stand-ins for the database reads; the integration test covers the real ones.
@@ -30,6 +31,7 @@ const { configureSchedule, dispatchDueJobs } =
   await import("../src/lib/scheduler.js");
 const { handleSchedulerTick } = await import("../src/queues/scheduler.tick.js");
 const { InvalidPayloadError } = await import("../src/lib/job-errors.js");
+const { QUEUE_RETENTION } = await import("../src/lib/queue-setup.js");
 
 const ORG_A = "a1150000-0000-4000-8000-00000000000a";
 const ORG_B = "b1150000-0000-4000-8000-00000000000b";
@@ -87,7 +89,7 @@ describe("dispatchDueJobs", () => {
         boss,
         logger,
         clock: clockAt("2026-10-31T23:45:00Z"),
-        config: { graceMinutes: 30, jobs: SCHEDULED_JOBS },
+        config: { enabled: true, graceMinutes: 30, jobs: SCHEDULED_JOBS },
       },
       "tick-1",
     );
@@ -111,7 +113,7 @@ describe("dispatchDueJobs", () => {
       [
         "retention.enforce",
         `${ORG_A}:2026-10-30`,
-        { organizationId: ORG_A, runDate: "2026-10-30" },
+        { organizationId: ORG_A, runDate: "2026-10-30", dryRun: true },
       ],
       [
         "time.close-day",
@@ -126,7 +128,7 @@ describe("dispatchDueJobs", () => {
       [
         "retention.enforce",
         `${ORG_A}:2026-10-31`,
-        { organizationId: ORG_A, runDate: "2026-10-31" },
+        { organizationId: ORG_A, runDate: "2026-10-31", dryRun: true },
       ],
       [
         "leave.accrue",
@@ -146,7 +148,11 @@ describe("dispatchDueJobs", () => {
       boss,
       logger,
       clock: clockAt("2026-11-12T08:00:00Z"),
-      config: { graceMinutes: 30, jobs: ["time.close-day"] as const },
+      config: {
+        enabled: true,
+        graceMinutes: 30,
+        jobs: ["time.close-day"] as const,
+      },
     };
     await dispatchDueJobs(deps, "tick-1");
     expect(boss.jobs).toHaveLength(2);
@@ -174,7 +180,7 @@ describe("dispatchDueJobs", () => {
         boss,
         logger,
         clock: clockAt("2026-11-11T23:45:00Z"),
-        config: { graceMinutes: 30, jobs: ["time.close-day"] },
+        config: { enabled: true, graceMinutes: 30, jobs: ["time.close-day"] },
       },
       "tick-1",
     );
@@ -196,7 +202,7 @@ describe("dispatchDueJobs", () => {
         boss,
         logger,
         clock: clockAt("2026-11-12T08:00:00Z"),
-        config: { graceMinutes: 30, jobs: ["time.close-day"] },
+        config: { enabled: true, graceMinutes: 30, jobs: ["time.close-day"] },
       },
       "tick-1",
     );
@@ -207,6 +213,32 @@ describe("dispatchDueJobs", () => {
       organizationId: ORG_A,
       error: "RangeError",
     });
+  });
+});
+
+describe("scheduler invariants", () => {
+  it("catches up over fewer days than pg-boss keeps finished jobs", () => {
+    // The dispatcher relies on finished jobs to skip periods already enqueued.
+    expect(SCHEDULER_CATCH_UP_DAYS * 86_400).toBeLessThan(
+      QUEUE_RETENTION.deleteAfterSeconds,
+    );
+  });
+
+  it("ignores a tick while disabled", async () => {
+    orgs.push({ organizationId: ORG_A, timeZone: "Europe/Madrid" });
+    const boss = fakeBoss();
+    const report = await dispatchDueJobs(
+      {
+        sql,
+        boss,
+        logger,
+        clock: clockAt("2026-11-12T08:00:00Z"),
+        config: { enabled: false, graceMinutes: 30, jobs: SCHEDULED_JOBS },
+      },
+      "tick-off",
+    );
+    expect(report).toMatchObject({ disabled: true, enqueued: 0 });
+    expect(boss.send).not.toHaveBeenCalled();
   });
 });
 
@@ -231,10 +263,37 @@ describe("handleSchedulerTick", () => {
 });
 
 describe("configureSchedule", () => {
+  const real = new PgBoss({ connectionString: "postgres://unused/db" });
   const admin = () => ({
     schedule: vi.fn(async () => undefined),
     unschedule: vi.fn(async () => undefined),
+    // Pure: pg-boss computes occurrences without a connection.
+    previewSchedule: (cron: string, opts: { tz: string; count: number }) =>
+      real.previewSchedule(cron, {
+        ...opts,
+        from: new Date("2026-11-01T00:00:00Z"),
+      }),
   });
+
+  it.each(["0 3 * * 1", "0 0 1 * *", "0 0 */2 * *"])(
+    "rejects a tick cron with gaps over 24 hours (%s)",
+    async (cron) => {
+      const boss = admin();
+      await expect(
+        configureSchedule(boss, { enabled: true, tickCron: cron }, logger),
+      ).rejects.toThrow(/at least every 24 hours/);
+      expect(boss.schedule).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["*/15 * * * *", "0 * * * *", "30 2 * * *"])(
+    "accepts a tick cron that runs at least daily (%s)",
+    async (cron) => {
+      const boss = admin();
+      await configureSchedule(boss, { enabled: true, tickCron: cron }, logger);
+      expect(boss.schedule).toHaveBeenCalledOnce();
+    },
+  );
 
   it("installs the tick in UTC with a constant singleton key and missed-tick catch-up", async () => {
     const boss = admin();

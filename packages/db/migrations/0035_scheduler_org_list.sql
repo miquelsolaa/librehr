@@ -10,15 +10,20 @@
 --
 -- * Owned by librehr_owner, the role the worker connects as (see
 --   infra/compose/docker-compose.yml). EXECUTE is revoked from PUBLIC and
---   from librehr_app, so the API's runtime role cannot enumerate tenants
---   through it; only the owner (implicitly) may call it.
+--   from librehr_app and granted to librehr_owner only.
+-- * What it does and does not protect: `organizations` has no RLS today and
+--   librehr_app can already SELECT it (0015 grants SELECT on all tables), so
+--   this function is not what hides tenant ids from the API. It is the one
+--   sanctioned path for the worker, limited to two columns. SECURITY DEFINER
+--   is a no-op while caller and owner are both librehr_owner; it is kept so
+--   the function keeps working if `organizations` later gets FORCE RLS plus an
+--   owner-scoped policy (as the identity lookups of 0019/0020 do).
 -- * search_path is pinned and every name is schema-qualified.
--- * No RLS is disabled and no role gains BYPASSRLS. `organizations` is a
---   global table (no RLS, see 0019), so the function needs no lookup policy;
---   if RLS is ever added to it, this function must get a matching
---   owner-scoped policy like the identity lookups of 0019/0020.
+-- * No RLS is disabled and no role gains BYPASSRLS.
+--
+-- Rollback (forward-only in practice): DROP FUNCTION public.librehr_scheduler_organizations();
 
-CREATE OR REPLACE FUNCTION librehr_scheduler_organizations()
+CREATE OR REPLACE FUNCTION public.librehr_scheduler_organizations()
 RETURNS TABLE (organization_id uuid, timezone text)
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, public
@@ -28,12 +33,12 @@ AS $$
   ORDER BY o.id
 $$;
 
-REVOKE ALL ON FUNCTION librehr_scheduler_organizations() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.librehr_scheduler_organizations() FROM PUBLIC;
 
 DO $$
 BEGIN
   IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'librehr_app') THEN
-    REVOKE ALL ON FUNCTION librehr_scheduler_organizations() FROM librehr_app;
+    REVOKE ALL ON FUNCTION public.librehr_scheduler_organizations() FROM librehr_app;
   END IF;
   -- When migrations run as another role (e.g. the bootstrap superuser on an
   -- older install), hand the function to the worker's role. A no-op when
@@ -41,6 +46,11 @@ BEGIN
   IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'librehr_owner')
      AND current_user <> 'librehr_owner'
      AND pg_catalog.pg_has_role(current_user, 'librehr_owner', 'MEMBER') THEN
-    ALTER FUNCTION librehr_scheduler_organizations() OWNER TO librehr_owner;
+    ALTER FUNCTION public.librehr_scheduler_organizations() OWNER TO librehr_owner;
+  END IF;
+  -- Explicit, so the worker can call it even if the hand-off above could not
+  -- run (migrations run by a role outside librehr_owner).
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'librehr_owner') THEN
+    GRANT EXECUTE ON FUNCTION public.librehr_scheduler_organizations() TO librehr_owner;
   END IF;
 END $$;

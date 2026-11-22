@@ -39,21 +39,19 @@ const RawEnvSchema = z.object({
   TIME_CHAIN_KEY_FILE: optionalString,
   // Job scheduler (issue #115); see docs/guides/job-scheduler.md.
   SCHEDULER_ENABLED: z
-    .enum(["true", "false"])
+    .enum(["true", "false", ""])
     .default("true")
-    .transform((v) => v === "true"),
+    .transform((v) => v !== "false"),
   // Five-field cron in UTC: minute hour day-of-month month day-of-week.
   SCHEDULER_TICK_CRON: z
     .string()
     .trim()
     .regex(/^[\d*/,-]+(\s+[\d*/,-]+){4}$/, "five-field cron expression")
     .default("*/15 * * * *"),
-  SCHEDULER_GRACE_MINUTES: z.coerce
-    .number()
-    .int()
-    .min(0)
-    .max(SCHEDULER_MAX_GRACE_MINUTES)
-    .default(30),
+  SCHEDULER_GRACE_MINUTES: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.coerce.number().int().min(0).max(SCHEDULER_MAX_GRACE_MINUTES).default(30),
+  ),
   // Comma-separated subset of the scheduled jobs; empty means all of them.
   SCHEDULER_JOBS: optionalString.pipe(
     z

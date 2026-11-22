@@ -6,6 +6,10 @@ import {
 } from "@librehr/core";
 import { SchedulerRepository, withTenant, type Sql } from "@librehr/db";
 import { enqueue, prepareJob, type JobSender } from "./enqueue.js";
+import type { TimeCloseDayPayload } from "../queues/time.close-day.js";
+import type { AuditVerifyChainPayload } from "../queues/audit.verify-chain.js";
+import type { RetentionEnforcePayload } from "../queues/retention.enforce.js";
+import type { LeaveAccruePayload } from "../queues/leave.accrue.js";
 
 export const SCHEDULER_TICK_QUEUE = "scheduler.tick";
 
@@ -43,6 +47,30 @@ export interface ScheduleAdmin {
     options: { tz: string; singletonKey: string; missed: "once" },
   ): Promise<void>;
   unschedule(name: string): Promise<void>;
+  previewSchedule(cron: string, options: { tz: string; count: number }): Date[];
+}
+
+/** Longest allowed gap between ticks: well inside the 2-day catch-up window. */
+export const MAX_TICK_GAP_HOURS = 24;
+
+/**
+ * Rejects a tick cron whose occurrences are more than
+ * {@link MAX_TICK_GAP_HOURS} apart, since periods older than the catch-up
+ * window would be skipped silently.
+ */
+export function assertTickCron(
+  boss: Pick<ScheduleAdmin, "previewSchedule">,
+  cron: string,
+): void {
+  const next = boss.previewSchedule(cron, { tz: "UTC", count: 400 });
+  for (let i = 1; i < next.length; i++) {
+    const gapMs = next[i]!.getTime() - next[i - 1]!.getTime();
+    if (gapMs > MAX_TICK_GAP_HOURS * 3_600_000) {
+      throw new Error(
+        `SCHEDULER_TICK_CRON must run at least every ${MAX_TICK_GAP_HOURS} hours`,
+      );
+    }
+  }
 }
 
 export interface SchedulerLogger {
@@ -54,7 +82,7 @@ export interface DispatchDeps {
   sql: Sql;
   boss: SchedulerBoss;
   logger: SchedulerLogger;
-  config: Pick<SchedulerConfig, "graceMinutes" | "jobs">;
+  config: Pick<SchedulerConfig, "enabled" | "graceMinutes" | "jobs">;
   clock: Clock;
 }
 
@@ -66,12 +94,34 @@ export interface DispatchReport {
   alreadyEnqueued: number;
   /** Organizations skipped because of an error (logged by id). */
   failed: number;
+  /** true when the scheduler is disabled and the tick did nothing. */
+  disabled?: boolean;
 }
 
-function payloadFor(organizationId: string, due: DueJob): object {
-  return due.job === "time.close-day"
-    ? { organizationId, closeDate: due.date }
-    : { organizationId, runDate: due.date };
+type ScheduledPayload =
+  | TimeCloseDayPayload
+  | AuditVerifyChainPayload
+  | RetentionEnforcePayload
+  | LeaveAccruePayload;
+
+/**
+ * The payload of a due job. `retention.enforce` is always sent as a dry run:
+ * switching scheduled purges on is a compliance decision for ADM-005
+ * (COMPLIANCE.md section 5), not something the scheduler turns on by default.
+ */
+export function payloadFor(
+  organizationId: string,
+  due: DueJob,
+): ScheduledPayload {
+  switch (due.job) {
+    case "time.close-day":
+      return { organizationId, closeDate: due.date };
+    case "retention.enforce":
+      return { organizationId, runDate: due.date, dryRun: true };
+    case "audit.verify-chain":
+    case "leave.accrue":
+      return { organizationId, runDate: due.date };
+  }
 }
 
 /**
@@ -92,6 +142,17 @@ export async function dispatchDueJobs(
   deps: DispatchDeps,
   jobId: string,
 ): Promise<DispatchReport> {
+  if (!deps.config.enabled) {
+    // A tick queued before the scheduler was disabled, or sent by hand.
+    deps.logger.info({ msg: "scheduler tick ignored: disabled", jobId });
+    return {
+      organizations: 0,
+      enqueued: 0,
+      alreadyEnqueued: 0,
+      failed: 0,
+      disabled: true,
+    };
+  }
   const repo = new SchedulerRepository();
   const instant = deps.clock.now();
   const organizations = await repo.listOrganizations(deps.sql);
@@ -159,6 +220,7 @@ export async function configureSchedule(
     logger.info({ msg: "job scheduler disabled (SCHEDULER_ENABLED=false)" });
     return;
   }
+  assertTickCron(boss, config.tickCron);
   await boss.schedule(
     SCHEDULER_TICK_QUEUE,
     config.tickCron,

@@ -35,7 +35,11 @@ each organization's time zone.
    0035), which returns only ids and time zones, has a pinned `search_path`,
    and is executable only by its owner, `librehr_owner`, the worker's role.
    No RLS is disabled and no role gets `BYPASSRLS`; all other reads use
-   `withTenant`.
+   `withTenant`. `organizations` itself has no RLS and stays readable by
+   `librehr_app`; the function narrows the worker's read, it does not hide
+   tenant ids from the API.
+5. **`retention.enforce` is scheduled as a dry run.** Enabling scheduled
+   purges is left to ADM-005 and a maintainer decision.
 
 ## Consequences
 
