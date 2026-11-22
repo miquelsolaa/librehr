@@ -12,6 +12,8 @@ import { validateLeaveRequest } from "../src/leave/validate-request.js";
 // LEA-005: balances per leave type, unassigned legacy entries kept apart.
 const VAC = "vac";
 const PD = "pd";
+// The employee has a policy for vacation and personal days, not sick leave.
+const LIMITED: ReadonlySet<string> = new Set([VAC, PD]);
 
 const entry = (
   leaveTypeId: string | null,
@@ -170,10 +172,10 @@ describe("availableForLeaveType", () => {
       entry(PD, "accrual", 2),
       entry(VAC, "usage", -3),
     ];
-    expect(availableForLeaveType(entries, VAC)).toBe(19);
-    expect(availableForLeaveType(entries, PD)).toBe(2);
+    expect(availableForLeaveType(entries, VAC, LIMITED)).toBe(19);
+    expect(availableForLeaveType(entries, PD, LIMITED)).toBe(2);
     // A type with no entries of its own has nothing to draw on.
-    expect(availableForLeaveType(entries, "sick")).toBe(0);
+    expect(availableForLeaveType(entries, "sick", LIMITED)).toBe(0);
   });
 
   it("shares a legacy pool between types without spending it twice", () => {
@@ -183,18 +185,27 @@ describe("availableForLeaveType", () => {
       entry(PD, "usage", -2),
     ];
     // 20 - 5 - 2 = 13 left, whichever type asks.
-    expect(availableForLeaveType(entries, VAC)).toBe(13);
-    expect(availableForLeaveType(entries, PD)).toBe(13);
+    expect(availableForLeaveType(entries, VAC, LIMITED)).toBe(13);
+    expect(availableForLeaveType(entries, PD, LIMITED)).toBe(13);
   });
 
   it("never lends another type's positive balance", () => {
     const entries = [entry(PD, "accrual", 5), entry(null, "adjustment", 1)];
-    expect(availableForLeaveType(entries, VAC)).toBe(1);
+    expect(availableForLeaveType(entries, VAC, LIMITED)).toBe(1);
+  });
+
+  it("leave that is not balance-limited never drains the pool", () => {
+    const entries = [
+      entry(null, "adjustment", 20),
+      entry("sick", "usage", -10),
+      entry(PD, "usage", -2),
+    ];
+    expect(availableForLeaveType(entries, VAC, LIMITED)).toBe(18);
   });
 
   it("ignores a negative legacy pool", () => {
     const entries = [entry(null, "adjustment", -4), entry(VAC, "accrual", 3)];
-    expect(availableForLeaveType(entries, VAC)).toBe(3);
+    expect(availableForLeaveType(entries, VAC, LIMITED)).toBe(3);
   });
 
   it("property: own balance <= available <= own + positive legacy pool", () => {
@@ -208,7 +219,7 @@ describe("availableForLeaveType", () => {
           .filter((e) => e.leaveTypeId === null)
           .reduce((s, e) => s + Math.round(e.amount * 100), 0);
         const available = Math.round(
-          availableForLeaveType(entries, target) * 100,
+          availableForLeaveType(entries, target, LIMITED) * 100,
         );
         expect(available).toBeGreaterThanOrEqual(own);
         expect(available).toBeLessThanOrEqual(own + Math.max(0, legacy));
@@ -242,7 +253,7 @@ describe("availableForLeaveType", () => {
         (entries, target, requested) => {
           const total =
             entries.reduce((s, e) => s + Math.round(e.amount * 100), 0) / 100;
-          const available = availableForLeaveType(entries, target);
+          const available = availableForLeaveType(entries, target, LIMITED);
           expect(available - requested >= 0).toBe(total - requested >= 0);
         },
       ),

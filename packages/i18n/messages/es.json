@@ -97,7 +97,8 @@
     "emptyModuleTitle": "Módulo en construcción",
     "emptyModuleDescription": "Esta funcionalidad se habilitará en los próximos hitos según la hoja de ruta.",
     "unassignedBalance": "Sin asignar",
-    "unknownLeaveType": "Tipo de ausencia"
+    "unknownLeaveType": "Tipo de ausencia",
+    "unassignedHelp": "Movimientos registrados antes de que los saldos se llevaran por tipo de ausencia. Pueden cubrir una solicitud de un tipo con política hasta que RR. HH. los asigne a uno."
   },
   "people": {
     "loadError": "No se ha podido cargar la información del personal.",
@@ -572,8 +573,9 @@
     "noAbsencesMonth": "No hay ausencias programadas para este mes.",
     "noDepartment": "Sin departamento",
     "unassignedBalance": "Sin asignar",
-    "unassignedHelp": "Movimientos registrados antes de que los saldos se llevaran por tipo de ausencia. Pueden cubrir una solicitud de cualquier tipo hasta que RR. HH. los asigne a uno.",
-    "unknownLeaveType": "Tipo de ausencia"
+    "unassignedHelp": "Movimientos registrados antes de que los saldos se llevaran por tipo de ausencia. Pueden cubrir una solicitud de un tipo con política hasta que RR. HH. los asigne a uno.",
+    "unknownLeaveType": "Tipo de ausencia",
+    "daysTaken": "días disfrutados"
   },
   "approvals": {
     "title": "Aprobaciones",

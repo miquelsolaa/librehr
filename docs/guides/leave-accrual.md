@@ -63,17 +63,20 @@ Rule for those **unassigned** entries:
 - They are shown as their own "Unassigned" balance and are never added to a
   leave type's balance.
 - When a request is checked for sufficient balance, a positive unassigned
-  balance acts as a shared legacy pool: it first covers any other type's
-  shortfall, and what is left can back the request
-  (`availableForLeaveType` in `packages/core`). With only legacy entries this
-  is exactly the old single pooled balance, so existing installations keep
-  working.
+  balance acts as a shared legacy pool: it first covers the shortfall of the
+  employee's other balance-limited types, and what is left can back the
+  request (`availableForLeaveType` in `packages/core`). With only legacy
+  entries this is exactly the old pooled balance for those types.
 - To retire the pool, HR books a negative adjustment with
   `leaveTypeId: null` and a matching positive one on the right leave type.
 
-A request is checked for sufficient balance when the employee has (or had) a
-policy of the requested leave type, or while unassigned entries exist. Leave
-types with no policy (for example sick leave) are not balance-limited.
+Only leave types the employee has (or had) a policy for are
+**balance-limited** (`entitled: true` in `GET /v1/leave/balance`). Requests
+for other types, such as sick leave or statutory permits, are never refused
+for lack of balance and never spend the legacy pool; the web app shows their
+days taken instead of a balance. Before 0033 every request was checked
+against one pooled balance, so an installation with no policies assigned no
+longer limits requests at all: assign policies to enforce entitlements.
 
 ## Known limitations
 

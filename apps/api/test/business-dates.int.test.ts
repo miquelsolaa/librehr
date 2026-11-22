@@ -108,7 +108,13 @@ describe("business dates in the organization and location time zone", () => {
       const res = await app.request("/v1/leave/adjust", {
         method: "POST",
         headers: as(a.admin, true),
-        body: JSON.stringify({ employeeId, amount: 1, note: "Year-end fix" }),
+        // LEA-005: the type is stated; unassigned is enough for dating.
+        body: JSON.stringify({
+          employeeId,
+          leaveTypeId: null,
+          amount: 1,
+          note: "Year-end fix",
+        }),
       });
       expect(res.status).toBe(201);
       return ((await res.json()) as { id: string }).id;

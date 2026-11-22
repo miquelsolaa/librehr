@@ -114,6 +114,7 @@ const API_FIXTURES: Record<string, unknown> = {
         leaveTypeName: "Annual leave",
         leaveTypeCode: "vacation",
         leaveTypeColor: "#3b82f6",
+        entitled: true,
         currentBalance: 22,
         totalAccrued: 22,
         totalUsed: 0,

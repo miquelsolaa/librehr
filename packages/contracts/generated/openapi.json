@@ -1523,6 +1523,9 @@
               "null"
             ]
           },
+          "entitled": {
+            "type": "boolean"
+          },
           "currentBalance": {
             "type": "number"
           },
@@ -1544,6 +1547,7 @@
           "leaveTypeName",
           "leaveTypeCode",
           "leaveTypeColor",
+          "entitled",
           "currentBalance",
           "totalAccrued",
           "totalUsed",
@@ -1599,6 +1603,9 @@
                     "null"
                   ]
                 },
+                "entitled": {
+                  "type": "boolean"
+                },
                 "currentBalance": {
                   "type": "number"
                 },
@@ -1620,6 +1627,7 @@
                 "leaveTypeName",
                 "leaveTypeCode",
                 "leaveTypeColor",
+                "entitled",
                 "currentBalance",
                 "totalAccrued",
                 "totalUsed",
@@ -10306,6 +10314,9 @@
                               "null"
                             ]
                           },
+                          "entitled": {
+                            "type": "boolean"
+                          },
                           "currentBalance": {
                             "type": "number"
                           },
@@ -10327,6 +10338,7 @@
                           "leaveTypeName",
                           "leaveTypeCode",
                           "leaveTypeColor",
+                          "entitled",
                           "currentBalance",
                           "totalAccrued",
                           "totalUsed",

@@ -14,7 +14,10 @@
 --    leave_types (organization_id, id); id is already the primary key, so
 --    the index cannot fail on existing data. NO ACTION on delete: a leave
 --    type with ledger history cannot be deleted (the ledger is append-only).
--- 3. Adds an index for per-type balance reads (employee, type, date order).
+-- 3. Adds an index on (organization_id, leave_type_id): the referencing side
+--    of the new foreign key (checked when a leave type is deleted) and
+--    per-type reads across employees. Per-employee balance reads keep using
+--    leave_ledger_employee_idx.
 -- 4. Backfills the type of entries whose origin is recorded:
 --    - usage and reversal entries: source_ref is the leave request id
 --      (LeaveRepository.approveLeaveRequest / cancelLeaveRequest);
@@ -68,8 +71,8 @@ BEGIN
   END IF;
 END $$;
 
-CREATE INDEX IF NOT EXISTS "leave_ledger_employee_type_idx"
-  ON "leave_ledger" ("organization_id", "employee_id", "leave_type_id", "effective_date");
+CREATE INDEX IF NOT EXISTS "leave_ledger_leave_type_idx"
+  ON "leave_ledger" ("organization_id", "leave_type_id");
 
 -- 4. Backfill.
 ALTER TABLE "leave_ledger" NO FORCE ROW LEVEL SECURITY;
@@ -80,25 +83,33 @@ ALTER TABLE "leave_ledger" DISABLE TRIGGER "prevent_mod_leave_ledger";
 
 -- Usage and compensating reversals of a leave request. Compared as text so a
 -- source_ref that is not a uuid can never make a cast fail.
+-- The type must also belong to the entry's tenant: leave_requests and
+-- leave_policies only have a plain FK to leave_types(id), so an old row may
+-- point at another tenant's type. Such entries stay NULL instead of failing
+-- the new foreign key and aborting the upgrade.
 UPDATE "leave_ledger" l
 SET "leave_type_id" = r."leave_type_id"
 FROM "leave_requests" r
+JOIN "leave_types" t ON t."id" = r."leave_type_id"
 WHERE l."leave_type_id" IS NULL
   AND l."entry_type" IN ('usage', 'reversal')
   AND l."source_ref" IS NOT NULL
   AND r."id"::text = l."source_ref"
   AND r."organization_id" = l."organization_id"
-  AND r."employee_id" = l."employee_id";
+  AND r."employee_id" = l."employee_id"
+  AND t."organization_id" = l."organization_id";
 
 -- Accruals of the leave.accrue job: 'accrual:<policyId>:<YYYY-MM>'.
 UPDATE "leave_ledger" l
 SET "leave_type_id" = p."leave_type_id"
 FROM "leave_policies" p
+JOIN "leave_types" t ON t."id" = p."leave_type_id"
 WHERE l."leave_type_id" IS NULL
   AND l."entry_type" = 'accrual'
   AND l."source_ref" LIKE 'accrual:%:%'
   AND p."id"::text = split_part(l."source_ref", ':', 2)
-  AND p."organization_id" = l."organization_id";
+  AND p."organization_id" = l."organization_id"
+  AND t."organization_id" = l."organization_id";
 
 ALTER TABLE "leave_ledger" ENABLE TRIGGER "prevent_mod_leave_ledger";
 ALTER TABLE "leave_types" FORCE ROW LEVEL SECURITY;

@@ -70,13 +70,19 @@ export type LeaveLedgerEntry = z.infer<typeof LeaveLedgerEntrySchema>;
  * LEA-005: the balance of one leave type. `leaveTypeId` null is the
  * unassigned bucket: legacy entries with no recorded leave type. They are
  * never added to a type's balance; a positive unassigned balance can still
- * back requests of any type until HR re-books it.
+ * back requests of any entitled type until HR re-books it.
  */
 export const LeaveTypeBalanceSchema = z.object({
   leaveTypeId: z.guid().nullable(),
   leaveTypeName: z.string().nullable(),
   leaveTypeCode: z.string().nullable(),
   leaveTypeColor: z.string().nullable(),
+  /**
+   * True when the employee has a policy for this leave type: an entitlement
+   * whose balance limits requests. Other types (sick leave, statutory
+   * permits) only record the days taken, so their balance is not meaningful.
+   */
+  entitled: z.boolean(),
   currentBalance: z.number(),
   totalAccrued: z.number(),
   totalUsed: z.number(),

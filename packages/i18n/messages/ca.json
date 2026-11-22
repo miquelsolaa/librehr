@@ -97,7 +97,8 @@
     "emptyModuleTitle": "Mòdul en construcció",
     "emptyModuleDescription": "Aquesta funcionalitat s'habilitarà en les properes fites segons el full de ruta.",
     "unassignedBalance": "Sense assignar",
-    "unknownLeaveType": "Tipus d'absència"
+    "unknownLeaveType": "Tipus d'absència",
+    "unassignedHelp": "Moviments registrats abans que els saldos es portessin per tipus d'absència. Poden cobrir una sol·licitud d'un tipus amb política fins que RH els assigni a un."
   },
   "people": {
     "loadError": "No s’ha pogut carregar la informació del personal.",
@@ -572,8 +573,9 @@
     "noAbsencesMonth": "No hi ha absències programades per a aquest mes.",
     "noDepartment": "Sense departament",
     "unassignedBalance": "Sense assignar",
-    "unassignedHelp": "Moviments registrats abans que els saldos es portessin per tipus d'absència. Poden cobrir una sol·licitud de qualsevol tipus fins que RH els assigni a un.",
-    "unknownLeaveType": "Tipus d'absència"
+    "unassignedHelp": "Moviments registrats abans que els saldos es portessin per tipus d'absència. Poden cobrir una sol·licitud d'un tipus amb política fins que RH els assigni a un.",
+    "unknownLeaveType": "Tipus d'absència",
+    "daysTaken": "dies gaudits"
   },
   "approvals": {
     "title": "Aprovacions",

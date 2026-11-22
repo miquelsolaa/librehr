@@ -92,10 +92,12 @@ describe("leave balances per leave type (LEA-005)", () => {
     b = await seedScopedOrg(db.sql, "balance-type-b");
     type["vacation"] = await seedType(a.orgId, "vacation");
     type["personal"] = await seedType(a.orgId, "personal_days");
+    type["sick"] = await seedType(a.orgId, "sick_leave");
     type["foreign"] = await seedType(b.orgId, "vacation");
     await assignPolicy(a.orgId, type["vacation"], a.report.employeeId);
     await assignPolicy(a.orgId, type["vacation"], a.peer.employeeId);
     await assignPolicy(a.orgId, type["personal"], a.peer.employeeId);
+    await assignPolicy(a.orgId, type["vacation"], a.manager.employeeId);
 
     app = createApp({
       sql: await db.appSql(),
@@ -184,9 +186,10 @@ describe("leave balances per leave type (LEA-005)", () => {
       [type["personal"]!]: 2,
     });
     const linked = s.entries.filter((e) => e.sourceRef === id);
-    expect(linked.map((e) => [e.entryType, e.leaveTypeId])).toEqual([
-      ["usage", type["vacation"]],
+    // The reversal is dated today, before the usage: compare by entry type.
+    expect(linked.map((e) => [e.entryType, e.leaveTypeId]).sort()).toEqual([
       ["reversal", type["vacation"]],
+      ["usage", type["vacation"]],
     ]);
   });
 
@@ -240,6 +243,61 @@ describe("leave balances per leave type (LEA-005)", () => {
       "2027-03-10",
     );
     expect(vacation.status, await vacation.clone().text()).toBe(201);
+  });
+
+  it("lets a legacy pool back an entitled type, never limits other types", async () => {
+    // a.manager: a vacation policy, 2 legacy unassigned days booked through
+    // the API, no sick-leave policy.
+    const legacy = await adjust(a.admin, {
+      employeeId: a.manager.employeeId,
+      leaveTypeId: null,
+      amount: 2,
+    });
+    expect(legacy.status).toBe(201);
+    expect(
+      ((await legacy.json()) as { leaveTypeId: unknown }).leaveTypeId,
+    ).toBe(null);
+
+    // Vacation has no days of its own: the legacy pool backs it.
+    const vacation = await requestLeave(
+      a.manager,
+      type["vacation"]!,
+      "2027-05-12",
+    );
+    expect(vacation.status, await vacation.clone().text()).toBe(201);
+
+    // Sick leave has no policy: never balance-limited, now or after the pool
+    // is re-booked onto vacation (unassigned nets to 0 but has rows).
+    const sick = await requestLeave(a.manager, type["sick"]!, "2027-05-13");
+    expect(sick.status, await sick.clone().text()).toBe(201);
+    for (const [leaveTypeId, amount] of [
+      [null, -2],
+      [type["vacation"], 2],
+    ] as const) {
+      expect(
+        (
+          await adjust(a.admin, {
+            employeeId: a.manager.employeeId,
+            leaveTypeId,
+            amount,
+          })
+        ).status,
+      ).toBe(201);
+    }
+    const sickAgain = await requestLeave(
+      a.manager,
+      type["sick"]!,
+      "2027-05-14",
+    );
+    expect(sickAgain.status, await sickAgain.clone().text()).toBe(201);
+
+    const s = await balance(a.manager);
+    expect(
+      s.byType.map((t) => [t.leaveTypeId, t.entitled, t.currentBalance]),
+    ).toEqual([
+      [type["vacation"], true, 2],
+      [null, false, 0],
+    ]);
   });
 
   describe("POST /v1/leave/adjust", () => {

@@ -132,27 +132,24 @@ export class LeaveRepository {
   }
 
   /**
-   * Whether the employee has ever been assigned a policy of this leave type
-   * (LEA-002/LEA-004): only then is the type's balance enforced on requests.
+   * Leave types the employee has ever been assigned a policy for
+   * (LEA-002/LEA-004). Only these are entitlements whose balance limits a
+   * request; any other type (sick leave, statutory permits) never is.
    */
-  async hasPolicyForLeaveType(
+  async listPolicyLeaveTypeIds(
     tx: TenantTx,
     employeeId: string,
-    leaveTypeId: string,
-  ): Promise<boolean> {
+  ): Promise<Set<string>> {
     const orgId = tx.__tenantContext.organizationId;
-    const rows = await tx<{ found: boolean }[]>`
-      SELECT EXISTS (
-        SELECT 1
-        FROM leave_policy_assignments a
-        JOIN leave_policies p ON p.id = a.leave_policy_id
-        WHERE a.organization_id = ${orgId}
-          AND p.organization_id = ${orgId}
-          AND a.employee_id = ${employeeId}
-          AND p.leave_type_id = ${leaveTypeId}
-      ) AS found
+    const rows = await tx<{ leaveTypeId: string }[]>`
+      SELECT DISTINCT p.leave_type_id AS "leaveTypeId"
+      FROM leave_policy_assignments a
+      JOIN leave_policies p ON p.id = a.leave_policy_id
+      WHERE a.organization_id = ${orgId}
+        AND p.organization_id = ${orgId}
+        AND a.employee_id = ${employeeId}
     `;
-    return rows[0]?.found ?? false;
+    return new Set(rows.map((r) => r.leaveTypeId));
   }
 
   async createLeaveType(

@@ -38,7 +38,15 @@ export default function HomePage() {
     setBalance(null);
     try {
       const result = await getApiClient().getLeaveBalance();
-      if (request === requestRef.current) setBalance(result.byType);
+      // Remaining days only mean something for entitlements (a policy) and
+      // for legacy unassigned days still to be re-booked.
+      if (request === requestRef.current)
+        setBalance(
+          result.byType.filter(
+            (b) =>
+              b.entitled || (b.leaveTypeId === null && b.currentBalance !== 0),
+          ),
+        );
     } catch {
       if (request === requestRef.current) setBalanceError(true);
     }
@@ -190,6 +198,11 @@ export default function HomePage() {
                         {t("daysRemaining")}
                       </span>
                     </dd>
+                    {b.leaveTypeId === null && (
+                      <dd className="text-sm text-muted-foreground">
+                        {t("unassignedHelp")}
+                      </dd>
+                    )}
                   </div>
                 ))}
               </dl>

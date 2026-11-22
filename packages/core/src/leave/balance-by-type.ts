@@ -8,7 +8,8 @@
  * balance 12.5?" is answered by the vacation entries alone. For request
  * validation only, a positive unassigned balance acts as a shared legacy
  * pool (see `availableForLeaveType`), so installations that recorded
- * balances before 0033 keep working until HR re-books them per type.
+ * balances before 0033 keep working until HR re-books them per type. Only
+ * leave types the employee has a policy for are balance-limited.
  *
  * Sums are kept in integer cents of a day, matching `leave_ledger.amount`
  * (numeric(5,2)), so no floating point drift reaches a balance.
@@ -127,31 +128,38 @@ export function runningBalancesByLeaveType(
 
 /**
  * Days a new request of `leaveTypeId` may draw on: the type's own balance
- * plus whatever positive unassigned (legacy) balance is left once every
- * other type's shortfall has been covered by it. The pool is shared, so the
- * same legacy day can never back requests of two types; and when no type
- * has a positive balance of its own (a ledger written before 0033), this
- * reproduces the old single pooled balance.
+ * plus whatever positive unassigned (legacy) balance is left once the
+ * shortfall of every other balance-limited type has been covered by it.
+ *
+ * Only types in `limitedTypeIds` (the employee has a policy for them) draw
+ * on the pool: leave that is never balance-limited, such as sick leave,
+ * neither spends it nor is checked against it. The pool is shared, so the
+ * same legacy day can never back requests of two limited types; and when no
+ * limited type has a positive balance of its own (a ledger written before
+ * 0033), this reproduces the old pooled balance for those types.
  *
  * @example
- * // 20 legacy days, 5 already used as personal days, vacation never accrued:
+ * // 20 legacy days, 5 used as personal days, 3 sick days, no vacation yet:
  * availableForLeaveType(
  *   [
  *     { leaveTypeId: null, entryType: "adjustment", amount: 20 },
  *     { leaveTypeId: "pd", entryType: "usage", amount: -5 },
+ *     { leaveTypeId: "sick", entryType: "usage", amount: -3 },
  *   ],
  *   "vac",
+ *   new Set(["vac", "pd"]),
  * ); // => 15
  */
 export function availableForLeaveType(
   entries: readonly TypedLedgerAmount[],
   leaveTypeId: string,
+  limitedTypeIds: ReadonlySet<string>,
 ): number {
   const totals = totalsByType(entries);
   const own = totals.get(leaveTypeId)?.balance ?? 0;
   let pool = totals.get(null)?.balance ?? 0;
   for (const [typeId, t] of totals) {
-    if (typeId !== null && typeId !== leaveTypeId)
+    if (typeId !== null && typeId !== leaveTypeId && limitedTypeIds.has(typeId))
       pool += Math.min(0, t.balance);
   }
   return days(own + Math.max(0, pool));

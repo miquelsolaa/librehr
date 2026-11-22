@@ -140,6 +140,16 @@ describe("leave_ledger.leave_type_id (0033)", () => {
       `accrual:${b.policyId}:2026-02`,
     );
     const garbage = await legacyEntry(a, "usage", -1, "not-a-uuid");
+    // Older releases let a request point at another tenant's leave type (the
+    // FK on leave_requests is not tenant-aware). Its usage stays unassigned
+    // instead of breaking the new foreign key and aborting the upgrade.
+    const [mixed] = await db.adminSql<{ id: string }[]>`
+      INSERT INTO leave_requests (organization_id, employee_id, leave_type_id,
+        start_date, end_date, working_days)
+      VALUES (${a.orgId}, ${a.employeeId}, ${b.vacation},
+        '2026-03-02', '2026-03-02', 1)
+      RETURNING id`;
+    const mixedUsage = await legacyEntry(a, "usage", -1, mixed!.id);
 
     // The runner wraps each migration in a transaction; do the same.
     await owner.begin((tx) => tx.unsafe(MIGRATION_0033));
@@ -147,7 +157,14 @@ describe("leave_ledger.leave_type_id (0033)", () => {
     expect(await typeOf(usage)).toBe(a.vacation);
     expect(await typeOf(reversal)).toBe(a.vacation);
     expect(await typeOf(accrual)).toBe(a.personal);
-    for (const id of [manual, seeded, foreignUsage, foreignAccrual, garbage]) {
+    for (const id of [
+      manual,
+      seeded,
+      foreignUsage,
+      foreignAccrual,
+      garbage,
+      mixedUsage,
+    ]) {
       expect(await typeOf(id)).toBeNull();
     }
 

@@ -37,6 +37,28 @@ All LibreHR database migrations are designed to be forward-only and safe to run 
    curl -f http://localhost:3001/readyz
    ```
 
+## Leave balances per leave type (migration 0033)
+
+Migration 0033 adds `leave_ledger.leave_type_id` and backfills it for usage,
+reversal and accrual entries whose origin is recorded (LEA-005). It holds an
+exclusive lock on `leave_ledger`, `leave_requests`, `leave_policies` and
+`leave_types` for one pass over the ledger, so leave screens wait until it
+commits; on very large ledgers, upgrade in a quiet window. No downtime is
+otherwise needed.
+
+After the upgrade:
+
+- Entries the backfill cannot attribute (manual adjustments, hand-seeded
+  rows) show as an **Unassigned** balance. Re-book them with two adjustments:
+  `leaveTypeId: null` with the negative amount and the right leave type with
+  the positive one. See `docs/guides/leave-accrual.md`.
+- Only leave types an employee has a policy for limit their requests. Assign
+  policies if you relied on the old single pooled balance check.
+- **API change:** `POST /v1/leave/adjust` requires `leaveTypeId` (a leave
+  type id, or `null` for the unassigned bucket). Clients that omit it get
+  `400 VALIDATION_ERROR`. `GET /v1/leave/balance` adds `byType`; its
+  top-level totals remain the sum over all types.
+
 ## Hashed session and invitation tokens (migration 0026)
 
 Session tokens and invitation-link tokens are now stored as SHA-256 digests

@@ -52,11 +52,9 @@ export const leaveLedger = pgTable(
       columns: [table.organizationId, table.leaveTypeId],
       foreignColumns: [leaveTypes.organizationId, leaveTypes.id],
     }),
-    index("leave_ledger_employee_type_idx").on(
+    index("leave_ledger_leave_type_idx").on(
       table.organizationId,
-      table.employeeId,
       table.leaveTypeId,
-      table.effectiveDate,
     ),
   ],
 );

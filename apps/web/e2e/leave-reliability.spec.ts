@@ -285,6 +285,7 @@ test("balances are shown per leave type, legacy entries as unassigned (LEA-005)"
             leaveTypeName: "Annual leave",
             leaveTypeCode: "vacation",
             leaveTypeColor: "#3b82f6",
+            entitled: true,
             currentBalance: 19,
             totalAccrued: 22,
             totalUsed: 3,
@@ -295,9 +296,21 @@ test("balances are shown per leave type, legacy entries as unassigned (LEA-005)"
             leaveTypeName: "Personal days",
             leaveTypeCode: "personal_days",
             leaveTypeColor: "#10b981",
+            entitled: true,
             currentBalance: 2,
             totalAccrued: 2,
             totalUsed: 0,
+          },
+          {
+            ...totals,
+            leaveTypeId: "00000000-0000-4000-8000-000000000033",
+            leaveTypeName: "Sick leave",
+            leaveTypeCode: "sick_leave",
+            leaveTypeColor: "#f59e0b",
+            entitled: false,
+            currentBalance: -3,
+            totalAccrued: 0,
+            totalUsed: 3,
           },
           {
             ...totals,
@@ -305,6 +318,7 @@ test("balances are shown per leave type, legacy entries as unassigned (LEA-005)"
             leaveTypeName: null,
             leaveTypeCode: null,
             leaveTypeColor: null,
+            entitled: false,
             currentBalance: 2,
             totalAccrued: 0,
             totalUsed: 0,
@@ -360,6 +374,8 @@ test("balances are shown per leave type, legacy entries as unassigned (LEA-005)"
       .locator("xpath=..");
   await expect(card("Annual leave")).toContainText("19 days");
   await expect(card("Personal days")).toContainText("2 days");
+  // Not an entitlement: days taken, never a negative balance.
+  await expect(card("Sick leave")).toContainText("3 days taken");
   await expect(card("Unassigned")).toContainText(
     "before balances were kept per leave type",
   );

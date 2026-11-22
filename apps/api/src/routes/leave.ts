@@ -167,6 +167,10 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
         const types = new Map(
           (await leaveRepo.getLeaveTypes(tx)).map((t) => [t.id, t]),
         );
+        const entitled = await leaveRepo.listPolicyLeaveTypeIds(
+          tx,
+          targetEmployeeId,
+        );
 
         return {
           currentBalance: balance.currentBalance,
@@ -181,6 +185,9 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
               leaveTypeName: type?.name ?? null,
               leaveTypeCode: type?.code ?? null,
               leaveTypeColor: type?.color ?? null,
+              // An entitlement (the employee has a policy for the type);
+              // other types only record days taken.
+              entitled: b.leaveTypeId !== null && entitled.has(b.leaveTypeId),
             };
           }),
           entries: entries.map((e, index) => ({
@@ -434,18 +441,15 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
 
         // Validate request against existing requests and ledger
         const ledgerRows = await leaveRepo.getLedgerEntries(tx, employeeId);
-        // LEA-005: the request draws on its own leave type's balance, plus
-        // any legacy unassigned balance not spent by other types. The check
-        // applies to types the employee has a policy for, and to every type
-        // while legacy unassigned entries exist (the pre-0033 behaviour,
-        // when one pooled balance was checked for every request).
-        const enforceBalance =
-          ledgerRows.some((r) => r.leaveTypeId === null) ||
-          (await leaveRepo.hasPolicyForLeaveType(
-            tx,
-            employeeId,
-            reqData.leaveTypeId,
-          ));
+        // LEA-005 / LEA-004: only leave types the employee has a policy for
+        // are balance-limited. Such a request draws on its own type's
+        // balance plus any legacy unassigned balance not spent by other
+        // limited types. Sick leave and statutory permits never are.
+        const limitedTypeIds = await leaveRepo.listPolicyLeaveTypeIds(
+          tx,
+          employeeId,
+        );
+        const enforceBalance = limitedTypeIds.has(reqData.leaveTypeId);
         const existingReqs = await leaveRepo.getLeaveRequests(tx, {
           employeeId,
         });
@@ -483,6 +487,7 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
           availableBalance: availableForLeaveType(
             ledgerRows,
             reqData.leaveTypeId,
+            limitedTypeIds,
           ),
           allowNegativeBalance: !enforceBalance,
         });
@@ -574,6 +579,19 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
             code: "COVERAGE_NOT_CONFIGURED",
           }),
           409,
+          { "Content-Type": "application/problem+json" },
+        );
+      }
+      if (result.error === "LEAVE_TYPE_NOT_FOUND") {
+        // Same answer as POST /leave/adjust for an unknown leave type.
+        return c.json(
+          createProblemDetails({
+            status: 404,
+            title: "Not Found",
+            detail: "Leave type not found",
+            code: "LEAVE_TYPE_NOT_FOUND",
+          }),
+          404,
           { "Content-Type": "application/problem+json" },
         );
       }

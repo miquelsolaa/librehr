@@ -202,54 +202,66 @@ export default function TimeOffPage() {
                 ? data.balance.byType
                 : [
                     // No entries yet: one empty balance, not a blank card.
-                    { ...data.balance, leaveTypeId: undefined },
+                    {
+                      ...data.balance,
+                      leaveTypeId: undefined,
+                      entitled: true,
+                    },
                   ]
-              ).map((b, index) => (
-                <div
-                  key={b.leaveTypeId ?? "unassigned"}
-                  className={`grid sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] ${index > 0 ? "border-t border-border" : ""}`}
-                >
-                  <div className="bg-accent p-6 sm:p-7">
-                    <h3 className="text-base font-semibold text-foreground">
-                      {b.leaveTypeId === undefined
-                        ? t("currentBalance")
-                        : typeLabel(b.leaveTypeId)}
-                    </h3>
-                    <p className="mt-2 flex items-baseline gap-2">
-                      <span className="font-display text-4xl font-semibold tracking-tight tabular-nums text-foreground">
-                        {formatNumber(b.currentBalance, locale)}
-                      </span>{" "}
-                      <span className="text-sm text-muted-foreground">
-                        {t("days")}
-                      </span>
-                    </p>
-                    {b.leaveTypeId === null && (
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        {t("unassignedHelp")}
+              ).map((b, index) => {
+                // A type without a policy (sick leave, statutory permits) is
+                // not an entitlement: show the days taken, not a balance.
+                const taken = b.leaveTypeId !== null && !b.entitled;
+                return (
+                  <div
+                    key={b.leaveTypeId ?? "unassigned"}
+                    className={`grid sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] ${index > 0 ? "border-t border-border" : ""}`}
+                  >
+                    <div className="bg-accent p-6 sm:p-7">
+                      <h3 className="text-base font-semibold text-foreground">
+                        {b.leaveTypeId === undefined
+                          ? t("currentBalance")
+                          : typeLabel(b.leaveTypeId)}
+                      </h3>
+                      <p className="mt-2 flex items-baseline gap-2">
+                        <span className="font-display text-4xl font-semibold tracking-tight tabular-nums text-foreground">
+                          {formatNumber(
+                            taken ? b.totalUsed : b.currentBalance,
+                            locale,
+                          )}
+                        </span>{" "}
+                        <span className="text-sm text-muted-foreground">
+                          {taken ? t("daysTaken") : t("days")}
+                        </span>
                       </p>
-                    )}
+                      {b.leaveTypeId === null && (
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          {t("unassignedHelp")}
+                        </p>
+                      )}
+                    </div>
+                    <dl className="grid grid-cols-2 gap-x-3 gap-y-5 p-5 sm:grid-cols-4 sm:p-7">
+                      {(
+                        [
+                          ["totalAccrued", b.totalAccrued],
+                          ["totalUsed", b.totalUsed],
+                          ["totalCarryover", b.totalCarryover],
+                          ["totalAdjustments", b.totalAdjustments],
+                        ] as const
+                      ).map(([key, value]) => (
+                        <div key={key} className="min-w-0">
+                          <dt className="text-xs leading-5 text-muted-foreground">
+                            {t(key)}
+                          </dt>
+                          <dd className="mt-2 text-xl font-semibold tabular-nums text-foreground">
+                            {formatNumber(value, locale)}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
                   </div>
-                  <dl className="grid grid-cols-2 gap-x-3 gap-y-5 p-5 sm:grid-cols-4 sm:p-7">
-                    {(
-                      [
-                        ["totalAccrued", b.totalAccrued],
-                        ["totalUsed", b.totalUsed],
-                        ["totalCarryover", b.totalCarryover],
-                        ["totalAdjustments", b.totalAdjustments],
-                      ] as const
-                    ).map(([key, value]) => (
-                      <div key={key} className="min-w-0">
-                        <dt className="text-xs leading-5 text-muted-foreground">
-                          {t(key)}
-                        </dt>
-                        <dd className="mt-2 text-xl font-semibold tabular-nums text-foreground">
-                          {formatNumber(value, locale)}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
-                </div>
-              ))}
+                );
+              })}
             </section>
 
             <section
