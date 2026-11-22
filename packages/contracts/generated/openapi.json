@@ -1546,7 +1546,7 @@
               "null"
             ],
             "exclusiveMinimum": 0,
-            "maximum": 168,
+            "maximum": 40,
             "default": null
           }
         },
@@ -1566,7 +1566,7 @@
               "null"
             ],
             "exclusiveMinimum": 0,
-            "maximum": 168
+            "maximum": 40
           }
         },
         "required": [
@@ -11330,7 +11330,7 @@
                       "null"
                     ],
                     "exclusiveMinimum": 0,
-                    "maximum": 168,
+                    "maximum": 40,
                     "default": null
                   }
                 },
@@ -11434,7 +11434,7 @@
                       "null"
                     ],
                     "exclusiveMinimum": 0,
-                    "maximum": 168
+                    "maximum": 40
                   }
                 },
                 "required": [

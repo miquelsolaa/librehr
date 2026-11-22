@@ -9,6 +9,9 @@
 -- agreement defines; accrual then multiplies by
 -- employments.working_hours_per_week / full_time_hours_per_week, capped at 1.
 --
+-- Capped at 40 h, the maximum ordinary full-time week (ET art. 34.1): a
+-- contract on the default 40 h never has its accrual reduced.
+--
 -- Additive only: one nullable column with a range check. Existing policies
 -- get NULL, which keeps today's behaviour (ratio 1.0), so it is safe on a
 -- populated database and needs no backfill. ADD COLUMN without a default
@@ -30,7 +33,7 @@ BEGIN
     ALTER TABLE "leave_policies"
       ADD CONSTRAINT "leave_policies_full_time_hours_range"
       CHECK ("full_time_hours_per_week" IS NULL
-             OR ("full_time_hours_per_week" > 0 AND "full_time_hours_per_week" <= 168));
+             OR ("full_time_hours_per_week" > 0 AND "full_time_hours_per_week" <= 40));
   END IF;
 END $$;
 

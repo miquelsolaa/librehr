@@ -50,11 +50,15 @@ export const LeavePolicySchema = z.object({
 });
 export type LeavePolicy = z.infer<typeof LeavePolicySchema>;
 
-/** Hours of a full-time week: positive, at most a week, cents of an hour. */
+/**
+ * Hours of a full-time week: positive, cents of an hour, at most 40 (the
+ * maximum ordinary full-time week, ET art. 34.1), so a contract on the
+ * default 40 h is never prorated down.
+ */
 const FullTimeHoursSchema = z
   .number()
   .positive("Must be greater than 0")
-  .max(168, "Must be at most 168 hours")
+  .max(40, "Must be at most 40 hours (ET art. 34.1)")
   .multipleOf(0.01)
   .nullable();
 

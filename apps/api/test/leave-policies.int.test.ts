@@ -185,7 +185,7 @@ describe("/v1/leave/policies", () => {
     });
   });
 
-  it.each([0, -1, 168.5, 37.555, "40"])(
+  it.each([0, -1, 40.01, 168, 37.555, "40"])(
     "rejects a full-time week of %s",
     async (hours) => {
       const res = await patch(a.admin, policyA, {

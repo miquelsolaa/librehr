@@ -40,7 +40,7 @@ export function LeavePolicyProrationForm({
       !(
         Number.isFinite(hours) &&
         hours > 0 &&
-        hours <= 168 &&
+        hours <= 40 &&
         // At most two decimals (numeric(5,2)), tolerant of float noise.
         Math.abs(Math.round(hours * 100) - hours * 100) < 1e-6
       )
@@ -88,7 +88,7 @@ export function LeavePolicyProrationForm({
           type="number"
           inputMode="decimal"
           min="0.01"
-          max="168"
+          max="40"
           step="0.01"
           value={value}
           onChange={(event) => {

@@ -104,7 +104,7 @@ test("invalid hours are refused before saving, and a failed save is reported", a
   await field.fill("200");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.locator("main").getByRole("alert")).toContainText(
-    "between 0.01 and 168",
+    "between 0.01 and 40",
   );
   expect(patches).toBe(0);
 

@@ -37,7 +37,7 @@ part-time staff are entitled to the same vacation days as full-time staff
 A policy can opt in to proration by setting `full_time_hours_per_week`
 (migration 0034; Settings > Leave policies, or
 `PATCH /v1/leave/policies/{id}`), the full-time week of the collective
-agreement. Accrual then weights each active day by
+agreement (at most 40 hours). Accrual then weights each active day by
 
     min(1, employments.working_hours_per_week / full_time_hours_per_week)
 
@@ -51,10 +51,12 @@ value; with no full-time week every amount is exactly what it was before.
 - The target is cumulative from 1 January, so setting or changing the
   full-time week mid-year recalculates the whole year, months already
   accrued included (a lower target is not trued up, see below).
+- The full-time week is capped at 40 hours, the maximum ordinary
+  full-time week (ET art. 34.1), in the API and in the database check. A
+  contract on the default 40 hours therefore never has its accrual reduced.
 - Contract hours come from `employments.working_hours_per_week`, which
   defaults to 40 and is not yet editable in the app (only through data
-  imports or the database). Until it is, a full-time week above 40
-  prorates every employee still on the default.
+  imports or the database; issue #131).
 - A legacy employee without employment rows has no recorded hours and
   accrues at 1.
 - If a prorated policy meets an employment row whose hours are not a

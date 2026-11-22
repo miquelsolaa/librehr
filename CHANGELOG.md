@@ -8,7 +8,7 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 ### Leave balances per leave type
 
 - **Per-type balances (`LEA-005`, #117):** `leave_ledger` records the leave type of every entry (migration 0033, with a backfill of usage, reversal and accrual entries). `GET /v1/leave/balance` returns `byType`, and the time-off and home pages show one balance per leave type. Untyped legacy entries form an "Unassigned" balance. Only leave types with a policy limit requests.
-- **Part-time accrual, opt-in (`LEA-002`, #118):** a leave policy can set the full-time week of its collective agreement (`full_time_hours_per_week`, migration 0034); accrual is then prorated by contract hours (capped at 1). Unset, the default, keeps FTE 1.0, as statutory vacation requires (ET art. 12.4.d). New `GET/POST /v1/leave/policies`, `PATCH /v1/leave/policies/{id}` and Settings > Leave policies (ca/es/en).
+- **Part-time accrual, opt-in (`LEA-002`, #118):** a leave policy can set the full-time week of its collective agreement (`full_time_hours_per_week`, at most 40 h per ET art. 34.1, migration 0034); accrual is then prorated by contract hours (capped at 1). Unset, the default, keeps FTE 1.0, as statutory vacation requires (ET art. 12.4.d). New `GET/POST /v1/leave/policies`, `PATCH /v1/leave/policies/{id}` and Settings > Leave policies (ca/es/en).
 - **Breaking API change:** `POST /v1/leave/adjust` requires `leaveTypeId` (or `null` for the unassigned balance). See `docs/guides/upgrading.md`.
 
 ### Open core: Community and Business editions
