@@ -105,4 +105,54 @@ describe("worker env", () => {
       loadWorkerEnv({ NODE_ENV: "test" }).TIME_CHAIN_KEY.length,
     ).toBeGreaterThanOrEqual(32);
   });
+
+  describe("scheduler (issue #115)", () => {
+    it("is enabled by default with a 15-minute UTC tick, 30 minutes of grace and every job", () => {
+      expect(loadWorkerEnv({ NODE_ENV: "test" }).SCHEDULER).toEqual({
+        enabled: true,
+        tickCron: "*/15 * * * *",
+        graceMinutes: 30,
+        jobs: [
+          "time.close-day",
+          "audit.verify-chain",
+          "retention.enforce",
+          "leave.accrue",
+        ],
+      });
+    });
+
+    it("reads the flag, cron, grace and job list", () => {
+      const env = loadWorkerEnv({
+        NODE_ENV: "test",
+        SCHEDULER_ENABLED: "false",
+        SCHEDULER_TICK_CRON: " 5,35 * * * * ",
+        SCHEDULER_GRACE_MINUTES: "90",
+        SCHEDULER_JOBS: "leave.accrue, time.close-day,leave.accrue",
+      });
+      expect(env.SCHEDULER).toEqual({
+        enabled: false,
+        tickCron: "5,35 * * * *",
+        graceMinutes: 90,
+        jobs: ["leave.accrue", "time.close-day"],
+      });
+    });
+
+    it("treats an empty job list as every job", () => {
+      expect(
+        loadWorkerEnv({ NODE_ENV: "test", SCHEDULER_JOBS: "" }).SCHEDULER.jobs,
+      ).toHaveLength(4);
+    });
+
+    it.each([
+      ["SCHEDULER_ENABLED", "yes"],
+      ["SCHEDULER_TICK_CRON", "every 15 minutes"],
+      ["SCHEDULER_TICK_CRON", "*/15 * * *"],
+      ["SCHEDULER_GRACE_MINUTES", "-1"],
+      ["SCHEDULER_GRACE_MINUTES", "721"],
+      ["SCHEDULER_JOBS", "leave.accrue,email.send"],
+      ["SCHEDULER_JOBS", " , "],
+    ])("rejects %s=%s", (key, value) => {
+      expect(() => loadWorkerEnv({ NODE_ENV: "test", [key]: value })).toThrow();
+    });
+  });
 });

@@ -6,11 +6,14 @@ import { handleLeaveAccrue } from "./queues/leave.accrue.js";
 import { handleTimeCloseDay } from "./queues/time.close-day.js";
 import { handleRetentionEnforce } from "./queues/retention.enforce.js";
 import { handleAuditVerifyChain } from "./queues/audit.verify-chain.js";
+import { handleSchedulerTick } from "./queues/scheduler.tick.js";
 import { createSmtpMailer } from "./lib/smtp-mailer.js";
 import { processBatch, type BatchJob } from "./lib/process-batch.js";
 import { createDatabaseClient } from "@librehr/db";
+import { SystemClock } from "@librehr/core";
 import type { QueueName } from "./lib/enqueue.js";
 import { ensureQueues } from "./lib/queue-setup.js";
+import { configureSchedule, dispatchDueJobs } from "./lib/scheduler.js";
 
 const env = loadWorkerEnv();
 
@@ -77,6 +80,19 @@ async function startWorker() {
   await register("time.close-day", (job) =>
     handleTimeCloseDay(job, { sql, logger }),
   );
+  const clock = new SystemClock();
+  await register("scheduler.tick", (job) =>
+    handleSchedulerTick(job, (jobId) =>
+      dispatchDueJobs(
+        { sql, boss, logger, config: env.SCHEDULER, clock },
+        jobId,
+      ),
+    ),
+  );
+
+  // The schedule is stored in pg-boss, so every worker instance installs the
+  // same one and pg-boss sends a single tick per occurrence.
+  await configureSchedule(boss, env.SCHEDULER, logger);
 
   const shutdown = async (signal: string) => {
     logger.info({ msg: `Received ${signal}, gracefully stopping worker...` });
