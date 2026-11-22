@@ -44,6 +44,10 @@ export interface TimeCloseDayDeps {
 export interface TimeCloseDayReport {
   organizationId: string;
   closeDate: string;
+  /**
+   * Employees with a user and an event on the day, plus the previous day's
+   * overnight-shift workers (checked even without an event that day).
+   */
   employeesChecked: number;
   /** Employees left clocked in or on a break at the end of the day. */
   open: number;

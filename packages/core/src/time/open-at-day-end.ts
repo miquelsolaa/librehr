@@ -49,7 +49,14 @@ export function openAtDayEnd(
 /**
  * The session left open at the end of local day `date`, whether or not any
  * event falls on that day, and how many effective events do. Shared by
- * `openAtDayEnd` and `overnightStillOpenAtDayEnd`.
+ * `openAtDayEnd` and `overnightStillOpenAtDayEnd`. Pure.
+ *
+ * @example
+ * foldToDayEnd(
+ *   [{ id: "a", eventType: "clock_in", occurredAt: "2026-11-02T21:00:00Z", ... }],
+ *   "2026-11-03",
+ *   "Europe/Madrid",
+ * ); // => { open: { state: "clocked_in", clockIn: "2026-11-02T21:00:00Z" }, eventsOnDay: 0 }
  */
 export function foldToDayEnd(
   events: readonly TimeEvent[],
