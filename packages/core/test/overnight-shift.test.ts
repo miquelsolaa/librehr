@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   coveredByOvernightShift,
+  overnightStillOpenAtDayEnd,
   shiftRunsPastMidnight,
   type ScheduledShift,
 } from "../src/time/overnight-shift.js";
+import type { TimeEvent } from "../src/time/events.js";
 
 const MADRID = "Europe/Madrid";
 const NIGHT: ScheduledShift = {
@@ -17,6 +19,28 @@ const shift = (
   endTime: string,
   type = "morning",
 ): ScheduledShift => ({ type, startTime, endTime });
+
+const openSince = (clockIn: string) =>
+  ({ state: "clocked_in", clockIn }) as const;
+
+function event(
+  id: string,
+  eventType: TimeEvent["eventType"],
+  occurredAt: string,
+): TimeEvent {
+  return {
+    id,
+    eventType,
+    occurredAt,
+    recordedAt: occurredAt,
+    organizationId: "org",
+    employeeId: "emp",
+    source: "web",
+    actorId: "user",
+    prevHash: null,
+    hash: id,
+  };
+}
 
 describe("shiftRunsPastMidnight (TIM-003)", () => {
   it("is true for a shift ending the next day", () => {
@@ -49,10 +73,7 @@ describe("shiftRunsPastMidnight (TIM-003)", () => {
 
 describe("coveredByOvernightShift (TIM-003)", () => {
   // 22:00 local on 2 Nov 2026 (CET, UTC+1).
-  const nightStart = {
-    state: "clocked_in",
-    clockIn: "2026-11-02T21:00:00Z",
-  } as const;
+  const nightStart = openSince("2026-11-02T21:00:00Z");
 
   it("covers a session opened on the day of a rostered night shift", () => {
     expect(
@@ -87,7 +108,7 @@ describe("coveredByOvernightShift (TIM-003)", () => {
     // also a night shift, the reminder still goes out.
     expect(
       coveredByOvernightShift(
-        { state: "clocked_in", clockIn: "2026-11-01T21:00:00Z" },
+        openSince("2026-11-01T21:00:00Z"),
         "2026-11-02",
         MADRID,
         NIGHT,
@@ -95,41 +116,57 @@ describe("coveredByOvernightShift (TIM-003)", () => {
     ).toBe(false);
   });
 
-  it("uses the local day start, not the UTC one", () => {
-    // 00:30 local on 2 Nov is 23:30 UTC on 1 Nov: still on the local day.
+  it("covers only clock-ins from the shift's end time on, in local time", () => {
+    // 00:30 local on 2 Nov belongs to the 1 Nov night shift.
     expect(
       coveredByOvernightShift(
-        { state: "clocked_in", clockIn: "2026-11-01T23:30:00Z" },
+        openSince("2026-11-01T23:30:00Z"),
+        "2026-11-02",
+        MADRID,
+        NIGHT,
+      ),
+    ).toBe(false);
+    // 05:59 and 06:00 local (CET).
+    expect(
+      coveredByOvernightShift(
+        openSince("2026-11-02T04:59:00Z"),
+        "2026-11-02",
+        MADRID,
+        NIGHT,
+      ),
+    ).toBe(false);
+    expect(
+      coveredByOvernightShift(
+        openSince("2026-11-02T05:00:00Z"),
         "2026-11-02",
         MADRID,
         NIGHT,
       ),
     ).toBe(true);
-    // One minute before local midnight belongs to the day before.
+  });
+
+  it("handles DST change days", () => {
+    // 25 Oct 2026: clocks go back at 03:00, so 06:00 local is 05:00 UTC.
     expect(
       coveredByOvernightShift(
-        { state: "clocked_in", clockIn: "2026-11-01T22:59:00Z" },
-        "2026-11-02",
+        openSince("2026-10-25T04:59:00Z"),
+        "2026-10-25",
         MADRID,
         NIGHT,
       ),
     ).toBe(false);
-  });
-
-  it("handles DST change days", () => {
-    // 25 Oct 2026: clocks go back, local midnight is 22:00 UTC the day before.
     expect(
       coveredByOvernightShift(
-        { state: "clocked_in", clockIn: "2026-10-24T22:00:00Z" },
+        openSince("2026-10-25T05:00:00Z"),
         "2026-10-25",
         MADRID,
         NIGHT,
       ),
     ).toBe(true);
-    // 29 Mar 2026: clocks go forward, local midnight is 23:00 UTC.
+    // 29 Mar 2026: clocks go forward at 02:00, so 06:00 local is 04:00 UTC.
     expect(
       coveredByOvernightShift(
-        { state: "clocked_in", clockIn: "2026-03-28T22:30:00Z" },
+        openSince("2026-03-29T03:59:00Z"),
         "2026-03-29",
         MADRID,
         NIGHT,
@@ -137,11 +174,59 @@ describe("coveredByOvernightShift (TIM-003)", () => {
     ).toBe(false);
     expect(
       coveredByOvernightShift(
-        { state: "clocked_in", clockIn: "2026-03-29T20:00:00Z" },
+        openSince("2026-03-29T20:00:00Z"),
         "2026-03-29",
         MADRID,
         NIGHT,
       ),
     ).toBe(true);
+  });
+});
+
+describe("overnightStillOpenAtDayEnd (TIM-003)", () => {
+  const clockIn = event("a", "clock_in", "2026-11-02T21:00:00Z");
+
+  it("reports a night shift never clocked out, without events on the day", () => {
+    expect(
+      overnightStillOpenAtDayEnd([clockIn], "2026-11-03", MADRID, NIGHT),
+    ).toEqual({ state: "clocked_in", clockIn: "2026-11-02T21:00:00Z" });
+  });
+
+  it("is quiet once the shift was clocked out", () => {
+    expect(
+      overnightStillOpenAtDayEnd(
+        [clockIn, event("b", "clock_out", "2026-11-03T05:00:00Z")],
+        "2026-11-03",
+        MADRID,
+        NIGHT,
+      ),
+    ).toBeNull();
+  });
+
+  it("needs the previous day's shift to run past midnight", () => {
+    expect(
+      overnightStillOpenAtDayEnd([clockIn], "2026-11-03", MADRID, null),
+    ).toBeNull();
+    expect(
+      overnightStillOpenAtDayEnd(
+        [clockIn],
+        "2026-11-03",
+        MADRID,
+        shift("14:00", "22:00", "afternoon"),
+      ),
+    ).toBeNull();
+  });
+
+  it("ignores a session the previous day's shift did not cover", () => {
+    // Opened on 1 Nov: the 1 Nov run reported it, and 2 Nov's run too if it
+    // had events that day.
+    expect(
+      overnightStillOpenAtDayEnd(
+        [event("x", "clock_in", "2026-11-01T21:00:00Z")],
+        "2026-11-03",
+        MADRID,
+        NIGHT,
+      ),
+    ).toBeNull();
   });
 });

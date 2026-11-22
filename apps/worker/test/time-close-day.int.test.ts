@@ -153,7 +153,9 @@ describe("time.close-day (TIM-003)", () => {
     expect(await eventCount(orgId)).toBe(eventsBefore);
   });
 
-  it("creates one reminder when two runs race (unique index, 0032)", async () => {
+  // Smoke test: the two runs share a pool and may serialize; the concurrent
+  // proof is in packages/db/test/notifications-once.int.test.ts.
+  it("creates one reminder for two overlapping runs (unique index, 0032)", async () => {
     const orgId = await newOrg();
     const open = await addEmployee(orgId);
     await punch(orgId, open.employeeId, "clock_in", "2026-11-02T08:00:00Z");
@@ -232,6 +234,82 @@ describe("time.close-day (TIM-003)", () => {
       overnight: 0,
     });
     expect(await notificationsOf(onNight.userId!)).toEqual([]);
+  });
+
+  async function roster(orgId: string) {
+    const template = async (type: string, startTime: string, endTime: string) =>
+      (
+        await db.sql<{ id: string }[]>`
+          INSERT INTO shift_templates (organization_id, name, code, type, start_time, end_time)
+          VALUES (${orgId}, ${type}, ${type.slice(0, 3)}, ${type}, ${startTime}, ${endTime})
+          RETURNING id`
+      )[0]!.id;
+    const assign = (
+      employeeId: string,
+      date: string,
+      templateId: string | null,
+    ) =>
+      db.sql`
+        INSERT INTO shift_assignments (organization_id, employee_id, date, shift_template_id)
+        VALUES (${orgId}, ${employeeId}, ${date}, ${templateId})`;
+    return { template, assign };
+  }
+
+  it("reminds a night worker who never clocks out on the next day", async () => {
+    const orgId = await newOrg();
+    const { template, assign } = await roster(orgId);
+    const night = await template("night", "22:00", "06:00");
+    const worker = await addEmployee(orgId);
+    await assign(worker.employeeId, DAY, night);
+    await punch(orgId, worker.employeeId, "clock_in", "2026-11-02T21:00:00Z");
+
+    expect(await run(orgId).result).toMatchObject({
+      overnight: 1,
+      notified: 0,
+    });
+    expect(await notificationsOf(worker.userId!)).toEqual([]);
+
+    // No event at all on 3 Nov: still listed and reminded.
+    expect(await run(orgId, "2026-11-03").result).toMatchObject({
+      employeesChecked: 1,
+      open: 1,
+      overnight: 0,
+      notified: 1,
+    });
+    const notices = await notificationsOf(worker.userId!);
+    expect(notices.map((n) => n.link)).toEqual([
+      "/time/corrections?date=2026-11-03",
+    ]);
+  });
+
+  it("still reminds on a rest day or a day off in the roster", async () => {
+    const orgId = await newOrg();
+    const { template, assign } = await roster(orgId);
+    // A rest template shaped like a night shift must not suppress anything.
+    const rest = await template("rest", "22:00", "06:00");
+    const onRest = await addEmployee(orgId);
+    const dayOff = await addEmployee(orgId);
+    await assign(onRest.employeeId, DAY, rest);
+    await assign(dayOff.employeeId, DAY, null);
+    for (const p of [onRest, dayOff]) {
+      await punch(orgId, p.employeeId, "clock_in", "2026-11-02T21:00:00Z");
+    }
+
+    expect(await run(orgId).result).toMatchObject({
+      open: 2,
+      overnight: 0,
+      notified: 2,
+    });
+  });
+
+  it("falls back to ca for an unsupported organization locale", async () => {
+    const orgId = await newOrg("fr");
+    const p = await addEmployee(orgId);
+    await punch(orgId, p.employeeId, "clock_in", "2026-11-02T08:00:00Z");
+
+    expect(await run(orgId).result).toMatchObject({ notified: 1 });
+    const [notice] = await notificationsOf(p.userId!);
+    expect(notice?.title).toBe("Falta el fitxatge de sortida");
   });
 
   it("skips an employee with a malformed chain and still notifies the rest", async () => {

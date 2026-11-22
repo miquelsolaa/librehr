@@ -1,5 +1,6 @@
 import { Temporal } from "temporal-polyfill";
-import type { OpenAtDayEnd } from "./open-at-day-end.js";
+import type { TimeEvent } from "./events.js";
+import { foldToDayEnd, type OpenAtDayEnd } from "./open-at-day-end.js";
 
 /**
  * The shift an employee is rostered for on one calendar date, as wall-clock
@@ -50,11 +51,18 @@ export function shiftRunsPastMidnight(shift: ScheduledShift): boolean {
  * is not a missing clock-out.
  *
  * True when the shift rostered for `date` runs past local midnight
- * (`shiftRunsPastMidnight`) and the open session started on `date` itself. A
- * session carried over from an earlier day is never covered, so a clock-out
- * forgotten after one night shift is still reported on the next day even if
- * that day is a night shift too. The next day's run then checks that the
- * shift was closed. Pure: no I/O, no clock.
+ * (`shiftRunsPastMidnight`) and the open session started on `date` at or
+ * after the shift's end time (e.g. 06:00 for a 22:00-06:00 shift). Earlier
+ * clock-ins on `date` belong to the previous night's shift, and sessions
+ * carried over from an earlier day are never covered, so a clock-out
+ * forgotten after one night shift is still reported even if the next day is
+ * a night shift too. A covered session that is still open a day later is
+ * reported by `overnightStillOpenAtDayEnd` on the next day's run.
+ *
+ * Known limits: any clock-in from the shift's end time on is covered (a
+ * tighter window around the rostered start would need a configurable grace
+ * period); a shift rostered to start at 00:00 on the next day does not cover
+ * an early clock-in before midnight. Pure: no I/O, no clock.
  *
  * @example
  * coveredByOvernightShift(
@@ -71,11 +79,55 @@ export function coveredByOvernightShift(
   shift: ScheduledShift | null,
 ): boolean {
   if (!shift || !shiftRunsPastMidnight(shift)) return false;
-  const dayStart = Temporal.PlainDate.from(date).toZonedDateTime(timeZone);
+  const day = Temporal.PlainDate.from(date);
+  // shiftRunsPastMidnight validated endTime as "HH:mm".
+  const earliest = day.toZonedDateTime({
+    timeZone,
+    plainTime: Temporal.PlainTime.from(shift.endTime),
+  });
+  const nextDay = day.add({ days: 1 }).toZonedDateTime(timeZone);
+  const clockIn = Temporal.Instant.from(open.clockIn);
   return (
-    Temporal.Instant.compare(
-      Temporal.Instant.from(open.clockIn),
-      dayStart.toInstant(),
-    ) >= 0
+    Temporal.Instant.compare(clockIn, earliest.toInstant()) >= 0 &&
+    Temporal.Instant.compare(clockIn, nextDay.toInstant()) < 0
   );
+}
+
+/**
+ * TIM-003: the session an overnight shift left open, when it is still open at
+ * the end of local day `date`, the day after the shift's rostered date.
+ *
+ * The run for the rostered date skips a session covered by
+ * `coveredByOvernightShift`; this is the check that the shift was closed
+ * afterwards. It does not need an event on `date` (`openAtDayEnd` does), so a
+ * night worker who never punches again is still reminded, one day late.
+ * Returns null when `previousDayShift` (the shift rostered for the day before
+ * `date`) does not run past midnight, when the session was closed, or when
+ * the open session is not the one that shift covered. Pure: no I/O, no clock.
+ *
+ * @example
+ * overnightStillOpenAtDayEnd(
+ *   [{ id: "a", eventType: "clock_in", occurredAt: "2026-11-02T21:00:00Z", ... }],
+ *   "2026-11-03",
+ *   "Europe/Madrid",
+ *   { type: "night", startTime: "22:00", endTime: "06:00" },
+ * ); // => { state: "clocked_in", clockIn: "2026-11-02T21:00:00Z" }
+ */
+export function overnightStillOpenAtDayEnd(
+  events: readonly TimeEvent[],
+  date: string,
+  timeZone: string,
+  previousDayShift: ScheduledShift | null,
+): OpenAtDayEnd | null {
+  if (!previousDayShift || !shiftRunsPastMidnight(previousDayShift)) {
+    return null;
+  }
+  const { open } = foldToDayEnd(events, date, timeZone);
+  if (!open) return null;
+  const previousDay = Temporal.PlainDate.from(date)
+    .subtract({ days: 1 })
+    .toString();
+  return coveredByOvernightShift(open, previousDay, timeZone, previousDayShift)
+    ? open
+    : null;
 }

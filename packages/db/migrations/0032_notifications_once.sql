@@ -25,10 +25,14 @@
 -- wraps each migration in one), so no other session observes the table
 -- without it. The index build itself is not subject to RLS.
 --
--- The runner's transaction rules out CREATE INDEX CONCURRENTLY: the build
--- holds a SHARE lock on notifications, so reads continue while new
--- notifications wait until it finishes. Only rows of this category are
--- indexed, so the build is short.
+-- Locking: ALTER TABLE ... NO FORCE ROW LEVEL SECURITY takes an ACCESS
+-- EXCLUSIVE lock on notifications that is held until the migration commits,
+-- so every read and write of the table (inbox, unread count, new
+-- notifications) waits for the whole migration. The runner's transaction
+-- also rules out CREATE INDEX CONCURRENTLY. Both the DELETE and the index
+-- build scan the whole table (the index only stores rows of this category),
+-- which is quick on typical installs; on a very large notifications table,
+-- upgrade in a quiet window.
 --
 -- Rollback note: DROP INDEX notifications_missing_clock_out_once; (createOnce
 -- would then no longer deduplicate; restore the previous release's

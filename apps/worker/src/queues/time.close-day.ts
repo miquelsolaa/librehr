@@ -4,6 +4,8 @@ import {
   coveredByOvernightShift,
   localPeriodBounds,
   openAtDayEnd,
+  overnightStillOpenAtDayEnd,
+  shiftRunsPastMidnight,
   type ScheduledShift,
   type TimeEvent,
 } from "@librehr/core";
@@ -71,6 +73,23 @@ function toTimeEvent(row: TimeEventRow): TimeEvent {
   };
 }
 
+/** Employee id -> the shift rostered for one date. */
+function rosterOf(
+  rows: readonly {
+    employeeId: string;
+    shiftType: string;
+    startTime: string;
+    endTime: string;
+  }[],
+): Map<string, ScheduledShift> {
+  return new Map(
+    rows.map((s) => [
+      s.employeeId,
+      { type: s.shiftType, startTime: s.startTime, endTime: s.endTime },
+    ]),
+  );
+}
+
 /**
  * TIM-003: after a local day ends, reminds every employee whose events left
  * them clocked in or on a break that day, so they can request a correction.
@@ -80,12 +99,14 @@ function toTimeEvent(row: TimeEventRow): TimeEvent {
  * day before is known; later events are not needed (`openAtDayEnd`).
  * Employees without a user account have no inbox and are skipped.
  *
- * Night shifts: a session opened on the day and still open at midnight is
- * not reminded when the employee's rostered shift for the day (shift
- * assignment and template) runs past midnight (`coveredByOvernightShift`);
- * the next day's run checks it was closed. Without a roster entry the
- * session is reported, since events alone cannot tell a night shift from a
- * forgotten clock-out.
+ * Night shifts: a session opened on the day (from the shift's end time on)
+ * and still open at midnight is not reminded when the employee's rostered
+ * shift for the day (shift assignment and template) runs past midnight
+ * (`coveredByOvernightShift`). The next day's run lists that employee even
+ * without an event that day and reminds them if the session is still open at
+ * its end (`overnightStillOpenAtDayEnd`). Without a roster entry the session
+ * is reported, since events alone cannot tell a night shift from a forgotten
+ * clock-out.
  *
  * Notifications are stored as rendered text (like the API's), in the
  * organization's default locale (falling back to ca): users have no stored
@@ -111,26 +132,41 @@ export async function handleTimeCloseDay(
   const orgRepo = new OrganizationRepository();
   const shiftRepo = new ShiftRepository();
 
-  const { locale, employees, shifts } = await withTenant(
+  const { locale, employees, shiftToday, shiftYesterday } = await withTenant(
     deps.sql,
     tenant,
-    async (tx) => ({
-      locale: (await orgRepo.findById(tx, data.organizationId))?.defaultLocale,
-      employees: await timeRepo.listUsersWithEventsOnLocalDay(
-        tx,
-        data.closeDate,
-      ),
-      shifts: await shiftRepo.listScheduledShiftsOnDate(tx, data.closeDate),
-    }),
+    async (tx) => {
+      const shiftToday = rosterOf(
+        await shiftRepo.listScheduledShiftsOnDate(tx, data.closeDate),
+      );
+      const shiftYesterday = rosterOf(
+        await shiftRepo.listScheduledShiftsOnDate(
+          tx,
+          addDays(data.closeDate, -1),
+        ),
+      );
+      // Yesterday's night workers may have no event today at all; list them
+      // so a shift that was never clocked out is still caught.
+      const overnightYesterday = [...shiftYesterday]
+        .filter(([, shift]) => shiftRunsPastMidnight(shift))
+        .map(([employeeId]) => employeeId);
+      return {
+        locale: (await orgRepo.findById(tx, data.organizationId))
+          ?.defaultLocale,
+        employees: await timeRepo.listUsersWithEventsOnLocalDay(
+          tx,
+          data.closeDate,
+          overnightYesterday,
+        ),
+        shiftToday,
+        shiftYesterday,
+      };
+    },
   );
   const text = missingClockOutNotification(locale, data.closeDate);
+  // The correction link (and the idempotency key) is the run's date, also for
+  // a session that started the day before.
   const link = `/time/corrections?date=${data.closeDate}`;
-  const shiftOf = new Map<string, ScheduledShift>(
-    shifts.map((s) => [
-      s.employeeId,
-      { type: s.shiftType, startTime: s.startTime, endTime: s.endTime },
-    ]),
-  );
 
   let open = 0;
   let overnight = 0;
@@ -150,18 +186,22 @@ export async function handleTimeCloseDay(
           window.start,
           window.end,
         );
-        const left = openAtDayEnd(
-          rows.map(toTimeEvent),
-          data.closeDate,
-          employee.timeZone,
-        );
+        const events = rows.map(toTimeEvent);
+        const left =
+          openAtDayEnd(events, data.closeDate, employee.timeZone) ??
+          overnightStillOpenAtDayEnd(
+            events,
+            data.closeDate,
+            employee.timeZone,
+            shiftYesterday.get(employee.employeeId) ?? null,
+          );
         if (!left) return "closed" as const;
         if (
           coveredByOvernightShift(
             left,
             data.closeDate,
             employee.timeZone,
-            shiftOf.get(employee.employeeId) ?? null,
+            shiftToday.get(employee.employeeId) ?? null,
           )
         ) {
           return "overnight" as const;

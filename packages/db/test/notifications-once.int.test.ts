@@ -145,6 +145,13 @@ describe("NotificationRepository.createOnce (0032)", () => {
           });
           created.push(row.id);
         }
+        // Same user and link, another category: must survive the dedupe.
+        for (let i = 0; i < 2; i++) {
+          await repo.create(tx, {
+            ...reminder(link),
+            category: "time_record",
+          });
+        }
         return created;
       },
     );
@@ -171,7 +178,8 @@ describe("NotificationRepository.createOnce (0032)", () => {
       db.appSql,
       { organizationId: orgA },
       (tx) => tx<{ n: number }[]>`
-        SELECT count(*)::int AS n FROM notifications WHERE category = 'leave_decision'`,
+        SELECT count(*)::int AS n FROM notifications
+        WHERE category = 'time_record' AND link = ${link}`,
     );
     expect(others?.n).toBe(2);
 

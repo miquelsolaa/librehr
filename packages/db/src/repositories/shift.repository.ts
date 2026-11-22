@@ -221,7 +221,9 @@ export class ShiftRepository {
    * (their local business day), with the template's wall-clock times. Days
    * without an assignment, or whose assignment has no template (a day off),
    * are absent. `assignShifts` keeps one row per employee and date; should
-   * several exist, the most recently updated wins.
+   * several exist, the most recently updated wins. Every status counts
+   * (scheduled, confirmed, completed): none of them means the shift was
+   * dropped. Revisit if a cancelled status is ever added.
    */
   async listScheduledShiftsOnDate(
     tx: TenantTx,
@@ -246,8 +248,10 @@ export class ShiftRepository {
              a.employee_id as "employeeId", t.type as "shiftType",
              t.start_time as "startTime", t.end_time as "endTime"
       FROM shift_assignments a
-      JOIN shift_templates t ON t.id = a.shift_template_id
-      WHERE a.date = ${date}::date
+      JOIN shift_templates t
+        ON t.id = a.shift_template_id AND t.organization_id = a.organization_id
+      WHERE a.organization_id = ${tx.__tenantContext.organizationId}
+        AND a.date = ${date}::date
       ORDER BY a.employee_id, a.updated_at DESC, a.id
     `;
   }

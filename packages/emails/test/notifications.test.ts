@@ -31,6 +31,9 @@ describe("missingClockOutNotification (TIM-003)", () => {
       const { title, body } = missingClockOutNotification(locale, "2026-11-02");
       expect(title).not.toMatch(/[{}]/);
       expect(body).not.toMatch(/[{}]/);
+      // ICU would turn '' into ' in the web app; plain substitution would not.
+      expect(`${title}${body}`).not.toContain("''");
+      expect(body).toContain("2026-11-02");
     }
   });
 });

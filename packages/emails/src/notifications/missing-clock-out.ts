@@ -53,6 +53,8 @@ export function missingClockOutNotification(
   date: string,
 ): NotificationText {
   const loc = notificationLocale(locale);
+  // Plain substitution, not ICU: these entries must stay free of ICU syntax
+  // (plural/select, '' escapes), which the tests check for every locale.
   return {
     title: message(loc, "notifications.missingClockOut.title"),
     body: message(loc, "notifications.missingClockOut.body").replace(
