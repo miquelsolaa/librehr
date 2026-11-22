@@ -22,7 +22,8 @@ export interface OpenAtDayEnd {
  * punch cannot tell a night shift from a forgotten clock-out (after a
  * forgotten one the next punch is a clock-out too), so a session still open
  * at midnight is always reported and the result does not depend on when the
- * caller runs. Returns null when the session is closed, or when no effective
+ * caller runs. The roster can tell them apart: see `coveredByOvernightShift`,
+ * which callers apply to the result. Returns null when the session is closed, or when no effective
  * event falls on that day (an older open session was the previous day's to
  * report).
  *

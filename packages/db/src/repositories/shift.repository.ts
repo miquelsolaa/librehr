@@ -216,6 +216,42 @@ export class ShiftRepository {
     `;
   }
 
+  /**
+   * TIM-003: the shift each employee is rostered for on calendar `date`
+   * (their local business day), with the template's wall-clock times. Days
+   * without an assignment, or whose assignment has no template (a day off),
+   * are absent. `assignShifts` keeps one row per employee and date; should
+   * several exist, the most recently updated wins.
+   */
+  async listScheduledShiftsOnDate(
+    tx: TenantTx,
+    date: string,
+  ): Promise<
+    {
+      employeeId: string;
+      shiftType: string;
+      startTime: string;
+      endTime: string;
+    }[]
+  > {
+    return tx<
+      {
+        employeeId: string;
+        shiftType: string;
+        startTime: string;
+        endTime: string;
+      }[]
+    >`
+      SELECT DISTINCT ON (a.employee_id)
+             a.employee_id as "employeeId", t.type as "shiftType",
+             t.start_time as "startTime", t.end_time as "endTime"
+      FROM shift_assignments a
+      JOIN shift_templates t ON t.id = a.shift_template_id
+      WHERE a.date = ${date}::date
+      ORDER BY a.employee_id, a.updated_at DESC, a.id
+    `;
+  }
+
   async assignShifts(
     tx: TenantTx,
     assignments: Array<{

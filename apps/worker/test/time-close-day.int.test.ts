@@ -127,6 +127,7 @@ describe("time.close-day (TIM-003)", () => {
       closeDate: DAY,
       employeesChecked: 2,
       open: 1,
+      overnight: 0,
       notified: 1,
       failed: 0,
     });
@@ -150,6 +151,87 @@ describe("time.close-day (TIM-003)", () => {
     expect(await notificationsOf(open.userId!)).toHaveLength(1);
     // Never writes time events.
     expect(await eventCount(orgId)).toBe(eventsBefore);
+  });
+
+  it("creates one reminder when two runs race (unique index, 0032)", async () => {
+    const orgId = await newOrg();
+    const open = await addEmployee(orgId);
+    await punch(orgId, open.employeeId, "clock_in", "2026-11-02T08:00:00Z");
+
+    const reports = await Promise.all([run(orgId).result, run(orgId).result]);
+    expect(reports.map((r) => r.open)).toEqual([1, 1]);
+    expect(reports.reduce((n, r) => n + r.notified, 0)).toBe(1);
+    expect(await notificationsOf(open.userId!)).toHaveLength(1);
+  });
+
+  it("does not remind an employee on a rostered night shift", async () => {
+    const orgId = await newOrg();
+    const shift = async (
+      code: string,
+      type: string,
+      startTime: string,
+      endTime: string,
+    ) =>
+      (
+        await db.sql<{ id: string }[]>`
+          INSERT INTO shift_templates (organization_id, name, code, type, start_time, end_time)
+          VALUES (${orgId}, ${code}, ${code}, ${type}, ${startTime}, ${endTime})
+          RETURNING id`
+      )[0]!.id;
+    const night = await shift("N", "night", "22:00", "06:00");
+    const afternoon = await shift("T", "afternoon", "14:00", "22:00");
+    const assign = (employeeId: string, date: string, templateId: string) =>
+      db.sql`
+        INSERT INTO shift_assignments (organization_id, employee_id, date, shift_template_id)
+        VALUES (${orgId}, ${employeeId}, ${date}, ${templateId})`;
+
+    const onNight = await addEmployee(orgId);
+    const onAfternoon = await addEmployee(orgId);
+    const carriedOver = await addEmployee(orgId);
+    await assign(onNight.employeeId, DAY, night);
+    await assign(onAfternoon.employeeId, DAY, afternoon);
+    await assign(carriedOver.employeeId, "2026-11-01", night);
+    await assign(carriedOver.employeeId, DAY, night);
+    // 22:00 local (CET) on the day, still open at midnight.
+    await punch(orgId, onNight.employeeId, "clock_in", "2026-11-02T21:00:00Z");
+    await punch(
+      orgId,
+      onAfternoon.employeeId,
+      "clock_in",
+      "2026-11-02T13:00:00Z",
+    );
+    // The 1 Nov night shift never clocked out; a break on 2 Nov keeps the
+    // session the same one, so it is not the 2 Nov night shift.
+    await punch(
+      orgId,
+      carriedOver.employeeId,
+      "clock_in",
+      "2026-11-01T21:00:00Z",
+    );
+    await punch(
+      orgId,
+      carriedOver.employeeId,
+      "break_start",
+      "2026-11-02T02:00:00Z",
+    );
+
+    expect(await run(orgId).result).toMatchObject({
+      employeesChecked: 3,
+      open: 2,
+      overnight: 1,
+      notified: 2,
+    });
+    expect(await notificationsOf(onNight.userId!)).toEqual([]);
+    expect(await notificationsOf(onAfternoon.userId!)).toHaveLength(1);
+    expect(await notificationsOf(carriedOver.userId!)).toHaveLength(1);
+
+    // The night shift ends the next morning and the next day's run is quiet.
+    await punch(orgId, onNight.employeeId, "clock_out", "2026-11-03T05:00:00Z");
+    expect(await run(orgId, "2026-11-03").result).toMatchObject({
+      open: 0,
+      overnight: 0,
+    });
+    expect(await notificationsOf(onNight.userId!)).toEqual([]);
   });
 
   it("skips an employee with a malformed chain and still notifies the rest", async () => {

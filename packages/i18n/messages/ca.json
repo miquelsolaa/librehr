@@ -614,7 +614,11 @@
     "title": "Notificacions",
     "empty": "No tens notificacions pendents",
     "markRead": "Marcar com a llegida",
-    "unreadCount": "{count} notificacions no llegides"
+    "unreadCount": "{count} notificacions no llegides",
+    "missingClockOut": {
+      "title": "Falta el fitxatge de sortida",
+      "body": "El teu registre de jornada del {date} continua obert. Sol·licita una correcció amb l'hora en què vas acabar."
+    }
   },
   "timeTracking": {
     "scheduleNotConfigured": "Demana a una persona administradora que configuri un horari per a cada dia d’aquest període.",
