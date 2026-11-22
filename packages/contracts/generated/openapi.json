@@ -1619,6 +1619,9 @@
           },
           "totalAdjustments": {
             "type": "number"
+          },
+          "totalExpired": {
+            "type": "number"
           }
         },
         "required": [
@@ -1631,7 +1634,8 @@
           "totalAccrued",
           "totalUsed",
           "totalCarryover",
-          "totalAdjustments"
+          "totalAdjustments",
+          "totalExpired"
         ]
       },
       "LeaveBalanceSummary": {
@@ -1650,6 +1654,9 @@
             "type": "number"
           },
           "totalAdjustments": {
+            "type": "number"
+          },
+          "totalExpired": {
             "type": "number"
           },
           "byType": {
@@ -1699,6 +1706,9 @@
                 },
                 "totalAdjustments": {
                   "type": "number"
+                },
+                "totalExpired": {
+                  "type": "number"
                 }
               },
               "required": [
@@ -1711,7 +1721,8 @@
                 "totalAccrued",
                 "totalUsed",
                 "totalCarryover",
-                "totalAdjustments"
+                "totalAdjustments",
+                "totalExpired"
               ]
             }
           },
@@ -1785,6 +1796,7 @@
           "totalUsed",
           "totalCarryover",
           "totalAdjustments",
+          "totalExpired",
           "byType",
           "entries"
         ]
@@ -10363,6 +10375,9 @@
                     "totalAdjustments": {
                       "type": "number"
                     },
+                    "totalExpired": {
+                      "type": "number"
+                    },
                     "byType": {
                       "type": "array",
                       "items": {
@@ -10410,6 +10425,9 @@
                           },
                           "totalAdjustments": {
                             "type": "number"
+                          },
+                          "totalExpired": {
+                            "type": "number"
                           }
                         },
                         "required": [
@@ -10422,7 +10440,8 @@
                           "totalAccrued",
                           "totalUsed",
                           "totalCarryover",
-                          "totalAdjustments"
+                          "totalAdjustments",
+                          "totalExpired"
                         ]
                       }
                     },
@@ -10496,6 +10515,7 @@
                     "totalUsed",
                     "totalCarryover",
                     "totalAdjustments",
+                    "totalExpired",
                     "byType",
                     "entries"
                   ]

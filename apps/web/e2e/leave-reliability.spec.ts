@@ -24,6 +24,7 @@ test.beforeEach(async ({ page }) => {
             totalUsed: 2,
             totalCarryover: 0,
             totalAdjustments: 0,
+            totalExpired: 0,
             byType: [],
             entries: [],
           }
@@ -56,6 +57,7 @@ test("a failed balance request shows an error and can be retried", async ({
           totalUsed: 2,
           totalCarryover: 0,
           totalAdjustments: 0,
+          totalExpired: 0,
           byType: [],
           entries: [],
         },
@@ -81,6 +83,7 @@ test("balance history explains signed ledger entries", async ({ page }) => {
         totalUsed: 2,
         totalCarryover: 0,
         totalAdjustments: 0.5,
+        totalExpired: 0,
         byType: [],
         entries: [
           {
@@ -228,6 +231,7 @@ test("the balance history shows the balance after every entry", async ({
         totalUsed: 1.5,
         totalCarryover: 0,
         totalAdjustments: 0,
+        totalExpired: 0,
         byType: [],
         entries: [
           {
@@ -264,7 +268,7 @@ test("balances are shown per leave type, legacy entries as unassigned (LEA-005)"
 }) => {
   const VACATION = "00000000-0000-4000-8000-000000000031";
   const PERSONAL = "00000000-0000-4000-8000-000000000032";
-  const totals = { totalCarryover: 0, totalAdjustments: 0 };
+  const totals = { totalCarryover: 0, totalAdjustments: 0, totalExpired: 0 };
   const entry = {
     employeeId: "00000000-0000-4000-8000-000000000002",
     unit: "days",
@@ -278,6 +282,7 @@ test("balances are shown per leave type, legacy entries as unassigned (LEA-005)"
         totalUsed: 3,
         totalCarryover: 0,
         totalAdjustments: 2,
+        totalExpired: 0,
         byType: [
           {
             ...totals,
@@ -323,6 +328,7 @@ test("balances are shown per leave type, legacy entries as unassigned (LEA-005)"
             totalAccrued: 0,
             totalUsed: 0,
             totalAdjustments: 2,
+            totalExpired: 0,
           },
         ],
         entries: [

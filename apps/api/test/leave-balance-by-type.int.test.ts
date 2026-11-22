@@ -157,6 +157,52 @@ describe("leave balances per leave type (LEA-005)", () => {
     ]);
   });
 
+  it("explains a balance after a year-end close and an expiry (LEA-002, #116)", async () => {
+    const carried = await seedType(a.orgId, "carry_test");
+    const rows: [string, number, string, string | null][] = [
+      ["accrual", 24, "2026-12-01", null],
+      ["usage", -10, "2026-07-01", null],
+      ["carryover", -5, "2026-12-31", `carryover:${carried}:2026:close`],
+      ["forfeit", -9, "2026-12-31", `forfeit:${carried}:2026`],
+      ["carryover", 5, "2027-01-01", `carryover:${carried}:2026`],
+      ["expiry", -3, "2027-03-31", `expiry:${carried}:2026`],
+    ];
+    await withTenant(db.sql, { organizationId: a.orgId }, async (tx) => {
+      for (const [entryType, amount, effectiveDate, sourceRef] of rows) {
+        await leave.appendLedgerEntry(tx, {
+          employeeId: a.peer.employeeId,
+          leaveTypeId: carried,
+          entryType,
+          amount,
+          effectiveDate,
+          sourceRef,
+        });
+      }
+    });
+
+    const s = await balance(a.admin, a.peer.employeeId);
+    const t = s.byType.find((x) => x.leaveTypeId === carried)!;
+    expect(t).toMatchObject({
+      currentBalance: 2,
+      totalAccrued: 24,
+      totalUsed: 10,
+      totalCarryover: 0,
+      totalExpired: 12,
+    });
+    expect(
+      t.totalAccrued -
+        t.totalUsed +
+        t.totalCarryover +
+        t.totalAdjustments -
+        t.totalExpired,
+    ).toBe(t.currentBalance);
+    expect(
+      s.entries
+        .filter((e) => e.leaveTypeId === carried)
+        .map((e) => e.entryType),
+    ).toContain("forfeit");
+  });
+
   it("types the usage of an approval and the reversal of a cancellation", async () => {
     const created = await requestLeave(
       a.report,

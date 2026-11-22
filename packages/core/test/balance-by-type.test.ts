@@ -32,6 +32,7 @@ const ledger = fc.array(
       "usage",
       "adjustment",
       "carryover",
+      "forfeit",
       "expiry",
       "reversal",
     ),
@@ -39,6 +40,58 @@ const ledger = fc.array(
   }),
   { maxLength: 40 },
 );
+
+describe("balance totals explain the balance (LEA-005, #116)", () => {
+  it("counts forfeit and expiry as expired after a year-end close", () => {
+    const [vac] = balancesByLeaveType([
+      entry(VAC, "accrual", 24),
+      entry(VAC, "usage", -10),
+      entry(VAC, "carryover", -5), // close of the year
+      entry(VAC, "forfeit", -9),
+      entry(VAC, "carryover", 5), // opening of the next year
+      entry(VAC, "expiry", -3),
+    ]);
+    expect(vac).toMatchObject({
+      currentBalance: 2,
+      totalCarryover: 0,
+      totalExpired: 12,
+    });
+  });
+
+  it("property: accrued − used + carry-over + adjustments − expired = balance", () => {
+    fc.assert(
+      fc.property(ledger, (entries) => {
+        for (const b of balancesByLeaveType(entries)) {
+          const explained =
+            Math.round(
+              (b.totalAccrued -
+                b.totalUsed +
+                b.totalCarryover +
+                b.totalAdjustments -
+                b.totalExpired) *
+                100,
+            ) / 100;
+          // Usage is reported as |amount|: holds when usage is negative.
+          const positiveUsage = entries.some(
+            (e) =>
+              e.leaveTypeId === b.leaveTypeId &&
+              e.entryType === "usage" &&
+              e.amount > 0,
+          );
+          const positiveExpiry = entries.some(
+            (e) =>
+              e.leaveTypeId === b.leaveTypeId &&
+              (e.entryType === "forfeit" || e.entryType === "expiry") &&
+              e.amount > 0,
+          );
+          if (!positiveUsage && !positiveExpiry) {
+            expect(explained).toBe(b.currentBalance);
+          }
+        }
+      }),
+    );
+  });
+});
 
 describe("balancesByLeaveType", () => {
   it("keeps vacation and personal days apart", () => {
@@ -58,6 +111,7 @@ describe("balancesByLeaveType", () => {
         totalUsed: 3.5,
         totalCarryover: 0,
         totalAdjustments: 3,
+        totalExpired: 0,
       },
       {
         leaveTypeId: PD,
@@ -66,6 +120,7 @@ describe("balancesByLeaveType", () => {
         totalUsed: 0,
         totalCarryover: 1,
         totalAdjustments: 0,
+        totalExpired: 0,
       },
     ]);
   });

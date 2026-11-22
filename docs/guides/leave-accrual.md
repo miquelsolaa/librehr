@@ -74,8 +74,10 @@ settles and closes the previous year, in this order:
    `source_ref = accrual:<policyId>:<YYYY>-final`. This writes a December
    change recorded after December was accrued (a backdated termination,
    hire or assignment) and a December run that was missed.
-2. **Close.** For each employee still employed on 31 December, and each
-   leave type they have a policy for on that day, the balance up to and
+2. **Close.** For each employee employed on some day from 31 December to the
+   run date (so a fixed-term contract that ended in December and restarted
+   in January is closed too), and each leave type they have a policy for on
+   31 December, the balance up to and
    including 31 December (`B`) is split with that policy's
    `carryover_max_days`: `C = min(B, cap)` is carried over and `F = B − C` is
    forfeited. It writes, all with the leave type:
@@ -96,12 +98,20 @@ date has passed are expired:
 
 3. **Expiry.** The expiry date is the last day of month
    `carryover_expiry_months` of the new year (3: 31 March; clamped to 1..12),
-   read from the policy in force on 31 December of the closed year. The run
+   taken from the policy assigned on 31 December of the closed year, with
+   that policy's settings as they are when the expiry runs (so changing
+   `carryover_expiry_months` after a close moves that expiry date). The run
    for that month (the March run, executing on 1 April) writes `expiry`, −U,
    dated on the expiry date, ref `expiry:<leaveTypeId>:<YYYY>`, where U is the
    carried amount minus the days of that type used by requests starting from
-   1 January to the expiry date (a cancelled request counts as unused),
-   floored at 0. Usage is counted against carried days first.
+   1 January to the expiry date, floored at 0, and never more than the
+   type's balance on the expiry date (an expiry never makes a balance
+   negative). Usage is counted against carried days first. A request is
+   counted by its start date: one that starts by the expiry date and runs
+   past it counts entirely against carried days. A request cancelled after
+   the expiry ran gives its days back as ordinary balance, not as carried
+   days. A carry-over whose type has no policy on 31 December is skipped and
+   logged (ids only) on every run until HR resolves it.
 
 Each ref holds the leave type and the closed year, and the partial unique
 index `leave_ledger_year_end_once` (migration 0036) allows each one once per
@@ -119,12 +129,19 @@ Rules:
   expired automatically. HR moves them to a leave type with a pair of
   adjustments (see below), after which they follow the rules above.
 - Leave types without a policy on 31 December (sick leave, statutory
-  permits) are never closed.
-- Employees who left before 31 December are not closed: their remaining days
-  are settled on termination, by HR.
+  permits, or a type whose policy was replaced by another type's during the
+  year) are never closed.
+- Employees who left before 31 December and are not employed again by the
+  run date are not closed: their remaining days are settled on termination,
+  by HR.
 - Every number (cap, expiry months) comes from the policy; nothing is
-  defaulted in code. The expiry uses the policy's current settings, so
-  changing `carryover_expiry_months` after a close moves that expiry date.
+  defaulted in code.
+- No automatic exception exists for vacation that could not be taken
+  because of temporary incapacity, pregnancy, birth or breastfeeding
+  (ET art. 38.3): HR restores those days with an adjustment. See
+  `COMPLIANCE.md` §6.
+- Two runs with different January dates (for example one enqueued by hand)
+  may overlap; the unique indexes make the second one's writes no-ops.
 
 The job's report (logged with ids and counts only) has a `yearEnd` section
 for January runs and an `expiries` count.

@@ -316,7 +316,7 @@ export async function handleLeaveAccrue(
         // Carry-over into `year` that is still unexpired (a missed run)
         // must expire before `year` is closed, or it would be carried again.
         expiries += await expireCarryovers(ctx, year - 1, data.runDate);
-        const closed = await closeLeaveYear(ctx, year);
+        const closed = await closeLeaveYear(ctx, year, data.runDate);
         yearEnd = { year, ...final, ...closed };
       }
       const accrual = await accruePass(

@@ -509,6 +509,7 @@
     "totalAccrued": "Total Accrued",
     "totalUsed": "Used to Date",
     "totalCarryover": "Carryover",
+    "totalExpired": "Forfeited or expired",
     "totalAdjustments": "Adjustments",
     "balanceHistory": "Balance history",
     "balanceAfter": "Balance {value}",

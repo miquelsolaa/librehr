@@ -159,7 +159,12 @@ If you opted in to `leave.accrue`, from this release it also:
 
 See [leave accrual](leave-accrual.md#year-end-carry-over-forfeit-and-expiry-issue-116).
 The web app shows the new `forfeit` entries in the balance history as
-"Forfeited at year end".
+"Forfeited at year end". `GET /v1/leave/balance` gains a `totalExpired`
+field (forfeited plus expired days, positive) at the top level and per leave
+type, so accrued − used + carry-over + adjustments − expired is the balance.
+The change is additive. Vacation that could not be taken because of
+incapacity, pregnancy or birth (ET art. 38.3) has no automatic exception;
+see `COMPLIANCE.md` §6.
 
 ## Job scheduler (migration 0035)
 

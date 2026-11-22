@@ -129,6 +129,8 @@ export const LeaveTypeBalanceSchema = z.object({
   totalUsed: z.number(),
   totalCarryover: z.number(),
   totalAdjustments: z.number(),
+  /** Forfeited at year end or expired carry-over, positive (LEA-002). */
+  totalExpired: z.number(),
 });
 export type LeaveTypeBalance = z.infer<typeof LeaveTypeBalanceSchema>;
 
@@ -142,6 +144,8 @@ export const LeaveBalanceSummarySchema = z.object({
   totalUsed: z.number(),
   totalCarryover: z.number(),
   totalAdjustments: z.number(),
+  /** Forfeited at year end or expired carry-over, positive (LEA-002). */
+  totalExpired: z.number(),
   /** One balance per leave type with entries; unassigned (null) last. */
   byType: z.array(LeaveTypeBalanceSchema),
   entries: z.array(LeaveLedgerEntrySchema),

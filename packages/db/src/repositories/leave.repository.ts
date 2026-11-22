@@ -354,12 +354,14 @@ export class LeaveRepository {
     totalUsed: number;
     totalCarryover: number;
     totalAdjustments: number;
+    totalExpired: number;
   }> {
     const entries = await this.getLedgerEntries(tx, employeeId);
     let totalAccrued = 0;
     let totalUsed = 0;
     let totalCarryover = 0;
     let totalAdjustments = 0;
+    let totalExpired = 0;
     let currentBalance = 0;
 
     for (const e of entries) {
@@ -369,6 +371,8 @@ export class LeaveRepository {
       else if (e.entryType === "carryover") totalCarryover += e.amount;
       else if (e.entryType === "adjustment" || e.entryType === "reversal")
         totalAdjustments += e.amount;
+      else if (e.entryType === "forfeit" || e.entryType === "expiry")
+        totalExpired -= e.amount;
     }
 
     return {
@@ -377,6 +381,7 @@ export class LeaveRepository {
       totalUsed: Math.round(totalUsed * 100) / 100,
       totalCarryover: Math.round(totalCarryover * 100) / 100,
       totalAdjustments: Math.round(totalAdjustments * 100) / 100,
+      totalExpired: Math.round(totalExpired * 100) / 100,
     };
   }
 

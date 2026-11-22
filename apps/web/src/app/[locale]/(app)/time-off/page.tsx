@@ -240,13 +240,14 @@ export default function TimeOffPage() {
                         </p>
                       )}
                     </div>
-                    <dl className="grid grid-cols-2 gap-x-3 gap-y-5 p-5 sm:grid-cols-4 sm:p-7">
+                    <dl className="grid grid-cols-2 gap-x-3 gap-y-5 p-5 sm:grid-cols-3 sm:p-7 lg:grid-cols-5">
                       {(
                         [
                           ["totalAccrued", b.totalAccrued],
                           ["totalUsed", b.totalUsed],
                           ["totalCarryover", b.totalCarryover],
                           ["totalAdjustments", b.totalAdjustments],
+                          ["totalExpired", b.totalExpired],
                         ] as const
                       ).map(([key, value]) => (
                         <div key={key} className="min-w-0">

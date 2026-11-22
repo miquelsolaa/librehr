@@ -23,6 +23,7 @@ const BALANCE = {
   totalUsed: 1.5,
   totalCarryover: 0,
   totalAdjustments: 0,
+  totalExpired: 0,
   byType: [
     {
       leaveTypeId: "00000000-0000-4000-8000-000000000005",
@@ -35,6 +36,7 @@ const BALANCE = {
       totalUsed: 1.5,
       totalCarryover: 0,
       totalAdjustments: 0,
+      totalExpired: 0,
     },
   ],
   entries: [],
@@ -228,6 +230,7 @@ test("home lists remaining days per entitled leave type only (LEA-005)", async (
     totalUsed: 0,
     totalCarryover: 0,
     totalAdjustments: 0,
+    totalExpired: 0,
   };
   await mockRoute(page, "**/v1/leave/balance", (route) =>
     route.fulfill({

@@ -109,6 +109,33 @@ export function yearEndBalance(
   return { balanceCents, closed };
 }
 
+/**
+ * The balance of one leave type at the end of `date`, in integer cents:
+ * every entry of that type dated on or before it. Unassigned (legacy) and
+ * other types' entries never count.
+ *
+ * @example
+ * typeBalanceCentsAt(
+ *   [{ leaveTypeId: "vac", entryType: "carryover", amount: 5, sourceRef: null, effectiveDate: "2027-01-01" },
+ *    { leaveTypeId: "vac", entryType: "adjustment", amount: -4, sourceRef: null, effectiveDate: "2027-02-01" }],
+ *   "vac",
+ *   "2027-03-31",
+ * ); // => 100
+ */
+export function typeBalanceCentsAt(
+  entries: readonly LedgerRow[],
+  leaveTypeId: string,
+  date: string,
+): number {
+  let sum = 0;
+  for (const e of entries) {
+    if (e.leaveTypeId === leaveTypeId && e.effectiveDate <= date) {
+      sum += cents(e.amount);
+    }
+  }
+  return sum;
+}
+
 export interface YearEndInput {
   leaveTypeId: string;
   /** The leave year being closed. */
@@ -223,6 +250,12 @@ export interface CarryoverExpiryInput {
    * the expiry date, in cents: usage net of cancelled (reversed) requests.
    */
   usedCents: number;
+  /**
+   * The leave type's balance at the end of the expiry date, before this
+   * expiry, in cents. Expiry never takes the balance below zero (for
+   * example after a negative adjustment).
+   */
+  balanceCents: number;
   /** From the policy in force when the year was closed. */
   carryoverExpiryMonths: number;
   /**
@@ -235,13 +268,15 @@ export interface CarryoverExpiryInput {
 /**
  * Plans the expiry of carried-over days: once the expiry date has passed,
  * the carried amount minus the days used since 1 January (floored at 0, and
- * never more than was carried) expires. Usage is counted against carried
- * days first. Dated on the expiry date, so a later year-end close sees it.
- * Returns null while the days are still usable or when none are left.
+ * never more than was carried, nor than the balance on the expiry date)
+ * expires. Usage is counted against carried days first. Dated on the expiry
+ * date, so a later year-end close sees it. Returns null while the days are
+ * still usable or when none are left.
  *
  * @example
  * planCarryoverExpiry({ leaveTypeId: "vac", year: 2026, carriedCents: 500,
- *   usedCents: 200, carryoverExpiryMonths: 3, runDate: "2027-03-31" });
+ *   usedCents: 200, balanceCents: 900, carryoverExpiryMonths: 3,
+ *   runDate: "2027-03-31" });
  * // => { entryType: "expiry", amount: -3, sourceRef: "expiry:vac:2026",
  * //      effectiveDate: "2027-03-31" }
  */
@@ -254,15 +289,22 @@ export function planCarryoverExpiry(
   if (!Number.isInteger(input.usedCents)) {
     throw new RangeError("usedCents must be an integer");
   }
+  if (!Number.isInteger(input.balanceCents)) {
+    throw new RangeError("balanceCents must be an integer");
+  }
   const expiresAt = carryoverExpiryDate(
     input.year,
     input.carryoverExpiryMonths,
   );
   const now = Temporal.PlainDate.from(input.runDate).add({ days: 1 });
   if (!isCarryoverExpired(expiresAt, now.toString())) return null;
-  const unused = Math.min(
-    input.carriedCents,
-    Math.max(0, input.carriedCents - Math.max(0, input.usedCents)),
+  const unused = Math.max(
+    0,
+    Math.min(
+      input.carriedCents - Math.max(0, input.usedCents),
+      input.carriedCents,
+      input.balanceCents,
+    ),
   );
   if (unused === 0) return null;
   return {

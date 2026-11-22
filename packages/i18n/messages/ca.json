@@ -509,6 +509,7 @@
     "totalAccrued": "Total Meritat",
     "totalUsed": "Consumit",
     "totalCarryover": "Romanent d'any anterior",
+    "totalExpired": "Perduts o caducats",
     "totalAdjustments": "Ajustos",
     "balanceHistory": "Historial del saldo",
     "balanceAfter": "Saldo {value}",

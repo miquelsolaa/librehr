@@ -2,6 +2,7 @@ import {
   carryoverExpiryDate,
   planCarryoverExpiry,
   planYearEnd,
+  typeBalanceCentsAt,
   yearEndBalance,
   type LedgerRow,
 } from "@librehr/core";
@@ -52,16 +53,19 @@ const resolved = (p: PolicyInForceRow): p is ResolvedPolicy =>
   p.carryoverExpiryMonths !== null;
 
 /**
- * Closes `year` for every employee still employed on 31 December, per leave
- * type they have a policy for on that day: the balance up to that day is
- * carried over up to the policy's `carryover_max_days`, and the rest is
- * forfeited. The unassigned (legacy) bucket and types without a policy are
- * never closed. Employees who left before 31 December are not closed
- * either: their remaining days are settled on termination, by HR.
+ * Closes `year` per leave type an employee has a policy for on 31 December:
+ * the balance up to that day is carried over up to the policy's
+ * `carryover_max_days`, and the rest is forfeited. It closes employees
+ * employed on some day from 31 December to `runDate` (so a fixed-term
+ * contract that ended in December and restarted in January is closed too).
+ * The unassigned (legacy) bucket and types without a policy are never
+ * closed, nor are employees who left before 31 December and have not come
+ * back: their remaining days are settled on termination, by HR.
  */
 export async function closeLeaveYear(
   ctx: StepContext,
   year: number,
+  runDate: string,
 ): Promise<YearEndCounts> {
   const { tx } = ctx;
   const repo = new LeaveYearEndRepository();
@@ -83,10 +87,11 @@ export async function closeLeaveYear(
     tx,
     [...new Set(policies.map((p) => p.employeeId))],
     yearEnd,
-    yearEnd,
+    runDate > yearEnd ? runDate : yearEnd,
   );
   // null: legacy employee without employment rows or termination date,
-  // employed as for accrual. [] or absent: not employed on 31 December.
+  // employed as for accrual. [] or absent: not employed from 31 December
+  // to the run date.
   const open = policies.filter((p) => {
     const spans = employment.get(p.employeeId);
     return spans === null || (spans !== undefined && spans.length > 0);
@@ -181,7 +186,12 @@ export async function expireCarryovers(
       runDate,
     };
     // Still usable: nothing to read or write yet.
-    if (planCarryoverExpiry({ ...base, usedCents: 0 }) === null) continue;
+    const due = planCarryoverExpiry({
+      ...base,
+      usedCents: 0,
+      balanceCents: c.carriedCents,
+    });
+    if (due === null) continue;
 
     const expiresAt = carryoverExpiryDate(year, policy.carryoverExpiryMonths);
     let used = usage.get(expiresAt);
@@ -193,9 +203,17 @@ export async function expireCarryovers(
       );
       usage.set(expiresAt, used);
     }
+    // The type's balance on the expiry date caps the expiry at zero balance.
+    // Once a year per employee and type, so one small read each.
+    const balanceCents = typeBalanceCentsAt(
+      await repo.listTypedEntriesUpTo(tx, [c.employeeId], expiresAt),
+      c.leaveTypeId,
+      expiresAt,
+    );
     const entry = planCarryoverExpiry({
       ...base,
       usedCents: used.get(key(c.employeeId, c.leaveTypeId)) ?? 0,
+      balanceCents,
     });
     if (!entry) continue;
     const inserted = await repo.appendYearEndOnce(tx, {

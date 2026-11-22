@@ -509,6 +509,7 @@
     "totalAccrued": "Total Devengado",
     "totalUsed": "Consumido",
     "totalCarryover": "Arrastre de año anterior",
+    "totalExpired": "Perdidos o caducados",
     "totalAdjustments": "Ajustes",
     "balanceHistory": "Historial del saldo",
     "balanceAfter": "Saldo {value}",

@@ -108,6 +108,7 @@ const API_FIXTURES: Record<string, unknown> = {
     totalUsed: 0,
     totalCarryover: 0,
     totalAdjustments: 0,
+    totalExpired: 0,
     byType: [
       {
         leaveTypeId: "00000000-0000-4000-8000-000000000005",
@@ -120,6 +121,7 @@ const API_FIXTURES: Record<string, unknown> = {
         totalUsed: 0,
         totalCarryover: 0,
         totalAdjustments: 0,
+        totalExpired: 0,
       },
     ],
     entries: [],

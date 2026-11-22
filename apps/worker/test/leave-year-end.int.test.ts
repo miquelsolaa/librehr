@@ -371,6 +371,184 @@ describe("leave.accrue year end (LEA-002)", () => {
     ).toEqual(rows.filter((r) => !r.sourceRef?.startsWith("accrual:")));
   });
 
+  it("a January run over a multi-year assignment expires, settles, closes and accrues in order", async () => {
+    const { orgId, vacation } = await newOrg();
+    const policyId = await newPolicy(orgId, vacation, {
+      allowance: 24,
+      method: "monthly",
+      cap: 5,
+      expiry: 3,
+    });
+    const employee = await newEmployee(orgId, "2023-01-01");
+    await assign(orgId, employee, policyId, "2024-01-01");
+    // 2024 closed by an earlier release of the run, whose expiry was missed.
+    await book(orgId, employee, vacation, "adjustment", 10, "2024-06-01");
+    await book(
+      orgId,
+      employee,
+      vacation,
+      "carryover",
+      -4,
+      "2024-12-31",
+      `carryover:${vacation}:2024:close`,
+    );
+    await book(
+      orgId,
+      employee,
+      vacation,
+      "forfeit",
+      -6,
+      "2024-12-31",
+      `forfeit:${vacation}:2024`,
+    );
+    await book(
+      orgId,
+      employee,
+      vacation,
+      "carryover",
+      4,
+      "2025-01-01",
+      `carryover:${vacation}:2024`,
+    );
+
+    // Nothing of 2025 was accrued (the scheduler was just turned on).
+    expect(await run(orgId, "2026-01-31").result).toMatchObject({
+      written: 1, // January 2026
+      expiries: 1, // the 2024 carry-over, before 2025 is closed
+      yearEnd: {
+        year: 2025,
+        written: 1, // the whole of 2025, as the final entry
+        balances: 1,
+        carryovers: 1,
+        forfeits: 1,
+      },
+    });
+    const rows = (await ledger(orgId)).filter(
+      (r) => r.effectiveDate >= "2025-01-02",
+    );
+    expect(rows).toEqual([
+      expect.objectContaining({
+        entryType: "expiry",
+        amount: -4,
+        effectiveDate: "2025-03-31",
+      }),
+      expect.objectContaining({
+        entryType: "accrual",
+        amount: 24,
+        sourceRef: `accrual:${policyId}:2025-final`,
+        effectiveDate: "2025-12-01",
+      }),
+      // 2025 closes on 24 days: the expired 2024 days are not carried again.
+      expect.objectContaining({
+        entryType: "carryover",
+        amount: -5,
+        effectiveDate: "2025-12-31",
+      }),
+      expect.objectContaining({
+        entryType: "forfeit",
+        amount: -19,
+        effectiveDate: "2025-12-31",
+      }),
+      expect.objectContaining({
+        entryType: "accrual",
+        amount: 2,
+        effectiveDate: "2026-01-01",
+      }),
+      expect.objectContaining({
+        entryType: "carryover",
+        amount: 5,
+        effectiveDate: "2026-01-01",
+      }),
+    ]);
+    expect(balance(await ledger(orgId), vacation)).toBe(7);
+  });
+
+  it("closes an employee rehired in January but not one who left in December", async () => {
+    const { orgId, vacation } = await newOrg();
+    const policyId = await newPolicy(orgId, vacation, {
+      allowance: 24,
+      method: "monthly",
+      cap: 5,
+      expiry: 3,
+    });
+    const seasonal = await newEmployee(orgId, "2024-01-01");
+    const leaver = await newEmployee(orgId, "2024-01-01");
+    for (const e of [seasonal, leaver]) {
+      await db.sql`UPDATE employments SET end_date = '2026-12-20' WHERE employee_id = ${e}`;
+      await assign(orgId, e, policyId, "2026-01-01");
+    }
+    await db.sql`
+      INSERT INTO employments (organization_id, employee_id, job_title, start_date)
+      VALUES (${orgId}, ${seasonal}, 'Role', '2027-01-10')
+    `;
+
+    expect(await run(orgId, "2027-01-31").result).toMatchObject({
+      yearEnd: { balances: 1, carryovers: 1, forfeits: 1 },
+    });
+    const closed = new Set((await yearEndRows(orgId)).map((r) => r.employeeId));
+    expect(closed).toEqual(new Set([seasonal]));
+  });
+
+  it("never expires more than the balance left, and skips carry-over without a policy", async () => {
+    const { orgId, vacation } = await newOrg();
+    // No new days in 2027, so the balance on the expiry date is the
+    // carried days minus HR's correction.
+    const policyId = await newPolicy(orgId, vacation, {
+      allowance: 0,
+      method: "monthly",
+      cap: 5,
+      expiry: 3,
+    });
+    const employee = await newEmployee(orgId, "2024-01-01");
+    const orphan = await newEmployee(orgId, "2024-01-01");
+    await assign(orgId, employee, policyId, "2026-01-01");
+    for (const e of [employee, orphan]) {
+      await book(orgId, e, vacation, "adjustment", 5, "2026-06-01");
+      await book(
+        orgId,
+        e,
+        vacation,
+        "carryover",
+        -5,
+        "2026-12-31",
+        `carryover:${vacation}:2026:close`,
+      );
+      await book(
+        orgId,
+        e,
+        vacation,
+        "carryover",
+        5,
+        "2027-01-01",
+        `carryover:${vacation}:2026`,
+      );
+    }
+    // HR took 4 days back: only 1 is left when the carry-over expires.
+    await book(orgId, employee, vacation, "adjustment", -4, "2027-02-01");
+
+    const { result, logger } = run(orgId, "2027-03-31");
+    expect(await result).toMatchObject({ expiries: 1 });
+    const rows = await ledger(orgId);
+    expect(rows.filter((r) => r.entryType === "expiry")).toEqual([
+      expect.objectContaining({ employeeId: employee, amount: -1 }),
+    ]);
+    expect(
+      balance(
+        rows.filter(
+          (r) => r.employeeId === employee && r.effectiveDate <= "2027-03-31",
+        ),
+        vacation,
+      ),
+    ).toBe(0);
+    // No policy on 31 December 2026: skipped, logged with ids only.
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ employeeId: orphan, leaveTypeId: vacation }),
+    );
+    expect(JSON.stringify(logger.warn.mock.calls)).not.toContain(
+      "example.invalid",
+    );
+  });
+
   it("never reads, closes or expires another organization's balances", async () => {
     const a = await newOrg();
     const b = await newOrg();

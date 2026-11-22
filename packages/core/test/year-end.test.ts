@@ -4,6 +4,7 @@ import {
   carryoverExpiryDate,
   planCarryoverExpiry,
   planYearEnd,
+  typeBalanceCentsAt,
   yearEndBalance,
   type LedgerRow,
 } from "../src/leave/year-end.js";
@@ -202,6 +203,7 @@ describe("planCarryoverExpiry (LEA-002, #116)", () => {
     year: 2026,
     carriedCents: 500,
     usedCents: 0,
+    balanceCents: 2_000,
     carryoverExpiryMonths: 3,
   };
 
@@ -237,6 +239,22 @@ describe("planCarryoverExpiry (LEA-002, #116)", () => {
     }
   });
 
+  it("never takes the balance below zero", () => {
+    // A negative adjustment left only 1.5 days on the expiry date.
+    expect(
+      planCarryoverExpiry({
+        ...base,
+        balanceCents: 150,
+        runDate: "2027-04-30",
+      }),
+    ).toMatchObject({ amount: -1.5 });
+    for (const balanceCents of [0, -300]) {
+      expect(
+        planCarryoverExpiry({ ...base, balanceCents, runDate: "2027-04-30" }),
+      ).toBeNull();
+    }
+  });
+
   it("treats net negative usage as none", () => {
     expect(
       planCarryoverExpiry({ ...base, usedCents: -200, runDate: "2027-04-30" }),
@@ -258,6 +276,30 @@ describe("planCarryoverExpiry (LEA-002, #116)", () => {
     expect(() =>
       planCarryoverExpiry({ ...base, usedCents: 0.5, runDate: "2027-04-30" }),
     ).toThrow(RangeError);
+    expect(() =>
+      planCarryoverExpiry({
+        ...base,
+        balanceCents: 0.5,
+        runDate: "2027-04-30",
+      }),
+    ).toThrow(RangeError);
+  });
+});
+
+describe("typeBalanceCentsAt", () => {
+  it("sums one type's entries up to and including the date", () => {
+    expect(
+      typeBalanceCentsAt(
+        [
+          row(5, "2027-01-01", { entryType: "carryover" }),
+          row(-4, "2027-03-31", { entryType: "adjustment" }),
+          row(-1, "2027-04-01", { entryType: "usage" }),
+          row(9, "2027-01-01", { leaveTypeId: null }),
+        ],
+        "vac",
+        "2027-03-31",
+      ),
+    ).toBe(100);
   });
 });
 
@@ -345,12 +387,14 @@ describe("year-end properties", () => {
         fc.integer({ min: -99_999, max: 99_999 }),
         fc.integer({ min: 1, max: 12 }),
         fc.constantFrom("2027-01-31", "2027-06-30", "2027-12-31", "2028-01-31"),
-        (carriedCents, usedCents, months, runDate) => {
+        fc.integer({ min: -99_999, max: 99_999 }),
+        (carriedCents, usedCents, months, runDate, balanceCents) => {
           const entry = planCarryoverExpiry({
             leaveTypeId: "vac",
             year: 2026,
             carriedCents,
             usedCents,
+            balanceCents,
             carryoverExpiryMonths: months,
             runDate,
           });
@@ -358,6 +402,8 @@ describe("year-end properties", () => {
           const expired = -Math.round(entry.amount * 100);
           expect(expired).toBeGreaterThan(0);
           expect(expired).toBeLessThanOrEqual(carriedCents);
+          // Never below zero: at most the balance on the expiry date.
+          expect(expired).toBeLessThanOrEqual(balanceCents);
           expect(expired).toBeLessThanOrEqual(
             carriedCents - Math.max(0, usedCents),
           );
