@@ -16,3 +16,4 @@ export * from "./time-bank.js";
 export * from "./rotational-shifts.js";
 export * from "./clock-window.js";
 export * from "./open-at-day-end.js";
+export * from "./overnight-shift.js";
