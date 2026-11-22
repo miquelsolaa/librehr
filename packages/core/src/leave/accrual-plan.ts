@@ -1,11 +1,21 @@
 import { Temporal } from "temporal-polyfill";
 import type { AccrualMethod } from "./types.js";
 import { getDaysInYear } from "./accrual.js";
+import {
+  FULL_DAY_WEIGHT,
+  weightedDays,
+  type WeightedRange,
+} from "./part-time.js";
 
 /** Inclusive local dates (`YYYY-MM-DD`); `end` is null while open. */
 export interface AccrualSpan {
   start: string;
   end: string | null;
+}
+
+/** An employment span with its contract's part-time ratio in (0, 1]. */
+export interface EmploymentAccrualSpan extends AccrualSpan {
+  fteRatio?: number | undefined;
 }
 
 export interface AccrualTargetInput {
@@ -21,9 +31,13 @@ export interface AccrualTargetInput {
    * the same leave type (null while it is the latest one).
    */
   assignments: readonly AccrualSpan[];
-  /** Employment spans, already cut at the termination date. */
-  employment: readonly AccrualSpan[];
-  /** Full-time equivalent in (0, 1]. */
+  /**
+   * Employment spans, already cut at the termination date, each with the
+   * part-time ratio of its contract for this policy (`fteRatioFromHours`).
+   * Absent means 1: the policy is not prorated.
+   */
+  employment: readonly EmploymentAccrualSpan[];
+  /** Full-time equivalent in (0, 1], applied on top of the span ratios. */
   fteRatio: number;
   /** Calendar month (`YYYY-MM`) in the organization's time zone. */
   period: string;
@@ -102,9 +116,6 @@ const maxDate = (a: string, b: string) => (a > b ? a : b);
 const minDate = (a: string, b: string) => (a < b ? a : b);
 const dayAfter = (d: string) =>
   Temporal.PlainDate.from(d).add({ days: 1 }).toString();
-const length = (r: Range) =>
-  Temporal.PlainDate.from(r.start).until(Temporal.PlainDate.from(r.end)).days +
-  1;
 
 /**
  * Days covered by both an assignment window and an employment span, clipped
@@ -136,19 +147,36 @@ function activeRanges(
   return merged;
 }
 
-const daysIn = (ranges: readonly Range[], from: string, to: string) =>
-  ranges.reduce((sum, r) => {
-    const start = maxDate(r.start, from);
-    const end = minDate(r.end, to);
-    return start <= end ? sum + length({ start, end }) : sum;
-  }, 0);
+/**
+ * Active days of [from, to], each weighted by the part-time ratio of the
+ * employment span covering it (1 when the span has none), in days. With no
+ * ratio anywhere this is the plain count of active days, exactly.
+ */
+function activeDays(input: AccrualTargetInput) {
+  const ranges: WeightedRange[] = [];
+  for (const job of input.employment) {
+    const weight = Math.round((job.fteRatio ?? 1) * FULL_DAY_WEIGHT);
+    for (const window of input.assignments) {
+      const start = maxDate(job.start, window.start);
+      const end = minDate(job.end ?? "9999-12-31", window.end ?? "9999-12-31");
+      if (start <= end) ranges.push({ start, end, weight });
+    }
+  }
+  return (from: string, to: string) =>
+    weightedDays(ranges, from, to) / FULL_DAY_WEIGHT;
+}
+
+const validRatio = (r: number) => r > 0 && r <= 1;
 
 function validate(input: AccrualTargetInput): Temporal.PlainYearMonth {
   if (!PERIOD.test(input.period)) {
     throw new RangeError("period must be a calendar month (YYYY-MM)");
   }
-  if (!(input.fteRatio > 0 && input.fteRatio <= 1)) {
+  if (!validRatio(input.fteRatio)) {
     throw new RangeError("fteRatio must be in (0, 1]");
+  }
+  if (input.employment.some((e) => !validRatio(e.fteRatio ?? 1))) {
+    throw new RangeError("employment fteRatio must be in (0, 1]");
   }
   return Temporal.PlainYearMonth.from(input.period);
 }
@@ -165,7 +193,8 @@ function validate(input: AccrualTargetInput): Temporal.PlainYearMonth {
  * - `daily`: allowance × active days / days in the year (leap years count 366).
  *
  * Active days are covered by an employment span and a window of the policy.
- * The FTE ratio multiplies every method.
+ * Each day counts at the part-time ratio of its employment span (issue
+ * #118; 1 when the span has none), and `fteRatio` multiplies every method.
  *
  * @example
  * accrualTargetCents({
@@ -188,15 +217,16 @@ export function accrualTargetCents(input: AccrualTargetInput): number {
   const ranges = activeRanges(input, yearStart, yearEnd);
   if (ranges.length === 0) return 0;
   const daysInYear = getDaysInYear(year);
+  const daysIn = activeDays(input);
 
   let fraction: number;
   switch (input.policy.accrualMethod) {
     case "upfront":
       if (ranges[0]!.start > monthEnd) return 0;
-      fraction = daysIn(ranges, yearStart, yearEnd) / daysInYear;
+      fraction = daysIn(yearStart, yearEnd) / daysInYear;
       break;
     case "daily":
-      fraction = daysIn(ranges, yearStart, monthEnd) / daysInYear;
+      fraction = daysIn(yearStart, monthEnd) / daysInYear;
       break;
     case "monthly": {
       let months = 0;
@@ -204,7 +234,7 @@ export function accrualTargetCents(input: AccrualTargetInput): number {
         const ym = Temporal.PlainYearMonth.from({ year, month: m });
         const from = ym.toPlainDate({ day: 1 }).toString();
         const to = ym.toPlainDate({ day: ym.daysInMonth }).toString();
-        months += daysIn(ranges, from, to) / ym.daysInMonth;
+        months += daysIn(from, to) / ym.daysInMonth;
       }
       fraction = months / 12;
       break;

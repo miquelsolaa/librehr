@@ -1155,5 +1155,25 @@
     "cancelInvitationTitle": "Cancel this invitation?",
     "cancelInvitationDescription": "The invitation link for {email} stops working. This is logged.",
     "invitationCancelled": "Invitation cancelled."
+  },
+  "leavePolicies": {
+    "title": "Leave policies",
+    "description": "Entitlements and accrual of each leave type, and whether they are prorated for part-time contracts.",
+    "linkDescription": "Leave entitlements, accrual and part-time proration.",
+    "loadError": "Leave policies could not be loaded.",
+    "retry": "Try again",
+    "empty": "There are no leave policies yet.",
+    "summary": "{type} · {days, plural, one {# day} other {# days}} a year · {method}",
+    "methodUpfront": "granted up front",
+    "methodMonthly": "accrued monthly",
+    "methodDaily": "accrued daily",
+    "fullTimeLabel": "Full-time hours per week (part-time proration)",
+    "fullTimeHint": "Leave empty for statutory vacation: part-time staff are entitled to the same vacation days as full-time staff (ET art. 12.4.d), so it cannot be prorated. Enter the full-time week of your collective agreement (at most 40 hours, the ordinary maximum of ET art. 34.1) only for an entitlement that it prorates for part-time contracts; accrual is then multiplied by contract hours ÷ full-time hours (at most 1), so a 40-hour contract is never reduced. The change applies to the whole current year, including months already accrued. Contract hours come from each employment record (40 by default).",
+    "notProrated": "Not prorated: every contract accrues the full entitlement.",
+    "prorated": "Prorated against a {hours, number}-hour full-time week.",
+    "hoursInvalid": "Enter hours between 0.01 and 40, with at most two decimals, or leave it empty.",
+    "actionError": "The change could not be saved. Try again.",
+    "save": "Save",
+    "saved": "Saved."
   }
 }

@@ -28,6 +28,7 @@ import { createInvitationRoutes } from "./routes/invitations.js";
 import { createSetupRoutes } from "./routes/setup.js";
 import { createAuditRoutes } from "./routes/audit.js";
 import { createLeaveRoutes } from "./routes/leave.js";
+import { createLeavePolicyRoutes } from "./routes/leave-policies.js";
 import { createCalendarRoutes } from "./routes/calendar.js";
 import { createNotificationRoutes } from "./routes/notifications.js";
 import { createTimeRoutes } from "./routes/time.js";
@@ -266,6 +267,7 @@ export function createApp(deps: AppDependencies) {
   );
   app.route("/v1", createAuditRoutes(deps.sql));
   app.route("/v1", createLeaveRoutes(deps.sql, deps.mailPort));
+  app.route("/v1", createLeavePolicyRoutes(deps.sql));
   app.route("/v1", createApprovalRoutes(deps.sql));
   app.route("/v1", createCalendarRoutes(deps.sql));
   app.route("/v1", createNotificationRoutes(deps.sql));

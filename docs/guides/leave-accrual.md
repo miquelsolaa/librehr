@@ -1,8 +1,10 @@
 # Leave accrual (LEA-002)
 
 The `leave.accrue` worker job turns leave policy assignments into `accrual`
-entries in the append-only `leave_ledger`. Balances are derived from that
-ledger (LEA-005); no balance column is ever updated.
+entries in the append-only `leave_ledger`, closes each leave year
+(`carryover` and `forfeit` entries) and expires unused carried-over days
+(`expiry` entries). Balances are derived from that ledger (LEA-005); no
+balance column is ever updated.
 
 ## What a run does
 
@@ -26,6 +28,144 @@ Active days are days covered by both an employment span (cut at the
 termination date) and an assignment window. An assignment applies from its
 `effective_from` until the day before the next assignment for the same
 employee and leave type.
+
+### Which month a run plans (issue #129)
+
+`monthly` and `daily` policies earn days as time passes, so a run accrues the
+month of `runDate`, which has just ended. `upfront` policies are credited
+for the **month that starts** after `runDate` instead: the scheduled run for
+December (it runs just after midnight on 1 January) credits the next year's
+whole allowance, dated 1 January, and the run for May credits an employee
+who joins on 15 June, dated 15 June. Their entries are keyed by the credited
+month (`accrual:<policyId>:2027-01`), so re-runs stay no-ops. We chose this
+over a second, start-of-month run because it needs no new schedule, payload
+or job, and the scheduled runs already fire at the start of each month.
+
+### True-up
+
+When the ledger holds more than the year-to-date target (a termination,
+an assignment end or a shorter contract recorded after the month was
+accrued), the run writes a **negative `accrual` entry** for the excess under
+the same `accrual:<policyId>:<YYYY-MM>` ref, so there is still at most one
+entry per policy and month. It is dated on the employee's first active day of
+the month, or their last active day before it (for a late termination, the
+termination date). It is an `accrual`, not an `adjustment`, because:
+
+- the year-to-date maths sums `accrual` entries by ref; a correcting
+  `accrual` keeps that sum equal to the target, so the next run is up to
+  date, while an `adjustment` would be invisible to it and the run would
+  claw the same days back every month;
+- `adjustment` entries are HR's own corrections, with a reason (LEA-010);
+  this one is the system recomputing its own accrual.
+
+A change of accrual method mid-year applies the new method's target to the
+whole year, so it can also produce a true-up.
+
+## Year end: carry-over, forfeit and expiry (issue #116)
+
+The ledger is cumulative: a leave type's balance is the sum of all of its
+entries, so what is left at year end is already in next year's balance. The
+**January run** (`runDate` in January, which runs just after January ends)
+settles and closes the previous year, in this order:
+
+1. **Final true-up.** For every policy that applied in the previous year, it
+   compares the whole year's target with what was accrued and writes the
+   difference, positive or negative, as one `accrual` entry with
+   `source_ref = accrual:<policyId>:<YYYY>-final`. This writes a December
+   change recorded after December was accrued (a backdated termination,
+   hire or assignment) and a December run that was missed.
+2. **Close.** For each employee still employed on 31 December, and each
+   leave type they have a policy for on that day, the balance up to and
+   including 31 December (`B`) is split with that policy's
+   `carryover_max_days`: `C = min(B, cap)` is carried over and `F = B − C` is
+   forfeited. It writes, all with the leave type:
+
+   | Entry       | Amount | Date        | `source_ref`                           |
+   | ----------- | ------ | ----------- | -------------------------------------- |
+   | `carryover` | −C     | 31 December | `carryover:<leaveTypeId>:<YYYY>:close` |
+   | `carryover` | +C     | 1 January   | `carryover:<leaveTypeId>:<YYYY>`       |
+   | `forfeit`   | −F     | 31 December | `forfeit:<leaveTypeId>:<YYYY>`         |
+
+   The `carryover` pair moves C from one year into the next, so a history
+   read per year shows "carried over: C" on 1 January, while the balance only
+   drops by F. A zero or negative balance writes nothing (a negative balance
+   stays owed). Usage booked for dates in the new year does not count.
+
+Then, in every run, days carried over from the previous year whose expiry
+date has passed are expired:
+
+3. **Expiry.** The expiry date is the last day of month
+   `carryover_expiry_months` of the new year (3: 31 March; clamped to 1..12),
+   read from the policy in force on 31 December of the closed year. The run
+   for that month (the March run, executing on 1 April) writes `expiry`, −U,
+   dated on the expiry date, ref `expiry:<leaveTypeId>:<YYYY>`, where U is the
+   carried amount minus the days of that type used by requests starting from
+   1 January to the expiry date (a cancelled request counts as unused),
+   floored at 0. Usage is counted against carried days first.
+
+Each ref holds the leave type and the closed year, and the partial unique
+index `leave_ledger_year_end_once` (migration 0036) allows each one once per
+employee, so a re-run is a no-op. A year that is already closed for an
+employee and type is never closed again, even if a backdated entry changed
+its balance since: correct that with an adjustment. The refs are keyed by
+leave type rather than policy because the balance closed is the type's: an
+employee whose policy for a type changed during the year (or whose
+assignment is corrected later) still has one close per type and year.
+
+Rules:
+
+- **The unassigned bucket is never closed.** Entries without a leave type
+  (legacy rows from before 0033) are never carried over, forfeited or
+  expired automatically. HR moves them to a leave type with a pair of
+  adjustments (see below), after which they follow the rules above.
+- Leave types without a policy on 31 December (sick leave, statutory
+  permits) are never closed.
+- Employees who left before 31 December are not closed: their remaining days
+  are settled on termination, by HR.
+- Every number (cap, expiry months) comes from the policy; nothing is
+  defaulted in code. The expiry uses the policy's current settings, so
+  changing `carryover_expiry_months` after a close moves that expiry date.
+
+The job's report (logged with ids and counts only) has a `yearEnd` section
+for January runs and an `expiries` count.
+
+## Part-time contracts (issue #118)
+
+By default every contract accrues the full entitlement (FTE 1.0). That is
+the **compliance default and must stay so for statutory vacation**: in Spain
+part-time staff are entitled to the same vacation days as full-time staff
+(ET art. 12.4.d).
+
+A policy can opt in to proration by setting `full_time_hours_per_week`
+(migration 0034; Settings > Leave policies, or
+`PATCH /v1/leave/policies/{id}`), the full-time week of the collective
+agreement (at most 40 hours). Accrual then weights each active day by
+
+    min(1, employments.working_hours_per_week / full_time_hours_per_week)
+
+of the employment row covering it, so a change of contract mid-year counts
+each part at its own ratio. Ratios are kept in parts per million of a day
+(integers) and the target is still rounded once, to cents, on the cumulative
+value; with no full-time week every amount is exactly what it was before.
+
+- The API refuses a full-time week on a policy whose leave type is the
+  statutory `vacation` (422 `STATUTORY_LEAVE_NOT_PRORATABLE`).
+- The target is cumulative from 1 January, so setting or changing the
+  full-time week mid-year recalculates the whole year, months already
+  accrued included (a lower target is not trued up, see below).
+- The full-time week is capped at 40 hours, the maximum ordinary
+  full-time week (ET art. 34.1), in the API and in the database check. A
+  contract on the default 40 hours therefore never has its accrual reduced.
+- Contract hours come from `employments.working_hours_per_week`, which
+  defaults to 40 and is not yet editable in the app (only through data
+  imports or the database; issue #131).
+- A legacy employee without employment rows has no recorded hours and
+  accrues at 1.
+- If a prorated policy meets an employment row whose hours are not a
+  positive number, the run fails with `InvalidEmploymentDataError` (naming the
+  employee ids) before anything is written.
+- Reducing hours mid-year lowers the cumulative target; if the ledger
+  already holds more, the run writes nothing (no true-up, see below).
 
 The target is rounded to cents of a day once, on the cumulative value, so the
 monthly entries of a full year add up to the allowance exactly (22 days gives
@@ -87,16 +227,12 @@ longer limits requests at all: assign policies to enforce entitlements.
   run does not subtract manual `adjustment` entries; see
   [upgrading](upgrading.md#job-scheduler-migration-0035). It catches up
   the last 2 days only; a run missed for longer must be enqueued by hand.
-  Because runs follow the month, an `upfront` allowance is first credited
-  after January ends (open product decision).
-- **No true-up.** If the ledger already holds more than is due (for example a
-  termination recorded after the month was accrued), the run writes nothing
-  and logs a warning with ids only. Corrections are a manual adjustment.
-- **FTE is 1.0.** There is no full-time reference to divide
-  `employments.working_hours_per_week` by, so part-time contracts accrue like
-  full-time ones. This matches statutory vacation in Spain (ET art. 12.4.d)
-  but may not suit every leave type.
-- **No carry-over or expiry runs** yet.
-- If a month's entry already exists and a backdated change raises the target,
-  the difference is written by the next month's run (for December, not at
-  all: each year is accrued on its own).
+  Carry-over and expiry run inside `leave.accrue`, so they are opt-in too.
+- **The year is closed once, by the January run.** If that run is missed
+  (worker down for more than 2 days around 1 February), enqueue it by hand
+  with `runDate` = 31 January ([job scheduler](job-scheduler.md)). Until it
+  runs, the previous year's balance is not capped. A change to the previous
+  year recorded after the January run is not trued up: book an adjustment.
+- If a month's entry already exists and a backdated change alters the
+  target, the difference is written by the next month's run (for December,
+  by the January run's final true-up).

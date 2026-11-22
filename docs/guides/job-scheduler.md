@@ -18,7 +18,11 @@ the jobs that are due in its local time:
 | `leave.accrue`       | each month | the month's last day has ended            | `{ organizationId, runDate }` (last day of the month) |
 
 `leave.accrue` is **opt-in**: it runs only when `SCHEDULER_JOBS` lists it.
-Its first run writes the year-to-date accrual minus earlier `accrual` entries
+Besides the month's accrual it credits `upfront` policies for the month that
+starts, closes the previous leave year in its January run (carry-over and
+forfeit) and expires unused carried-over days
+([leave accrual](leave-accrual.md#year-end-carry-over-forfeit-and-expiry-issue-116)),
+so all of these are opt-in through the same setting. Its first run writes the year-to-date accrual minus earlier `accrual` entries
 but does not subtract manual `adjustment` entries, so on an install whose
 balances were kept right by hand it could credit days twice. Review the ledger
 ([upgrading](upgrading.md#job-scheduler-migration-0035)) before enabling it:
@@ -50,8 +54,11 @@ midnight, so it also holds on the 23 and 25 hour days of a DST change.
   ([job data retention](self-hosting.md#3-background-job-data-retention)),
   which is what keeps a completed period from being enqueued again.
 - After a longer outage, older periods are not enqueued automatically. Leave
-  accrual catches up by itself (each run accrues the year to date), except a
-  December that was missed entirely. Enqueue a missed period by hand with
+  accrual catches up by itself (each run accrues the year to date; a missed
+  December is settled by the January run), and expiries by the next run,
+  but the year-end close only runs in the January run (`runDate` in
+  January): if that one is missed, enqueue it by hand. Enqueue a missed
+  period by hand with
   the same payload, for example from the worker container:
 
   ```bash
@@ -101,10 +108,14 @@ per occurrence however many instances run. A tick that reaches a worker with
   `COMPLIANCE.md` §5). Leave it out with `SCHEDULER_JOBS` if you prefer. The
   scheduler always sends `dryRun: true`: turning scheduled purges on is a
   compliance decision for ADM-005, not a scheduler default.
-- **Accrual is credited after the month.** `leave.accrue` runs once a month
-  has ended, so an `upfront` policy's annual allowance is first credited
-  after 31 January, and `monthly` and `daily` credits arrive the following
-  month. Crediting at the start of a period is an open product decision.
+- **Monthly and daily accrual is credited after the month.** `leave.accrue`
+  runs once a month has ended, so `monthly` and `daily` credits arrive just
+  after the month they are for. `upfront` policies are credited by the same
+  run for the month that starts, so the year's allowance is there on
+  1 January (issue #129).
+- **The year-end close waits for the January run.** It runs once January
+  has ended, so that December changes recorded in January are settled
+  first; until then the previous year's balance is not capped.
 - A tick logs organization ids and counts only. An organization whose time
   zone is invalid is skipped and logged by id (the log message is
   `scheduler skipped an organization`); the others still run.

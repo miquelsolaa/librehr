@@ -58,6 +58,8 @@ import {
   LeaveTypeSchema,
   CreateLeaveTypeRequestSchema,
   LeavePolicySchema,
+  CreateLeavePolicyRequestSchema,
+  UpdateLeavePolicyRequestSchema,
   LeaveBalanceSummarySchema,
   LeaveTypeBalanceSchema,
   LeaveLedgerEntrySchema,
@@ -190,6 +192,8 @@ registry.register("InvitationDetails", InvitationDetailsSchema);
 registry.register("LeaveType", LeaveTypeSchema);
 registry.register("CreateLeaveTypeRequest", CreateLeaveTypeRequestSchema);
 registry.register("LeavePolicy", LeavePolicySchema);
+registry.register("CreateLeavePolicyRequest", CreateLeavePolicyRequestSchema);
+registry.register("UpdateLeavePolicyRequest", UpdateLeavePolicyRequestSchema);
 registry.register("LeaveTypeBalance", LeaveTypeBalanceSchema);
 registry.register("LeaveBalanceSummary", LeaveBalanceSummarySchema);
 registry.register("LeaveLedgerEntry", LeaveLedgerEntrySchema);
@@ -1051,6 +1055,59 @@ registry.registerPath({
     201: {
       description: "Compensating ledger entry created",
       content: { "application/json": { schema: LeaveLedgerEntrySchema } },
+    },
+  },
+});
+
+// LEA-002: leave policies (admin)
+registry.registerPath({
+  method: "get",
+  path: "/v1/leave/policies",
+  summary: "List leave policies (admin)",
+  responses: {
+    200: {
+      description: "Leave policies of the organization",
+      content: { "application/json": { schema: z.array(LeavePolicySchema) } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/leave/policies",
+  summary: "Create a leave policy (admin, audited)",
+  request: {
+    body: {
+      content: {
+        "application/json": { schema: CreateLeavePolicyRequestSchema },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "Leave policy created",
+      content: { "application/json": { schema: LeavePolicySchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "patch",
+  path: "/v1/leave/policies/{id}",
+  summary:
+    "Set or clear a leave policy's full-time week for part-time proration (admin, audited)",
+  request: {
+    params: z.object({ id: z.guid() }),
+    body: {
+      content: {
+        "application/json": { schema: UpdateLeavePolicyRequestSchema },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Leave policy updated",
+      content: { "application/json": { schema: LeavePolicySchema } },
     },
   },
 });
@@ -2031,6 +2088,9 @@ import type {
   CreateLeaveRequest,
   DecideLeaveRequest,
   AdjustBalanceRequest,
+  LeavePolicy,
+  CreateLeavePolicyRequest,
+  UpdateLeavePolicyRequest,
   Holiday,
   CreateHolidayRequest,
   SeedStatutoryHolidaysRequest,
@@ -2394,6 +2454,24 @@ export class LibreHrApiClient {
   async adjustLeaveBalance(data: AdjustBalanceRequest): Promise<LeaveLedgerEntry> {
     return this.request<LeaveLedgerEntry>('/v1/leave/adjust', {
       method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async listLeavePolicies(): Promise<LeavePolicy[]> {
+    return this.request<LeavePolicy[]>('/v1/leave/policies');
+  }
+
+  async createLeavePolicy(data: CreateLeavePolicyRequest): Promise<LeavePolicy> {
+    return this.request<LeavePolicy>('/v1/leave/policies', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateLeavePolicy(id: string, data: UpdateLeavePolicyRequest): Promise<LeavePolicy> {
+    return this.request<LeavePolicy>(\`/v1/leave/policies/\${id}\`, {
+      method: 'PATCH',
       body: JSON.stringify(data),
     });
   }

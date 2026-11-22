@@ -131,6 +131,36 @@ invitations and a per-organization maximum access period
   `0021_terminated_access.sql` alone is not a rollback: it removes the
   expiry check, so expired auditors would regain access.
 
+## Leave carry-over, expiry and true-up (migration 0036)
+
+Migration 0036 adds one partial unique index on `leave_ledger`
+(`leave_ledger_year_end_once`, for `carryover`, `forfeit` and `expiry`
+entries) and a column comment. It changes no data and no RLS policy and is
+safe on a populated database: no earlier release wrote those entries with a
+`source_ref`. Building the index briefly blocks ledger writes (leave
+approvals, cancellations, adjustments); on a very large ledger upgrade in a
+quiet window.
+
+If you opted in to `leave.accrue`, from this release it also:
+
+- writes **negative `accrual` entries** when more was accrued than is due
+  (for example a termination recorded after the month was accrued). On the
+  first run after the upgrade, every such earlier over-accrual of the
+  current year is corrected at once. If you corrected some by hand with an
+  `adjustment`, the days are taken back twice: review the ledger first;
+- credits `upfront` policies for the month that starts, so the next year's
+  allowance arrives on 1 January instead of after January;
+- in the January run, settles the previous year (final true-up), then
+  **carries over** each leave type's remaining balance up to the policy's
+  `carryover_max_days` and **forfeits** the rest, and later **expires**
+  carried days left unused after `carryover_expiry_months`. Check those two
+  policy settings (defaults: 5 days, 3 months) before the next January run.
+  Entries without a leave type (the "unassigned" bucket) are never touched.
+
+See [leave accrual](leave-accrual.md#year-end-carry-over-forfeit-and-expiry-issue-116).
+The web app shows the new `forfeit` entries in the balance history as
+"Forfeited at year end".
+
 ## Job scheduler (migration 0035)
 
 From this release the worker schedules its periodic jobs itself
