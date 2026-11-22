@@ -1,4 +1,4 @@
-# ADR 0005: Scheduling periodic worker jobs
+# ADR 0006: Scheduling periodic worker jobs
 
 ## Status
 
@@ -40,6 +40,11 @@ each organization's time zone.
    tenant ids from the API.
 5. **`retention.enforce` is scheduled as a dry run.** Enabling scheduled
    purges is left to ADM-005 and a maintainer decision.
+6. **`leave.accrue` is opt-in.** The default job list (empty
+   `SCHEDULER_JOBS`) leaves it out: a first run does not subtract manual
+   `adjustment` entries, so enabling it silently on an upgraded install could
+   credit days twice, and per-leave-type ledger entries (#117) will change
+   accrual. Admins enable it by listing it in `SCHEDULER_JOBS`.
 
 ## Consequences
 

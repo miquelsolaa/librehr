@@ -46,9 +46,12 @@ monthly entries of a full year add up to the allowance exactly (22 days gives
 
 ## Known limitations
 
-- **Scheduling.** The worker's scheduler enqueues `leave.accrue` for each
-  organization once a month has ended in its local time, with `runDate` set
-  to the month's last day ([job scheduler](job-scheduler.md)). It catches up
+- **Scheduling is opt-in.** When `SCHEDULER_JOBS` lists `leave.accrue`, the
+  worker's scheduler enqueues it for each organization once a month has ended
+  in its local time, with `runDate` set to the month's last day
+  ([job scheduler](job-scheduler.md)). It is off by default because a first
+  run does not subtract manual `adjustment` entries; see
+  [upgrading](upgrading.md#job-scheduler-migration-0035). It catches up
   the last 2 days only; a run missed for longer must be enqueued by hand.
   Because runs follow the month, an `upfront` allowance is first credited
   after January ends (open product decision).

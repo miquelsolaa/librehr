@@ -107,17 +107,12 @@ describe("worker env", () => {
   });
 
   describe("scheduler (issue #115)", () => {
-    it("is enabled by default with a 15-minute UTC tick, 30 minutes of grace and every job", () => {
+    it("is enabled by default with a 15-minute UTC tick, 30 minutes of grace and every job but accrual", () => {
       expect(loadWorkerEnv({ NODE_ENV: "test" }).SCHEDULER).toEqual({
         enabled: true,
         tickCron: "*/15 * * * *",
         graceMinutes: 30,
-        jobs: [
-          "time.close-day",
-          "audit.verify-chain",
-          "retention.enforce",
-          "leave.accrue",
-        ],
+        jobs: ["time.close-day", "audit.verify-chain", "retention.enforce"],
       });
     });
 
@@ -146,10 +141,27 @@ describe("worker env", () => {
       expect(env.SCHEDULER).toMatchObject({ enabled: true, graceMinutes: 30 });
     });
 
-    it("treats an empty job list as every job", () => {
+    it("treats an empty job list as the defaults, leaving accrual opt-in", () => {
+      const { jobs } = loadWorkerEnv({
+        NODE_ENV: "test",
+        SCHEDULER_JOBS: "",
+      }).SCHEDULER;
+      expect(jobs).toEqual([
+        "time.close-day",
+        "audit.verify-chain",
+        "retention.enforce",
+      ]);
+      expect(jobs).not.toContain("leave.accrue");
+    });
+
+    it("schedules accrual only when listed explicitly", () => {
       expect(
-        loadWorkerEnv({ NODE_ENV: "test", SCHEDULER_JOBS: "" }).SCHEDULER.jobs,
-      ).toHaveLength(4);
+        loadWorkerEnv({
+          NODE_ENV: "test",
+          SCHEDULER_JOBS:
+            "time.close-day,audit.verify-chain,retention.enforce,leave.accrue",
+        }).SCHEDULER.jobs,
+      ).toContain("leave.accrue");
     });
 
     it.each([

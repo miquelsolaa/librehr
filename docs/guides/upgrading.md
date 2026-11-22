@@ -120,13 +120,14 @@ Once the new worker starts:
 - `audit.verify-chain` verifies the time-record chains daily;
 - `retention.enforce` runs daily as a dry run and dead-letters until ADM-005
   ships;
-- `leave.accrue` runs after each month ends. The first run writes the whole
-  year-to-date accrual (January to the end of that month) in one entry per
-  employee and policy, minus earlier `accrual` entries. Earlier `adjustment`
-  entries are **not** subtracted. If you kept balances right with manual
-  adjustments while nothing accrued, review the ledger first, or start the
-  worker with `SCHEDULER_JOBS=time.close-day,audit.verify-chain,retention.enforce`
-  until you have.
+- `leave.accrue` does **not** run unless you opt in by listing it in
+  `SCHEDULER_JOBS`
+  (`time.close-day,audit.verify-chain,retention.enforce,leave.accrue`). Its
+  first run writes the whole year-to-date accrual (January to the end of the
+  month) in one entry per employee and policy, minus earlier `accrual`
+  entries. Earlier `adjustment` entries are **not** subtracted, so if you kept
+  balances right with manual adjustments while nothing accrued, review the
+  ledger and correct it before opting in, or days are credited twice.
 
 To keep the old behaviour (nothing scheduled), set `SCHEDULER_ENABLED=false`.
 Migration 0035 only adds the function the scheduler uses to list

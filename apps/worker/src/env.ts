@@ -16,6 +16,14 @@ const DEV_DEFAULTS = {
   TIME_CHAIN_KEY: "dev_time_chain_key_must_be_changed_in_production_32",
 } as const;
 
+/**
+ * Jobs scheduled when SCHEDULER_JOBS is empty. `leave.accrue` is opt-in: its
+ * first run does not subtract manual `adjustment` ledger entries, so turning
+ * it on silently on an upgraded install could credit days twice.
+ */
+export const DEFAULT_SCHEDULER_JOBS: readonly ScheduledJob[] =
+  SCHEDULED_JOBS.filter((job) => job !== "leave.accrue");
+
 const optionalString = z
   .string()
   .optional()
@@ -52,7 +60,8 @@ const RawEnvSchema = z.object({
     (v) => (v === "" ? undefined : v),
     z.coerce.number().int().min(0).max(SCHEDULER_MAX_GRACE_MINUTES).default(30),
   ),
-  // Comma-separated subset of the scheduled jobs; empty means all of them.
+  // Comma-separated subset of the scheduled jobs; empty means the defaults
+  // (every job except leave.accrue, which is opt-in).
   SCHEDULER_JOBS: optionalString.pipe(
     z
       .string()
@@ -197,7 +206,7 @@ export function loadWorkerEnv(
       enabled: parsed.SCHEDULER_ENABLED,
       tickCron: parsed.SCHEDULER_TICK_CRON,
       graceMinutes: parsed.SCHEDULER_GRACE_MINUTES,
-      jobs: parsed.SCHEDULER_JOBS ?? SCHEDULED_JOBS,
+      jobs: parsed.SCHEDULER_JOBS ?? DEFAULT_SCHEDULER_JOBS,
     },
   };
 }

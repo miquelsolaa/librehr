@@ -14,8 +14,18 @@ the jobs that are due in its local time:
 | -------------------- | ---------- | ----------------------------------------- | ----------------------------------------------------- |
 | `time.close-day`     | each day   | that day has ended (local midnight+grace) | `{ organizationId, closeDate }`                       |
 | `audit.verify-chain` | each day   | that day has ended                        | `{ organizationId, runDate }`                         |
-| `retention.enforce`  | each day   | that day has ended                        | `{ organizationId, runDate }`                         |
+| `retention.enforce`  | each day   | that day has ended                        | `{ organizationId, runDate, dryRun: true }`           |
 | `leave.accrue`       | each month | the month's last day has ended            | `{ organizationId, runDate }` (last day of the month) |
+
+`leave.accrue` is **opt-in**: it runs only when `SCHEDULER_JOBS` lists it.
+Its first run writes the year-to-date accrual minus earlier `accrual` entries
+but does not subtract manual `adjustment` entries, so on an install whose
+balances were kept right by hand it could credit days twice. Review the ledger
+([upgrading](upgrading.md#job-scheduler-migration-0035)) before enabling it:
+
+```bash
+SCHEDULER_JOBS=time.close-day,audit.verify-chain,retention.enforce,leave.accrue
+```
 
 "Local" means every time zone the organization uses: its own and those of its
 locations. A day is closed only once it has ended in all of them, so with a
@@ -69,12 +79,12 @@ otherwise every tick fails with `permission denied`.
 
 ## Configuration
 
-| Variable                  | Default        | Meaning                                                                |
-| ------------------------- | -------------- | ---------------------------------------------------------------------- |
-| `SCHEDULER_ENABLED`       | `true`         | `false` removes the stored tick schedule at worker start               |
-| `SCHEDULER_TICK_CRON`     | `*/15 * * * *` | Five-field cron, in UTC, of the dispatcher tick; at least once a day   |
-| `SCHEDULER_GRACE_MINUTES` | `30`           | Minutes after local midnight before a day counts as closed (0 to 720)  |
-| `SCHEDULER_JOBS`          | all            | Comma-separated subset of the four jobs above; empty means all of them |
+| Variable                  | Default         | Meaning                                                                                    |
+| ------------------------- | --------------- | ------------------------------------------------------------------------------------------ |
+| `SCHEDULER_ENABLED`       | `true`          | `false` removes the stored tick schedule at worker start                                   |
+| `SCHEDULER_TICK_CRON`     | `*/15 * * * *`  | Five-field cron, in UTC, of the dispatcher tick; at least once a day                       |
+| `SCHEDULER_GRACE_MINUTES` | `30`            | Minutes after local midnight before a day counts as closed (0 to 720)                      |
+| `SCHEDULER_JOBS`          | all but accrual | Comma-separated subset of the four jobs above; empty means every job except `leave.accrue` |
 
 Invalid values stop the worker at startup, including a tick cron with gaps of
 more than 24 hours (periods older than the catch-up window would be lost).
