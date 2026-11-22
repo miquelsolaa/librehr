@@ -226,11 +226,13 @@ export class TimeRepository {
   /**
    * TIM-003: employees with a user account and at least one time event on
    * local day `date` of their business zone (location, else organization),
-   * with that zone.
+   * with that zone. Employees in `alsoEmployeeIds` with a user account are
+   * listed even without an event that day (a night shift left open).
    */
   async listUsersWithEventsOnLocalDay(
     tx: TenantTx,
     date: string,
+    alsoEmployeeIds: readonly string[] = [],
   ): Promise<{ employeeId: string; userId: string; timeZone: string }[]> {
     const orgId = tx.__tenantContext.organizationId;
     return tx<{ employeeId: string; userId: string; timeZone: string }[]>`
@@ -242,13 +244,18 @@ export class TimeRepository {
         ON l.id = e.location_id AND l.organization_id = e.organization_id
       WHERE e.organization_id = ${orgId}
         AND e.user_id IS NOT NULL
-        AND EXISTS (
-          SELECT 1 FROM time_events te
-          WHERE te.employee_id = e.id AND te.organization_id = ${orgId}
-            AND te.occurred_at >= (${date}::date::timestamp
-              AT TIME ZONE COALESCE(l.timezone, o.timezone))
-            AND te.occurred_at < ((${date}::date + 1)::timestamp
-              AT TIME ZONE COALESCE(l.timezone, o.timezone))
+        AND (
+          -- A text array literal, so an empty list needs no special case;
+          -- the uuid cast rejects anything that is not an id.
+          e.id = ANY(${`{${alsoEmployeeIds.join(",")}}`}::uuid[])
+          OR EXISTS (
+            SELECT 1 FROM time_events te
+            WHERE te.employee_id = e.id AND te.organization_id = ${orgId}
+              AND te.occurred_at >= (${date}::date::timestamp
+                AT TIME ZONE COALESCE(l.timezone, o.timezone))
+              AND te.occurred_at < ((${date}::date + 1)::timestamp
+                AT TIME ZONE COALESCE(l.timezone, o.timezone))
+          )
         )
       ORDER BY e.id
     `;

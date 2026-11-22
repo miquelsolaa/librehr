@@ -94,6 +94,7 @@ LibreHR is designed to be easily self-hostable on any standard Linux server, VPS
    | `DOMAIN`                 | yes      | Host name Caddy serves and requests a certificate for: the host of `APP_URL`, e.g. `hr.example.com`                               |
    | `PUBLIC_API_URL`         | no       | Browser-facing API URL baked into the web image. Leave empty (same origin); see [Public URLs](#public-urls-and-the-reverse-proxy) |
    | `SMTP_HOST`              | yes      | Your SMTP relay (`SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` are optional)                                                 |
+   | `SCHEDULER_*`            | no       | Worker job scheduler: on by default; see [the job scheduler guide](job-scheduler.md)                                              |
 
    In production the API also refuses a `DATABASE_URL` that connects as
    `librehr_owner`, as the migration role, or as the bootstrap superuser

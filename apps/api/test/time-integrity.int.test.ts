@@ -65,6 +65,25 @@ describe("time-record integrity and kiosk (TIM-002, TIM-003, TIM-010)", () => {
       ORDER BY seq
     `;
 
+  it("refuses an auditor with a legacy employee row and writes nothing (#107)", async () => {
+    // seedScopedOrg gives the auditor an employee row, as older invitations did.
+    const res = await clock({ eventType: "clock_in" }, org.auditor);
+    expect(res.status).toBe(403);
+    expect((await res.json()) as { code: string }).toMatchObject({
+      code: "FORBIDDEN",
+    });
+    expect(await chainOf(org.auditor.employeeId)).toHaveLength(0);
+  });
+
+  it("asks for a session before checking the clock permission", async () => {
+    const res = await app.request("/v1/time/clock", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ eventType: "clock_in" }),
+    });
+    expect(res.status).toBe(401);
+  });
+
   it("concurrent clock-ins produce one linear chain", async () => {
     const responses = await Promise.all(
       Array.from({ length: 8 }, () =>

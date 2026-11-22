@@ -90,6 +90,11 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-LibreHR <noreply@librehr.local>}
+      # Job scheduler (docs/guides/job-scheduler.md).
+      SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-true}
+      SCHEDULER_TICK_CRON: ${SCHEDULER_TICK_CRON:-*/15 * * * *}
+      SCHEDULER_GRACE_MINUTES: ${SCHEDULER_GRACE_MINUTES:-30}
+      SCHEDULER_JOBS: ${SCHEDULER_JOBS:-}
     # Healthcheck is defined in infra/docker/worker.Dockerfile.
 
   web:

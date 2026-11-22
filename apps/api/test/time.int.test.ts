@@ -60,7 +60,7 @@ describe("Time Tracking API Integration Tests (TIM-001 - TIM-006)", () => {
 
   const auditorUser: AuthUser = {
     id: "33333333-3333-3333-3333-333333333333",
-    email: "inspector@meyss.gob.es",
+    email: "inspector@librehr.test",
     name: "Labour Inspector",
     role: "auditor",
     organizationId: orgId,
@@ -107,6 +107,44 @@ describe("Time Tracking API Integration Tests (TIM-001 - TIM-006)", () => {
     expect(res.status).toBe(400);
     const prob = (await res.json()) as ProblemDetails;
     expect(prob.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("forbids an auditor from recording clock events (TIM-008, #107)", async () => {
+    const dummyApp = db
+      ? app
+      : createApp({ sql: {} as unknown as Sql, authPort });
+
+    const res = await dummyApp.request("/v1/time/clock", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${auditorToken}`,
+      },
+      body: JSON.stringify({ eventType: "clock_in" }),
+    });
+
+    expect(res.status).toBe(403);
+    const prob = (await res.json()) as ProblemDetails;
+    expect(prob.code).toBe("FORBIDDEN");
+  });
+
+  it("still lets roles holding time.clock reach the clock route (#107)", async () => {
+    const dummyApp = db
+      ? app
+      : createApp({ sql: {} as unknown as Sql, authPort });
+
+    for (const token of [staffToken, adminToken]) {
+      // An invalid body proves the permission check passed without writing.
+      const res = await dummyApp.request("/v1/time/clock", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ eventType: "invalid_clock_type" }),
+      });
+      expect(res.status).toBe(400);
+    }
   });
 
   it("validates timesheet query parameters", async () => {
