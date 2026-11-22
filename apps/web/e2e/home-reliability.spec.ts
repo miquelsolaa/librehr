@@ -23,6 +23,19 @@ const BALANCE = {
   totalUsed: 1.5,
   totalCarryover: 0,
   totalAdjustments: 0,
+  byType: [
+    {
+      leaveTypeId: "00000000-0000-4000-8000-000000000005",
+      leaveTypeName: "Annual leave",
+      leaveTypeCode: "vacation",
+      leaveTypeColor: "#3b82f6",
+      currentBalance: 12.5,
+      totalAccrued: 14,
+      totalUsed: 1.5,
+      totalCarryover: 0,
+      totalAdjustments: 0,
+    },
+  ],
   entries: [],
 };
 

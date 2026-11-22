@@ -9,6 +9,7 @@ import {
   timestamp,
   index,
   uniqueIndex,
+  foreignKey,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { primaryId, organizationIdCol, timestamps } from "./common.js";
@@ -25,6 +26,9 @@ export const leaveLedger = pgTable(
     employeeId: uuid("employee_id")
       .notNull()
       .references(() => employees.id, { onDelete: "cascade" }),
+    // LEA-005: the leave type the entry counts toward (migration 0033). NULL
+    // only for legacy entries whose origin was never recorded ("unassigned").
+    leaveTypeId: uuid("leave_type_id"),
     entryType: text("entry_type").notNull(), // accrual, usage, adjustment, carryover, expiry, reversal
     amount: numeric("amount", { precision: 5, scale: 2 }).notNull(), // can be negative for usage/expiry
     unit: text("unit").notNull().default("days"), // days, hours
@@ -42,6 +46,18 @@ export const leaveLedger = pgTable(
     uniqueIndex("leave_ledger_accrual_once")
       .on(table.organizationId, table.employeeId, table.sourceRef)
       .where(sql`${table.entryType} = 'accrual'`),
+    // Same-tenant leave type (composite FK, migration 0033).
+    foreignKey({
+      name: "leave_ledger_leave_type_fk",
+      columns: [table.organizationId, table.leaveTypeId],
+      foreignColumns: [leaveTypes.organizationId, leaveTypes.id],
+    }),
+    index("leave_ledger_employee_type_idx").on(
+      table.organizationId,
+      table.employeeId,
+      table.leaveTypeId,
+      table.effectiveDate,
+    ),
   ],
 );
 
@@ -67,6 +83,8 @@ export const leaveTypes = pgTable(
   (table) => [
     index("leave_types_org_idx").on(table.organizationId),
     index("leave_types_code_idx").on(table.organizationId, table.code),
+    // Target of leave_ledger_leave_type_fk (migration 0033).
+    uniqueIndex("leave_types_org_id_uidx").on(table.organizationId, table.id),
   ],
 );
 

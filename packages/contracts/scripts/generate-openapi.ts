@@ -59,6 +59,7 @@ import {
   CreateLeaveTypeRequestSchema,
   LeavePolicySchema,
   LeaveBalanceSummarySchema,
+  LeaveTypeBalanceSchema,
   LeaveLedgerEntrySchema,
   LeaveRequestSchema,
   CreateLeaveRequestSchema,
@@ -189,6 +190,7 @@ registry.register("InvitationDetails", InvitationDetailsSchema);
 registry.register("LeaveType", LeaveTypeSchema);
 registry.register("CreateLeaveTypeRequest", CreateLeaveTypeRequestSchema);
 registry.register("LeavePolicy", LeavePolicySchema);
+registry.register("LeaveTypeBalance", LeaveTypeBalanceSchema);
 registry.register("LeaveBalanceSummary", LeaveBalanceSummarySchema);
 registry.register("LeaveLedgerEntry", LeaveLedgerEntrySchema);
 registry.register("LeaveRequest", LeaveRequestSchema);

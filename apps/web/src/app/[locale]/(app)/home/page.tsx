@@ -11,6 +11,7 @@ import { HomeAway } from "@/components/home-away";
 import { formatNumber, localIsoDate } from "@/lib/format";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
+import type { LeaveTypeBalance } from "@librehr/contracts";
 
 const linkClass =
   "inline-flex min-h-11 items-center text-sm font-medium text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring rounded-input";
@@ -23,7 +24,8 @@ export default function HomePage() {
     React.useState<ReturnType<typeof getStoredSession>>(null);
   const [ready, setReady] = React.useState(false);
   const [today, setToday] = React.useState<string | null>(null);
-  const [balance, setBalance] = React.useState<number | null>(null);
+  // LEA-005: one balance per leave type (unassigned legacy entries last).
+  const [balance, setBalance] = React.useState<LeaveTypeBalance[] | null>(null);
   const [balanceError, setBalanceError] = React.useState(false);
 
   // Only the latest request may update the page, and none after unmount.
@@ -36,7 +38,7 @@ export default function HomePage() {
     setBalance(null);
     try {
       const result = await getApiClient().getLeaveBalance();
-      if (request === requestRef.current) setBalance(result.currentBalance);
+      if (request === requestRef.current) setBalance(result.byType);
     } catch {
       if (request === requestRef.current) setBalanceError(true);
     }
@@ -162,15 +164,35 @@ export default function HomePage() {
               </div>
             ) : balance === null ? (
               <Skeleton className="h-10 w-40" />
-            ) : (
+            ) : balance.length === 0 ? (
               <p className="flex items-baseline gap-2">
                 <span className="font-display text-4xl font-semibold tracking-tight tabular-nums text-foreground">
-                  {formatNumber(balance, locale)}
+                  {formatNumber(0, locale)}
                 </span>
                 <span className="text-sm text-muted-foreground">
                   {t("daysRemaining")}
                 </span>
               </p>
+            ) : (
+              <dl className="space-y-3">
+                {balance.map((b) => (
+                  <div key={b.leaveTypeId ?? "unassigned"}>
+                    <dt className="text-sm text-muted-foreground">
+                      {b.leaveTypeId === null
+                        ? t("unassignedBalance")
+                        : (b.leaveTypeName ?? t("unknownLeaveType"))}
+                    </dt>
+                    <dd className="flex items-baseline gap-2">
+                      <span className="font-display text-3xl font-semibold tracking-tight tabular-nums text-foreground">
+                        {formatNumber(b.currentBalance, locale)}
+                      </span>
+                      <span className="text-sm text-muted-foreground">
+                        {t("daysRemaining")}
+                      </span>
+                    </dd>
+                  </div>
+                ))}
+              </dl>
             )}
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               <Button asChild>

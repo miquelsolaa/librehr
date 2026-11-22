@@ -323,4 +323,30 @@ describe("leave.accrue (LEA-002)", () => {
     expect(await ledger(orgId)).toEqual([]);
     expect(await ledger(other.orgId)).toEqual([]);
   });
+  it("records each accrual under its policy's leave type (LEA-005)", async () => {
+    const { orgId, leaveTypeId: vacation } = await newOrg();
+    const [personal] = await db.sql<{ id: string }[]>`
+      INSERT INTO leave_types (organization_id, name, code)
+      VALUES (${orgId}, 'Personal days', 'personal_days') RETURNING id
+    `;
+    const vacationPolicy = await newPolicy(orgId, vacation, 24, "monthly");
+    const personalPolicy = await newPolicy(orgId, personal!.id, 2, "upfront");
+    const employee = await newEmployee(orgId, "2024-01-01");
+    await assign(orgId, employee, vacationPolicy, "2025-01-01");
+    await assign(orgId, employee, personalPolicy, "2025-01-01");
+
+    await run(orgId, "2026-01-15").result;
+
+    const rows = await db.sql<{ sourceRef: string; leaveTypeId: string }[]>`
+      SELECT source_ref AS "sourceRef", leave_type_id AS "leaveTypeId"
+      FROM leave_ledger WHERE organization_id = ${orgId}
+      ORDER BY source_ref
+    `;
+    expect(
+      Object.fromEntries(rows.map((r) => [r.sourceRef, r.leaveTypeId])),
+    ).toEqual({
+      [`accrual:${vacationPolicy}:2026-01`]: vacation,
+      [`accrual:${personalPolicy}:2026-01`]: personal!.id,
+    });
+  });
 });

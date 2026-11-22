@@ -6,6 +6,8 @@ export interface AccrualAssignmentRow {
   employeeId: string;
   /** Null when the policy is missing or belongs to another tenant. */
   policyId: string | null;
+  /** Leave type of the policy (LEA-005); null when the policy is missing. */
+  leaveTypeId: string | null;
   annualAllowanceDays: number | null;
   accrualMethod: string | null;
   /** `effective_from` of the assignment (local date). */
@@ -32,12 +34,13 @@ export class LeaveAccrualRepository {
     const orgId = tx.__tenantContext.organizationId;
     return tx<AccrualAssignmentRow[]>`
       SELECT w.assignment_id AS "assignmentId", w.employee_id AS "employeeId",
-             w.policy_id AS "policyId",
+             w.policy_id AS "policyId", w.leave_type_id AS "leaveTypeId",
              w.annual_allowance_days AS "annualAllowanceDays",
              w.accrual_method AS "accrualMethod",
              w.start_date::text AS "start", w.end_date::text AS "end"
       FROM (
         SELECT a.id AS assignment_id, a.employee_id, p.id AS policy_id,
+               p.leave_type_id,
                p.annual_allowance_days::float AS annual_allowance_days,
                p.accrual_method, a.effective_from AS start_date,
                LEAD(a.effective_from) OVER (
@@ -89,6 +92,8 @@ export class LeaveAccrualRepository {
     tx: TenantTx,
     data: {
       employeeId: string;
+      /** The policy's leave type: the balance this accrual counts toward. */
+      leaveTypeId: string;
       amount: number;
       sourceRef: string;
       /** Business date in the organization's zone. */
@@ -97,9 +102,10 @@ export class LeaveAccrualRepository {
   ): Promise<boolean> {
     const rows = await tx<{ id: string }[]>`
       INSERT INTO leave_ledger (
-        employee_id, entry_type, amount, unit, source_ref, effective_date
+        employee_id, leave_type_id, entry_type, amount, unit, source_ref,
+        effective_date
       ) VALUES (
-        ${data.employeeId}, 'accrual', ${data.amount}, 'days',
+        ${data.employeeId}, ${data.leaveTypeId}, 'accrual', ${data.amount}, 'days',
         ${data.sourceRef}, ${data.effectiveDate}
       )
       ON CONFLICT (organization_id, employee_id, source_ref)

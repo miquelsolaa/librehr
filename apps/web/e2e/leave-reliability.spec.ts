@@ -24,6 +24,7 @@ test.beforeEach(async ({ page }) => {
             totalUsed: 2,
             totalCarryover: 0,
             totalAdjustments: 0,
+            byType: [],
             entries: [],
           }
         : [],
@@ -55,6 +56,7 @@ test("a failed balance request shows an error and can be retried", async ({
           totalUsed: 2,
           totalCarryover: 0,
           totalAdjustments: 0,
+          byType: [],
           entries: [],
         },
       });
@@ -79,6 +81,7 @@ test("balance history explains signed ledger entries", async ({ page }) => {
         totalUsed: 2,
         totalCarryover: 0,
         totalAdjustments: 0.5,
+        byType: [],
         entries: [
           {
             id: "1",
@@ -225,6 +228,7 @@ test("the balance history shows the balance after every entry", async ({
         totalUsed: 1.5,
         totalCarryover: 0,
         totalAdjustments: 0,
+        byType: [],
         entries: [
           {
             ...entry,
@@ -254,4 +258,118 @@ test("the balance history shows the balance after every entry", async ({
   await expect(rows.nth(0)).toContainText("Balance 22");
   await expect(rows.nth(1)).toContainText("−1.5 days");
   await expect(rows.nth(1)).toContainText("Balance 20.5");
+});
+test("balances are shown per leave type, legacy entries as unassigned (LEA-005)", async ({
+  page,
+}) => {
+  const VACATION = "00000000-0000-4000-8000-000000000031";
+  const PERSONAL = "00000000-0000-4000-8000-000000000032";
+  const totals = { totalCarryover: 0, totalAdjustments: 0 };
+  const entry = {
+    employeeId: "00000000-0000-4000-8000-000000000002",
+    unit: "days",
+    createdAt: "2026-01-01T00:00:00.000Z",
+  };
+  await mockRoute(page, "**/v1/leave/balance", (route) =>
+    route.fulfill({
+      json: {
+        currentBalance: 23,
+        totalAccrued: 24,
+        totalUsed: 3,
+        totalCarryover: 0,
+        totalAdjustments: 2,
+        byType: [
+          {
+            ...totals,
+            leaveTypeId: VACATION,
+            leaveTypeName: "Annual leave",
+            leaveTypeCode: "vacation",
+            leaveTypeColor: "#3b82f6",
+            currentBalance: 19,
+            totalAccrued: 22,
+            totalUsed: 3,
+          },
+          {
+            ...totals,
+            leaveTypeId: PERSONAL,
+            leaveTypeName: "Personal days",
+            leaveTypeCode: "personal_days",
+            leaveTypeColor: "#10b981",
+            currentBalance: 2,
+            totalAccrued: 2,
+            totalUsed: 0,
+          },
+          {
+            ...totals,
+            leaveTypeId: null,
+            leaveTypeName: null,
+            leaveTypeCode: null,
+            leaveTypeColor: null,
+            currentBalance: 2,
+            totalAccrued: 0,
+            totalUsed: 0,
+            totalAdjustments: 2,
+          },
+        ],
+        entries: [
+          {
+            ...entry,
+            id: "00000000-0000-4000-8000-000000000041",
+            leaveTypeId: null,
+            entryType: "adjustment",
+            amount: 2,
+            effectiveDate: "2025-12-31",
+            balanceAfter: 2,
+          },
+          {
+            ...entry,
+            id: "00000000-0000-4000-8000-000000000042",
+            leaveTypeId: VACATION,
+            entryType: "accrual",
+            amount: 22,
+            effectiveDate: "2026-01-01",
+            balanceAfter: 22,
+          },
+          {
+            ...entry,
+            id: "00000000-0000-4000-8000-000000000043",
+            leaveTypeId: PERSONAL,
+            entryType: "accrual",
+            amount: 2,
+            effectiveDate: "2026-01-01",
+            balanceAfter: 2,
+          },
+          {
+            ...entry,
+            id: "00000000-0000-4000-8000-000000000044",
+            leaveTypeId: VACATION,
+            entryType: "usage",
+            amount: -3,
+            effectiveDate: "2026-02-10",
+            balanceAfter: 19,
+          },
+        ],
+      },
+    }),
+  );
+  await page.goto("/en/time-off");
+  const balances = page.getByRole("region", { name: "Remaining Balance" });
+  const card = (name: string) =>
+    balances
+      .getByRole("heading", { level: 3, name, exact: true })
+      .locator("xpath=..");
+  await expect(card("Annual leave")).toContainText("19 days");
+  await expect(card("Personal days")).toContainText("2 days");
+  await expect(card("Unassigned")).toContainText(
+    "before balances were kept per leave type",
+  );
+
+  const rows = page
+    .getByRole("region", { name: "Balance history" })
+    .getByRole("listitem");
+  await expect(rows).toHaveCount(4);
+  await expect(rows.nth(0)).toContainText("Unassigned");
+  await expect(rows.nth(2)).toContainText("Personal days");
+  await expect(rows.nth(3)).toContainText("Annual leave");
+  await expect(rows.nth(3)).toContainText("Balance 19");
 });

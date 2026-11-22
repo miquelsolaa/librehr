@@ -240,6 +240,7 @@ describe("GET /v1/approvals/pending", () => {
     await withTenant(db.sql, { organizationId: a.orgId }, (tx) =>
       new LeaveRepository().appendLedgerEntry(tx, {
         employeeId: a.report.employeeId,
+        leaveTypeId: ids["typeA"]!,
         entryType: "adjustment",
         amount: 5,
         note: "Fixture balance",

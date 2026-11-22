@@ -22,6 +22,11 @@ export interface LeaveValidationOptions {
   existingRequests: readonly ExistingRequest[];
   holidays?: ReadonlySet<string> | undefined;
   allowNegativeBalance?: boolean | undefined;
+  /**
+   * Balance the request may draw on, when it is not the plain sum of
+   * `ledgerEntries` (LEA-005: per leave type, see `availableForLeaveType`).
+   */
+  availableBalance?: number | undefined;
 }
 
 export interface ValidationSuccess {
@@ -47,6 +52,7 @@ export function validateLeaveRequest(
     existingRequests,
     holidays,
     allowNegativeBalance,
+    availableBalance,
   } = options;
 
   if (proposal.startDate > proposal.endDate) {
@@ -86,7 +92,7 @@ export function validateLeaveRequest(
   });
 
   const requiredDays = calculation.totalWorkingDays;
-  const currentBalance = foldLedgerToBalance(ledgerEntries);
+  const currentBalance = availableBalance ?? foldLedgerToBalance(ledgerEntries);
   const remainingBalanceAfter =
     Math.round((currentBalance - requiredDays) * 100) / 100;
 
