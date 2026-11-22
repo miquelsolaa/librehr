@@ -18,7 +18,7 @@ import {
 } from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
 import { permissionScope } from "../policies/can.js";
-import { TimeEventOutOfWindowError } from "../errors/index.js";
+import { ForbiddenError, TimeEventOutOfWindowError } from "../errors/index.js";
 import { parseJsonBody } from "../lib/validate.js";
 import { buildTimesheet } from "../lib/timesheet.js";
 import { loadTimesheetClosure } from "../lib/timesheet-closure.js";
@@ -100,6 +100,24 @@ export function createTimeRoutes(
   // 2. POST /time/clock - Append clock event to the employee's hash chain
   router.post("/time/clock", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
+    // TIM-001 / TIM-008: only roles that keep their own time record may punch.
+    // An auditor's event would put them back into the organization's exports.
+    // Role check only: the self scope is enforced by resolving the employee
+    // from user.id below, so a wider scope would grant nothing more here.
+    if (
+      !permissionScope(
+        {
+          userId: user.id,
+          organizationId: user.organizationId,
+          role: user.role,
+        },
+        "time.clock",
+      )
+    ) {
+      throw new ForbiddenError({
+        detail: "You do not have permission to record clock events",
+      });
+    }
     const clockData = await parseJsonBody(c, ClockRequestSchema);
 
     // TIM-002/TIM-003: a direct punch is "now". A client clock may drift a
