@@ -131,6 +131,30 @@ invitations and a per-organization maximum access period
   `0021_terminated_access.sql` alone is not a rollback: it removes the
   expiry check, so expired auditors would regain access.
 
+## Job scheduler (migration 0035)
+
+From this release the worker schedules its periodic jobs itself
+([job scheduler](job-scheduler.md)), and the scheduler is **on by default**.
+Once the new worker starts:
+
+- `time.close-day` reminds employees of missing clock-outs for the last 2
+  closed days;
+- `audit.verify-chain` verifies the time-record chains daily;
+- `retention.enforce` runs daily as a dry run and dead-letters until ADM-005
+  ships;
+- `leave.accrue` does **not** run unless you opt in by listing it in
+  `SCHEDULER_JOBS`
+  (`time.close-day,audit.verify-chain,retention.enforce,leave.accrue`). Its
+  first run writes the whole year-to-date accrual (January to the end of the
+  month) in one entry per employee and policy, minus earlier `accrual`
+  entries. Earlier `adjustment` entries are **not** subtracted, so if you kept
+  balances right with manual adjustments while nothing accrued, review the
+  ledger and correct it before opting in, or days are credited twice.
+
+To keep the old behaviour (nothing scheduled), set `SCHEDULER_ENABLED=false`.
+Migration 0035 only adds the function the scheduler uses to list
+organizations. It changes no table and is safe on a populated database.
+
 ## pg-boss queue policy
 
 The worker creates its queues with the `exclusive` policy so that a job sent

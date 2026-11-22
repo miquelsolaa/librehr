@@ -625,7 +625,11 @@
     "title": "Notifications",
     "empty": "No new notifications",
     "markRead": "Mark as read",
-    "unreadCount": "{count} unread notifications"
+    "unreadCount": "{count} unread notifications",
+    "missingClockOut": {
+      "title": "Missing clock-out",
+      "body": "Your time record for {date} is still open. Request a correction with the time you finished."
+    }
   },
   "timeTracking": {
     "scheduleNotConfigured": "Ask an administrator to configure a schedule for every day in this period.",

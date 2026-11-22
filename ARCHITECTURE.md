@@ -57,7 +57,7 @@ Only Postgres is stateful besides object storage. No Redis, no message broker, n
 
 ### 3.3 apps/worker (pg-boss)
 
-Queues: `email.send`, `leave.accrue` (scheduled daily per org time zone), `leave.expire-carryover`, `time.close-day` (detect missing clock-outs), `reminders.*`, `export.generate`, `retention.enforce`, `documents.scan`, `audit.verify-chain`.
+Queues: `email.send`, `leave.accrue` (monthly per org time zone, opt-in; `scheduler.tick` enqueues the periodic jobs, see `docs/guides/job-scheduler.md`), `leave.expire-carryover`, `time.close-day` (detect missing clock-outs), `reminders.*`, `export.generate`, `retention.enforce`, `documents.scan`, `audit.verify-chain`.
 Jobs are idempotent (idempotency key = natural key + date), retried with exponential backoff, and visible via an admin "Jobs" page (read-only).
 
 ### 3.4 packages/core (domain)

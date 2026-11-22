@@ -68,6 +68,9 @@ reporting success. Until ADM-005 ships:
 - Soft-deleted documents still held are included in data-subject access
   exports (ADM-004), because GDPR art. 15 covers all data held.
 - Nothing is anonymised or deleted when a retention period above ends.
+- The worker's scheduler enqueues `retention.enforce` daily per organization
+  with `dryRun: true` (docs/guides/job-scheduler.md). Scheduling real purges
+  needs a maintainer decision when ADM-005 ships.
 
 Implementing ADM-005 is the next required feature. Its retention periods are
 compliance defaults, so the maintainers must confirm them (with counsel)

@@ -1,4 +1,12 @@
-import { pgTable, text, uuid, boolean, index } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import {
+  pgTable,
+  text,
+  uuid,
+  boolean,
+  index,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 import { primaryId, organizationIdCol, timestamps } from "./common.js";
 import { organizations } from "./platform.js";
 import { users } from "./identity.js";
@@ -23,5 +31,9 @@ export const notifications = pgTable(
   (table) => [
     index("notifications_org_user_idx").on(table.organizationId, table.userId),
     index("notifications_read_idx").on(table.userId, table.read),
+    // TIM-003: one missing clock-out reminder per user and day (migration 0032).
+    uniqueIndex("notifications_missing_clock_out_once")
+      .on(table.organizationId, table.userId, table.category, table.link)
+      .where(sql`${table.category} = 'time_missing_clock_out'`),
   ],
 );

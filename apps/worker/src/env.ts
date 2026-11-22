@@ -1,6 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
+import {
+  SCHEDULED_JOBS,
+  SCHEDULER_MAX_GRACE_MINUTES,
+  type ScheduledJob,
+} from "@librehr/core";
 
 /** Local-only defaults. Never applied when NODE_ENV=production. */
 const DEV_DEFAULTS = {
@@ -10,6 +15,14 @@ const DEV_DEFAULTS = {
   // Public: matches the API's development default so local chains verify.
   TIME_CHAIN_KEY: "dev_time_chain_key_must_be_changed_in_production_32",
 } as const;
+
+/**
+ * Jobs scheduled when SCHEDULER_JOBS is empty. `leave.accrue` is opt-in: its
+ * first run does not subtract manual `adjustment` ledger entries, so turning
+ * it on silently on an upgraded install could credit days twice.
+ */
+export const DEFAULT_SCHEDULER_JOBS: readonly ScheduledJob[] =
+  SCHEDULED_JOBS.filter((job) => job !== "leave.accrue");
 
 const optionalString = z
   .string()
@@ -32,6 +45,30 @@ const RawEnvSchema = z.object({
   // Same key as the API: the audit.verify-chain job recomputes the HMACs.
   TIME_CHAIN_KEY: optionalString,
   TIME_CHAIN_KEY_FILE: optionalString,
+  // Job scheduler (issue #115); see docs/guides/job-scheduler.md.
+  SCHEDULER_ENABLED: z
+    .enum(["true", "false", ""])
+    .default("true")
+    .transform((v) => v !== "false"),
+  // Five-field cron in UTC: minute hour day-of-month month day-of-week.
+  SCHEDULER_TICK_CRON: z
+    .string()
+    .trim()
+    .regex(/^[\d*/,-]+(\s+[\d*/,-]+){4}$/, "five-field cron expression")
+    .default("*/15 * * * *"),
+  SCHEDULER_GRACE_MINUTES: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.coerce.number().int().min(0).max(SCHEDULER_MAX_GRACE_MINUTES).default(30),
+  ),
+  // Comma-separated subset of the scheduled jobs; empty means the defaults
+  // (every job except leave.accrue, which is opt-in).
+  SCHEDULER_JOBS: optionalString.pipe(
+    z
+      .string()
+      .transform((v) => [...new Set(v.split(",").map((j) => j.trim()))])
+      .pipe(z.array(z.enum(SCHEDULED_JOBS)).min(1))
+      .optional(),
+  ),
 });
 
 export interface SmtpConfig {
@@ -50,6 +87,12 @@ export interface WorkerEnv {
   TIME_CHAIN_KEY: string;
   /** null when SMTP is not configured: email jobs then fail instead of being dropped. */
   SMTP: SmtpConfig | null;
+  SCHEDULER: {
+    enabled: boolean;
+    tickCron: string;
+    graceMinutes: number;
+    jobs: readonly ScheduledJob[];
+  };
 }
 
 function isPostgresUrl(url: string): boolean {
@@ -159,5 +202,11 @@ export function loadWorkerEnv(
           ...(parsed.SMTP_PASS ? { pass: parsed.SMTP_PASS } : {}),
         }
       : null,
+    SCHEDULER: {
+      enabled: parsed.SCHEDULER_ENABLED,
+      tickCron: parsed.SCHEDULER_TICK_CRON,
+      graceMinutes: parsed.SCHEDULER_GRACE_MINUTES,
+      jobs: parsed.SCHEDULER_JOBS ?? DEFAULT_SCHEDULER_JOBS,
+    },
   };
 }
