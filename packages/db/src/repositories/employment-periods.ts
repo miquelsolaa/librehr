@@ -23,12 +23,75 @@ export const EFFECTIVE_EMPLOYMENT_END = `CASE
   ELSE x.end_date
 END`;
 
+/** An employment span with its contract's weekly hours (LEA-002). */
+export interface EmploymentSpanWithHours extends EmploymentSpan {
+  /**
+   * `employments.working_hours_per_week` as stored (text), or null for a
+   * legacy employee without employment rows (hours unknown).
+   */
+  hoursPerWeek: string | null;
+}
+
 interface PeriodRow {
   employeeId: string;
   terminationDate: string | null;
   hasEmployments: boolean;
   start: string | null;
   end: string | null;
+  hoursPerWeek: string | null;
+}
+
+async function periodRows(
+  tx: TenantTx,
+  employeeIds: readonly string[],
+  periodStart: string,
+  periodEnd: string,
+): Promise<PeriodRow[]> {
+  const orgId = tx.__tenantContext.organizationId;
+  return tx<PeriodRow[]>`
+    SELECT e.id AS "employeeId",
+           e.termination_date::text AS "terminationDate",
+           EXISTS (
+             SELECT 1 FROM employments x
+             WHERE x.employee_id = e.id AND x.organization_id = ${orgId}
+           ) AS "hasEmployments",
+           emp.start_date::text AS "start", emp.effective_end::text AS "end",
+           emp.working_hours_per_week AS "hoursPerWeek"
+    FROM employees e
+    LEFT JOIN LATERAL (
+      SELECT x.id, x.start_date, x.working_hours_per_week,
+             ${tx.unsafe(EFFECTIVE_EMPLOYMENT_END)} AS effective_end
+      FROM employments x
+      WHERE x.employee_id = e.id AND x.organization_id = ${orgId}
+    ) emp
+      ON emp.start_date <= ${periodEnd}::date
+     AND (emp.effective_end IS NULL OR emp.effective_end >= ${periodStart}::date)
+    WHERE e.organization_id = ${orgId} AND e.id IN ${tx([...employeeIds])}
+    ORDER BY e.id, emp.start_date, emp.id
+  `;
+}
+
+function toSpans<T>(
+  rows: readonly PeriodRow[],
+  periodStart: string,
+  span: (row: PeriodRow & { start: string }) => T,
+  legacy: (end: string) => T,
+): Map<string, T[] | null> {
+  const result = new Map<string, T[] | null>();
+  for (const row of rows) {
+    if (!row.hasEmployments) {
+      const left = row.terminationDate;
+      result.set(
+        row.employeeId,
+        left === null ? null : left < periodStart ? [] : [legacy(left)],
+      );
+      continue;
+    }
+    const spans = result.get(row.employeeId) ?? [];
+    if (row.start !== null) spans.push(span({ ...row, start: row.start }));
+    result.set(row.employeeId, spans);
+  }
+  return result;
 }
 
 /**
@@ -52,45 +115,34 @@ export async function loadEmploymentPeriods(
   periodStart: string,
   periodEnd: string,
 ): Promise<Map<string, EmploymentSpan[] | null>> {
-  const result = new Map<string, EmploymentSpan[] | null>();
-  if (employeeIds.length === 0) return result;
-  const orgId = tx.__tenantContext.organizationId;
-  const rows = await tx<PeriodRow[]>`
-    SELECT e.id AS "employeeId",
-           e.termination_date::text AS "terminationDate",
-           EXISTS (
-             SELECT 1 FROM employments x
-             WHERE x.employee_id = e.id AND x.organization_id = ${orgId}
-           ) AS "hasEmployments",
-           emp.start_date::text AS "start", emp.effective_end::text AS "end"
-    FROM employees e
-    LEFT JOIN LATERAL (
-      SELECT x.id, x.start_date,
-             ${tx.unsafe(EFFECTIVE_EMPLOYMENT_END)} AS effective_end
-      FROM employments x
-      WHERE x.employee_id = e.id AND x.organization_id = ${orgId}
-    ) emp
-      ON emp.start_date <= ${periodEnd}::date
-     AND (emp.effective_end IS NULL OR emp.effective_end >= ${periodStart}::date)
-    WHERE e.organization_id = ${orgId} AND e.id IN ${tx([...employeeIds])}
-    ORDER BY e.id, emp.start_date, emp.id
-  `;
-  for (const row of rows) {
-    if (!row.hasEmployments) {
-      const left = row.terminationDate;
-      result.set(
-        row.employeeId,
-        left === null
-          ? null
-          : left < periodStart
-            ? []
-            : [{ start: periodStart, end: left }],
-      );
-      continue;
-    }
-    const spans = result.get(row.employeeId) ?? [];
-    if (row.start !== null) spans.push({ start: row.start, end: row.end });
-    result.set(row.employeeId, spans);
-  }
-  return result;
+  if (employeeIds.length === 0) return new Map();
+  return toSpans<EmploymentSpan>(
+    await periodRows(tx, employeeIds, periodStart, periodEnd),
+    periodStart,
+    (row) => ({ start: row.start, end: row.end }),
+    (end) => ({ start: periodStart, end }),
+  );
+}
+
+/**
+ * {@link loadEmploymentPeriods}, with each span's weekly contract hours, for
+ * part-time proration of leave accrual (LEA-002, issue #118).
+ */
+export async function loadEmploymentPeriodsWithHours(
+  tx: TenantTx,
+  employeeIds: readonly string[],
+  periodStart: string,
+  periodEnd: string,
+): Promise<Map<string, EmploymentSpanWithHours[] | null>> {
+  if (employeeIds.length === 0) return new Map();
+  return toSpans<EmploymentSpanWithHours>(
+    await periodRows(tx, employeeIds, periodStart, periodEnd),
+    periodStart,
+    (row) => ({
+      start: row.start,
+      end: row.end,
+      hoursPerWeek: row.hoursPerWeek,
+    }),
+    (end) => ({ start: periodStart, end, hoursPerWeek: null }),
+  );
 }

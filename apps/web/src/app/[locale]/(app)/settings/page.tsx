@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Clock,
   ClipboardCheck,
+  CalendarClock,
 } from "lucide-react";
 import { Badge } from "@librehr/ui";
 
@@ -25,6 +26,7 @@ export default function SettingsPage() {
   const t = useTranslations("settings");
   const tSchedule = useTranslations("scheduleSettings");
   const tAuditors = useTranslations("auditorAccess");
+  const tPolicies = useTranslations("leavePolicies");
 
   const settingsCards = [
     {
@@ -32,6 +34,12 @@ export default function SettingsPage() {
       description: tSchedule("linkDescription"),
       href: `/${locale}/settings/time`,
       icon: <Clock className="h-5 w-5 text-primary" />,
+    },
+    {
+      title: tPolicies("title"),
+      description: tPolicies("linkDescription"),
+      href: `/${locale}/settings/leave-policies`,
+      icon: <CalendarClock className="h-5 w-5 text-primary" />,
     },
     {
       title: t("departmentsTitle"),

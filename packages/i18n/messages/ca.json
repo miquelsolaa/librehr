@@ -1150,5 +1150,25 @@
     "cancelInvitationTitle": "Cancel·lar aquesta invitació?",
     "cancelInvitationDescription": "L’enllaç d’invitació per a {email} deixa de funcionar. Queda registrat.",
     "invitationCancelled": "Invitació cancel·lada."
+  },
+  "leavePolicies": {
+    "title": "Polítiques d'absències",
+    "description": "Drets i meritació de cada tipus d'absència, i si es prorrategen per a contractes a temps parcial.",
+    "linkDescription": "Drets d'absència, meritació i prorrateig a temps parcial.",
+    "loadError": "No s'han pogut carregar les polítiques d'absències.",
+    "retry": "Torna-ho a provar",
+    "empty": "Encara no hi ha polítiques d'absències.",
+    "summary": "{type} · {days} dies l'any · {method}",
+    "methodUpfront": "concedits a l'inici",
+    "methodMonthly": "meritació mensual",
+    "methodDaily": "meritació diària",
+    "fullTimeLabel": "Hores setmanals a temps complet (prorrateig a temps parcial)",
+    "fullTimeHint": "Deixa-ho buit per a les vacances legals: les persones a temps parcial tenen els mateixos dies de vacances que a temps complet (ET art. 12.4.d), de manera que no s'han de prorratejar. Indica la jornada completa del teu conveni col·lectiu només per a un dret que aquest prorratei en contractes a temps parcial; la meritació es multiplica llavors per hores del contracte ÷ hores a temps complet (com a màxim 1).",
+    "notProrated": "Sense prorrateig: tots els contractes meriten el dret complet.",
+    "prorated": "Prorratejat sobre una jornada completa de {hours} hores setmanals.",
+    "hoursInvalid": "Indica entre 0,01 i 168 hores, amb dos decimals com a màxim, o deixa-ho buit.",
+    "actionError": "No s'ha pogut desar el canvi. Torna-ho a provar.",
+    "save": "Desa",
+    "saved": "Desat."
   }
 }

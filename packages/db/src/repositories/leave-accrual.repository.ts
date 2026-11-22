@@ -10,6 +10,11 @@ export interface AccrualAssignmentRow {
   leaveTypeId: string | null;
   annualAllowanceDays: number | null;
   accrualMethod: string | null;
+  /**
+   * Full-time week of the policy's collective agreement (migration 0034);
+   * null: the policy is not prorated for part-time contracts.
+   */
+  fullTimeHoursPerWeek: number | null;
   /** `effective_from` of the assignment (local date). */
   start: string;
   /**
@@ -37,12 +42,15 @@ export class LeaveAccrualRepository {
              w.policy_id AS "policyId", w.leave_type_id AS "leaveTypeId",
              w.annual_allowance_days AS "annualAllowanceDays",
              w.accrual_method AS "accrualMethod",
+             w.full_time_hours_per_week AS "fullTimeHoursPerWeek",
              w.start_date::text AS "start", w.end_date::text AS "end"
       FROM (
         SELECT a.id AS assignment_id, a.employee_id, p.id AS policy_id,
                p.leave_type_id,
                p.annual_allowance_days::float AS annual_allowance_days,
-               p.accrual_method, a.effective_from AS start_date,
+               p.accrual_method,
+               p.full_time_hours_per_week::float AS full_time_hours_per_week,
+               a.effective_from AS start_date,
                LEAD(a.effective_from) OVER (
                  PARTITION BY a.employee_id, p.leave_type_id
                  ORDER BY a.effective_from, a.created_at, a.id

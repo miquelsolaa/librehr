@@ -349,4 +349,62 @@ describe("leave.accrue (LEA-002)", () => {
       [`accrual:${personalPolicy}:2026-01`]: personal!.id,
     });
   });
+  it("prorates only policies with a full-time week, by contract hours (#118)", async () => {
+    const { orgId, leaveTypeId: vacation } = await newOrg();
+    const [agreement] = await db.sql<{ id: string }[]>`
+      INSERT INTO leave_types (organization_id, name, code)
+      VALUES (${orgId}, 'Agreement days', 'other') RETURNING id
+    `;
+    // Statutory vacation: never prorated (NULL full-time week).
+    const vacationPolicy = await newPolicy(orgId, vacation, 24, "monthly");
+    const prorated = await newPolicy(orgId, agreement!.id, 24, "monthly");
+    await db.sql`UPDATE leave_policies SET full_time_hours_per_week = 40 WHERE id = ${prorated}`;
+
+    const partTime = randomUUID();
+    await db.sql`
+      INSERT INTO employees (id, organization_id, first_name, last_name, email)
+      VALUES (${partTime}, ${orgId}, 'Part', 'Time', ${`${partTime}@example.invalid`})
+    `;
+    await db.sql`
+      INSERT INTO employments (organization_id, employee_id, job_title, start_date, working_hours_per_week)
+      VALUES (${orgId}, ${partTime}, 'Role', '2024-01-01', '20.0')
+    `;
+    const fullTime = await newEmployee(orgId, "2024-01-01");
+    for (const e of [partTime, fullTime]) {
+      await assign(orgId, e, vacationPolicy, "2025-01-01");
+      await assign(orgId, e, prorated, "2025-01-01");
+    }
+
+    await run(orgId, "2026-01-20").result;
+
+    expect(await amounts(orgId, partTime)).toEqual({
+      [`accrual:${vacationPolicy}:2026-01`]: 2,
+      [`accrual:${prorated}:2026-01`]: 1,
+    });
+    expect(await amounts(orgId, fullTime)).toEqual({
+      [`accrual:${vacationPolicy}:2026-01`]: 2,
+      [`accrual:${prorated}:2026-01`]: 2,
+    });
+  });
+
+  it("fails without writing when a prorated policy meets unusable contract hours", async () => {
+    const { orgId, leaveTypeId } = await newOrg();
+    const policyId = await newPolicy(orgId, leaveTypeId, 24, "monthly");
+    await db.sql`UPDATE leave_policies SET full_time_hours_per_week = 40 WHERE id = ${policyId}`;
+    const employee = randomUUID();
+    await db.sql`
+      INSERT INTO employees (id, organization_id, first_name, last_name, email)
+      VALUES (${employee}, ${orgId}, 'Bad', 'Hours', ${`${employee}@example.invalid`})
+    `;
+    await db.sql`
+      INSERT INTO employments (organization_id, employee_id, job_title, start_date, working_hours_per_week)
+      VALUES (${orgId}, ${employee}, 'Role', '2024-01-01', 'unknown')
+    `;
+    await assign(orgId, employee, policyId, "2025-01-01");
+
+    await expect(run(orgId, "2026-01-20").result).rejects.toBeInstanceOf(
+      MissingPolicyError,
+    );
+    expect(await ledger(orgId)).toEqual([]);
+  });
 });

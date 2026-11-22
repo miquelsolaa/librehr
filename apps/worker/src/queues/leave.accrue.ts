@@ -1,10 +1,17 @@
 import { z } from "zod";
-import { accrualPeriodOf, planAccrual, type AccrualSpan } from "@librehr/core";
+import {
+  accrualPeriodOf,
+  fteRatioFromHours,
+  planAccrual,
+  type AccrualSpan,
+  type EmploymentAccrualSpan,
+} from "@librehr/core";
 import {
   withTenant,
-  loadEmploymentPeriods,
+  loadEmploymentPeriodsWithHours,
   LeaveAccrualRepository,
   type AccrualAssignmentRow,
+  type EmploymentSpanWithHours,
   type Sql,
 } from "@librehr/db";
 import { MissingPolicyError } from "../lib/job-errors.js";
@@ -27,12 +34,32 @@ export const leaveAccrueSingletonKey = (
 const AccrualMethodSchema = z.enum(["upfront", "monthly", "daily"]);
 
 /**
- * Part-time ratio applied to every accrual. Kept at 1 because no full-time
- * reference exists to divide `employments.working_hours_per_week` by, and
- * under Spanish law part-time staff are entitled to the same number of
- * vacation days (ET art. 12.4.d); see the PR for the open question.
+ * Employment spans of one employee for one policy, each with its part-time
+ * ratio (LEA-002, issue #118). A policy without a full-time week (the
+ * default, and what statutory vacation requires: ET art. 12.4.d) is not
+ * prorated. A legacy employee without employment rows has no recorded hours
+ * and accrues at 1. Returns null when a stored hour figure is unusable.
  */
-const FTE_RATIO = 1;
+function prorated(
+  spans: readonly EmploymentSpanWithHours[],
+  fullTimeHoursPerWeek: number | null,
+): EmploymentAccrualSpan[] | null {
+  const result: EmploymentAccrualSpan[] = [];
+  for (const span of spans) {
+    if (fullTimeHoursPerWeek === null || span.hoursPerWeek === null) {
+      result.push({ start: span.start, end: span.end });
+      continue;
+    }
+    const hours = Number(span.hoursPerWeek);
+    if (!(Number.isFinite(hours) && hours > 0)) return null;
+    result.push({
+      start: span.start,
+      end: span.end,
+      fteRatio: fteRatioFromHours(hours, fullTimeHoursPerWeek),
+    });
+  }
+  return result;
+}
 
 export interface LeaveAccrueDeps {
   sql: Sql;
@@ -58,6 +85,7 @@ interface PolicyPlan {
   leaveTypeId: string;
   annualAllowanceDays: number;
   accrualMethod: z.infer<typeof AccrualMethodSchema>;
+  fullTimeHoursPerWeek: number | null;
   windows: AccrualSpan[];
 }
 
@@ -95,6 +123,7 @@ function groupByPolicy(rows: readonly AccrualAssignmentRow[]): PolicyPlan[] {
       leaveTypeId: r.leaveTypeId!,
       annualAllowanceDays: r.annualAllowanceDays!,
       accrualMethod: method.data,
+      fullTimeHoursPerWeek: r.fullTimeHoursPerWeek,
       windows: [],
     };
     plan.windows.push({ start: r.start, end: r.end });
@@ -137,7 +166,7 @@ export async function handleLeaveAccrue(
       const plans = groupByPolicy(
         await repo.listAssignmentsOverlapping(tx, yearStart, monthEnd),
       );
-      const employment = await loadEmploymentPeriods(
+      const employment = await loadEmploymentPeriodsWithHours(
         tx,
         [...new Set(plans.map((p) => p.employeeId))],
         yearStart,
@@ -149,6 +178,20 @@ export async function handleLeaveAccrue(
           r.cents,
         ]),
       );
+
+      // Every employment row a prorated policy reads must hold usable hours;
+      // fail before any write, naming ids only.
+      const badHours = new Set<string>();
+      for (const p of plans) {
+        const spans = employment.get(p.employeeId);
+        if (spans && prorated(spans, p.fullTimeHoursPerWeek) === null)
+          badHours.add(p.employeeId);
+      }
+      if (badHours.size > 0) {
+        throw new MissingPolicyError(
+          `valid working_hours_per_week of employees ${[...badHours].join(", ")}`,
+        );
+      }
 
       for (const p of plans) {
         const spans = employment.get(p.employeeId);
@@ -170,8 +213,10 @@ export async function handleLeaveAccrue(
           assignments: p.windows,
           // null: legacy employee with no employment rows and no termination
           // date, treated as employed while the policy applies.
-          employment: spans ?? [{ start: yearStart, end: null }],
-          fteRatio: FTE_RATIO,
+          employment: spans
+            ? prorated(spans, p.fullTimeHoursPerWeek)!
+            : [{ start: yearStart, end: null }],
+          fteRatio: 1,
           period,
           accruedCents: accrued.get(`${p.employeeId}:${p.policyId}`) ?? 0,
         });

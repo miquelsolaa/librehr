@@ -113,6 +113,12 @@ export const leavePolicies = pgTable(
     allowNegativeBalance: boolean("allow_negative_balance")
       .default(false)
       .notNull(),
+    // LEA-002 (migration 0034): opt-in part-time proration. NULL keeps FTE
+    // 1.0, which statutory vacation requires (ET art. 12.4.d).
+    fullTimeHoursPerWeek: numeric("full_time_hours_per_week", {
+      precision: 5,
+      scale: 2,
+    }),
     ...timestamps,
   },
   (table) => [
