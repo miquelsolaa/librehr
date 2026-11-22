@@ -354,7 +354,7 @@ describe("leave balances per leave type (LEA-005)", () => {
 
     it("refuses a request for another tenant's leave type", async () => {
       const res = await requestLeave(a.report, type["foreign"]!, "2027-04-14");
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(404);
       expect(((await res.json()) as ProblemDetails).code).toBe(
         "LEAVE_TYPE_NOT_FOUND",
       );
