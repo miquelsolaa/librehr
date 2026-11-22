@@ -1783,7 +1783,8 @@
             ]
           },
           "reason": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 1000
           }
         },
         "required": [
@@ -2808,6 +2809,9 @@
                 "createdAt": {
                   "type": "string",
                   "format": "date-time"
+                },
+                "selfApproval": {
+                  "type": "boolean"
                 }
               },
               "required": [
@@ -2820,7 +2824,8 @@
                 "halfDayEnd",
                 "workingDays",
                 "status",
-                "createdAt"
+                "createdAt",
+                "selfApproval"
               ]
             },
             "maxItems": 200
@@ -10556,7 +10561,8 @@
                     ]
                   },
                   "reason": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 1000
                   }
                 },
                 "required": [
@@ -11117,6 +11123,9 @@
                           "createdAt": {
                             "type": "string",
                             "format": "date-time"
+                          },
+                          "selfApproval": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -11129,7 +11138,8 @@
                           "halfDayEnd",
                           "workingDays",
                           "status",
-                          "createdAt"
+                          "createdAt",
+                          "selfApproval"
                         ]
                       },
                       "maxItems": 200

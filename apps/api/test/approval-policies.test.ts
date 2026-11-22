@@ -4,6 +4,7 @@ import type { ScopedEmployee } from "../src/policies/context.js";
 import {
   canDecideCorrection,
   canDecideLeave,
+  hasOtherLeaveDecider,
 } from "../src/policies/approvals.js";
 
 describe("approval predicates (LEA-004, LEA-008, TIM-003)", () => {
@@ -68,5 +69,65 @@ describe("approval predicates (LEA-004, LEA-008, TIM-003)", () => {
     expect(canDecideLeave(admin, foreign, [])).toBe(false);
     expect(canDecideCorrection(admin, foreign)).toBe(false);
     expect(canDecideLeave(delegate, foreign, ["pere"])).toBe(false);
+  });
+});
+
+describe("hasOtherLeaveDecider (LEA-004 sole-approver exception)", () => {
+  const caller = "user-marta";
+  const member = (
+    id: string,
+    role: string,
+    flags: { isManager?: boolean; isDelegate?: boolean } = {},
+  ) => ({
+    userId: `user-${id}`,
+    role,
+    isManager: flags.isManager ?? false,
+    isDelegate: flags.isDelegate ?? false,
+  });
+
+  it("is false for a sole admin with no manager and no delegate", () => {
+    expect(hasOtherLeaveDecider(caller, [])).toBe(false);
+    expect(
+      hasOtherLeaveDecider(caller, [
+        member("pere", "manager"),
+        member("laia", "employee"),
+        member("anna", "auditor"),
+        member("x", "no-such-role"),
+      ]),
+    ).toBe(false);
+  });
+
+  it("ignores the caller's own membership", () => {
+    expect(
+      hasOtherLeaveDecider(caller, [
+        member("marta", "admin", { isManager: true, isDelegate: true }),
+      ]),
+    ).toBe(false);
+  });
+
+  it("is true when another organization-wide approver exists", () => {
+    expect(hasOtherLeaveDecider(caller, [member("jordi", "admin")])).toBe(true);
+  });
+
+  it("counts a reports-scoped approver only as the requester's manager", () => {
+    expect(
+      hasOtherLeaveDecider(caller, [
+        member("pere", "manager", { isManager: true }),
+      ]),
+    ).toBe(true);
+    // A manager link without an approving role decides nothing.
+    expect(
+      hasOtherLeaveDecider(caller, [
+        member("pere", "employee", { isManager: true }),
+      ]),
+    ).toBe(false);
+  });
+
+  it("counts an active delegate whatever their role", () => {
+    expect(
+      hasOtherLeaveDecider(caller, [
+        member("joan", "employee", { isDelegate: true }),
+      ]),
+    ).toBe(true);
   });
 });

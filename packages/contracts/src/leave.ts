@@ -112,9 +112,29 @@ export const CreateLeaveRequestSchema = z.object({
 });
 export type CreateLeaveRequest = z.infer<typeof CreateLeaveRequestSchema>;
 
+/** Longest approver comment: a note to a person, not a document. */
+export const DECISION_REASON_MAX_LENGTH = 1000;
+
+/**
+ * LEA-004: whether a decision carries a reason (non-empty once trimmed), as
+ * a self-approval requires.
+ *
+ * @example
+ * hasDecisionReason("  "); // false
+ */
+export function hasDecisionReason(reason: string | undefined): boolean {
+  return (reason ?? "").trim().length > 0;
+}
+
+/**
+ * LEA-004: `reason` is optional, except when approving your own request as
+ * its only possible approver: then `hasDecisionReason` must hold (400
+ * `SELF_APPROVAL_REASON_REQUIRED`). Rejecting your own request is never
+ * allowed (403 `SELF_APPROVAL_FORBIDDEN`).
+ */
 export const DecideLeaveRequestSchema = z.object({
   decision: z.enum(["approve", "reject"]),
-  reason: z.string().optional(),
+  reason: z.string().max(DECISION_REASON_MAX_LENGTH).optional(),
 });
 export type DecideLeaveRequest = z.infer<typeof DecideLeaveRequestSchema>;
 

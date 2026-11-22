@@ -1,3 +1,9 @@
+import { ROLE_PERMISSIONS, type Scope } from "@librehr/contracts";
+import {
+  LeaveRepository,
+  type LeaveDeciderCandidate,
+  type TenantTx,
+} from "@librehr/db";
 import { SelfApprovalForbiddenError } from "../errors/index.js";
 import type { PolicyUserContext } from "./can.js";
 import { canOnEmployee, type ScopedEmployee } from "./context.js";
@@ -26,11 +32,10 @@ export function isOwnRequest(
  * already blocked through `NOT_SELF_APPROVABLE` in `can.ts`; this extends the
  * rule to organization-scoped approvers (admins) and to LEA-008 delegates.
  *
- * Known limitation: an organization whose only approver is a single admin
- * with no manager of their own cannot get that admin's requests decided in
- * the product. Their requests need another admin, or a manager set as their
- * manager, to decide them. There is deliberately no override; see
- * docs/functionality.md ("Approvals").
+ * One exception, for leave only: when nobody else could decide the request
+ * (`canSelfApproveLeave`), an organization-wide approver may approve their
+ * own leave with a reason. Routes check that before calling this guard.
+ * Time corrections and shift swaps have no exception.
  *
  * @example
  * assertNotSelfApproval(ctx, { employeeId: req.employeeId, userId: emp.userId });
@@ -85,4 +90,67 @@ export function canDecideCorrection(
     !isOwnRequest(ctx, { employeeId: target.id, userId: target.userId }) &&
     canOnEmployee(ctx, "time.record.correct", target)
   );
+}
+
+/** Scope a role holds for `leave.request.approve`, or null without it. */
+function approveScope(role: string): Scope | null {
+  const permissions = ROLE_PERMISSIONS[role] ?? [];
+  return (
+    permissions.find((p) => p.permission === "leave.request.approve")?.scope ??
+    null
+  );
+}
+
+/**
+ * LEA-004 / LEA-008: whether anyone other than the caller could decide a
+ * leave request of the caller's own employee: another live member whose role
+ * allows `leave.request.approve` organization-wide, the requester's manager
+ * (reports scope), or an active delegate of that manager. Department and
+ * location scopes are not used by built-in roles; they count as "someone
+ * else could decide" so the exception fails closed.
+ *
+ * @example
+ * hasOtherLeaveDecider("<caller user id>", candidates);
+ */
+export function hasOtherLeaveDecider(
+  callerUserId: string,
+  candidates: readonly LeaveDeciderCandidate[],
+): boolean {
+  return candidates.some((m) => {
+    if (m.userId === callerUserId) return false;
+    if (m.isDelegate) return true;
+    const scope = approveScope(m.role);
+    if (scope === null || scope === "self") return false;
+    return scope !== "reports" || m.isManager;
+  });
+}
+
+/**
+ * LEA-004 exception for an organization's sole approver: the caller may
+ * approve (never reject) their own leave request when their role allows
+ * `leave.request.approve` organization-wide and nobody else could decide it
+ * (`hasOtherLeaveDecider`). The route then requires a reason and audits
+ * `leave.request.self_approve`.
+ *
+ * @example
+ * await canSelfApproveLeave(tx, ctx, employee, today);
+ */
+export async function canSelfApproveLeave(
+  tx: TenantTx,
+  ctx: PolicyUserContext,
+  target: ScopedEmployee,
+  today: string,
+): Promise<boolean> {
+  if (!isOwnRequest(ctx, { employeeId: target.id, userId: target.userId })) {
+    return false;
+  }
+  if (target.organizationId !== ctx.organizationId) return false;
+  if (approveScope(ctx.role) !== "organization") return false;
+  const candidates =
+    await new LeaveRepository().listOtherLeaveDeciderCandidates(tx, {
+      excludeUserId: ctx.userId,
+      managerEmployeeId: target.managerId,
+      onDate: today,
+    });
+  return !hasOtherLeaveDecider(ctx.userId, candidates);
 }

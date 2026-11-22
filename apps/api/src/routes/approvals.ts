@@ -13,7 +13,11 @@ import {
   toLeaveRequestResponse,
   toTimeCorrectionResponse,
 } from "../lib/approval-items.js";
-import { canDecideCorrection, canDecideLeave } from "../policies/approvals.js";
+import {
+  canDecideCorrection,
+  canDecideLeave,
+  canSelfApproveLeave,
+} from "../policies/approvals.js";
 import { resolvePolicyContext } from "../policies/context.js";
 
 /** Oldest submission first; the id breaks ties so the order is stable. */
@@ -46,12 +50,13 @@ export function createApprovalRoutes(sql: Sql) {
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
         const ctx = await resolvePolicyContext(c, tx);
+        const today = await businessToday(c, tx);
         const delegatedManagerIds = ctx.employeeId
           ? (
               await leaveRepo.getActiveDelegationsForDelegate(
                 tx,
                 ctx.employeeId,
-                await businessToday(c, tx),
+                today,
               )
             ).map((d) => d.managerEmployeeId)
           : [];
@@ -74,10 +79,23 @@ export function createApprovalRoutes(sql: Sql) {
           ).map((e) => [e.id, e]),
         );
 
+        // LEA-004 sole-approver exception: the caller's own pending leave is
+        // offered (flagged) only when nobody else could decide it. Every row
+        // of the caller shares the same target, so it is evaluated once.
+        const ownEmployee = ctx.employeeId
+          ? scopes.get(ctx.employeeId)
+          : undefined;
+        const selfApprovable =
+          ownEmployee !== undefined &&
+          leave.some((r) => r.employeeId === ownEmployee.id) &&
+          (await canSelfApproveLeave(tx, ctx, ownEmployee, today));
+
         const decidableLeave = leave
           .filter((r) => {
             const target = scopes.get(r.employeeId);
-            return target && canDecideLeave(ctx, target, delegatedManagerIds);
+            if (!target) return false;
+            if (selfApprovable && target.id === ownEmployee?.id) return true;
+            return canDecideLeave(ctx, target, delegatedManagerIds);
           })
           .sort(bySubmission);
         const decidableCorrections = corrections
@@ -90,7 +108,10 @@ export function createApprovalRoutes(sql: Sql) {
         return {
           leaveRequests: decidableLeave
             .slice(0, PENDING_APPROVALS_LIMIT)
-            .map(toLeaveRequestResponse),
+            .map((r) => ({
+              ...toLeaveRequestResponse(r),
+              selfApproval: selfApprovable && r.employeeId === ownEmployee?.id,
+            })),
           timeCorrections: decidableCorrections
             .slice(0, PENDING_APPROVALS_LIMIT)
             .map(toTimeCorrectionResponse),

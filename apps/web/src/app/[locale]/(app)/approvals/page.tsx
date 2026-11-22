@@ -12,7 +12,7 @@ import {
 } from "@librehr/ui";
 import {
   PENDING_APPROVALS_LIMIT,
-  type LeaveRequest,
+  type PendingLeaveApproval,
   type PendingApprovals,
   type TimeCorrectionItem,
 } from "@librehr/contracts";
@@ -26,17 +26,23 @@ import {
 import { ApprovalRow, ApprovalsSection } from "@/components/approvals-list";
 
 type Item =
-  | { kind: "leave"; item: LeaveRequest }
+  | { kind: "leave"; item: PendingLeaveApproval }
   | { kind: "correction"; item: TimeCorrectionItem };
+
+const statusOf = (error: unknown) =>
+  typeof error === "object" && error !== null
+    ? (error as { status?: unknown }).status
+    : undefined;
 
 /** 403 / 404 / 409: decided elsewhere or no longer ours to decide. */
 const isGone = (error: unknown) => {
-  const status =
-    typeof error === "object" && error !== null
-      ? (error as { status?: unknown }).status
-      : undefined;
+  const status = statusOf(error);
   return status === 403 || status === 404 || status === 409;
 };
+
+/** LEA-004: the caller's own leave, offered because nobody else can decide it. */
+const isSelfApproval = (entry: Item) =>
+  entry.kind === "leave" && entry.item.selfApproval;
 
 const actionId = (id: string) => `approval-${id}`;
 const CONTENT_ID = "approvals-content";
@@ -107,7 +113,7 @@ export default function ApprovalsPage() {
       break_end: tTime("endBreak"),
     })[type] ?? type;
 
-  const leaveDates = (r: LeaveRequest) => {
+  const leaveDates = (r: PendingLeaveApproval) => {
     const start = formatCalendarDate(r.startDate, locale);
     const dates =
       r.endDate === r.startDate
@@ -181,7 +187,14 @@ export default function ApprovalsPage() {
       if (isGone(e)) {
         remove(entry);
         setDialogOpen(false);
-        setNotice(t("gone"));
+        // 403 on your own request: someone else can now decide it.
+        setNotice(
+          t(
+            isSelfApproval(entry) && statusOf(e) === 403
+              ? "selfApprovalGone"
+              : "gone",
+          ),
+        );
       } else {
         setFailure(t("decideFailed"));
       }
@@ -192,21 +205,29 @@ export default function ApprovalsPage() {
 
   const actions = (entry: Item) => {
     const label = subject(entry);
+    // Your own request can only be approved (LEA-004); cancel it instead.
+    const approveOnly = isSelfApproval(entry);
     return (
       <div className="flex shrink-0 gap-2">
+        {!approveOnly && (
+          <Button
+            id={actionId(entry.item.id)}
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setPending({ entry, decision: "reject" });
+              setDialogOpen(true);
+            }}
+            aria-label={t("actionFor", {
+              action: t("reject"),
+              subject: label,
+            })}
+          >
+            {t("reject")}
+          </Button>
+        )}
         <Button
-          id={actionId(entry.item.id)}
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            setPending({ entry, decision: "reject" });
-            setDialogOpen(true);
-          }}
-          aria-label={t("actionFor", { action: t("reject"), subject: label })}
-        >
-          {t("reject")}
-        </Button>
-        <Button
+          {...(approveOnly ? { id: actionId(entry.item.id) } : {})}
           size="sm"
           onClick={() => {
             setPending({ entry, decision: "approve" });
@@ -221,13 +242,15 @@ export default function ApprovalsPage() {
   };
 
   const dialogTitle = (entry: Item, decision: Decision) =>
-    entry.kind === "leave"
-      ? t(decision === "approve" ? "approveTitle" : "rejectTitle")
-      : t(
-          decision === "approve"
-            ? "approveCorrectionTitle"
-            : "rejectCorrectionTitle",
-        );
+    isSelfApproval(entry)
+      ? t("selfApproveTitle")
+      : entry.kind === "leave"
+        ? t(decision === "approve" ? "approveTitle" : "rejectTitle")
+        : t(
+            decision === "approve"
+              ? "approveCorrectionTitle"
+              : "rejectCorrectionTitle",
+          );
 
   return (
     <div className="space-y-6">
@@ -290,6 +313,11 @@ export default function ApprovalsPage() {
                   {r.notes && (
                     <p className="text-muted-foreground">{r.notes}</p>
                   )}
+                  {r.selfApproval && (
+                    <p className="text-muted-foreground">
+                      {t("selfApprovalNote")}
+                    </p>
+                  )}
                 </ApprovalRow>
               ))}
             </ApprovalsSection>
@@ -332,6 +360,7 @@ export default function ApprovalsPage() {
             }
           }}
           onConfirm={(comment) => void decide(comment)}
+          selfApproval={isSelfApproval(pending.entry)}
           onCloseAutoFocus={(event) => {
             const target = focusAfterClose.current;
             focusAfterClose.current = null;
