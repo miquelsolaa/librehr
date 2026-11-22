@@ -12,6 +12,7 @@ export * from "./invitation.repository.js";
 export * from "./audit.repository.js";
 export * from "./leave.repository.js";
 export * from "./leave-accrual.repository.js";
+export * from "./leave-year-end.repository.js";
 export * from "./holiday.repository.js";
 export * from "./notification.repository.js";
 export * from "./time.repository.js";

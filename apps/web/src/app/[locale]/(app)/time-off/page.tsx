@@ -291,6 +291,7 @@ export default function TimeOffPage() {
                       "usage",
                       "adjustment",
                       "carryover",
+                      "forfeit",
                       "expiry",
                       "reversal",
                     ].includes(entry.entryType)

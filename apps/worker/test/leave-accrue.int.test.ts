@@ -174,7 +174,8 @@ describe("leave.accrue (LEA-002)", () => {
     const { orgId, leaveTypeId } = await newOrg();
     const policyId = await newPolicy(orgId, leaveTypeId, 22, "monthly");
     const employee = await newEmployee(orgId, "2024-01-01");
-    await assign(orgId, employee, policyId, "2024-01-01");
+    // From 2026: the January run's close of 2025 is tested on its own.
+    await assign(orgId, employee, policyId, "2026-01-01");
 
     await run(orgId, "2026-01-01").result;
     await run(orgId, "2026-03-01").result;
@@ -261,24 +262,81 @@ describe("leave.accrue (LEA-002)", () => {
     ]);
   });
 
-  it("grants upfront policies once, from the first active month of the year", async () => {
+  it("credits upfront policies when the year or the employment starts (#129)", async () => {
     const { orgId, leaveTypeId } = await newOrg();
     const policyId = await newPolicy(orgId, leaveTypeId, 30, "upfront");
     const veteran = await newEmployee(orgId, "2024-01-01");
     const joiner = await newEmployee(orgId, "2026-07-01");
-    await assign(orgId, veteran, policyId, "2024-01-01");
-    await assign(orgId, joiner, policyId, "2024-01-01");
+    await assign(orgId, veteran, policyId, "2026-01-01");
+    await assign(orgId, joiner, policyId, "2026-01-01");
 
-    for (const month of ["01", "06", "07", "08"]) {
-      await run(orgId, `2026-${month}-05`).result;
+    // The run for December 2025 executes at the start of 1 January 2026.
+    await run(orgId, "2025-12-31").result;
+    expect(await ledger(orgId)).toEqual([
+      {
+        employeeId: veteran,
+        amount: 30,
+        sourceRef: `accrual:${policyId}:2026-01`,
+        effectiveDate: "2026-01-01",
+      },
+    ]);
+
+    for (const runDate of [
+      "2026-01-31",
+      "2026-05-31",
+      "2026-06-30",
+      "2026-07-31",
+    ]) {
+      await run(orgId, runDate).result;
     }
     expect(await amounts(orgId, veteran)).toEqual({
       [`accrual:${policyId}:2026-01`]: 30,
     });
-    // 30 × 184 / 365, granted in the joining month.
+    // 30 × 184 / 365, credited by the June run on the first day of work.
+    expect(await ledger(orgId)).toContainEqual({
+      employeeId: joiner,
+      amount: 15.12,
+      sourceRef: `accrual:${policyId}:2026-07`,
+      effectiveDate: "2026-07-01",
+    });
     expect(await amounts(orgId, joiner)).toEqual({
       [`accrual:${policyId}:2026-07`]: 15.12,
     });
+  });
+
+  it("writes a negative accrual when a termination is recorded late, once (#116)", async () => {
+    const { orgId, leaveTypeId } = await newOrg();
+    const policyId = await newPolicy(orgId, leaveTypeId, 24, "monthly");
+    const leaver = await newEmployee(orgId, "2024-01-01");
+    await assign(orgId, leaver, policyId, "2026-01-01");
+
+    await run(orgId, "2026-03-31").result;
+    await db.sql`UPDATE employees SET termination_date = '2026-01-31' WHERE id = ${leaver}`;
+
+    const { result, logger } = run(orgId, "2026-04-30");
+    expect(await result).toMatchObject({ trueUps: 1, written: 0 });
+    expect(await amounts(orgId, leaver)).toEqual({
+      [`accrual:${policyId}:2026-03`]: 6,
+      // Due: January only (2). Dated on the last day worked.
+      [`accrual:${policyId}:2026-04`]: -4,
+    });
+    expect(await ledger(orgId)).toContainEqual(
+      expect.objectContaining({ amount: -4, effectiveDate: "2026-01-31" }),
+    );
+    expect(JSON.stringify(logger.info.mock.calls)).not.toContain(
+      "example.invalid",
+    );
+
+    // Re-runs of the month and later months write nothing more.
+    expect(await run(orgId, "2026-04-30").result).toMatchObject({
+      trueUps: 0,
+      upToDate: 1,
+    });
+    expect(await run(orgId, "2026-05-31").result).toMatchObject({
+      trueUps: 0,
+      upToDate: 1,
+    });
+    expect(Object.keys(await amounts(orgId, leaver))).toHaveLength(2);
   });
 
   it("never reads or writes another organization's rows", async () => {
@@ -335,7 +393,8 @@ describe("leave.accrue (LEA-002)", () => {
     await assign(orgId, employee, vacationPolicy, "2025-01-01");
     await assign(orgId, employee, personalPolicy, "2025-01-01");
 
-    await run(orgId, "2026-01-15").result;
+    // Not a January run, so 2025 is neither trued up nor closed here.
+    await run(orgId, "2026-02-15").result;
 
     const rows = await db.sql<{ sourceRef: string; leaveTypeId: string }[]>`
       SELECT source_ref AS "sourceRef", leave_type_id AS "leaveTypeId"
@@ -345,8 +404,9 @@ describe("leave.accrue (LEA-002)", () => {
     expect(
       Object.fromEntries(rows.map((r) => [r.sourceRef, r.leaveTypeId])),
     ).toEqual({
-      [`accrual:${vacationPolicy}:2026-01`]: vacation,
-      [`accrual:${personalPolicy}:2026-01`]: personal!.id,
+      [`accrual:${vacationPolicy}:2026-02`]: vacation,
+      // Upfront: credited for the month that starts after the run.
+      [`accrual:${personalPolicy}:2026-03`]: personal!.id,
     });
   });
 });

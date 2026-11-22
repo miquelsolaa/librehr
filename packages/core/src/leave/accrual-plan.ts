@@ -44,8 +44,19 @@ export type AccrualPlan =
       effectiveDate: string;
     }
   | { status: "up_to_date" }
-  /** More was accrued than is now due (e.g. a termination recorded late). */
-  | { status: "over_accrued"; excessCents: number };
+  /**
+   * More was accrued than is now due (e.g. a termination recorded late): a
+   * negative `accrual` entry for the excess, under this month's `sourceRef`,
+   * brings the policy's year back to its target (true-up).
+   */
+  | {
+      status: "over_accrued";
+      excessCents: number;
+      /** Negative: `-excessCents / 100`. */
+      amount: number;
+      sourceRef: string;
+      effectiveDate: string;
+    };
 
 export interface AccrualPeriod {
   /** `YYYY-MM` */
@@ -208,6 +219,8 @@ export function accrualTargetCents(input: AccrualTargetInput): number {
  * year. A missed month is caught up by the next run, a policy whose method
  * changes mid-year never double counts, and re-running a month plans the
  * same `sourceRef`, which the ledger's unique index turns into a no-op.
+ * When the ledger holds more than is due, the plan is a negative entry under
+ * the same `sourceRef` (`over_accrued`), so a true-up is also once a month.
  *
  * The entry is dated on the employee's first active day in the month, or
  * their last active day before it when catching up after they left.
@@ -226,7 +239,6 @@ export function accrualTargetCents(input: AccrualTargetInput): number {
  */
 export function planAccrual(input: AccrualPlanInput): AccrualPlan {
   const diff = accrualTargetCents(input) - input.accruedCents;
-  if (diff < 0) return { status: "over_accrued", excessCents: -diff };
   if (diff === 0) return { status: "up_to_date" };
 
   const month = Temporal.PlainYearMonth.from(input.period);
@@ -234,14 +246,20 @@ export function planAccrual(input: AccrualPlanInput): AccrualPlan {
   const monthEnd = month.toPlainDate({ day: month.daysInMonth }).toString();
   const ranges = activeRanges(input, `${month.year}-01-01`, monthEnd);
   const inMonth = ranges.find((r) => r.end >= monthStart);
-  // diff > 0 implies an active day on or before the month's end.
+  // diff > 0 implies an active day on or before the month's end. A true-up
+  // may find none (e.g. a hire date moved to a later year): month end.
   const effectiveDate = inMonth
     ? maxDate(inMonth.start, monthStart)
-    : ranges[ranges.length - 1]!.end;
-  return {
-    status: "accrue",
-    amount: diff / 100,
-    sourceRef: `accrual:${input.policy.id}:${input.period}`,
-    effectiveDate,
-  };
+    : (ranges[ranges.length - 1]?.end ?? monthEnd);
+  const sourceRef = `accrual:${input.policy.id}:${input.period}`;
+  if (diff < 0) {
+    return {
+      status: "over_accrued",
+      excessCents: -diff,
+      amount: diff / 100,
+      sourceRef,
+      effectiveDate,
+    };
+  }
+  return { status: "accrue", amount: diff / 100, sourceRef, effectiveDate };
 }

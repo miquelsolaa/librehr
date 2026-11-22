@@ -6,5 +6,7 @@ export * from "./types.js";
 export * from "./accrual.js";
 export * from "./accrual-plan.js";
 export * from "./carryover.js";
+export * from "./accrual-runs.js";
+export * from "./year-end.js";
 export * from "./coverage.js";
 export * from "./statutory.js";

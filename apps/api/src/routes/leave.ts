@@ -469,6 +469,7 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
               | "usage"
               | "adjustment"
               | "carryover"
+              | "forfeit"
               | "expiry"
               | "reversal",
             amount: r.amount,
