@@ -55,6 +55,7 @@ export interface LeaveAccrueReport {
 interface PolicyPlan {
   employeeId: string;
   policyId: string;
+  leaveTypeId: string;
   annualAllowanceDays: number;
   accrualMethod: z.infer<typeof AccrualMethodSchema>;
   windows: AccrualSpan[];
@@ -68,7 +69,10 @@ interface PolicyPlan {
  */
 function groupByPolicy(rows: readonly AccrualAssignmentRow[]): PolicyPlan[] {
   const missing = rows.filter(
-    (r) => r.policyId === null || r.annualAllowanceDays === null,
+    (r) =>
+      r.policyId === null ||
+      r.leaveTypeId === null ||
+      r.annualAllowanceDays === null,
   );
   if (missing.length > 0) {
     const ids = missing.map((r) => r.assignmentId).join(", ");
@@ -88,6 +92,7 @@ function groupByPolicy(rows: readonly AccrualAssignmentRow[]): PolicyPlan[] {
     const plan = plans.get(key) ?? {
       employeeId: r.employeeId,
       policyId,
+      leaveTypeId: r.leaveTypeId!,
       annualAllowanceDays: r.annualAllowanceDays!,
       accrualMethod: method.data,
       windows: [],
@@ -183,6 +188,7 @@ export async function handleLeaveAccrue(
         } else {
           const inserted = await repo.appendAccrualOnce(tx, {
             employeeId: p.employeeId,
+            leaveTypeId: p.leaveTypeId,
             amount: plan.amount,
             sourceRef: plan.sourceRef,
             effectiveDate: plan.effectiveDate,

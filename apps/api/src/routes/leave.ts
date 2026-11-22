@@ -16,7 +16,9 @@ import {
   calculateWorkingDays,
   checkBlackoutDate,
   evaluateTeamCoverage,
-  runningBalances,
+  balancesByLeaveType,
+  runningBalancesByLeaveType,
+  availableForLeaveType,
 } from "@librehr/core";
 import {
   withTenant,
@@ -159,7 +161,16 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
 
         const balance = await leaveRepo.calculateBalance(tx, targetEmployeeId);
         const entries = await leaveRepo.getLedgerEntries(tx, targetEmployeeId);
-        const balances = runningBalances(entries);
+        // LEA-005: every figure is per leave type; untyped legacy entries
+        // form their own "unassigned" bucket (leaveTypeId null).
+        const balances = runningBalancesByLeaveType(entries);
+        const types = new Map(
+          (await leaveRepo.getLeaveTypes(tx)).map((t) => [t.id, t]),
+        );
+        const entitled = await leaveRepo.listPolicyLeaveTypeIds(
+          tx,
+          targetEmployeeId,
+        );
 
         return {
           currentBalance: balance.currentBalance,
@@ -167,10 +178,23 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
           totalUsed: balance.totalUsed,
           totalCarryover: balance.totalCarryover,
           totalAdjustments: balance.totalAdjustments,
+          byType: balancesByLeaveType(entries).map((b) => {
+            const type = b.leaveTypeId ? types.get(b.leaveTypeId) : undefined;
+            return {
+              ...b,
+              leaveTypeName: type?.name ?? null,
+              leaveTypeCode: type?.code ?? null,
+              leaveTypeColor: type?.color ?? null,
+              // An entitlement (the employee has a policy for the type);
+              // other types only record days taken.
+              entitled: b.leaveTypeId !== null && entitled.has(b.leaveTypeId),
+            };
+          }),
           entries: entries.map((e, index) => ({
             balanceAfter: balances[index],
             id: e.id,
             employeeId: e.employeeId,
+            leaveTypeId: e.leaveTypeId,
             entryType: e.entryType,
             amount: e.amount,
             unit: e.unit,
@@ -296,6 +320,15 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
           return { error: "TARGET_EMPLOYEE_NOT_FOUND" as const };
         }
 
+        // The leave type must belong to this tenant: its ledger entries
+        // reference it (LEA-005, same-tenant foreign key since 0033).
+        if (!(await leaveRepo.findLeaveTypeById(tx, reqData.leaveTypeId))) {
+          return {
+            error: "LEAVE_TYPE_NOT_FOUND" as const,
+            message: "Unknown leave type",
+          };
+        }
+
         // Fetch location holidays for working days computation
         const startYear = parseInt(reqData.startDate.slice(0, 4), 10);
         let holidaysSet = new Set<string>();
@@ -408,6 +441,15 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
 
         // Validate request against existing requests and ledger
         const ledgerRows = await leaveRepo.getLedgerEntries(tx, employeeId);
+        // LEA-005 / LEA-004: only leave types the employee has a policy for
+        // are balance-limited. Such a request draws on its own type's
+        // balance plus any legacy unassigned balance not spent by other
+        // limited types. Sick leave and statutory permits never are.
+        const limitedTypeIds = await leaveRepo.listPolicyLeaveTypeIds(
+          tx,
+          employeeId,
+        );
+        const enforceBalance = limitedTypeIds.has(reqData.leaveTypeId);
         const existingReqs = await leaveRepo.getLeaveRequests(tx, {
           employeeId,
         });
@@ -442,7 +484,12 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
               "pending" | "approved" | "rejected" | "cancelled",
           })),
           holidays: holidaysSet,
-          allowNegativeBalance: false,
+          availableBalance: availableForLeaveType(
+            ledgerRows,
+            reqData.leaveTypeId,
+            limitedTypeIds,
+          ),
+          allowNegativeBalance: !enforceBalance,
         });
 
         if (!validation.valid) {
@@ -532,6 +579,19 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
             code: "COVERAGE_NOT_CONFIGURED",
           }),
           409,
+          { "Content-Type": "application/problem+json" },
+        );
+      }
+      if (result.error === "LEAVE_TYPE_NOT_FOUND") {
+        // Same answer as POST /leave/adjust for an unknown leave type.
+        return c.json(
+          createProblemDetails({
+            status: 404,
+            title: "Not Found",
+            detail: "Leave type not found",
+            code: "LEAVE_TYPE_NOT_FOUND",
+          }),
+          404,
           { "Content-Type": "application/problem+json" },
         );
       }
@@ -943,10 +1003,18 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
         const emp = await employeeRepo.findById(tx, parsed.data.employeeId);
-        if (!emp) return null;
+        if (!emp) return "EMPLOYEE_NOT_FOUND" as const;
+        const { leaveTypeId } = parsed.data;
+        if (
+          leaveTypeId !== null &&
+          !(await leaveRepo.findLeaveTypeById(tx, leaveTypeId))
+        ) {
+          return "LEAVE_TYPE_NOT_FOUND" as const;
+        }
 
         const ledger = await leaveRepo.appendLedgerEntry(tx, {
           employeeId: parsed.data.employeeId,
+          leaveTypeId,
           entryType: "adjustment",
           amount: parsed.data.amount,
           unit: "days",
@@ -963,6 +1031,7 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
           resourceId: ledger.id,
           metadata: {
             employeeId: parsed.data.employeeId,
+            leaveTypeId,
             amount: parsed.data.amount,
             note: parsed.data.note,
           },
@@ -972,12 +1041,15 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
       },
     );
 
-    if (!entry) {
+    if (typeof entry === "string") {
       const problem = createProblemDetails({
         status: 404,
         title: "Not Found",
-        detail: "Employee not found",
-        code: "EMPLOYEE_NOT_FOUND",
+        detail:
+          entry === "EMPLOYEE_NOT_FOUND"
+            ? "Employee not found"
+            : "Leave type not found",
+        code: entry,
       });
       return c.json(problem, 404, {
         "Content-Type": "application/problem+json",
@@ -988,6 +1060,7 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
       {
         id: entry.id,
         employeeId: entry.employeeId,
+        leaveTypeId: entry.leaveTypeId,
         entryType: entry.entryType,
         amount: entry.amount,
         unit: entry.unit,

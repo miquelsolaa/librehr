@@ -44,6 +44,40 @@ monthly entries of a full year add up to the allowance exactly (22 days gives
   `accrual_method`, fails the whole run with `MissingPolicyError` before
   anything is written. The error names the assignment or policy ids.
 
+## Balances per leave type (LEA-005)
+
+Every ledger entry records the leave type it counts toward
+(`leave_ledger.leave_type_id`, migration 0033): an accrual takes its
+policy's type, a usage or reversal takes its request's type, and an HR
+adjustment (`POST /v1/leave/adjust`) states its type explicitly. Balances,
+totals and the running "balance after" of the history are computed per type.
+
+Migration 0033 backfilled the type of older entries whose origin is
+recorded: usage and reversal entries from their leave request
+(`source_ref` is the request id) and accruals of this job from their policy
+(`source_ref` is `accrual:<policyId>:<YYYY-MM>`). Anything else written
+before 0033 (manual adjustments, hand-seeded rows) stays without a type.
+
+Rule for those **unassigned** entries:
+
+- They are shown as their own "Unassigned" balance and are never added to a
+  leave type's balance.
+- When a request is checked for sufficient balance, a positive unassigned
+  balance acts as a shared legacy pool: it first covers the shortfall of the
+  employee's other balance-limited types, and what is left can back the
+  request (`availableForLeaveType` in `packages/core`). With only legacy
+  entries this is exactly the old pooled balance for those types.
+- To retire the pool, HR books a negative adjustment with
+  `leaveTypeId: null` and a matching positive one on the right leave type.
+
+Only leave types the employee has (or had) a policy for are
+**balance-limited** (`entitled: true` in `GET /v1/leave/balance`). Requests
+for other types, such as sick leave or statutory permits, are never refused
+for lack of balance and never spend the legacy pool; the web app shows their
+days taken instead of a balance. Before 0033 every request was checked
+against one pooled balance, so an installation with no policies assigned no
+longer limits requests at all: assign policies to enforce entitlements.
+
 ## Known limitations
 
 - **Scheduling is opt-in.** When `SCHEDULER_JOBS` lists `leave.accrue`, the
@@ -62,8 +96,6 @@ monthly entries of a full year add up to the allowance exactly (22 days gives
   `employments.working_hours_per_week` by, so part-time contracts accrue like
   full-time ones. This matches statutory vacation in Spain (ET art. 12.4.d)
   but may not suit every leave type.
-- **Untyped ledger.** `leave_ledger` has no `leave_type_id`, so balances are
-  per employee, not per leave type.
 - **No carry-over or expiry runs** yet.
 - If a month's entry already exists and a backdated change raises the target,
   the difference is written by the next month's run (for December, not at

@@ -95,7 +95,10 @@
     "clockIn": "Clock in",
     "requestLeave": "Request time off",
     "emptyModuleTitle": "Module under construction",
-    "emptyModuleDescription": "This functionality will be enabled in upcoming milestones according to the roadmap."
+    "emptyModuleDescription": "This functionality will be enabled in upcoming milestones according to the roadmap.",
+    "unassignedBalance": "Unassigned",
+    "unknownLeaveType": "Leave type",
+    "unassignedHelp": "Entries recorded before balances were kept per leave type. They can still cover a request for a leave type with a policy until HR assigns them to one."
   },
   "people": {
     "loadError": "People information could not be loaded.",
@@ -568,7 +571,11 @@
     "calendarPrivacyNotice": "Privacy: absence details are hidden from roles other than managers (GDPR art. 9).",
     "loadingCalendar": "Loading team schedule…",
     "noAbsencesMonth": "No absences scheduled for this month.",
-    "noDepartment": "No department"
+    "noDepartment": "No department",
+    "unassignedBalance": "Unassigned",
+    "unassignedHelp": "Entries recorded before balances were kept per leave type. They can still cover a request for a leave type with a policy until HR assigns them to one.",
+    "unknownLeaveType": "Leave type",
+    "daysTaken": "days taken"
   },
   "approvals": {
     "title": "Approvals",

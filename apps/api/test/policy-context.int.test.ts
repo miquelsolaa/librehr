@@ -132,12 +132,15 @@ describe("policy context: manager scope on leave and time routes", () => {
         // Appended out of order: the history is ordered by effective date.
         await leave.appendLedgerEntry(tx, {
           employeeId: a.report.employeeId,
+          // Legacy, untyped entries: one "unassigned" running balance.
+          leaveTypeId: null,
           entryType: "usage",
           amount: -1.5,
           effectiveDate: "2026-03-10",
         });
         await leave.appendLedgerEntry(tx, {
           employeeId: a.report.employeeId,
+          leaveTypeId: null,
           entryType: "accrual",
           amount: 22,
           effectiveDate: "2026-01-01",

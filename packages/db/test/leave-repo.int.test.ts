@@ -59,6 +59,7 @@ describe("LeaveRepository & Ledger Invariance (LEA-001, LEA-004, LEA-005)", () =
       // 3. Initial Accrual: grant 22 days
       await leaveRepo.appendLedgerEntry(tx, {
         employeeId: employee.id,
+        leaveTypeId: leaveType.id,
         entryType: "accrual",
         amount: 22,
         note: "Initial 2026 allocation",

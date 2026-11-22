@@ -1,5 +1,6 @@
 export * from "./ledger.js";
 export * from "./balance.js";
+export * from "./balance-by-type.js";
 export * from "./validate-request.js";
 export * from "./types.js";
 export * from "./accrual.js";

@@ -35,6 +35,8 @@ export interface LeaveLedgerRow {
   id: string;
   organizationId: string;
   employeeId: string;
+  /** LEA-005: null only for legacy entries whose origin was not recorded. */
+  leaveTypeId: string | null;
   entryType: string; // accrual, usage, adjustment, carryover, expiry, reversal
   amount: number;
   unit: string;
@@ -108,6 +110,46 @@ export class LeaveRepository {
       FROM leave_types
       ORDER BY name ASC
     `;
+  }
+
+  /** A leave type of the current tenant, or null (RLS hides other tenants). */
+  async findLeaveTypeById(
+    tx: TenantTx,
+    id: string,
+  ): Promise<LeaveTypeRow | null> {
+    const rows = await tx<LeaveTypeRow[]>`
+      SELECT id, organization_id as "organizationId", name, code,
+             is_paid as "isPaid", requires_approval as "requiresApproval",
+             requires_attachment as "requiresAttachment",
+             legal_reference as "legalReference", description,
+             half_days_allowed as "halfDaysAllowed", counts_working_days as "countsWorkingDays",
+             color, created_at as "createdAt", updated_at as "updatedAt"
+      FROM leave_types
+      WHERE id = ${id} AND organization_id = ${tx.__tenantContext.organizationId}
+      LIMIT 1
+    `;
+    return rows[0] ?? null;
+  }
+
+  /**
+   * Leave types the employee has ever been assigned a policy for
+   * (LEA-002/LEA-004). Only these are entitlements whose balance limits a
+   * request; any other type (sick leave, statutory permits) never is.
+   */
+  async listPolicyLeaveTypeIds(
+    tx: TenantTx,
+    employeeId: string,
+  ): Promise<Set<string>> {
+    const orgId = tx.__tenantContext.organizationId;
+    const rows = await tx<{ leaveTypeId: string }[]>`
+      SELECT DISTINCT p.leave_type_id AS "leaveTypeId"
+      FROM leave_policy_assignments a
+      JOIN leave_policies p ON p.id = a.leave_policy_id
+      WHERE a.organization_id = ${orgId}
+        AND p.organization_id = ${orgId}
+        AND a.employee_id = ${employeeId}
+    `;
+    return new Set(rows.map((r) => r.leaveTypeId));
   }
 
   async createLeaveType(
@@ -206,7 +248,7 @@ export class LeaveRepository {
   ): Promise<LeaveLedgerRow[]> {
     return tx<LeaveLedgerRow[]>`
       SELECT id, organization_id as "organizationId", employee_id as "employeeId",
-             entry_type as "entryType", amount::float as amount, unit,
+             leave_type_id as "leaveTypeId", entry_type as "entryType", amount::float as amount, unit,
              source_ref as "sourceRef", note, effective_date::text as "effectiveDate",
              created_at as "createdAt"
       FROM leave_ledger
@@ -219,6 +261,11 @@ export class LeaveRepository {
     tx: TenantTx,
     data: {
       employeeId: string;
+      /**
+       * Leave type the entry counts toward (LEA-005). Null only for an
+       * adjustment HR explicitly books as unassigned.
+       */
+      leaveTypeId: string | null;
       entryType: string;
       amount: number;
       unit?: string | undefined;
@@ -231,10 +278,11 @@ export class LeaveRepository {
     const effectiveDate = data.effectiveDate;
     const rows = await tx<LeaveLedgerRow[]>`
       INSERT INTO leave_ledger (
-        employee_id, entry_type, amount, unit,
+        employee_id, leave_type_id, entry_type, amount, unit,
         source_ref, note, effective_date
       ) VALUES (
         ${data.employeeId},
+        ${data.leaveTypeId},
         ${data.entryType},
         ${data.amount},
         ${data.unit ?? "days"},
@@ -243,7 +291,7 @@ export class LeaveRepository {
         ${effectiveDate}
       )
       RETURNING id, organization_id as "organizationId", employee_id as "employeeId",
-                entry_type as "entryType", amount::float as amount, unit,
+                leave_type_id as "leaveTypeId", entry_type as "entryType", amount::float as amount, unit,
                 source_ref as "sourceRef", note, effective_date::text as "effectiveDate",
                 created_at as "createdAt"
     `;
@@ -425,6 +473,7 @@ export class LeaveRepository {
     // 2. Append usage entry to leave_ledger (negative amount)
     await this.appendLedgerEntry(tx, {
       employeeId: req.employeeId,
+      leaveTypeId: req.leaveTypeId,
       entryType: "usage",
       amount: -Math.abs(req.workingDays),
       sourceRef: id,
@@ -482,6 +531,7 @@ export class LeaveRepository {
     if (req.status === "approved") {
       const reversal = await this.appendLedgerEntry(tx, {
         employeeId: req.employeeId,
+        leaveTypeId: req.leaveTypeId,
         entryType: "reversal",
         amount: Math.abs(req.workingDays),
         sourceRef: id,

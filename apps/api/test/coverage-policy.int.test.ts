@@ -75,6 +75,7 @@ describe("department coverage configuration", () => {
       ).id;
       await leave.appendLedgerEntry(tx, {
         employeeId: employee.id,
+        leaveTypeId,
         entryType: "accrual",
         amount: 10,
         effectiveDate: "2030-01-01",

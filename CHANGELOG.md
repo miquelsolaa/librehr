@@ -5,6 +5,11 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## [Unreleased]
 
+### Leave balances per leave type
+
+- **Per-type balances (`LEA-005`, #117):** `leave_ledger` records the leave type of every entry (migration 0033, with a backfill of usage, reversal and accrual entries). `GET /v1/leave/balance` returns `byType`, and the time-off and home pages show one balance per leave type. Untyped legacy entries form an "Unassigned" balance. Only leave types with a policy limit requests.
+- **Breaking API change:** `POST /v1/leave/adjust` requires `leaveTypeId` (or `null` for the unassigned balance). See `docs/guides/upgrading.md`.
+
 ### Open core: Community and Business editions
 
 - **Licensing model (ADR 0004):** LibreHR is now open core. Code outside `ee/` stays AGPL-3.0-or-later; the new `ee/` directory is source-available under the LibreHR Enterprise License v1.0. Legal-compliance features remain in Community. See `docs/editions.md`.

@@ -46,6 +46,11 @@ export type LeavePolicy = z.infer<typeof LeavePolicySchema>;
 export const LeaveLedgerEntrySchema = z.object({
   id: z.guid(),
   employeeId: z.guid(),
+  /**
+   * LEA-005: the leave type the entry counts toward. Null for legacy entries
+   * written before balances were kept per type ("unassigned").
+   */
+  leaveTypeId: z.guid().nullable().optional(),
   entryType: z.string(),
   amount: z.number(),
   unit: z.string(),
@@ -53,17 +58,51 @@ export const LeaveLedgerEntrySchema = z.object({
   note: z.string().nullable().optional(),
   effectiveDate: z.string(),
   createdAt: z.string().datetime(),
-  /** Balance once this entry is applied. Present in the balance history. */
+  /**
+   * Balance of the entry's own leave type (or of the unassigned bucket) once
+   * this entry is applied. Present in the balance history.
+   */
   balanceAfter: z.number().optional(),
 });
 export type LeaveLedgerEntry = z.infer<typeof LeaveLedgerEntrySchema>;
 
-export const LeaveBalanceSummarySchema = z.object({
+/**
+ * LEA-005: the balance of one leave type. `leaveTypeId` null is the
+ * unassigned bucket: legacy entries with no recorded leave type. They are
+ * never added to a type's balance; a positive unassigned balance can still
+ * back requests of any entitled type until HR re-books it.
+ */
+export const LeaveTypeBalanceSchema = z.object({
+  leaveTypeId: z.guid().nullable(),
+  leaveTypeName: z.string().nullable(),
+  leaveTypeCode: z.string().nullable(),
+  leaveTypeColor: z.string().nullable(),
+  /**
+   * True when the employee has a policy for this leave type: an entitlement
+   * whose balance limits requests. Other types (sick leave, statutory
+   * permits) only record the days taken, so their balance is not meaningful.
+   */
+  entitled: z.boolean(),
   currentBalance: z.number(),
   totalAccrued: z.number(),
   totalUsed: z.number(),
   totalCarryover: z.number(),
   totalAdjustments: z.number(),
+});
+export type LeaveTypeBalance = z.infer<typeof LeaveTypeBalanceSchema>;
+
+export const LeaveBalanceSummarySchema = z.object({
+  /**
+   * Sum over every leave type (kept for older clients). Prefer `byType`: a
+   * total across leave types is not a balance anyone can take.
+   */
+  currentBalance: z.number(),
+  totalAccrued: z.number(),
+  totalUsed: z.number(),
+  totalCarryover: z.number(),
+  totalAdjustments: z.number(),
+  /** One balance per leave type with entries; unassigned (null) last. */
+  byType: z.array(LeaveTypeBalanceSchema),
   entries: z.array(LeaveLedgerEntrySchema),
 });
 export type LeaveBalanceSummary = z.infer<typeof LeaveBalanceSummarySchema>;
@@ -140,6 +179,12 @@ export type DecideLeaveRequest = z.infer<typeof DecideLeaveRequestSchema>;
 
 export const AdjustBalanceRequestSchema = z.object({
   employeeId: z.guid(),
+  /**
+   * LEA-005: the leave type whose balance is adjusted. Required: null books
+   * the adjustment to the unassigned (legacy) bucket, which is only useful
+   * to re-book legacy balances onto a leave type.
+   */
+  leaveTypeId: z.guid().nullable(),
   amount: z.number(),
   note: z.string().min(3, "Mandatory reason for audit trail is required"),
   effectiveDate: z

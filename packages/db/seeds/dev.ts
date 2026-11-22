@@ -362,14 +362,6 @@ export async function seedDevDatabase(
           INSERT INTO "emergency_contacts" ("organization_id", "employee_id", "full_name", "relationship", "phone_primary", "is_primary")
           VALUES (${orgId}, ${empId}, ${emergencyContactName}, 'partner', '+34 600 000 000', true)
         `;
-
-        // Leave ledger accrual & carryover
-        await tx`
-          INSERT INTO "leave_ledger" ("organization_id", "employee_id", "entry_type", "amount", "unit", "effective_date", "note")
-          VALUES 
-            (${orgId}, ${empId}, 'accrual', 22.00, 'days', '2026-01-01', 'Annual vacation entitlement 2026'),
-            (${orgId}, ${empId}, 'carryover', 3.00, 'days', '2026-01-01', 'Approved carryover from 2025')
-        `;
       }
 
       // Second pass: set manager_id to establish the org chart hierarchy
@@ -451,6 +443,15 @@ export async function seedDevDatabase(
             ${orgId}, ${vacTypeId}, 'Convenio General', 22.00, 'monthly', 5.00
           )
         `;
+        // Vacation accrual & carryover, per leave type (LEA-005).
+        for (const empId of empIdByEmail.values()) {
+          await tx`
+            INSERT INTO "leave_ledger" ("organization_id", "employee_id", "leave_type_id", "entry_type", "amount", "unit", "effective_date", "note")
+            VALUES
+              (${orgId}, ${empId}, ${vacTypeId}, 'accrual', 22.00, 'days', '2026-01-01', 'Annual vacation entitlement 2026'),
+              (${orgId}, ${empId}, ${vacTypeId}, 'carryover', 3.00, 'days', '2026-01-01', 'Approved carryover from 2025')
+          `;
+        }
       }
 
       // 8. Seed Realistic Leave Requests
@@ -461,7 +462,7 @@ export async function seedDevDatabase(
 
       if (vacTypeId && laiaEmpId && pereEmpId) {
         // Laia: past approved vacation
-        await tx`
+        const [approved] = await tx<{ id: string }[]>`
           INSERT INTO "leave_requests" (
             "organization_id", "employee_id", "leave_type_id", "start_date", "end_date",
             "working_days", "status", "notes", "approver_id", "decided_at"
@@ -470,11 +471,12 @@ export async function seedDevDatabase(
             ${orgId}, ${laiaEmpId}, ${vacTypeId}, '2026-02-16', '2026-02-18',
             3.00, 'approved', 'Vacances d''hivern en família', ${pereEmpId}, '2026-02-02 10:00:00+01'
           )
+          RETURNING "id"
         `;
-        // Deduct from ledger
+        // Deduct from ledger, as approval does: typed and linked to the request.
         await tx`
-          INSERT INTO "leave_ledger" ("organization_id", "employee_id", "entry_type", "amount", "unit", "effective_date", "note")
-          VALUES (${orgId}, ${laiaEmpId}, 'usage', -3.00, 'days', '2026-02-16', 'Vacances d''hivern en família')
+          INSERT INTO "leave_ledger" ("organization_id", "employee_id", "leave_type_id", "entry_type", "amount", "unit", "source_ref", "effective_date", "note")
+          VALUES (${orgId}, ${laiaEmpId}, ${vacTypeId}, 'usage', -3.00, 'days', ${approved!.id}, '2026-02-16', 'Vacances d''hivern en família')
         `;
       }
 

@@ -95,7 +95,10 @@
     "clockIn": "Fichar entrada",
     "requestLeave": "Solicitar vacaciones",
     "emptyModuleTitle": "Módulo en construcción",
-    "emptyModuleDescription": "Esta funcionalidad se habilitará en los próximos hitos según la hoja de ruta."
+    "emptyModuleDescription": "Esta funcionalidad se habilitará en los próximos hitos según la hoja de ruta.",
+    "unassignedBalance": "Sin asignar",
+    "unknownLeaveType": "Tipo de ausencia",
+    "unassignedHelp": "Movimientos registrados antes de que los saldos se llevaran por tipo de ausencia. Pueden cubrir una solicitud de un tipo con política hasta que RR. HH. los asigne a uno."
   },
   "people": {
     "loadError": "No se ha podido cargar la información del personal.",
@@ -568,7 +571,11 @@
     "calendarPrivacyNotice": "Privacidad: los detalles de las ausencias se ocultan a los roles que no son de responsable (art. 9 RGPD).",
     "loadingCalendar": "Cargando el calendario del equipo…",
     "noAbsencesMonth": "No hay ausencias programadas para este mes.",
-    "noDepartment": "Sin departamento"
+    "noDepartment": "Sin departamento",
+    "unassignedBalance": "Sin asignar",
+    "unassignedHelp": "Movimientos registrados antes de que los saldos se llevaran por tipo de ausencia. Pueden cubrir una solicitud de un tipo con política hasta que RR. HH. los asigne a uno.",
+    "unknownLeaveType": "Tipo de ausencia",
+    "daysTaken": "días disfrutados"
   },
   "approvals": {
     "title": "Aprobaciones",

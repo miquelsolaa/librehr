@@ -23,6 +23,20 @@ const BALANCE = {
   totalUsed: 1.5,
   totalCarryover: 0,
   totalAdjustments: 0,
+  byType: [
+    {
+      leaveTypeId: "00000000-0000-4000-8000-000000000005",
+      leaveTypeName: "Annual leave",
+      leaveTypeCode: "vacation",
+      leaveTypeColor: "#3b82f6",
+      entitled: true,
+      currentBalance: 12.5,
+      totalAccrued: 14,
+      totalUsed: 1.5,
+      totalCarryover: 0,
+      totalAdjustments: 0,
+    },
+  ],
   entries: [],
 };
 
@@ -204,4 +218,61 @@ test("auditors land on the inspection view, never on a personal clock or balance
   // The personal time page is not theirs: it hands over to the export.
   await page.goto("/en/time");
   await expect(page).toHaveURL(/\/en\/time\/export$/);
+});
+test("home lists remaining days per entitled leave type only (LEA-005)", async ({
+  page,
+}) => {
+  await seedProfile(page, { role: "employee", name: "Marta" });
+  const bucket = {
+    totalAccrued: 0,
+    totalUsed: 0,
+    totalCarryover: 0,
+    totalAdjustments: 0,
+  };
+  await mockRoute(page, "**/v1/leave/balance", (route) =>
+    route.fulfill({
+      json: {
+        ...BALANCE,
+        byType: [
+          {
+            ...bucket,
+            leaveTypeId: "00000000-0000-4000-8000-000000000005",
+            leaveTypeName: "Annual leave",
+            leaveTypeCode: "vacation",
+            leaveTypeColor: "#3b82f6",
+            entitled: true,
+            currentBalance: 19,
+          },
+          {
+            ...bucket,
+            leaveTypeId: "00000000-0000-4000-8000-000000000006",
+            leaveTypeName: "Sick leave",
+            leaveTypeCode: "sick_leave",
+            leaveTypeColor: "#f59e0b",
+            entitled: false,
+            currentBalance: -3,
+          },
+          {
+            ...bucket,
+            leaveTypeId: null,
+            leaveTypeName: null,
+            leaveTypeCode: null,
+            leaveTypeColor: null,
+            entitled: false,
+            currentBalance: 2,
+          },
+        ],
+      },
+    }),
+  );
+  await page.goto("/en/home");
+  const balance = page.getByRole("region", { name: "Your time off" });
+  await expect(balance).toContainText("Annual leave");
+  await expect(balance).toContainText("19");
+  await expect(balance).toContainText("Unassigned");
+  await expect(balance).not.toContainText("Sick leave");
+  const results = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  expect(results.violations).toEqual([]);
 });
