@@ -1174,6 +1174,11 @@
     "prorated": "Prorratejat sobre una jornada completa de {hours, number} hores setmanals.",
     "hoursInvalid": "Indica entre 0,01 i 40 hores, amb dos decimals com a màxim, o deixa-ho buit.",
     "actionError": "No s'ha pogut desar el canvi. Torna-ho a provar.",
+    "carryoverLabel": "Limitar el romanent, perdre l'excés i fer caducar els dies arrossegats",
+    "carryoverHint": "Desactivat per defecte: al tancament de l'any s'arrossega tot el saldo restant i no es perd res. Si s'activa, el tancament arrossega com a màxim el límit de la política, la resta es perd, i els dies arrossegats no gaudits caduquen al final del mes configurat de l'any següent. Les persones que han tingut incapacitat temporal, embaràs, part, adopció o lactància en el període mai no perden dies: l'art. 38.3 de l'ET els permet gaudir les vacances en acabar aquesta situació, de manera que s'arrossega tot el seu saldo. Revisa el teu conveni col·lectiu abans d'activar-ho.",
+    "carryoverOn": "Activat: s'arrosseguen fins a {days, plural, one {# dia} other {# dies}}, que es poden gaudir durant {months, plural, one {# mes} other {# mesos}} de l'any següent.",
+    "carryoverOff": "Desactivat: s'arrossega tot el saldo i mai no caduca.",
+    "carryoverSave": "Desa la regla de romanent",
     "save": "Desa",
     "saved": "Desat."
   }

@@ -72,11 +72,13 @@ const toResponse = (row: LeavePolicyRow): LeavePolicy =>
     carryoverExpiryMonths: row.carryoverExpiryMonths,
     allowNegativeBalance: row.allowNegativeBalance,
     fullTimeHoursPerWeek: row.fullTimeHoursPerWeek,
+    carryoverEnforced: row.carryoverEnforced,
   });
 
 /**
  * Leave policies (LEA-002): list, create, and set the opt-in part-time
- * full-time week (issue #118). Admin only (`org.write`).
+ * full-time week (issue #118) and the opt-in carry-over cap, forfeit and
+ * expiry (#132). Admin only (`org.write`).
  */
 export function createLeavePolicyRoutes(sql: Sql) {
   const router = new Hono();
@@ -119,6 +121,7 @@ export function createLeavePolicyRoutes(sql: Sql) {
           metadata: {
             leaveTypeId: created.leaveTypeId,
             fullTimeHoursPerWeek: created.fullTimeHoursPerWeek,
+            carryoverEnforced: created.carryoverEnforced,
           },
         });
         return created;
@@ -146,26 +149,42 @@ export function createLeavePolicyRoutes(sql: Sql) {
             detail: "Leave policy not found",
           });
         }
-        refuseStatutoryProration(
-          current.leaveTypeCode,
-          body.fullTimeHoursPerWeek,
-        );
-        const updated = (await leaveRepo.updateLeavePolicyFullTimeHours(
-          tx,
-          id,
-          body.fullTimeHoursPerWeek,
-        ))!;
+        let updated: LeavePolicyRow | null = null;
+        if (body.fullTimeHoursPerWeek !== undefined) {
+          refuseStatutoryProration(
+            current.leaveTypeCode,
+            body.fullTimeHoursPerWeek,
+          );
+          updated = await leaveRepo.updateLeavePolicyFullTimeHours(
+            tx,
+            id,
+            body.fullTimeHoursPerWeek,
+          );
+        }
+        if (body.carryoverEnforced !== undefined) {
+          updated = await leaveRepo.updateLeavePolicyCarryoverEnforced(
+            tx,
+            id,
+            body.carryoverEnforced,
+          );
+        }
+        // The schema requires at least one field, and the row is locked.
+        const row = updated!;
+        // Turning on the cap, forfeit and expiry can cost employees days:
+        // audited with the previous value (compliance setting, #132).
         await auditRepo.log(tx, {
           actorId: user.id,
           action: "leave.policy.update",
           resourceType: "leave_policy",
-          resourceId: updated.id,
+          resourceId: row.id,
           metadata: {
             previousFullTimeHoursPerWeek: current.fullTimeHoursPerWeek,
-            fullTimeHoursPerWeek: updated.fullTimeHoursPerWeek,
+            fullTimeHoursPerWeek: row.fullTimeHoursPerWeek,
+            previousCarryoverEnforced: current.carryoverEnforced,
+            carryoverEnforced: row.carryoverEnforced,
           },
         });
-        return updated;
+        return row;
       },
     );
     return c.json(toResponse(row));

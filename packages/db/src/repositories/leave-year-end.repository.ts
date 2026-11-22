@@ -8,6 +8,8 @@ export interface PolicyInForceRow {
   leaveTypeId: string | null;
   carryoverMaxDays: number | null;
   carryoverExpiryMonths: number | null;
+  /** `carryover_enforced` (0036): false carries everything over. */
+  carryoverEnforced: boolean | null;
 }
 
 /** A typed ledger entry, as read for a year-end close (LEA-005). */
@@ -40,11 +42,12 @@ export class LeaveYearEndRepository {
       SELECT w.employee_id AS "employeeId", w.policy_id AS "policyId",
              w.leave_type_id AS "leaveTypeId",
              w.carryover_max_days AS "carryoverMaxDays",
-             w.carryover_expiry_months AS "carryoverExpiryMonths"
+             w.carryover_expiry_months AS "carryoverExpiryMonths",
+             w.carryover_enforced AS "carryoverEnforced"
       FROM (
         SELECT a.employee_id, p.id AS policy_id, p.leave_type_id,
                p.carryover_max_days::float AS carryover_max_days,
-               p.carryover_expiry_months,
+               p.carryover_expiry_months, p.carryover_enforced,
                a.effective_from AS start_date,
                LEAD(a.effective_from) OVER (
                  PARTITION BY a.employee_id, p.leave_type_id
@@ -86,26 +89,39 @@ export class LeaveYearEndRepository {
   }
 
   /**
-   * Days carried over from `year` (the +C entry,
-   * `carryover:<leaveTypeId>:<YYYY>`) that have no expiry entry yet, in
-   * integer cents.
+   * Days carried over from `year` by an enforced close (the +C entry,
+   * `carryover:<leaveTypeId>:<YYYY>`, with an `expires_on` date) that have
+   * no expiry entry yet, in integer cents. Carry-overs without a date never
+   * expire.
    */
   async listUnexpiredCarryovers(
     tx: TenantTx,
     year: number,
   ): Promise<
-    { employeeId: string; leaveTypeId: string; carriedCents: number }[]
+    {
+      employeeId: string;
+      leaveTypeId: string;
+      carriedCents: number;
+      expiresOn: string;
+    }[]
   > {
     const orgId = tx.__tenantContext.organizationId;
     return tx<
-      { employeeId: string; leaveTypeId: string; carriedCents: number }[]
+      {
+        employeeId: string;
+        leaveTypeId: string;
+        carriedCents: number;
+        expiresOn: string;
+      }[]
     >`
       SELECT c.employee_id AS "employeeId", c.leave_type_id AS "leaveTypeId",
-             round(c.amount * 100)::int AS "carriedCents"
+             round(c.amount * 100)::int AS "carriedCents",
+             c.expires_on::text AS "expiresOn"
       FROM leave_ledger c
       WHERE c.organization_id = ${orgId}
         AND c.entry_type = 'carryover'
         AND c.leave_type_id IS NOT NULL
+        AND c.expires_on IS NOT NULL
         AND c.amount > 0
         AND c.source_ref = 'carryover:' || c.leave_type_id::text || ':' || ${String(year)}
         AND NOT EXISTS (
@@ -154,6 +170,38 @@ export class LeaveYearEndRepository {
   }
 
   /**
+   * Employees with approved leave overlapping [from, to], with each leave
+   * type's code and whether the employee has (or had) a policy for it. The
+   * caller decides which of them ET art. 38.3 protects
+   * (`protectsVacation` in core).
+   */
+  async listApprovedLeaveTypes(
+    tx: TenantTx,
+    from: string,
+    to: string,
+  ): Promise<{ employeeId: string; code: string; entitled: boolean }[]> {
+    const orgId = tx.__tenantContext.organizationId;
+    return tx<{ employeeId: string; code: string; entitled: boolean }[]>`
+      SELECT DISTINCT r.employee_id AS "employeeId", t.code,
+             EXISTS (
+               SELECT 1 FROM leave_policy_assignments a
+               JOIN leave_policies p
+                 ON p.id = a.leave_policy_id AND p.organization_id = ${orgId}
+               WHERE a.organization_id = ${orgId}
+                 AND a.employee_id = r.employee_id
+                 AND p.leave_type_id = r.leave_type_id
+             ) AS entitled
+      FROM leave_requests r
+      JOIN leave_types t
+        ON t.id = r.leave_type_id AND t.organization_id = ${orgId}
+      WHERE r.organization_id = ${orgId}
+        AND r.status = 'approved'
+        AND r.start_date <= ${to}::date
+        AND r.end_date >= ${from}::date
+    `;
+  }
+
+  /**
    * Appends a carry-over, forfeit or expiry entry once: a second insert with
    * the same employee and `sourceRef` is ignored (unique index
    * `leave_ledger_year_end_once`, migration 0036). Returns false when the
@@ -169,15 +217,18 @@ export class LeaveYearEndRepository {
       sourceRef: string;
       /** Business date in the organization's zone. */
       effectiveDate: string;
+      /** Last usable day of carried-in days; null never expires. */
+      expiresOn: string | null;
     },
   ): Promise<boolean> {
     const rows = await tx<{ id: string }[]>`
       INSERT INTO leave_ledger (
         employee_id, leave_type_id, entry_type, amount, unit, source_ref,
-        effective_date
+        effective_date, expires_on
       ) VALUES (
         ${data.employeeId}, ${data.leaveTypeId}, ${data.entryType},
-        ${data.amount}, 'days', ${data.sourceRef}, ${data.effectiveDate}
+        ${data.amount}, 'days', ${data.sourceRef}, ${data.effectiveDate},
+        ${data.expiresOn}
       )
       ON CONFLICT (organization_id, employee_id, source_ref)
         WHERE entry_type IN ('carryover', 'forfeit', 'expiry')

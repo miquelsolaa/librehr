@@ -142,6 +142,8 @@ describe("/v1/leave/policies", () => {
     expect(audit.map((r) => r.metadata)).toContainEqual({
       previousFullTimeHoursPerWeek: 37.5,
       fullTimeHoursPerWeek: null,
+      previousCarryoverEnforced: false,
+      carryoverEnforced: false,
     });
   });
 
@@ -257,6 +259,67 @@ describe("/v1/leave/policies", () => {
       expect(updated.status).toBe(403);
     }
     expect(await storedHours(policyA)).toBeNull();
+  });
+
+  describe("carry-over cap, forfeit and expiry are opt-in (#132)", () => {
+    const storedEnforced = async (id: string) =>
+      (
+        await db.sql<{ enforced: boolean }[]>`
+          SELECT carryover_enforced AS enforced
+          FROM leave_policies WHERE id = ${id}`
+      )[0]?.enforced;
+
+    it("is off on a new policy, and an admin turns it on and off, audited", async () => {
+      const created = await create(a.admin, {
+        ...validPolicy,
+        leaveTypeId: vacationA,
+        name: "Vacation",
+      });
+      expect(created.status).toBe(201);
+      const policy = (await created.json()) as LeavePolicy;
+      expect(policy.carryoverEnforced).toBe(false);
+
+      const on = await patch(a.admin, policy.id, { carryoverEnforced: true });
+      expect(on.status, await on.clone().text()).toBe(200);
+      expect(((await on.json()) as LeavePolicy).carryoverEnforced).toBe(true);
+      expect(await storedEnforced(policy.id)).toBe(true);
+
+      // Allowed on statutory vacation: only proration is refused there.
+      const off = await patch(a.admin, policy.id, { carryoverEnforced: false });
+      expect(((await off.json()) as LeavePolicy).carryoverEnforced).toBe(false);
+
+      const audit = await db.sql<{ metadata: Record<string, unknown> }[]>`
+        SELECT metadata FROM audit_log
+        WHERE organization_id = ${a.orgId} AND resource_id = ${policy.id}
+          AND action = 'leave.policy.update'
+        ORDER BY created_at, id`;
+      expect(audit.map((r) => r.metadata["carryoverEnforced"])).toEqual([
+        true,
+        false,
+      ]);
+      expect(audit[0]!.metadata["previousCarryoverEnforced"]).toBe(false);
+    });
+
+    it("rejects an empty or invalid update", async () => {
+      for (const body of [{}, { carryoverEnforced: "yes" }]) {
+        const res = await patch(a.admin, policyA, body);
+        expect(res.status).toBe(400);
+      }
+      expect(await storedEnforced(policyA)).toBe(false);
+    });
+
+    it("is for administrators only and never reaches another tenant", async () => {
+      for (const who of [a.manager, a.report, a.auditor]) {
+        const res = await patch(who, policyA, { carryoverEnforced: true });
+        expect(res.status).toBe(403);
+      }
+      const foreign = await patch(a.admin, policyB, {
+        carryoverEnforced: true,
+      });
+      expect(foreign.status).toBe(404);
+      expect(await storedEnforced(policyA)).toBe(false);
+      expect(await storedEnforced(policyB)).toBe(false);
+    });
   });
 
   describe("cross-tenant access", () => {

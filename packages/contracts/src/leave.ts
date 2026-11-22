@@ -47,6 +47,14 @@ export const LeavePolicySchema = z.object({
    * vacation requires (ET art. 12.4.d).
    */
   fullTimeHoursPerWeek: z.number().nullable(),
+  /**
+   * LEA-002 (#132): when true, the year-end close caps carry-over at
+   * `carryoverMaxDays`, forfeits the rest and expires carried days after
+   * `carryoverExpiryMonths`, except for employees with leave protected by
+   * ET art. 38.3. False (the default): the whole balance is carried over and
+   * nothing is lost.
+   */
+  carryoverEnforced: z.boolean(),
 });
 export type LeavePolicy = z.infer<typeof LeavePolicySchema>;
 
@@ -71,15 +79,24 @@ export const CreateLeavePolicyRequestSchema = z.object({
   carryoverExpiryMonths: z.number().int().min(0).max(24).optional(),
   allowNegativeBalance: z.boolean().optional(),
   fullTimeHoursPerWeek: FullTimeHoursSchema.default(null),
+  carryoverEnforced: z.boolean().default(false),
 });
 export type CreateLeavePolicyRequest = z.input<
   typeof CreateLeavePolicyRequestSchema
 >;
 
-export const UpdateLeavePolicyRequestSchema = z.strictObject({
-  /** Null turns part-time proration off (FTE 1.0). */
-  fullTimeHoursPerWeek: FullTimeHoursSchema,
-});
+export const UpdateLeavePolicyRequestSchema = z
+  .strictObject({
+    /** Null turns part-time proration off (FTE 1.0). */
+    fullTimeHoursPerWeek: FullTimeHoursSchema.optional(),
+    /** Opt in to (or out of) the carry-over cap, forfeit and expiry. */
+    carryoverEnforced: z.boolean().optional(),
+  })
+  .refine(
+    (b) =>
+      b.fullTimeHoursPerWeek !== undefined || b.carryoverEnforced !== undefined,
+    { message: "Nothing to update" },
+  );
 export type UpdateLeavePolicyRequest = z.infer<
   typeof UpdateLeavePolicyRequestSchema
 >;

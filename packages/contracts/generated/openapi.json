@@ -1488,6 +1488,9 @@
               "number",
               "null"
             ]
+          },
+          "carryoverEnforced": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -1499,7 +1502,8 @@
           "carryoverMaxDays",
           "carryoverExpiryMonths",
           "allowNegativeBalance",
-          "fullTimeHoursPerWeek"
+          "fullTimeHoursPerWeek",
+          "carryoverEnforced"
         ]
       },
       "CreateLeavePolicyRequest": {
@@ -1548,6 +1552,10 @@
             "exclusiveMinimum": 0,
             "maximum": 40,
             "default": null
+          },
+          "carryoverEnforced": {
+            "type": "boolean",
+            "default": false
           }
         },
         "required": [
@@ -1567,11 +1575,11 @@
             ],
             "exclusiveMinimum": 0,
             "maximum": 40
+          },
+          "carryoverEnforced": {
+            "type": "boolean"
           }
         },
-        "required": [
-          "fullTimeHoursPerWeek"
-        ],
         "additionalProperties": false
       },
       "LeaveTypeBalance": {
@@ -11281,6 +11289,9 @@
                           "number",
                           "null"
                         ]
+                      },
+                      "carryoverEnforced": {
+                        "type": "boolean"
                       }
                     },
                     "required": [
@@ -11292,7 +11303,8 @@
                       "carryoverMaxDays",
                       "carryoverExpiryMonths",
                       "allowNegativeBalance",
-                      "fullTimeHoursPerWeek"
+                      "fullTimeHoursPerWeek",
+                      "carryoverEnforced"
                     ]
                   }
                 }
@@ -11352,6 +11364,10 @@
                     "exclusiveMinimum": 0,
                     "maximum": 40,
                     "default": null
+                  },
+                  "carryoverEnforced": {
+                    "type": "boolean",
+                    "default": false
                   }
                 },
                 "required": [
@@ -11408,6 +11424,9 @@
                         "number",
                         "null"
                       ]
+                    },
+                    "carryoverEnforced": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -11419,7 +11438,8 @@
                     "carryoverMaxDays",
                     "carryoverExpiryMonths",
                     "allowNegativeBalance",
-                    "fullTimeHoursPerWeek"
+                    "fullTimeHoursPerWeek",
+                    "carryoverEnforced"
                   ]
                 }
               }
@@ -11455,11 +11475,11 @@
                     ],
                     "exclusiveMinimum": 0,
                     "maximum": 40
+                  },
+                  "carryoverEnforced": {
+                    "type": "boolean"
                   }
                 },
-                "required": [
-                  "fullTimeHoursPerWeek"
-                ],
                 "additionalProperties": false
               }
             }
@@ -11509,6 +11529,9 @@
                         "number",
                         "null"
                       ]
+                    },
+                    "carryoverEnforced": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -11520,7 +11543,8 @@
                     "carryoverMaxDays",
                     "carryoverExpiryMonths",
                     "allowNegativeBalance",
-                    "fullTimeHoursPerWeek"
+                    "fullTimeHoursPerWeek",
+                    "carryoverEnforced"
                   ]
                 }
               }

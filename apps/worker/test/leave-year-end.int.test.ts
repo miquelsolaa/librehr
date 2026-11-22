@@ -40,17 +40,48 @@ describe("leave.accrue year end (LEA-002)", () => {
   async function newPolicy(
     orgId: string,
     leaveTypeId: string,
-    p: { allowance: number; method: string; cap: number; expiry: number },
+    p: {
+      allowance: number;
+      method: string;
+      cap: number;
+      expiry: number;
+      /** carryover_enforced; these tests opt in unless they say otherwise. */
+      enforced?: boolean;
+    },
   ) {
     const [policy] = await db.sql<{ id: string }[]>`
       INSERT INTO leave_policies (organization_id, leave_type_id, name,
         annual_allowance_days, accrual_method, carryover_max_days,
-        carryover_expiry_months)
+        carryover_expiry_months, carryover_enforced)
       VALUES (${orgId}, ${leaveTypeId}, 'Policy', ${p.allowance}, ${p.method},
-        ${p.cap}, ${p.expiry})
+        ${p.cap}, ${p.expiry}, ${p.enforced ?? true})
       RETURNING id
     `;
     return policy!.id;
+  }
+
+  /** An approved leave request, as the API would have recorded it. */
+  async function approvedLeave(
+    orgId: string,
+    employeeId: string,
+    leaveTypeId: string,
+    startDate: string,
+    endDate: string,
+  ) {
+    await db.sql`
+      INSERT INTO leave_requests (organization_id, employee_id, leave_type_id,
+        start_date, end_date, working_days, status)
+      VALUES (${orgId}, ${employeeId}, ${leaveTypeId}, ${startDate}, ${endDate},
+        5, 'approved')
+    `;
+  }
+
+  async function newType(orgId: string, code: string) {
+    const [type] = await db.sql<{ id: string }[]>`
+      INSERT INTO leave_types (organization_id, name, code)
+      VALUES (${orgId}, ${code}, ${code}) RETURNING id
+    `;
+    return type!.id;
   }
 
   async function newEmployee(orgId: string, startDate: string) {
@@ -87,12 +118,13 @@ describe("leave.accrue year end (LEA-002)", () => {
     amount: number,
     effectiveDate: string,
     sourceRef: string | null = null,
+    expiresOn: string | null = null,
   ) {
     await db.sql`
       INSERT INTO leave_ledger (organization_id, employee_id, leave_type_id,
-        entry_type, amount, unit, source_ref, effective_date)
+        entry_type, amount, unit, source_ref, effective_date, expires_on)
       VALUES (${orgId}, ${employeeId}, ${leaveTypeId}, ${entryType}, ${amount},
-        'days', ${sourceRef}, ${effectiveDate})
+        'days', ${sourceRef}, ${effectiveDate}, ${expiresOn})
     `;
   }
 
@@ -305,6 +337,7 @@ describe("leave.accrue year end (LEA-002)", () => {
       5,
       "2027-01-01",
       `carryover:${vacation}:2026`,
+      "2027-03-31",
     );
     await book(
       orgId,
@@ -409,6 +442,7 @@ describe("leave.accrue year end (LEA-002)", () => {
       4,
       "2025-01-01",
       `carryover:${vacation}:2024`,
+      "2025-03-31",
     );
 
     // Nothing of 2025 was accrued (the scheduler was just turned on).
@@ -489,7 +523,7 @@ describe("leave.accrue year end (LEA-002)", () => {
     expect(closed).toEqual(new Set([seasonal]));
   });
 
-  it("never expires more than the balance left, and skips carry-over without a policy", async () => {
+  it("never expires more than the balance left, nor a carry-over without an expiry date", async () => {
     const { orgId, vacation } = await newOrg();
     // No new days in 2027, so the balance on the expiry date is the
     // carried days minus HR's correction.
@@ -500,9 +534,13 @@ describe("leave.accrue year end (LEA-002)", () => {
       expiry: 3,
     });
     const employee = await newEmployee(orgId, "2024-01-01");
-    const orphan = await newEmployee(orgId, "2024-01-01");
+    // Closed while the policy was not enforced: its carry-over has no date.
+    const unenforced = await newEmployee(orgId, "2024-01-01");
     await assign(orgId, employee, policyId, "2026-01-01");
-    for (const e of [employee, orphan]) {
+    for (const [e, expiresOn] of [
+      [employee, "2027-03-31"],
+      [unenforced, null],
+    ] as const) {
       await book(orgId, e, vacation, "adjustment", 5, "2026-06-01");
       await book(
         orgId,
@@ -521,13 +559,15 @@ describe("leave.accrue year end (LEA-002)", () => {
         5,
         "2027-01-01",
         `carryover:${vacation}:2026`,
+        expiresOn,
       );
     }
     // HR took 4 days back: only 1 is left when the carry-over expires.
     await book(orgId, employee, vacation, "adjustment", -4, "2027-02-01");
 
-    const { result, logger } = run(orgId, "2027-03-31");
-    expect(await result).toMatchObject({ expiries: 1 });
+    expect(await run(orgId, "2027-03-31").result).toMatchObject({
+      expiries: 1,
+    });
     const rows = await ledger(orgId);
     expect(rows.filter((r) => r.entryType === "expiry")).toEqual([
       expect.objectContaining({ employeeId: employee, amount: -1 }),
@@ -540,13 +580,156 @@ describe("leave.accrue year end (LEA-002)", () => {
         vacation,
       ),
     ).toBe(0);
-    // No policy on 31 December 2026: skipped, logged with ids only.
+  });
+
+  it("off by default: carries the whole balance over and never forfeits or expires", async () => {
+    const { orgId, vacation } = await newOrg();
+    const policyId = await newPolicy(orgId, vacation, {
+      allowance: 24,
+      method: "monthly",
+      cap: 5,
+      expiry: 1,
+      enforced: false,
+    });
+    const employee = await newEmployee(orgId, "2024-01-01");
+    await assign(orgId, employee, policyId, "2026-01-01");
+
+    await run(orgId, "2026-12-31").result;
+    expect(await run(orgId, "2027-01-31").result).toMatchObject({
+      yearEnd: { carryovers: 1, forfeits: 0, protectedFromForfeit: 0 },
+      expiries: 0,
+    });
+    for (const runDate of ["2027-03-31", "2027-12-31"]) {
+      expect(await run(orgId, runDate).result).toMatchObject({ expiries: 0 });
+    }
+    const rows = await yearEndRows(orgId);
+    expect(rows.map((r) => [r.entryType, r.amount])).toEqual([
+      ["carryover", -24],
+      ["carryover", 24],
+    ]);
+    const [expiresOn] = await db.sql<{ expiresOn: string | null }[]>`
+      SELECT expires_on::text AS "expiresOn" FROM leave_ledger
+      WHERE organization_id = ${orgId} AND source_ref = ${`carryover:${vacation}:2026`}
+    `;
+    expect(expiresOn!.expiresOn).toBeNull();
+  });
+
+  it("enforced: never forfeits or expires days of an employee with ET 38.3 protected leave", async () => {
+    const { orgId, vacation } = await newOrg();
+    const sick = await newType(orgId, "sick_leave");
+    const policyId = await newPolicy(orgId, vacation, {
+      allowance: 24,
+      method: "monthly",
+      cap: 5,
+      expiry: 3,
+    });
+    const onSickLeave = await newEmployee(orgId, "2024-01-01");
+    const ordinary = await newEmployee(orgId, "2024-01-01");
+    for (const e of [onSickLeave, ordinary]) {
+      await assign(orgId, e, policyId, "2026-01-01");
+    }
+    await approvedLeave(orgId, onSickLeave, sick, "2026-10-01", "2026-12-31");
+    // Ordinary vacation of the other employee protects nothing.
+    await approvedLeave(orgId, ordinary, vacation, "2026-08-03", "2026-08-07");
+
+    await run(orgId, "2026-12-31").result;
+    const { result, logger } = run(orgId, "2027-01-31");
+    expect(await result).toMatchObject({
+      yearEnd: {
+        balances: 2,
+        carryovers: 2,
+        forfeits: 1,
+        protectedFromForfeit: 1,
+      },
+    });
+    const rows = await yearEndRows(orgId);
+    // Protected: the whole 24 days are carried over and never expire.
+    expect(
+      rows
+        .filter((r) => r.employeeId === onSickLeave)
+        .map((r) => [r.entryType, r.amount]),
+    ).toEqual([
+      ["carryover", -24],
+      ["carryover", 24],
+    ]);
+    // Not protected: capped at 5, 19 forfeited.
+    expect(
+      rows
+        .filter((r) => r.employeeId === ordinary)
+        .map((r) => [r.entryType, r.amount])
+        .sort(),
+    ).toEqual(
+      [
+        ["carryover", -5],
+        ["carryover", 5],
+        ["forfeit", -19],
+      ].sort(),
+    );
     expect(logger.warn).toHaveBeenCalledWith(
-      expect.objectContaining({ employeeId: orphan, leaveTypeId: vacation }),
+      expect.objectContaining({
+        employeeId: onSickLeave,
+        leaveTypeId: vacation,
+        policyId,
+      }),
     );
-    expect(JSON.stringify(logger.warn.mock.calls)).not.toContain(
-      "example.invalid",
+    const warnings = JSON.stringify(logger.warn.mock.calls);
+    expect(warnings).not.toContain("example.invalid");
+    // Never the protected absence's type: special-category data.
+    expect(warnings).not.toContain(sick);
+
+    const [expiresOn] = await db.sql<{ expiresOn: string | null }[]>`
+      SELECT expires_on::text AS "expiresOn" FROM leave_ledger
+      WHERE organization_id = ${orgId} AND employee_id = ${onSickLeave}
+        AND source_ref = ${`carryover:${vacation}:2026`}
+    `;
+    expect(expiresOn!.expiresOn).toBeNull();
+  });
+
+  it("enforced: skips an expiry when protected leave falls in the expiry window", async () => {
+    const { orgId, vacation } = await newOrg();
+    const birth = await newType(orgId, "birth_childcare");
+    const policyId = await newPolicy(orgId, vacation, {
+      allowance: 0,
+      method: "monthly",
+      cap: 5,
+      expiry: 3,
+    });
+    const employee = await newEmployee(orgId, "2024-01-01");
+    await assign(orgId, employee, policyId, "2026-01-01");
+    await book(orgId, employee, vacation, "adjustment", 5, "2026-06-01");
+    await book(
+      orgId,
+      employee,
+      vacation,
+      "carryover",
+      -5,
+      "2026-12-31",
+      `carryover:${vacation}:2026:close`,
     );
+    await book(
+      orgId,
+      employee,
+      vacation,
+      "carryover",
+      5,
+      "2027-01-01",
+      `carryover:${vacation}:2026`,
+      "2027-03-31",
+    );
+    await approvedLeave(orgId, employee, birth, "2027-02-15", "2027-06-06");
+
+    const { result, logger } = run(orgId, "2027-03-31");
+    expect(await result).toMatchObject({
+      expiries: 0,
+      protectedFromExpiry: 1,
+    });
+    expect(
+      (await ledger(orgId)).filter((r) => r.entryType === "expiry"),
+    ).toEqual([]);
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ employeeId: employee, leaveTypeId: vacation }),
+    );
+    expect(JSON.stringify(logger.warn.mock.calls)).not.toContain(birth);
   });
 
   it("never reads, closes or expires another organization's balances", async () => {
@@ -570,6 +753,7 @@ describe("leave.accrue year end (LEA-002)", () => {
       3,
       "2026-01-01",
       `carryover:${b.vacation}:2025`,
+      "2026-01-31",
     );
     const before = await ledger(b.orgId);
 

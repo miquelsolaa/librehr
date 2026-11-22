@@ -2,12 +2,15 @@ import { describe, it, expect } from "vitest";
 import fc from "fast-check";
 import {
   carryoverExpiryDate,
+  isCarryoverDue,
   planCarryoverExpiry,
   planYearEnd,
   typeBalanceCentsAt,
   yearEndBalance,
   type LedgerRow,
+  type YearEndEnforcement,
 } from "../src/leave/year-end.js";
+import { protectsVacation } from "../src/leave/protected-leave.js";
 
 const row = (
   amount: number,
@@ -25,48 +28,51 @@ const row = (
 const sumCents = (rows: readonly { amount: number }[]) =>
   rows.reduce((s, r) => s + Math.round(r.amount * 100), 0);
 
-describe("planYearEnd (LEA-002, #116)", () => {
-  it("carries over up to the cap and forfeits the rest", () => {
-    expect(
-      planYearEnd({
-        leaveTypeId: "vac",
-        year: 2026,
-        balanceCents: 850,
-        carryoverMaxDays: 5,
-      }),
-    ).toEqual({
+const enforced = (
+  carryoverMaxDays: number,
+  carryoverExpiryMonths = 3,
+): YearEndEnforcement => ({ carryoverMaxDays, carryoverExpiryMonths });
+
+const close = (
+  balanceCents: number,
+  enforcement: YearEndEnforcement | null,
+  year = 2026,
+) => planYearEnd({ leaveTypeId: "vac", year, balanceCents, enforcement });
+
+describe("planYearEnd, enforced (LEA-002, #116)", () => {
+  it("carries over up to the cap, forfeits the rest and sets the expiry", () => {
+    expect(close(850, enforced(5))).toEqual({
       carryoverCents: 500,
       forfeitCents: 350,
+      expiresOn: "2027-03-31",
       entries: [
         {
           entryType: "carryover",
           amount: -5,
           sourceRef: "carryover:vac:2026:close",
           effectiveDate: "2026-12-31",
+          expiresOn: null,
         },
         {
           entryType: "carryover",
           amount: 5,
           sourceRef: "carryover:vac:2026",
           effectiveDate: "2027-01-01",
+          expiresOn: "2027-03-31",
         },
         {
           entryType: "forfeit",
           amount: -3.5,
           sourceRef: "forfeit:vac:2026",
           effectiveDate: "2026-12-31",
+          expiresOn: null,
         },
       ],
     });
   });
 
   it("carries everything over when the cap is not reached", () => {
-    const plan = planYearEnd({
-      leaveTypeId: "vac",
-      year: 2026,
-      balanceCents: 300,
-      carryoverMaxDays: 5,
-    });
+    const plan = close(300, enforced(5));
     expect(plan).toMatchObject({ carryoverCents: 300, forfeitCents: 0 });
     expect(plan.entries.map((e) => e.entryType)).toEqual([
       "carryover",
@@ -75,76 +81,109 @@ describe("planYearEnd (LEA-002, #116)", () => {
   });
 
   it("carries exactly the cap when the balance equals it", () => {
-    expect(
-      planYearEnd({
-        leaveTypeId: "vac",
-        year: 2026,
-        balanceCents: 500,
-        carryoverMaxDays: 5,
-      }),
-    ).toMatchObject({ carryoverCents: 500, forfeitCents: 0 });
+    expect(close(500, enforced(5))).toMatchObject({
+      carryoverCents: 500,
+      forfeitCents: 0,
+    });
   });
 
   it("forfeits everything when the policy carries nothing over", () => {
-    expect(
-      planYearEnd({
-        leaveTypeId: "vac",
-        year: 2026,
-        balanceCents: 425,
-        carryoverMaxDays: 0,
-      }),
-    ).toEqual({
+    expect(close(425, enforced(0))).toEqual({
       carryoverCents: 0,
       forfeitCents: 425,
+      expiresOn: "2027-03-31",
       entries: [
         {
           entryType: "forfeit",
           amount: -4.25,
           sourceRef: "forfeit:vac:2026",
           effectiveDate: "2026-12-31",
+          expiresOn: null,
         },
       ],
     });
   });
 
   it.each([0, -150])("writes nothing for a balance of %i cents", (b) => {
-    expect(
-      planYearEnd({
-        leaveTypeId: "vac",
-        year: 2026,
-        balanceCents: b,
-        carryoverMaxDays: 5,
-      }),
-    ).toEqual({ carryoverCents: 0, forfeitCents: 0, entries: [] });
+    expect(close(b, enforced(5)).entries).toEqual([]);
+    expect(close(b, null).entries).toEqual([]);
   });
 
   it("opens the next year on 1 January across a leap year", () => {
-    const plan = planYearEnd({
-      leaveTypeId: "vac",
-      year: 2027,
-      balanceCents: 100,
-      carryoverMaxDays: 5,
-    });
+    const plan = close(100, enforced(5, 2), 2027);
     expect(plan.entries.map((e) => e.effectiveDate)).toEqual([
       "2027-12-31",
       "2028-01-01",
     ]);
+    expect(plan.expiresOn).toBe("2028-02-29");
   });
 
   it("rejects invalid input", () => {
-    const base = {
-      leaveTypeId: "vac",
-      year: 2026,
-      balanceCents: 100,
-      carryoverMaxDays: 5,
-    };
-    expect(() => planYearEnd({ ...base, year: 2026.5 })).toThrow(RangeError);
-    expect(() => planYearEnd({ ...base, balanceCents: 1.5 })).toThrow(
-      RangeError,
-    );
-    expect(() => planYearEnd({ ...base, carryoverMaxDays: NaN })).toThrow(
-      RangeError,
-    );
+    expect(() =>
+      planYearEnd({
+        leaveTypeId: "vac",
+        year: 2026.5,
+        balanceCents: 100,
+        enforcement: null,
+      }),
+    ).toThrow(RangeError);
+    expect(() => close(1.5, null)).toThrow(RangeError);
+    expect(() => close(100, enforced(NaN))).toThrow(RangeError);
+    expect(() => close(100, enforced(5, 1.5))).toThrow(RangeError);
+  });
+});
+
+describe("planYearEnd, not enforced (default)", () => {
+  it("carries the whole balance over, forfeits nothing and never expires", () => {
+    expect(close(2_350, null)).toEqual({
+      carryoverCents: 2_350,
+      forfeitCents: 0,
+      expiresOn: null,
+      entries: [
+        {
+          entryType: "carryover",
+          amount: -23.5,
+          sourceRef: "carryover:vac:2026:close",
+          effectiveDate: "2026-12-31",
+          expiresOn: null,
+        },
+        {
+          entryType: "carryover",
+          amount: 23.5,
+          sourceRef: "carryover:vac:2026",
+          effectiveDate: "2027-01-01",
+          expiresOn: null,
+        },
+      ],
+    });
+  });
+});
+
+describe("protectsVacation (ET art. 38.3)", () => {
+  it("protects incapacity, pregnancy, birth, adoption and breastfeeding", () => {
+    for (const code of [
+      "sick_leave",
+      "birth_childcare",
+      "prenatal_exams",
+      "adoption",
+      "breastfeeding",
+    ]) {
+      expect(protectsVacation(code, false)).toBe(true);
+      expect(protectsVacation(code, true)).toBe(true);
+    }
+  });
+
+  it("does not protect vacation or ordinary permits", () => {
+    expect(protectsVacation("vacation", true)).toBe(false);
+    expect(protectsVacation("personal_days", true)).toBe(false);
+    expect(protectsVacation("marriage", false)).toBe(false);
+    expect(protectsVacation("moving", false)).toBe(false);
+  });
+
+  it("treats an unknown non-entitlement type as protecting (safe fallback)", () => {
+    expect(protectsVacation("other", false)).toBe(true);
+    expect(protectsVacation("custom_illness", false)).toBe(true);
+    expect(protectsVacation("other", true)).toBe(false);
   });
 });
 
@@ -188,12 +227,18 @@ describe("yearEndBalance (LEA-005)", () => {
   });
 });
 
-describe("carryoverExpiryDate", () => {
+describe("carryoverExpiryDate and isCarryoverDue", () => {
   it("is the end of the configured month of the next year", () => {
     expect(carryoverExpiryDate(2026, 3)).toBe("2027-03-31");
     expect(carryoverExpiryDate(2027, 2)).toBe("2028-02-29"); // leap year
     expect(carryoverExpiryDate(2026, 2)).toBe("2027-02-28");
     expect(carryoverExpiryDate(2026, 12)).toBe("2027-12-31");
+  });
+
+  it("is due once the last usable day has ended", () => {
+    expect(isCarryoverDue("2027-03-31", "2027-03-30")).toBe(false);
+    expect(isCarryoverDue("2027-03-31", "2027-03-31")).toBe(true);
+    expect(isCarryoverDue("2027-12-31", "2027-12-31")).toBe(true);
   });
 });
 
@@ -202,9 +247,9 @@ describe("planCarryoverExpiry (LEA-002, #116)", () => {
     leaveTypeId: "vac",
     year: 2026,
     carriedCents: 500,
+    expiresOn: "2027-03-31",
     usedCents: 0,
     balanceCents: 2_000,
-    carryoverExpiryMonths: 3,
   };
 
   it("writes nothing before the expiry date has passed", () => {
@@ -219,6 +264,7 @@ describe("planCarryoverExpiry (LEA-002, #116)", () => {
       amount: -5,
       sourceRef: "expiry:vac:2026",
       effectiveDate: "2027-03-31",
+      expiresOn: null,
     });
     expect(
       planCarryoverExpiry({ ...base, runDate: "2027-06-30" }),
@@ -262,7 +308,7 @@ describe("planCarryoverExpiry (LEA-002, #116)", () => {
   });
 
   it("handles a February expiry in a leap year", () => {
-    const leap = { ...base, year: 2027, carryoverExpiryMonths: 2 };
+    const leap = { ...base, year: 2027, expiresOn: "2028-02-29" };
     expect(planCarryoverExpiry({ ...leap, runDate: "2028-02-28" })).toBeNull();
     expect(
       planCarryoverExpiry({ ...leap, runDate: "2028-02-29" }),
@@ -305,26 +351,46 @@ describe("typeBalanceCentsAt", () => {
 
 describe("year-end properties", () => {
   const cap = fc.integer({ min: 0, max: 99_999 }).map((c) => c / 100);
+  const months = fc.integer({ min: 1, max: 12 });
   const balance = fc.integer({ min: -50_000, max: 99_999 });
+  const enforcement = fc.option(
+    fc.record({ carryoverMaxDays: cap, carryoverExpiryMonths: months }),
+    { nil: null },
+  );
 
   it("carry-over plus forfeit equals the positive year-end balance", () => {
     fc.assert(
-      fc.property(balance, cap, (balanceCents, carryoverMaxDays) => {
-        const plan = planYearEnd({
-          leaveTypeId: "vac",
-          year: 2026,
-          balanceCents,
-          carryoverMaxDays,
-        });
+      fc.property(balance, enforcement, (balanceCents, e) => {
+        const plan = close(balanceCents, e);
         expect(plan.carryoverCents + plan.forfeitCents).toBe(
           Math.max(0, balanceCents),
         );
-        expect(plan.carryoverCents).toBeLessThanOrEqual(
-          Math.round(carryoverMaxDays * 100),
-        );
+        if (e) {
+          expect(plan.carryoverCents).toBeLessThanOrEqual(
+            Math.round(e.carryoverMaxDays * 100),
+          );
+        }
         expect(plan.forfeitCents).toBeGreaterThanOrEqual(0);
         // The balance only drops by the forfeited days.
         expect(sumCents(plan.entries) + plan.forfeitCents).toBe(0);
+      }),
+    );
+  });
+
+  it("not enforced: never a forfeit or an expiry, carry-over is the positive balance", () => {
+    fc.assert(
+      fc.property(balance, (balanceCents) => {
+        const plan = close(balanceCents, null);
+        expect(plan.forfeitCents).toBe(0);
+        expect(plan.carryoverCents).toBe(Math.max(0, balanceCents));
+        expect(plan.expiresOn).toBeNull();
+        expect(
+          plan.entries.every(
+            (e) => e.entryType === "carryover" && e.expiresOn === null,
+          ),
+        ).toBe(true);
+        // Nothing to expire later either: the balance is unchanged.
+        expect(sumCents(plan.entries)).toBe(0);
       }),
     );
   });
@@ -347,19 +413,17 @@ describe("year-end properties", () => {
 
   it("re-running the year leaves the balance unchanged", () => {
     fc.assert(
-      fc.property(ledgerRows, cap, (rows, carryoverMaxDays) => {
-        const close = (ledger: readonly LedgerRow[]) => {
+      fc.property(ledgerRows, enforcement, (rows, e) => {
+        const closeLedger = (ledger: readonly LedgerRow[]) => {
           const { balanceCents, closed } = yearEndBalance(ledger, "vac", 2026);
           if (closed) return [];
-          return planYearEnd({
+          return close(balanceCents, e).entries.map((entry) => ({
+            ...entry,
             leaveTypeId: "vac",
-            year: 2026,
-            balanceCents,
-            carryoverMaxDays,
-          }).entries.map((e) => ({ ...e, leaveTypeId: "vac" }));
+          }));
         };
-        const once = [...rows, ...close(rows)];
-        const twice = [...once, ...close(once)];
+        const once = [...rows, ...closeLedger(rows)];
+        const twice = [...once, ...closeLedger(once)];
         expect(twice).toEqual(once);
         // Other buckets, the unassigned one included, are never touched.
         for (const t of ["pd", null]) {
@@ -385,17 +449,17 @@ describe("year-end properties", () => {
       fc.property(
         fc.integer({ min: 0, max: 99_999 }),
         fc.integer({ min: -99_999, max: 99_999 }),
-        fc.integer({ min: 1, max: 12 }),
+        months,
         fc.constantFrom("2027-01-31", "2027-06-30", "2027-12-31", "2028-01-31"),
         fc.integer({ min: -99_999, max: 99_999 }),
-        (carriedCents, usedCents, months, runDate, balanceCents) => {
+        (carriedCents, usedCents, m, runDate, balanceCents) => {
           const entry = planCarryoverExpiry({
             leaveTypeId: "vac",
             year: 2026,
             carriedCents,
+            expiresOn: carryoverExpiryDate(2026, m),
             usedCents,
             balanceCents,
-            carryoverExpiryMonths: months,
             runDate,
           });
           if (entry === null) return;

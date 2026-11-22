@@ -35,6 +35,9 @@ export const leaveLedger = pgTable(
     sourceRef: text("source_ref"), // e.g. request_id, policy_run_id, adjustment_id
     note: text("note"),
     effectiveDate: date("effective_date").notNull(),
+    // LEA-002 (0036): last usable day of the days carried in by an enforced
+    // year-end close; null never expires.
+    expiresOn: date("expires_on"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .defaultNow()
       .notNull(),
@@ -118,6 +121,9 @@ export const leavePolicies = pgTable(
     allowNegativeBalance: boolean("allow_negative_balance")
       .default(false)
       .notNull(),
+    // LEA-002 (migration 0036): opt-in cap, forfeit and expiry at year end.
+    // False (default): the whole balance is carried over, nothing is lost.
+    carryoverEnforced: boolean("carryover_enforced").default(false).notNull(),
     // LEA-002 (migration 0034): opt-in part-time proration. NULL keeps FTE
     // 1.0, which statutory vacation requires (ET art. 12.4.d).
     fullTimeHoursPerWeek: numeric("full_time_hours_per_week", {

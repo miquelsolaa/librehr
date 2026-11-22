@@ -63,6 +63,15 @@ whole year, so it can also produce a true-up.
 
 ## Year end: carry-over, forfeit and expiry (issue #116)
 
+**Losing days is off by default.** Each leave policy has
+`carryover_enforced` (migration 0036, default `false`; Settings > Leave
+policies, or `PATCH /v1/leave/policies/{id}` with `carryoverEnforced`).
+While it is off, the year-end close carries the **whole** remaining balance
+over and never writes a `forfeit` or an `expiry`: `carryover_max_days` and
+`carryover_expiry_months` have no effect. Turning it on (audited) applies
+the cap, the forfeit and the expiry below. Even then, employees protected by
+ET art. 38.3 never lose days (see [Protected leave](#protected-leave-et-art-383)).
+
 The ledger is cumulative: a leave type's balance is the sum of all of its
 entries, so what is left at year end is already in next year's balance. The
 **January run** (`runDate` in January, which runs just after January ends)
@@ -77,10 +86,12 @@ settles and closes the previous year, in this order:
 2. **Close.** For each employee employed on some day from 31 December to the
    run date (so a fixed-term contract that ended in December and restarted
    in January is closed too), and each leave type they have a policy for on
-   31 December, the balance up to and
-   including 31 December (`B`) is split with that policy's
-   `carryover_max_days`: `C = min(B, cap)` is carried over and `F = B − C` is
-   forfeited. It writes, all with the leave type:
+   31 December, the balance up to and including 31 December (`B`) is split:
+   - not enforced, or protected: `C = B` is carried over, `F = 0`;
+   - enforced: `C = min(B, carryover_max_days)` is carried over and
+     `F = B − C` is forfeited.
+
+   It writes, all with the leave type:
 
    | Entry       | Amount | Date        | `source_ref`                           |
    | ----------- | ------ | ----------- | -------------------------------------- |
@@ -93,25 +104,56 @@ settles and closes the previous year, in this order:
    drops by F. A zero or negative balance writes nothing (a negative balance
    stays owed). Usage booked for dates in the new year does not count.
 
+   On an enforced, unprotected close the +C entry records its **expiry
+   date** in `leave_ledger.expires_on`: the last day of month
+   `carryover_expiry_months` of the new year (3: 31 March; clamped to
+   1..12), computed from the policy as it stood at the close. Editing the
+   policy later, or turning enforcement off, never moves or cancels an
+   expiry already fixed; turning it on never adds one to an earlier close.
+   Unenforced and protected closes leave it empty: those days never expire.
+
 Then, in every run, days carried over from the previous year whose expiry
 date has passed are expired:
 
-3. **Expiry.** The expiry date is the last day of month
-   `carryover_expiry_months` of the new year (3: 31 March; clamped to 1..12),
-   taken from the policy assigned on 31 December of the closed year, with
-   that policy's settings as they are when the expiry runs (so changing
-   `carryover_expiry_months` after a close moves that expiry date). The run
-   for that month (the March run, executing on 1 April) writes `expiry`, −U,
-   dated on the expiry date, ref `expiry:<leaveTypeId>:<YYYY>`, where U is the
-   carried amount minus the days of that type used by requests starting from
-   1 January to the expiry date, floored at 0, and never more than the
-   type's balance on the expiry date (an expiry never makes a balance
-   negative). Usage is counted against carried days first. A request is
-   counted by its start date: one that starts by the expiry date and runs
-   past it counts entirely against carried days. A request cancelled after
-   the expiry ran gives its days back as ordinary balance, not as carried
-   days. A carry-over whose type has no policy on 31 December is skipped and
-   logged (ids only) on every run until HR resolves it.
+3. **Expiry.** The run for the expiry month (the March run, executing on
+   1 April) writes `expiry`, −U, dated on the expiry date, ref
+   `expiry:<leaveTypeId>:<YYYY>`, where U is the carried amount minus the
+   days of that type used by requests starting from 1 January to the expiry
+   date, floored at 0, and never more than the type's balance on the expiry
+   date (an expiry never makes a balance negative). Usage is counted against
+   carried days first. A request is counted by its start date: one that
+   starts by the expiry date and runs past it counts entirely against carried
+   days. A request cancelled after the expiry ran gives its days back as
+   ordinary balance, not as carried days. An employee with protected leave
+   between 1 January and the expiry date keeps the carried days; they are
+   closed again with the next year's balance.
+
+### Protected leave (ET art. 38.3)
+
+Vacation that could not be taken because of temporary incapacity,
+pregnancy (including risk during pregnancy), birth, adoption or
+breastfeeding may be taken after that leave ends. So, even on an enforced
+policy, an employee with **approved** leave of such a type overlapping the
+year being closed is carried over in full (no forfeit, no expiry date), and
+an expiry is skipped for an employee with such leave between 1 January and
+the expiry date. Leave types only have a free-text code, so the rule is
+cautious (`protectsVacation` in `packages/core`):
+
+- the codes `sick_leave`, `temporary_incapacity`, `pregnancy_risk`,
+  `prenatal_exams`, `maternity`, `paternity`, `birth_childcare`, `adoption`,
+  `breastfeeding` and `breastfeeding_risk` always protect;
+- any other leave type that is not an entitlement of the employee (no
+  policy) protects too, unless its code is a known ordinary permit
+  (`marriage`, `moving`, `bereavement`, `unpaid_leave`, ...). A custom type
+  coded `other` therefore protects, as the safe fallback.
+
+The worker logs a warning with ids only (employee, leave type of the
+balance, policy), never the protected absence or its type, and counts it in
+the job report (`yearEnd.protectedFromForfeit`, `protectedFromExpiry`).
+There is no in-app notification yet; HR can follow the job report. Grant
+extra days or restore forfeited ones with an adjustment.
+
+### Idempotency and other rules
 
 Each ref holds the leave type and the closed year, and the partial unique
 index `leave_ledger_year_end_once` (migration 0036) allows each one once per
@@ -121,8 +163,6 @@ its balance since: correct that with an adjustment. The refs are keyed by
 leave type rather than policy because the balance closed is the type's: an
 employee whose policy for a type changed during the year (or whose
 assignment is corrected later) still has one close per type and year.
-
-Rules:
 
 - **The unassigned bucket is never closed.** Entries without a leave type
   (legacy rows from before 0033) are never carried over, forfeited or
@@ -136,15 +176,13 @@ Rules:
   by HR.
 - Every number (cap, expiry months) comes from the policy; nothing is
   defaulted in code.
-- No automatic exception exists for vacation that could not be taken
-  because of temporary incapacity, pregnancy, birth or breastfeeding
-  (ET art. 38.3): HR restores those days with an adjustment. See
-  `COMPLIANCE.md` §6.
+- The lifetime `totalCarryover` of `GET /v1/leave/balance` nets the
+  −C/+C pairs to 0; forfeited and expired days are in `totalExpired`.
 - Two runs with different January dates (for example one enqueued by hand)
   may overlap; the unique indexes make the second one's writes no-ops.
 
 The job's report (logged with ids and counts only) has a `yearEnd` section
-for January runs and an `expiries` count.
+for January runs, and `expiries` and `protectedFromExpiry` counts.
 
 ## Part-time contracts (issue #118)
 

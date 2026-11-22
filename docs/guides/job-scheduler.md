@@ -19,11 +19,14 @@ the jobs that are due in its local time:
 
 `leave.accrue` is **opt-in**: it runs only when `SCHEDULER_JOBS` lists it.
 Besides the month's accrual it credits `upfront` policies for the month that
-starts, closes the previous leave year in its January run (carry-over and
-forfeit) and expires unused carried-over days
+starts and closes the previous leave year in its January run
 ([leave accrual](leave-accrual.md#year-end-carry-over-forfeit-and-expiry-issue-116)),
-so all of these are opt-in through the same setting. Its first run writes the year-to-date accrual minus earlier `accrual` entries
-but does not subtract manual `adjustment` entries, so on an install whose
+so all of these are opt-in through the same setting. The close carries the
+whole balance over unless a policy also opts in to `carryover_enforced`;
+only then are days forfeited or expired.
+
+Its first run writes the year-to-date accrual minus earlier `accrual`
+entries but does not subtract manual `adjustment` entries, so on an install whose
 balances were kept right by hand it could credit days twice. Review the ledger
 ([upgrading](upgrading.md#job-scheduler-migration-0035)) before enabling it:
 

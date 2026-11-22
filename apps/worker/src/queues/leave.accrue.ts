@@ -99,6 +99,8 @@ export interface LeaveAccrueReport extends AccrualCounts {
   yearEnd: (AccrualCounts & YearEndCounts & { year: number }) | null;
   /** Carried-over days written off because their expiry date passed. */
   expiries: number;
+  /** Due expiries skipped because ET art. 38.3 protects the employee. */
+  protectedFromExpiry: number;
 }
 
 interface PolicyPlan {
@@ -278,16 +280,19 @@ async function accruePass(
  * For the calendar month of `runDate`, in this order:
  *
  * 1. January runs only: the previous year's final true-up, then that year's
- *    close per employee and leave type (carry-over up to the policy's cap,
- *    forfeit of the rest), after expiring what was still carried into it.
+ *    close per employee and leave type, after expiring what was still
+ *    carried into it. Policies with `carryover_enforced` carry over up to
+ *    their cap and forfeit the rest; the others (the default), and employees
+ *    with leave protected by ET art. 38.3, carry the whole balance over.
  * 2. `monthly` and `daily` policies accrue the month of `runDate`; `upfront`
  *    policies are credited for the month that starts after it (issue #129),
  *    so the December run grants the next year's allowance on 1 January.
  *    Each is at most one `accrual` entry per employee, policy and month:
  *    the year-to-date target minus what the ledger already holds, negative
  *    when more was accrued than is due (true-up).
- * 3. Days carried over from the previous year whose expiry date has passed
- *    and that were not used expire.
+ * 3. Days carried over by an enforced close whose expiry date has passed
+ *    and that were not used expire, unless ET art. 38.3 protects the
+ *    employee.
  *
  * Safe to re-run: every entry has a deterministic `source_ref` that the
  * ledger accepts once per employee (indexes of migrations 0030 and 0036),
@@ -309,13 +314,17 @@ export async function handleLeaveAccrue(
     async (tx) => {
       const ctx: PassContext = { tx, deps, logIds };
       let yearEnd: LeaveAccrueReport["yearEnd"] = null;
-      let expiries = 0;
+      const expiry = { expiries: 0, protectedFromExpiry: 0 };
+      const addExpiry = (c: typeof expiry) => {
+        expiry.expiries += c.expiries;
+        expiry.protectedFromExpiry += c.protectedFromExpiry;
+      };
       if (isJanuary) {
         const year = runYear - 1;
         const final = await accruePass(ctx, `${year}-12`, () => true, true);
         // Carry-over into `year` that is still unexpired (a missed run)
         // must expire before `year` is closed, or it would be carried again.
-        expiries += await expireCarryovers(ctx, year - 1, data.runDate);
+        addExpiry(await expireCarryovers(ctx, year - 1, data.runDate));
         const closed = await closeLeaveYear(ctx, year, data.runDate);
         yearEnd = { year, ...final, ...closed };
       }
@@ -330,8 +339,8 @@ export async function handleLeaveAccrue(
         upfrontPeriod,
         (m) => accrualPlanPeriod(m, period) === upfrontPeriod,
       );
-      expiries += await expireCarryovers(ctx, runYear - 1, data.runDate);
-      return { accrual, upfront, yearEnd, expiries };
+      addExpiry(await expireCarryovers(ctx, runYear - 1, data.runDate));
+      return { accrual, upfront, yearEnd, expiry };
     },
   );
 
@@ -345,7 +354,8 @@ export async function handleLeaveAccrue(
     alreadyAccrued: sum("alreadyAccrued"),
     upToDate: sum("upToDate"),
     yearEnd: result.yearEnd,
-    expiries: result.expiries,
+    expiries: result.expiry.expiries,
+    protectedFromExpiry: result.expiry.protectedFromExpiry,
   };
   // Ids and counts only: no names, emails or amounts per employee.
   deps.logger.info({ msg: "leave accrual finished", ...logIds, ...report });
