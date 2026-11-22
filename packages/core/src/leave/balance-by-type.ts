@@ -31,6 +31,12 @@ export interface LeaveTypeBalance {
   totalCarryover: number;
   /** Adjustments and compensating reversals. */
   totalAdjustments: number;
+  /**
+   * Days lost at year end (`forfeit`) or when carried-over days expired
+   * (`expiry`), as a positive number. Accrued − used + carry-over +
+   * adjustments − expired is the balance.
+   */
+  totalExpired: number;
 }
 
 const cents = (amount: number) => Math.round(amount * 100);
@@ -42,6 +48,7 @@ interface Totals {
   used: number;
   carryover: number;
   adjustments: number;
+  expired: number;
 }
 
 function totalsByType(
@@ -55,6 +62,7 @@ function totalsByType(
       used: 0,
       carryover: 0,
       adjustments: 0,
+      expired: 0,
     };
     const c = cents(e.amount);
     t.balance += c;
@@ -63,6 +71,8 @@ function totalsByType(
     else if (e.entryType === "carryover") t.carryover += c;
     else if (e.entryType === "adjustment" || e.entryType === "reversal")
       t.adjustments += c;
+    else if (e.entryType === "forfeit" || e.entryType === "expiry")
+      t.expired -= c;
     byType.set(e.leaveTypeId, t);
   }
   return byType;
@@ -95,6 +105,7 @@ export function balancesByLeaveType(
       totalUsed: days(t.used),
       totalCarryover: days(t.carryover),
       totalAdjustments: days(t.adjustments),
+      totalExpired: days(t.expired),
     };
     if (leaveTypeId === null) unassigned = row;
     else result.push(row);

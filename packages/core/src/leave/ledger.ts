@@ -1,11 +1,19 @@
 export type LeaveEntryType =
-  "accrual" | "usage" | "adjustment" | "carryover" | "expiry" | "reversal";
+  | "accrual"
+  | "usage"
+  | "adjustment"
+  | "carryover"
+  | "forfeit"
+  | "expiry"
+  | "reversal";
 
 export interface LeaveLedgerEntry {
   id: string;
   employeeId: string;
   entryType: LeaveEntryType;
-  amount: number; // positive for accrual/positive adjustment/carryover; negative for usage/expiry
+  // Positive for accrual, a positive adjustment or carried-in days; negative
+  // for usage, forfeit, expiry, an accrual true-up or a year-end carry-out.
+  amount: number;
   effectiveDate: string; // YYYY-MM-DD
   sourceRef?: string;
   note?: string;

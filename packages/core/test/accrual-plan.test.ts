@@ -103,15 +103,34 @@ describe("planAccrual (LEA-002)", () => {
     ).toMatchObject({ status: "accrue", effectiveDate: "2026-02-15" });
   });
 
-  it("reports over-accrual instead of planning a negative entry", () => {
+  it("plans a negative true-up under this month's ref when over-accrued", () => {
+    // Termination on 31 January recorded after March was accrued.
     const leaver = base({
       employment: [{ start: "2020-01-01", end: "2026-01-31" }],
     });
     expect(
-      planAccrual({ ...leaver, period: "2026-03", accruedCents: 600 }),
+      planAccrual({ ...leaver, period: "2026-04", accruedCents: 600 }),
     ).toEqual({
       status: "over_accrued",
       excessCents: 400,
+      amount: -4,
+      sourceRef: "accrual:p1:2026-04",
+      // No active day in April: dated on the last day worked.
+      effectiveDate: "2026-01-31",
+    });
+  });
+
+  it("dates a true-up at month end when no day of the year is active", () => {
+    // The hire date was moved to the next year after January was accrued.
+    const moved = base({ employment: [{ start: "2027-03-01", end: null }] });
+    expect(
+      planAccrual({ ...moved, period: "2026-02", accruedCents: 200 }),
+    ).toEqual({
+      status: "over_accrued",
+      excessCents: 200,
+      amount: -2,
+      sourceRef: "accrual:p1:2026-02",
+      effectiveDate: "2026-02-28",
     });
   });
 

@@ -178,6 +178,7 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
           totalUsed: balance.totalUsed,
           totalCarryover: balance.totalCarryover,
           totalAdjustments: balance.totalAdjustments,
+          totalExpired: balance.totalExpired,
           byType: balancesByLeaveType(entries).map((b) => {
             const type = b.leaveTypeId ? types.get(b.leaveTypeId) : undefined;
             return {
@@ -469,6 +470,7 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
               | "usage"
               | "adjustment"
               | "carryover"
+              | "forfeit"
               | "expiry"
               | "reversal",
             amount: r.amount,

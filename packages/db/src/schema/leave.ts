@@ -29,12 +29,15 @@ export const leaveLedger = pgTable(
     // LEA-005: the leave type the entry counts toward (migration 0033). NULL
     // only for legacy entries whose origin was never recorded ("unassigned").
     leaveTypeId: uuid("leave_type_id"),
-    entryType: text("entry_type").notNull(), // accrual, usage, adjustment, carryover, expiry, reversal
+    entryType: text("entry_type").notNull(), // accrual, usage, adjustment, carryover, forfeit, expiry, reversal
     amount: numeric("amount", { precision: 5, scale: 2 }).notNull(), // can be negative for usage/expiry
     unit: text("unit").notNull().default("days"), // days, hours
     sourceRef: text("source_ref"), // e.g. request_id, policy_run_id, adjustment_id
     note: text("note"),
     effectiveDate: date("effective_date").notNull(),
+    // LEA-002 (0036): last usable day of the days carried in by an enforced
+    // year-end close; null never expires.
+    expiresOn: date("expires_on"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .defaultNow()
       .notNull(),
@@ -46,6 +49,11 @@ export const leaveLedger = pgTable(
     uniqueIndex("leave_ledger_accrual_once")
       .on(table.organizationId, table.employeeId, table.sourceRef)
       .where(sql`${table.entryType} = 'accrual'`),
+    // LEA-002: one year-end close and one expiry per employee, leave type and
+    // year (migration 0036).
+    uniqueIndex("leave_ledger_year_end_once")
+      .on(table.organizationId, table.employeeId, table.sourceRef)
+      .where(sql`${table.entryType} IN ('carryover', 'forfeit', 'expiry')`),
     // Same-tenant leave type (composite FK, migration 0033).
     foreignKey({
       name: "leave_ledger_leave_type_fk",
@@ -113,6 +121,9 @@ export const leavePolicies = pgTable(
     allowNegativeBalance: boolean("allow_negative_balance")
       .default(false)
       .notNull(),
+    // LEA-002 (migration 0036): opt-in cap, forfeit and expiry at year end.
+    // False (default): the whole balance is carried over, nothing is lost.
+    carryoverEnforced: boolean("carryover_enforced").default(false).notNull(),
     // LEA-002 (migration 0034): opt-in part-time proration. NULL keeps FTE
     // 1.0, which statutory vacation requires (ET art. 12.4.d).
     fullTimeHoursPerWeek: numeric("full_time_hours_per_week", {

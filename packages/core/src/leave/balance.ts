@@ -29,6 +29,7 @@ export function computeBalanceSummary(
         totalAdjusted += entry.amount;
         break;
       case "expiry":
+      case "forfeit":
         totalExpired += Math.abs(entry.amount);
         break;
     }

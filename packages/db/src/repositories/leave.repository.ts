@@ -29,6 +29,8 @@ export interface LeavePolicyRow {
   allowNegativeBalance: boolean;
   /** LEA-002 (0034): null keeps FTE 1.0 (no part-time proration). */
   fullTimeHoursPerWeek: number | null;
+  /** LEA-002 (0036): opt-in carry-over cap, forfeit and expiry. */
+  carryoverEnforced: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -39,6 +41,7 @@ const POLICY_COLUMNS = `id, organization_id as "organizationId", leave_type_id a
   carryover_expiry_months as "carryoverExpiryMonths",
   allow_negative_balance as "allowNegativeBalance",
   full_time_hours_per_week::float as "fullTimeHoursPerWeek",
+  carryover_enforced as "carryoverEnforced",
   created_at as "createdAt", updated_at as "updatedAt"`;
 
 export interface LeaveLedgerRow {
@@ -223,13 +226,14 @@ export class LeaveRepository {
       carryoverExpiryMonths?: number | undefined;
       allowNegativeBalance?: boolean | undefined;
       fullTimeHoursPerWeek?: number | null | undefined;
+      carryoverEnforced?: boolean | undefined;
     },
   ): Promise<LeavePolicyRow> {
     const rows = await tx<LeavePolicyRow[]>`
       INSERT INTO leave_policies (
         leave_type_id, name, annual_allowance_days, accrual_method,
         carryover_max_days, carryover_expiry_months, allow_negative_balance,
-        full_time_hours_per_week
+        full_time_hours_per_week, carryover_enforced
       ) VALUES (
         ${data.leaveTypeId},
         ${data.name},
@@ -238,7 +242,8 @@ export class LeaveRepository {
         ${data.carryoverMaxDays ?? 5.0},
         ${data.carryoverExpiryMonths ?? 3},
         ${data.allowNegativeBalance ?? false},
-        ${data.fullTimeHoursPerWeek ?? null}
+        ${data.fullTimeHoursPerWeek ?? null},
+        ${data.carryoverEnforced ?? false}
       )
       RETURNING ${tx.unsafe(POLICY_COLUMNS)}
     `;
@@ -254,13 +259,19 @@ export class LeaveRepository {
     id: string,
   ): Promise<{
     fullTimeHoursPerWeek: number | null;
+    carryoverEnforced: boolean;
     leaveTypeCode: string;
   } | null> {
     const orgId = tx.__tenantContext.organizationId;
     const rows = await tx<
-      { fullTimeHoursPerWeek: number | null; leaveTypeCode: string }[]
+      {
+        fullTimeHoursPerWeek: number | null;
+        carryoverEnforced: boolean;
+        leaveTypeCode: string;
+      }[]
     >`
       SELECT p.full_time_hours_per_week::float AS "fullTimeHoursPerWeek",
+             p.carryover_enforced AS "carryoverEnforced",
              t.code AS "leaveTypeCode"
       FROM leave_policies p
       JOIN leave_types t ON t.id = p.leave_type_id AND t.organization_id = ${orgId}
@@ -283,6 +294,25 @@ export class LeaveRepository {
     const rows = await tx<LeavePolicyRow[]>`
       UPDATE leave_policies
       SET full_time_hours_per_week = ${fullTimeHoursPerWeek}, updated_at = now()
+      WHERE id = ${id} AND organization_id = ${tx.__tenantContext.organizationId}
+      RETURNING ${tx.unsafe(POLICY_COLUMNS)}
+    `;
+    return rows[0] ?? null;
+  }
+
+  /**
+   * Turns the carry-over cap, forfeit and expiry of a policy on or off
+   * (LEA-002, #132). Returns null when the policy is not the current
+   * tenant's.
+   */
+  async updateLeavePolicyCarryoverEnforced(
+    tx: TenantTx,
+    id: string,
+    carryoverEnforced: boolean,
+  ): Promise<LeavePolicyRow | null> {
+    const rows = await tx<LeavePolicyRow[]>`
+      UPDATE leave_policies
+      SET carryover_enforced = ${carryoverEnforced}, updated_at = now()
       WHERE id = ${id} AND organization_id = ${tx.__tenantContext.organizationId}
       RETURNING ${tx.unsafe(POLICY_COLUMNS)}
     `;
@@ -354,12 +384,14 @@ export class LeaveRepository {
     totalUsed: number;
     totalCarryover: number;
     totalAdjustments: number;
+    totalExpired: number;
   }> {
     const entries = await this.getLedgerEntries(tx, employeeId);
     let totalAccrued = 0;
     let totalUsed = 0;
     let totalCarryover = 0;
     let totalAdjustments = 0;
+    let totalExpired = 0;
     let currentBalance = 0;
 
     for (const e of entries) {
@@ -369,6 +401,8 @@ export class LeaveRepository {
       else if (e.entryType === "carryover") totalCarryover += e.amount;
       else if (e.entryType === "adjustment" || e.entryType === "reversal")
         totalAdjustments += e.amount;
+      else if (e.entryType === "forfeit" || e.entryType === "expiry")
+        totalExpired -= e.amount;
     }
 
     return {
@@ -377,6 +411,7 @@ export class LeaveRepository {
       totalUsed: Math.round(totalUsed * 100) / 100,
       totalCarryover: Math.round(totalCarryover * 100) / 100,
       totalAdjustments: Math.round(totalAdjustments * 100) / 100,
+      totalExpired: Math.round(totalExpired * 100) / 100,
     };
   }
 

@@ -131,6 +131,54 @@ invitations and a per-organization maximum access period
   `0021_terminated_access.sql` alone is not a rollback: it removes the
   expiry check, so expired auditors would regain access.
 
+## Leave carry-over, expiry and true-up (migration 0036)
+
+Migration 0036 is additive and safe on a populated database:
+
+- `leave_policies.carryover_enforced` (boolean, default `false`): every
+  existing policy is **not enforced**, so no installation starts losing
+  days on upgrade;
+- `leave_ledger.expires_on` (nullable date) for the expiry date of
+  carried-over days, fixed at the year-end close;
+- a partial unique index on `leave_ledger` (`leave_ledger_year_end_once`,
+  for `carryover`, `forfeit` and `expiry` entries) and column comments.
+
+Both columns are catalog-only changes (no table rewrite). Building the index
+briefly blocks ledger writes (leave approvals, cancellations, adjustments);
+on a very large ledger upgrade in a quiet window. No RLS policy or grant
+changes, and no earlier release wrote those entries with a `source_ref`.
+
+If you opted in to `leave.accrue`, from this release it also:
+
+- writes **negative `accrual` entries** when more was accrued than is due
+  (for example a termination recorded after the month was accrued). On the
+  first run after the upgrade, every such earlier over-accrual of the
+  current year is corrected at once. If you corrected some by hand with an
+  `adjustment`, the days are taken back twice: review the ledger first;
+- credits `upfront` policies for the month that starts, so the next year's
+  allowance arrives on 1 January instead of after January;
+- in the January run, settles the previous year (final true-up) and
+  **carries the whole remaining balance over** per leave type. Nothing is
+  forfeited or expired unless an administrator turns on "Cap carry-over,
+  forfeit the excess and expire carried days" for a policy (Settings >
+  Leave policies). Only then do `carryover_max_days` and
+  `carryover_expiry_months` (defaults: 5 days, 3 months) apply, and even
+  then employees with leave protected by ET art. 38.3 (incapacity,
+  pregnancy, birth, adoption, breastfeeding) in that year or the year before
+  keep their whole balance.
+  Check your collective agreement and those two settings before turning it
+  on. Entries without a leave type (the "unassigned" bucket) are never
+  touched.
+
+See [leave accrual](leave-accrual.md#year-end-carry-over-forfeit-and-expiry-issue-116)
+and `COMPLIANCE.md` §6. The web app shows the new `forfeit` entries in the
+balance history as "Forfeited at year end". The API changes are additive:
+`GET /v1/leave/balance` gains `totalExpired` (forfeited plus expired days,
+positive) at the top level and per leave type, so accrued − used +
+carry-over + adjustments − expired is the balance; leave policies gain
+`carryoverEnforced`, which `POST` accepts (default `false`) and `PATCH`
+can set.
+
 ## Job scheduler (migration 0035)
 
 From this release the worker schedules its periodic jobs itself
