@@ -4,7 +4,10 @@ import { getTestDatabase, type TestDatabase } from "@librehr/testing";
 import { runMigrations } from "@librehr/db/migrate";
 import type { Sql } from "@librehr/db";
 import { handleLeaveAccrue } from "../src/queues/leave.accrue.js";
-import { MissingPolicyError } from "../src/lib/job-errors.js";
+import {
+  InvalidEmploymentDataError,
+  MissingPolicyError,
+} from "../src/lib/job-errors.js";
 
 describe("leave.accrue (LEA-002)", () => {
   let db: TestDatabase;
@@ -370,6 +373,9 @@ describe("leave.accrue (LEA-002)", () => {
       VALUES (${orgId}, ${partTime}, 'Role', '2024-01-01', '20.0')
     `;
     const fullTime = await newEmployee(orgId, "2024-01-01");
+    // No employment rows: hours unknown, accrues at 1.
+    const legacy = await newEmployee(orgId, null);
+    await assign(orgId, legacy, prorated, "2025-01-01");
     for (const e of [partTime, fullTime]) {
       await assign(orgId, e, vacationPolicy, "2025-01-01");
       await assign(orgId, e, prorated, "2025-01-01");
@@ -383,6 +389,9 @@ describe("leave.accrue (LEA-002)", () => {
     });
     expect(await amounts(orgId, fullTime)).toEqual({
       [`accrual:${vacationPolicy}:2026-01`]: 2,
+      [`accrual:${prorated}:2026-01`]: 2,
+    });
+    expect(await amounts(orgId, legacy)).toEqual({
       [`accrual:${prorated}:2026-01`]: 2,
     });
   });
@@ -403,7 +412,7 @@ describe("leave.accrue (LEA-002)", () => {
     await assign(orgId, employee, policyId, "2025-01-01");
 
     await expect(run(orgId, "2026-01-20").result).rejects.toBeInstanceOf(
-      MissingPolicyError,
+      InvalidEmploymentDataError,
     );
     expect(await ledger(orgId)).toEqual([]);
   });

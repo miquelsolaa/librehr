@@ -15,7 +15,11 @@ import {
 } from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
 import { can } from "../policies/can.js";
-import { ForbiddenError, NotFoundError } from "../errors/index.js";
+import {
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from "../errors/index.js";
 import { IdParamSchema, parseJsonBody, parseParams } from "../lib/validate.js";
 
 const currentUser = (c: { get: unknown }) =>
@@ -35,6 +39,24 @@ function requireOrgWrite(user: AuthUser): void {
   ) {
     throw new ForbiddenError({
       detail: "You do not have permission to configure leave policies",
+    });
+  }
+}
+
+/**
+ * Statutory vacation is never prorated (ET art. 12.4.d): part-time staff
+ * get the same days. Enforced here, not only in the UI (issue #118).
+ */
+function refuseStatutoryProration(
+  leaveTypeCode: string,
+  fullTimeHoursPerWeek: number | null,
+): void {
+  if (leaveTypeCode === "vacation" && fullTimeHoursPerWeek !== null) {
+    throw new ValidationError({
+      status: 422,
+      code: "STATUTORY_LEAVE_NOT_PRORATABLE",
+      detail:
+        "Statutory vacation cannot be prorated for part-time contracts (ET art. 12.4.d)",
     });
   }
 }
@@ -80,12 +102,14 @@ export function createLeavePolicyRoutes(sql: Sql) {
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        if (!(await leaveRepo.findLeaveTypeById(tx, body.leaveTypeId))) {
+        const type = await leaveRepo.findLeaveTypeById(tx, body.leaveTypeId);
+        if (!type) {
           throw new NotFoundError({
             code: "LEAVE_TYPE_NOT_FOUND",
             detail: "Leave type not found",
           });
         }
+        refuseStatutoryProration(type.code, body.fullTimeHoursPerWeek);
         const created = await leaveRepo.createLeavePolicy(tx, body);
         await auditRepo.log(tx, {
           actorId: user.id,
@@ -115,23 +139,31 @@ export function createLeavePolicyRoutes(sql: Sql) {
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        const updated = await leaveRepo.updateLeavePolicyFullTimeHours(
-          tx,
-          id,
-          body.fullTimeHoursPerWeek,
-        );
-        if (!updated) {
+        const current = await leaveRepo.lockLeavePolicy(tx, id);
+        if (!current) {
           throw new NotFoundError({
             code: "LEAVE_POLICY_NOT_FOUND",
             detail: "Leave policy not found",
           });
         }
+        refuseStatutoryProration(
+          current.leaveTypeCode,
+          body.fullTimeHoursPerWeek,
+        );
+        const updated = (await leaveRepo.updateLeavePolicyFullTimeHours(
+          tx,
+          id,
+          body.fullTimeHoursPerWeek,
+        ))!;
         await auditRepo.log(tx, {
           actorId: user.id,
           action: "leave.policy.update",
           resourceType: "leave_policy",
           resourceId: updated.id,
-          metadata: { fullTimeHoursPerWeek: updated.fullTimeHoursPerWeek },
+          metadata: {
+            previousFullTimeHoursPerWeek: current.fullTimeHoursPerWeek,
+            fullTimeHoursPerWeek: updated.fullTimeHoursPerWeek,
+          },
         });
         return updated;
       },

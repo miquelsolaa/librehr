@@ -246,6 +246,31 @@ export class LeaveRepository {
   }
 
   /**
+   * Locks one policy of the current tenant for an update and returns its
+   * current full-time week and its leave type's code, or null.
+   */
+  async lockLeavePolicy(
+    tx: TenantTx,
+    id: string,
+  ): Promise<{
+    fullTimeHoursPerWeek: number | null;
+    leaveTypeCode: string;
+  } | null> {
+    const orgId = tx.__tenantContext.organizationId;
+    const rows = await tx<
+      { fullTimeHoursPerWeek: number | null; leaveTypeCode: string }[]
+    >`
+      SELECT p.full_time_hours_per_week::float AS "fullTimeHoursPerWeek",
+             t.code AS "leaveTypeCode"
+      FROM leave_policies p
+      JOIN leave_types t ON t.id = p.leave_type_id AND t.organization_id = ${orgId}
+      WHERE p.id = ${id} AND p.organization_id = ${orgId}
+      FOR UPDATE OF p
+    `;
+    return rows[0] ?? null;
+  }
+
+  /**
    * Sets or clears a policy's full-time week (LEA-002, issue #118). Null
    * turns part-time proration off (FTE 1.0). Returns null when the policy is
    * not the current tenant's.

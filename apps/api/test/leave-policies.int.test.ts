@@ -18,17 +18,19 @@ describe("/v1/leave/policies", () => {
   let app: ReturnType<typeof createApp>;
   let a: ScopedOrgFixture;
   let b: ScopedOrgFixture;
-  let typeA: string;
+  /** A non-statutory leave type of org A (may be prorated). */
+  let agreementA: string;
+  /** Statutory vacation of org A (never prorated). */
+  let vacationA: string;
   let typeB: string;
   let policyB: string;
+  /** Created by the first test; reused by the validation tests. */
+  let policyA: string;
 
-  const seedType = (orgId: string) =>
+  const seedType = (orgId: string, code: string) =>
     withTenant(db.sql, { organizationId: orgId }, async (tx) => {
       return (
-        await new LeaveRepository().createLeaveType(tx, {
-          name: "Vacation",
-          code: "vacation",
-        })
+        await new LeaveRepository().createLeaveType(tx, { name: code, code })
       ).id;
     });
 
@@ -46,6 +48,19 @@ describe("/v1/leave/policies", () => {
       body: JSON.stringify(body),
     });
 
+  const storedHours = async (id: string) =>
+    (
+      await db.sql<{ hours: string | null }[]>`
+        SELECT full_time_hours_per_week::text AS hours
+        FROM leave_policies WHERE id = ${id}`
+    )[0]?.hours;
+
+  const validPolicy = {
+    name: "Agreement days",
+    annualAllowanceDays: 4,
+    accrualMethod: "monthly",
+  };
+
   beforeAll(async () => {
     const database = await getTestDatabase();
     if (!database) throw new Error("Docker is required for this suite");
@@ -53,8 +68,9 @@ describe("/v1/leave/policies", () => {
     await runMigrations(db.connectionString);
     a = await seedScopedOrg(db.sql, "policies-a");
     b = await seedScopedOrg(db.sql, "policies-b");
-    typeA = await seedType(a.orgId);
-    typeB = await seedType(b.orgId);
+    agreementA = await seedType(a.orgId, "other");
+    vacationA = await seedType(a.orgId, "vacation");
+    typeB = await seedType(b.orgId, "other");
     policyB = await withTenant(
       db.sql,
       { organizationId: b.orgId },
@@ -68,7 +84,13 @@ describe("/v1/leave/policies", () => {
     );
     app = createApp({
       sql: await db.appSql(),
-      authPort: fixtureAuthPort([a.admin, a.manager, a.report, b.admin]),
+      authPort: fixtureAuthPort([
+        a.admin,
+        a.manager,
+        a.report,
+        a.auditor,
+        b.admin,
+      ]),
     });
   }, 60000);
 
@@ -78,13 +100,12 @@ describe("/v1/leave/policies", () => {
 
   it("creates a policy unprorated by default, then sets and clears its full-time week", async () => {
     const created = await create(a.admin, {
-      leaveTypeId: typeA,
-      name: "Agreement days",
-      annualAllowanceDays: 4,
-      accrualMethod: "upfront",
+      ...validPolicy,
+      leaveTypeId: agreementA,
     });
     expect(created.status, await created.clone().text()).toBe(201);
     const policy = (await created.json()) as LeavePolicy;
+    policyA = policy.id;
     expect(policy.fullTimeHoursPerWeek).toBeNull();
 
     const set = await patch(a.admin, policy.id, { fullTimeHoursPerWeek: 37.5 });
@@ -107,38 +128,67 @@ describe("/v1/leave/policies", () => {
       null,
     );
 
-    const audit = await db.sql<{ action: string }[]>`
-      SELECT action FROM audit_log
+    const audit = await db.sql<
+      { action: string; metadata: Record<string, unknown> }[]
+    >`
+      SELECT action, metadata FROM audit_log
       WHERE organization_id = ${a.orgId} AND resource_id = ${policy.id}
-      ORDER BY created_at`;
-    expect(audit.map((r) => r.action)).toEqual([
+      ORDER BY created_at, id`;
+    expect(audit.map((r) => r.action).sort()).toEqual([
       "leave.policy.create",
       "leave.policy.update",
       "leave.policy.update",
     ]);
+    expect(audit.map((r) => r.metadata)).toContainEqual({
+      previousFullTimeHoursPerWeek: 37.5,
+      fullTimeHoursPerWeek: null,
+    });
   });
 
   it("accepts a full-time week on creation", async () => {
     const res = await create(a.admin, {
-      leaveTypeId: typeA,
+      ...validPolicy,
+      leaveTypeId: agreementA,
       name: "Prorated",
-      annualAllowanceDays: 2,
-      accrualMethod: "monthly",
       fullTimeHoursPerWeek: 40,
     });
     expect(res.status).toBe(201);
     expect(((await res.json()) as LeavePolicy).fullTimeHoursPerWeek).toBe(40);
   });
 
+  describe("statutory vacation is never prorated (ET art. 12.4.d)", () => {
+    it("refuses a full-time week on a vacation policy, on create and update", async () => {
+      const res = await create(a.admin, {
+        ...validPolicy,
+        leaveTypeId: vacationA,
+        fullTimeHoursPerWeek: 40,
+      });
+      expect(res.status).toBe(422);
+      expect(((await res.json()) as ProblemDetails).code).toBe(
+        "STATUTORY_LEAVE_NOT_PRORATABLE",
+      );
+
+      const plain = await create(a.admin, {
+        ...validPolicy,
+        leaveTypeId: vacationA,
+        name: "Vacation",
+      });
+      expect(plain.status).toBe(201);
+      const { id } = (await plain.json()) as LeavePolicy;
+      const updated = await patch(a.admin, id, { fullTimeHoursPerWeek: 40 });
+      expect(updated.status).toBe(422);
+      expect(await storedHours(id)).toBeNull();
+      // Clearing is always allowed.
+      expect(
+        (await patch(a.admin, id, { fullTimeHoursPerWeek: null })).status,
+      ).toBe(200);
+    });
+  });
+
   it.each([0, -1, 168.5, 37.555, "40"])(
     "rejects a full-time week of %s",
     async (hours) => {
-      const [policy] = await withTenant(
-        db.sql,
-        { organizationId: a.orgId },
-        async (tx) => new LeaveRepository().getLeavePolicies(tx),
-      );
-      const res = await patch(a.admin, policy!.id, {
+      const res = await patch(a.admin, policyA, {
         fullTimeHoursPerWeek: hours,
       });
       expect(res.status).toBe(400);
@@ -149,36 +199,64 @@ describe("/v1/leave/policies", () => {
   );
 
   it("rejects fields other than the full-time week on update", async () => {
-    const [policy] = await withTenant(
-      db.sql,
-      { organizationId: a.orgId },
-      async (tx) => new LeaveRepository().getLeavePolicies(tx),
-    );
-    const res = await patch(a.admin, policy!.id, {
+    const res = await patch(a.admin, policyA, {
       fullTimeHoursPerWeek: 40,
       annualAllowanceDays: 99,
     });
     expect(res.status).toBe(400);
+    expect(await storedHours(policyA)).toBeNull();
+  });
+
+  it.each([
+    { name: "" },
+    { accrualMethod: "weekly" },
+    { annualAllowanceDays: 1000 },
+  ])("rejects an invalid policy on creation (%o)", async (override) => {
+    const res = await create(a.admin, {
+      ...validPolicy,
+      leaveTypeId: agreementA,
+      ...override,
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("answers 404 for a malformed policy id", async () => {
+    const res = await patch(a.admin, "not-a-uuid", {
+      fullTimeHoursPerWeek: 40,
+    });
+    expect(res.status).toBe(404);
+    expect(((await res.json()) as ProblemDetails).code).toBe(
+      "LEAVE_POLICY_NOT_FOUND",
+    );
   });
 
   it("requires authentication", async () => {
     expect((await app.request("/v1/leave/policies")).status).toBe(401);
+    const res = await app.request(`/v1/leave/policies/${policyA}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fullTimeHoursPerWeek: 20 }),
+    });
+    expect(res.status).toBe(401);
+    expect(await storedHours(policyA)).toBeNull();
   });
 
   it("is for administrators only", async () => {
-    for (const who of [a.manager, a.report]) {
+    for (const who of [a.manager, a.report, a.auditor]) {
       const list = await app.request("/v1/leave/policies", {
         headers: as(who),
       });
       expect(list.status).toBe(403);
       const res = await create(who, {
-        leaveTypeId: typeA,
+        ...validPolicy,
+        leaveTypeId: agreementA,
         name: "Nope",
-        annualAllowanceDays: 1,
-        accrualMethod: "monthly",
       });
       expect(res.status).toBe(403);
+      const updated = await patch(who, policyA, { fullTimeHoursPerWeek: 20 });
+      expect(updated.status).toBe(403);
     }
+    expect(await storedHours(policyA)).toBeNull();
   });
 
   describe("cross-tenant access", () => {
@@ -193,18 +271,14 @@ describe("/v1/leave/policies", () => {
     it("never updates another tenant's policy", async () => {
       const res = await patch(a.admin, policyB, { fullTimeHoursPerWeek: 20 });
       expect(res.status).toBe(404);
-      const [row] = await db.sql<{ hours: string | null }[]>`
-        SELECT full_time_hours_per_week::text AS hours
-        FROM leave_policies WHERE id = ${policyB}`;
-      expect(row?.hours).toBeNull();
+      expect(await storedHours(policyB)).toBeNull();
     });
 
     it("never creates a policy on another tenant's leave type", async () => {
       const res = await create(a.admin, {
+        ...validPolicy,
         leaveTypeId: typeB,
         name: "Foreign",
-        annualAllowanceDays: 1,
-        accrualMethod: "monthly",
       });
       expect(res.status).toBe(404);
       expect(((await res.json()) as ProblemDetails).code).toBe(
@@ -217,7 +291,7 @@ describe("/v1/leave/policies", () => {
     await expect(
       withTenant(db.sql, { organizationId: a.orgId }, (tx) =>
         new LeaveRepository().createLeavePolicy(tx, {
-          leaveTypeId: typeA,
+          leaveTypeId: agreementA,
           name: "Too long",
           fullTimeHoursPerWeek: 200,
         }),

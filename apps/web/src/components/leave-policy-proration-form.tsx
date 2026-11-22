@@ -95,7 +95,10 @@ export function LeavePolicyProrationForm({
             setValue(event.target.value);
             setSaved(false);
           }}
-          aria-describedby={`${fieldId}-hint`}
+          aria-invalid={error === "hoursInvalid" || undefined}
+          aria-describedby={
+            error ? `${fieldId}-hint ${fieldId}-error` : `${fieldId}-hint`
+          }
           className="h-11 w-28 rounded-input border border-border bg-background px-3 text-sm"
         />
         <Button type="submit" variant="outline" disabled={saving}>
@@ -103,7 +106,7 @@ export function LeavePolicyProrationForm({
         </Button>
       </div>
       {error && (
-        <p role="alert" className="text-sm text-danger">
+        <p id={`${fieldId}-error`} role="alert" className="text-sm text-danger">
           {t(error)}
         </p>
       )}

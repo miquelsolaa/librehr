@@ -29,6 +29,18 @@ export class MissingPolicyError extends JobError {
   }
 }
 
+/** Stored employee data a job needs is unusable; fixing the data, not a retry, helps. */
+export class InvalidEmploymentDataError extends JobError {
+  readonly retryable = false;
+  constructor(field: string, employeeIds: readonly string[]) {
+    // Ids only, and at most ten, so the message stays bounded.
+    const shown = employeeIds.slice(0, 10).join(", ");
+    const more =
+      employeeIds.length > 10 ? ` and ${employeeIds.length - 10} more` : "";
+    super(`invalid ${field} for employees ${shown}${more}`);
+  }
+}
+
 export class NotImplementedError extends JobError {
   readonly retryable = false;
   constructor(what: string) {

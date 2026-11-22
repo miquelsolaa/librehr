@@ -14,7 +14,10 @@ import {
   type EmploymentSpanWithHours,
   type Sql,
 } from "@librehr/db";
-import { MissingPolicyError } from "../lib/job-errors.js";
+import {
+  InvalidEmploymentDataError,
+  MissingPolicyError,
+} from "../lib/job-errors.js";
 import { isoDate, parsePayload } from "../lib/payload.js";
 
 // Strict: jobs enqueued with the old policy fields fail loudly instead of
@@ -188,9 +191,9 @@ export async function handleLeaveAccrue(
           badHours.add(p.employeeId);
       }
       if (badHours.size > 0) {
-        throw new MissingPolicyError(
-          `valid working_hours_per_week of employees ${[...badHours].join(", ")}`,
-        );
+        throw new InvalidEmploymentDataError("working_hours_per_week", [
+          ...badHours,
+        ]);
       }
 
       for (const p of plans) {

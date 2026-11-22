@@ -46,10 +46,19 @@ each part at its own ratio. Ratios are kept in parts per million of a day
 (integers) and the target is still rounded once, to cents, on the cumulative
 value; with no full-time week every amount is exactly what it was before.
 
+- The API refuses a full-time week on a policy whose leave type is the
+  statutory `vacation` (422 `STATUTORY_LEAVE_NOT_PRORATABLE`).
+- The target is cumulative from 1 January, so setting or changing the
+  full-time week mid-year recalculates the whole year, months already
+  accrued included (a lower target is not trued up, see below).
+- Contract hours come from `employments.working_hours_per_week`, which
+  defaults to 40 and is not yet editable in the app (only through data
+  imports or the database). Until it is, a full-time week above 40
+  prorates every employee still on the default.
 - A legacy employee without employment rows has no recorded hours and
   accrues at 1.
 - If a prorated policy meets an employment row whose hours are not a
-  positive number, the run fails with `MissingPolicyError` (naming the
+  positive number, the run fails with `InvalidEmploymentDataError` (naming the
   employee ids) before anything is written.
 - Reducing hours mid-year lowers the cumulative target; if the ledger
   already holds more, the run writes nothing (no true-up, see below).

@@ -25,6 +25,7 @@ BEGIN
   IF NOT EXISTS (
     SELECT FROM pg_catalog.pg_constraint
     WHERE conname = 'leave_policies_full_time_hours_range'
+      AND conrelid = 'leave_policies'::regclass
   ) THEN
     ALTER TABLE "leave_policies"
       ADD CONSTRAINT "leave_policies_full_time_hours_range"

@@ -8,7 +8,6 @@ import { CalendarClock, ChevronLeft } from "lucide-react";
 import { Button, PageHeader } from "@librehr/ui";
 import type { LeavePolicy, LeaveType } from "@librehr/contracts";
 import { LeavePolicyProrationForm } from "@/components/leave-policy-proration-form";
-import { formatNumber } from "@/lib/format";
 import { apiClient } from "@/lib/api-client";
 
 /** LEA-002: leave policies and their opt-in part-time proration (#118). */
@@ -99,7 +98,7 @@ export default function LeavePoliciesSettingsPage() {
                   <p className="text-xs text-muted-foreground">
                     {t("summary", {
                       type: types.get(policy.leaveTypeId)?.name ?? "",
-                      days: formatNumber(policy.annualAllowanceDays, locale),
+                      days: policy.annualAllowanceDays,
                       method: method(policy.accrualMethod),
                     })}
                   </p>
