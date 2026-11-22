@@ -74,7 +74,7 @@ test("an admin sets a policy's full-time week, with the statutory warning", asyn
   await expect(field).toHaveAccessibleDescription(/ET art\. 12\.4\.d/);
 
   await field.fill("37.5");
-  await page.getByRole("button", { name: "Save" }).click();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("Saved.");
   expect(sent).toEqual({ fullTimeHoursPerWeek: 37.5 });
   await expect(
@@ -158,14 +158,14 @@ test("invalid hours are refused before saving, and a failed save is reported", a
     "Full-time hours per week (part-time proration)",
   );
   await field.fill("200");
-  await page.getByRole("button", { name: "Save" }).click();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.locator("main").getByRole("alert")).toContainText(
     "between 0.01 and 40",
   );
   expect(patches).toBe(0);
 
   await field.fill("40");
-  await page.getByRole("button", { name: "Save" }).click();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.locator("main").getByRole("alert")).toContainText(
     "could not be saved",
   );
