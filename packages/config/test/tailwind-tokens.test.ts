@@ -106,8 +106,8 @@ describe("tailwind semantic tokens", () => {
 
   it("dark mode follows the .dark class, not the OS preference", () => {
     // next-themes toggles `.dark` on <html> (apps/web layout, attribute="class").
-    expect(themeCss).toContain(
-      "@custom-variant dark (&:where(.dark, .dark *));",
+    expect(themeCss).toMatch(
+      /@custom-variant\s+dark\s+\(\s*&:where\(\s*\.dark\s*,\s*\.dark\s+\*\s*\)\s*\)\s*;/,
     );
   });
 

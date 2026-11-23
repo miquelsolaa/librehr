@@ -29,7 +29,8 @@ We adopt the following core dependencies:
 | `pg-boss`              | 10.1.x        | Background job queue              | MIT        | Reliable job queues directly backed by PostgreSQL                     |
 | `next`                 | 16.4.x        | Frontend framework                | MIT        | Server components, App Router, asset self-hosting                     |
 | `react`                | 19.0.x        | UI library                        | MIT        | Standard component model, actions, compiler integration               |
-| `tailwindcss`          | 3.4.x         | Utility-first CSS                 | MIT        | Token-based theming via CSS variables without runtime overhead        |
+| `tailwindcss`          | 4.3.x         | Utility-first CSS                 | MIT        | Token-based theming via CSS variables without runtime overhead        |
+| `@tailwindcss/postcss` | 4.3.x         | Tailwind build step (PostCSS)     | MIT        | Official v4 PostCSS integration; CSS-first `@theme` config            |
 | `radix-ui`             | 1.1.x / 2.1.x | Headless accessible UI primitives | MIT        | Unstyled, WCAG 2.2 AA compliant accessible foundations                |
 | `lucide-react`         | 0.475.x       | Iconography                       | ISC        | Clean, consistent, tree-shakeable icons                               |
 | `next-intl`            | 4.14.x        | Internationalization              | MIT        | App Router native ICU messaging, routing, locale detection            |

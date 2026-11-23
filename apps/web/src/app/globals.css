@@ -8,8 +8,8 @@
 @import "tailwindcss" source(none);
 @import "@librehr/config/tailwind/theme.css";
 
-@source "../";
-@source "../../../../packages/ui/src";
+@source "../**/*.{ts,tsx}";
+@source "../../../../packages/ui/src/**/*.{ts,tsx}";
 
 /*
  * Tailwind v3 preflight defaults that v4 changed. Kept so the upgrade is
