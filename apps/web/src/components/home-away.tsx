@@ -73,7 +73,7 @@ export function HomeAway({ locale }: { locale: string }) {
         </h2>
         <Link
           href={`/${locale}/time-off/calendar`}
-          className="inline-flex min-h-11 items-center rounded-input text-sm font-medium text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+          className="inline-flex min-h-11 items-center rounded-input text-sm font-medium text-primary underline underline-offset-4 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
         >
           {t("viewCalendar")}
         </Link>

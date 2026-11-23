@@ -127,7 +127,7 @@ export default function SignInPage() {
         aria-hidden="true"
         className="relative hidden overflow-hidden bg-primary text-primary-foreground lg:block"
       >
-        <div className="absolute -bottom-48 -left-48 h-[46rem] w-[46rem]">
+        <div className="absolute -bottom-48 -left-48 h-184 w-184">
           <DayRing
             size="100%"
             tone="working"

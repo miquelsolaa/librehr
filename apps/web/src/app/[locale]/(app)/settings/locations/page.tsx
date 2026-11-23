@@ -260,7 +260,7 @@ export default function LocationsSettingsPage() {
         breadcrumb={
           <Link
             href={`/${locale}/settings`}
-            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             {tNav("settings")}
@@ -416,7 +416,7 @@ export default function LocationsSettingsPage() {
                   </label>
                   <select
                     id="loc-region"
-                    className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                    className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
                     value={region}
                     onChange={(e) => setRegion(e.target.value)}
                   >
@@ -604,7 +604,7 @@ export default function LocationsSettingsPage() {
                     <button
                       type="button"
                       onClick={() => handleDeleteHoliday(h.id)}
-                      className="inline-flex h-11 w-11 items-center justify-center rounded-input text-muted-foreground transition-colors hover:bg-danger/10 hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                      className="inline-flex h-11 w-11 items-center justify-center rounded-input text-muted-foreground transition-colors hover:bg-danger/10 hover:text-danger focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
                       aria-label={`${tCommon("delete")}: ${h.name}`}
                     >
                       <Trash2 aria-hidden="true" className="h-4 w-4" />

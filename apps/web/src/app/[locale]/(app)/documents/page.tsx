@@ -497,7 +497,7 @@ export default function DocumentsPage() {
               aria-label={t("selectCategory")}
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="h-9 rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="h-9 rounded-md border border-border bg-background px-3 text-sm focus:outline-hidden focus:ring-2 focus:ring-primary"
             >
               <option value="all">{t("filterAll")}</option>
               <option value="contracts">{t("categoryContracts")}</option>
@@ -569,7 +569,7 @@ export default function DocumentsPage() {
                               {doc.employeeName}
                             </span>
                           ) : (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-info/10 text-info">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium bg-info/10 text-info">
                               {t("companyWide")}
                             </span>
                           )}
@@ -585,7 +585,7 @@ export default function DocumentsPage() {
                             {(doc.category === "company_policies" ||
                               !doc.employeeName) &&
                               (acknowledgedDocs.has(doc.id) ? (
-                                <span className="inline-flex items-center gap-1 text-xs text-success bg-success/10 px-2 py-1 rounded font-medium">
+                                <span className="inline-flex items-center gap-1 text-xs text-success bg-success/10 px-2 py-1 rounded-sm font-medium">
                                   <CheckCircle2 className="h-3.5 w-3.5" />
                                   <span>{t("acknowledged")}</span>
                                 </span>
@@ -639,7 +639,7 @@ export default function DocumentsPage() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder={t("documentTitlePlaceholder")}
-                className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm focus:outline-hidden focus:ring-2 focus:ring-primary"
               />
             </div>
 
@@ -652,7 +652,7 @@ export default function DocumentsPage() {
                 onChange={(e) =>
                   setCategory(e.target.value as DocumentCategory)
                 }
-                className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm focus:outline-hidden focus:ring-2 focus:ring-primary"
               >
                 <option value="contracts">{t("categoryContracts")}</option>
                 <option value="payslips">{t("categoryPayslips")}</option>
@@ -675,7 +675,7 @@ export default function DocumentsPage() {
                 onChange={(e) =>
                   setAudienceType(e.target.value as "individual" | "company")
                 }
-                className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm focus:outline-hidden focus:ring-2 focus:ring-primary"
               >
                 <option value="individual">{t("individual")}</option>
                 <option value="company">{t("companyWide")}</option>
@@ -763,7 +763,7 @@ export default function DocumentsPage() {
                 </div>
               </div>
 
-              <div className="overflow-x-auto rounded border border-border">
+              <div className="overflow-x-auto rounded-sm border border-border">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-surface font-medium text-muted-foreground uppercase border-b border-border">
                     <tr>
@@ -783,7 +783,7 @@ export default function DocumentsPage() {
                         </td>
                         <td className="px-3 py-2">
                           <span
-                            className={`inline-flex px-1.5 py-0.5 rounded text-xs font-medium ${
+                            className={`inline-flex px-1.5 py-0.5 rounded-sm text-xs font-medium ${
                               m.status === "matched"
                                 ? "bg-success/10 text-success"
                                 : "bg-danger/10 text-danger"
@@ -875,7 +875,7 @@ export default function DocumentsPage() {
               {templates.map((tpl) => (
                 <div
                   key={tpl.id}
-                  className="rounded-card border border-border bg-surface p-5 shadow-xs flex flex-col justify-between space-y-4 hover:border-primary/40 transition-colors"
+                  className="rounded-card border border-border bg-surface p-5 flex flex-col justify-between space-y-4 hover:border-primary/40 transition-colors"
                 >
                   <div className="space-y-2">
                     <div className="flex items-start justify-between gap-2">
@@ -891,7 +891,7 @@ export default function DocumentsPage() {
                         {tpl.description}
                       </p>
                     )}
-                    <pre className="rounded bg-background p-2 font-mono text-xs text-muted-foreground max-h-24 overflow-hidden border border-border/50">
+                    <pre className="rounded-sm bg-background p-2 font-mono text-xs text-muted-foreground max-h-24 overflow-hidden border border-border/50">
                       {tpl.content}
                     </pre>
                   </div>
@@ -1020,7 +1020,7 @@ export default function DocumentsPage() {
                         onClick={() =>
                           setNewTemplateContent((prev) => `${prev} ${tag}`)
                         }
-                        className="rounded bg-background px-1.5 py-0.5 border border-border hover:border-primary/50 cursor-pointer"
+                        className="rounded-sm bg-background px-1.5 py-0.5 border border-border hover:border-primary/50 cursor-pointer"
                       >
                         {tag}
                       </button>
@@ -1101,7 +1101,7 @@ export default function DocumentsPage() {
                       type="checkbox"
                       checked={saveAsDoc}
                       onChange={(e) => setSaveAsDoc(e.target.checked)}
-                      className="h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                      className="h-4 w-4 rounded-sm border-border text-primary focus:ring-primary cursor-pointer"
                     />
                   </div>
 

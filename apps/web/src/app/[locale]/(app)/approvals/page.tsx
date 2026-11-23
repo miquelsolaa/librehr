@@ -265,7 +265,7 @@ export default function ApprovalsPage() {
         </p>
       )}
 
-      <div id={CONTENT_ID} tabIndex={-1} className="space-y-6 outline-none">
+      <div id={CONTENT_ID} tabIndex={-1} className="space-y-6 outline-hidden">
         {loadFailed ? (
           <ErrorState
             title={t("loadFailed")}

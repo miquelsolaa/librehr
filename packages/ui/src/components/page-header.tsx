@@ -35,7 +35,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   >
     <div className="min-w-0 max-w-full flex-1 basis-80 space-y-1">
       {breadcrumb && <div className="mb-2 text-sm">{breadcrumb}</div>}
-      <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground sm:text-3xl [overflow-wrap:anywhere]">
+      <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground sm:text-3xl wrap-anywhere">
         {title}
       </h1>
       {description && (

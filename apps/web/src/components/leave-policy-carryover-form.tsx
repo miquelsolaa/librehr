@@ -60,7 +60,7 @@ export function LeavePolicyCarryoverForm({
           }}
           // The policy's name tells the rows apart for screen readers.
           aria-describedby={`${fieldId}-hint ${fieldId}-policy`}
-          className="mt-0.5 h-6 w-6 rounded border-border"
+          className="mt-0.5 h-6 w-6 rounded-sm border-border"
         />
         <span id={`${fieldId}-policy`} className="sr-only">
           {policy.name}

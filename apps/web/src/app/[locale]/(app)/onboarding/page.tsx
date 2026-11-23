@@ -200,7 +200,7 @@ export default function OnboardingPage() {
                     key={inst.id}
                     aria-pressed={isSelected}
                     onClick={() => setSelectedInstanceId(inst.id)}
-                    className={`w-full cursor-pointer rounded-lg border p-4 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus-ring ${
+                    className={`w-full cursor-pointer rounded-lg border p-4 text-left transition-colors focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-focus-ring ${
                       isSelected
                         ? "border-primary bg-primary/5"
                         : "border-border bg-surface hover:bg-accent"
@@ -211,7 +211,7 @@ export default function OnboardingPage() {
                         {inst.title}
                       </h3>
                       <span
-                        className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                        className={`text-xs px-1.5 py-0.5 rounded-sm font-medium ${
                           inst.status === "completed"
                             ? "bg-success/10 text-success"
                             : "bg-info/10 text-info"
@@ -355,15 +355,15 @@ export default function OnboardingPage() {
               onChange={(e) => setCsvContent(e.target.value)}
               aria-label={t("csvLabel")}
               placeholder="first_name,last_name,email,tax_id,hire_date,job_title,department_name&#10;Maria,Garcia,maria@example.com,12345678Z,2026-03-01,Product Designer,Engineering"
-              className="w-full rounded-md border border-border bg-background p-3 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full rounded-md border border-border bg-background p-3 font-mono text-xs focus:outline-hidden focus:ring-2 focus:ring-primary"
             />
             <p className="text-xs text-muted-foreground">
               {t("csvRequiredHeaders")}{" "}
-              <code className="bg-surface px-1 py-0.5 rounded">
+              <code className="bg-surface px-1 py-0.5 rounded-sm">
                 first_name, last_name, email
               </code>
               . {t("csvOptionalHeaders")}{" "}
-              <code className="bg-surface px-1 py-0.5 rounded">
+              <code className="bg-surface px-1 py-0.5 rounded-sm">
                 tax_id, iban, hire_date, job_title, department_name
               </code>
               .

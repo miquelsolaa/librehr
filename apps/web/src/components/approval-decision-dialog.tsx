@@ -128,7 +128,7 @@ export function ApprovalDecisionDialog({
               required={required}
               aria-invalid={error || undefined}
               aria-describedby={error ? errorId : undefined}
-              className="w-full rounded-md border border-border bg-background p-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              className="w-full rounded-md border border-border bg-background p-2.5 text-sm text-foreground focus:outline-hidden focus:ring-2 focus:ring-focus-ring"
             />
             {error && (
               <p id={errorId} role="alert" className="text-sm text-danger">

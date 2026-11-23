@@ -83,7 +83,7 @@ export default function DepartmentsSettingsPage() {
         breadcrumb={
           <Link
             href={`/${locale}/settings`}
-            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             {tNav("settings")}
@@ -138,7 +138,7 @@ export default function DepartmentsSettingsPage() {
                   </label>
                   <select
                     id="parent-dept"
-                    className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                    className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
                     value={parentId}
                     onChange={(e) => setParentId(e.target.value)}
                   >

@@ -173,7 +173,7 @@ export default function SsoSettingsPage() {
         breadcrumb={
           <Link
             href={`/${locale}/settings`}
-            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             {tNav("settings")}
@@ -253,7 +253,7 @@ export default function SsoSettingsPage() {
             <dt className="text-muted-foreground">
               {t("ssoAllowedDomainsLabel")}
             </dt>
-            <dd className="break-words text-foreground">
+            <dd className="wrap-break-word text-foreground">
               {config.allowedDomains.join(", ")}
             </dd>
           </dl>
@@ -305,7 +305,7 @@ export default function SsoSettingsPage() {
                       aria-pressed={provider === item.id}
                       className={`rounded-card border p-3 text-center text-sm font-medium transition-all cursor-pointer ${
                         provider === item.id
-                          ? "border-primary bg-primary/10 text-primary font-bold shadow-xs"
+                          ? "border-primary bg-primary/10 text-primary font-bold"
                           : "border-border bg-background text-muted-foreground hover:bg-surface-raised"
                       }`}
                     >
@@ -427,7 +427,7 @@ export default function SsoSettingsPage() {
                     aria-describedby="sso-enabled-hint"
                     checked={enabled}
                     onChange={(e) => setEnabled(e.target.checked)}
-                    className="h-5 w-5 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                    className="h-5 w-5 rounded-sm border-border text-primary focus:ring-primary cursor-pointer"
                   />
                 </div>
 
@@ -452,7 +452,7 @@ export default function SsoSettingsPage() {
                     aria-describedby="sso-enforce-hint"
                     checked={enforceSso}
                     onChange={(e) => setEnforceSso(e.target.checked)}
-                    className="h-5 w-5 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                    className="h-5 w-5 rounded-sm border-border text-primary focus:ring-primary cursor-pointer"
                   />
                 </div>
               </div>

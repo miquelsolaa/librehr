@@ -32,12 +32,12 @@
     "@axe-core/playwright": "^4.10.1",
     "@librehr/config": "workspace:*",
     "@playwright/test": "^1.50.1",
+    "@tailwindcss/postcss": "^4.3.5",
     "@types/node": "^26.6.6",
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
-    "autoprefixer": "^10.4.20",
     "postcss": "^8.5.2",
-    "tailwindcss": "^3.4.17",
+    "tailwindcss": "^4.3.5",
     "typescript": "^6.0.3"
   }
 }

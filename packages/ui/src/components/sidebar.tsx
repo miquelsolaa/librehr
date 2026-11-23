@@ -68,9 +68,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )}
     >
       <div className="flex h-16 items-center gap-3 border-b border-border px-6">
-        {logo ?? (
-          <LibreHRMark size={32} className="text-primary flex-shrink-0" />
-        )}
+        {logo ?? <LibreHRMark size={32} className="text-primary shrink-0" />}
         <span className="truncate text-sm font-semibold text-foreground">
           {orgName}
         </span>
@@ -104,7 +102,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         href={item.href}
                         aria-current={active ? "page" : undefined}
                         className={cn(
-                          "relative flex items-center gap-3 rounded-input px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
+                          "relative flex items-center gap-3 rounded-input px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring",
                           active
                             ? // A bar on the leading edge marks the page without relying on colour alone.
                               "bg-accent text-primary before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-primary"

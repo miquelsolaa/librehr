@@ -208,7 +208,7 @@ export default function WebhooksSettingsPage() {
         breadcrumb={
           <Link
             href={`/${locale}/settings`}
-            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             {tNav("settings")}
@@ -292,7 +292,7 @@ export default function WebhooksSettingsPage() {
                             type="checkbox"
                             checked={checked}
                             onChange={() => toggleEvent(ev)}
-                            className="rounded border-border text-primary focus:ring-primary"
+                            className="rounded-sm border-border text-primary focus:ring-primary"
                           />
                           <span className="font-mono text-xs">{ev}</span>
                         </label>
@@ -435,9 +435,9 @@ export default function WebhooksSettingsPage() {
                     }`}
                   >
                     {testInfo.result.success ? (
-                      <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                      <CheckCircle2 className="h-4 w-4 shrink-0" />
                     ) : (
-                      <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                      <AlertCircle className="h-4 w-4 shrink-0" />
                     )}
                     <span>
                       {testInfo.result.success
@@ -491,7 +491,7 @@ export default function WebhooksSettingsPage() {
                       <span className="text-muted-foreground">
                         {t("secret")}:
                       </span>
-                      <code className="bg-surface-raised px-2 py-0.5 rounded border border-border font-mono text-xs text-muted-foreground">
+                      <code className="bg-surface-raised px-2 py-0.5 rounded-sm border border-border font-mono text-xs text-muted-foreground">
                         {hook.secret.slice(0, 10)}...
                       </code>
                       <button

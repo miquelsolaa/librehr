@@ -115,7 +115,7 @@ export default function RequestLeavePage() {
         breadcrumb={
           <Link
             href={`/${locale}/time-off`}
-            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             {tNav("timeOff")}
@@ -169,7 +169,7 @@ export default function RequestLeavePage() {
               id="leave-type"
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value)}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-hidden focus:ring-2 focus:ring-focus-ring"
               required
             >
               {leaveTypes.map((type) => (
@@ -230,7 +230,7 @@ export default function RequestLeavePage() {
                   id="halfDayStart"
                   checked={halfDayStart}
                   onChange={(e) => setHalfDayStart(e.target.checked)}
-                  className="rounded border-border text-primary focus:ring-focus-ring"
+                  className="rounded-sm border-border text-primary focus:ring-focus-ring"
                 />
                 <label
                   htmlFor="halfDayStart"
@@ -261,7 +261,7 @@ export default function RequestLeavePage() {
                   id="halfDayEnd"
                   checked={halfDayEnd}
                   onChange={(e) => setHalfDayEnd(e.target.checked)}
-                  className="rounded border-border text-primary focus:ring-focus-ring"
+                  className="rounded-sm border-border text-primary focus:ring-focus-ring"
                 />
                 <label
                   htmlFor="halfDayEnd"
@@ -285,7 +285,7 @@ export default function RequestLeavePage() {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
-              className="w-full rounded-md border border-border bg-background p-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+              className="w-full rounded-md border border-border bg-background p-3 text-sm text-foreground focus:outline-hidden focus:ring-2 focus:ring-focus-ring"
               placeholder={t("notesPlaceholder")}
             />
           </div>

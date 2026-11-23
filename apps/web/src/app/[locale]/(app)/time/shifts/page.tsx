@@ -272,7 +272,7 @@ export default function ShiftRosterPage() {
   const getShiftBadge = (assign?: ShiftAssignment) => {
     if (!assign || !assign.shiftCode || assign.shiftCode === "OFF") {
       return (
-        <span className="inline-block w-full py-1 text-center tabular-nums text-xs text-muted-foreground/50 rounded bg-surface">
+        <span className="inline-block w-full py-1 text-center tabular-nums text-xs text-muted-foreground/50 rounded-sm bg-surface">
           -
         </span>
       );
@@ -281,7 +281,7 @@ export default function ShiftRosterPage() {
     if (assign.shiftCode === "M") {
       return (
         <span
-          className="inline-block w-full py-1 text-center tabular-nums font-bold text-xs rounded text-foreground bg-brand-accent/25"
+          className="inline-block w-full py-1 text-center tabular-nums font-bold text-xs rounded-sm text-foreground bg-brand-accent/25"
           title={t("shiftMorning")}
         >
           M
@@ -292,7 +292,7 @@ export default function ShiftRosterPage() {
     if (assign.shiftCode === "T") {
       return (
         <span
-          className="inline-block w-full py-1 text-center tabular-nums font-bold text-xs rounded text-foreground bg-info/15"
+          className="inline-block w-full py-1 text-center tabular-nums font-bold text-xs rounded-sm text-foreground bg-info/15"
           title={t("shiftAfternoon")}
         >
           T
@@ -303,7 +303,7 @@ export default function ShiftRosterPage() {
     if (assign.shiftCode === "N") {
       return (
         <span
-          className="inline-flex items-center justify-center gap-0.5 w-full py-1 text-center tabular-nums font-bold text-xs rounded text-foreground bg-foreground/15"
+          className="inline-flex items-center justify-center gap-0.5 w-full py-1 text-center tabular-nums font-bold text-xs rounded-sm text-foreground bg-foreground/15"
           title={t("shiftNight")}
         >
           <Moon className="h-2.5 w-2.5" aria-hidden="true" />N
@@ -312,7 +312,7 @@ export default function ShiftRosterPage() {
     }
 
     return (
-      <span className="inline-block w-full py-1 text-center tabular-nums font-bold text-xs rounded text-primary-foreground bg-primary/80">
+      <span className="inline-block w-full py-1 text-center tabular-nums font-bold text-xs rounded-sm text-primary-foreground bg-primary/80">
         {assign.shiftCode}
       </span>
     );
@@ -339,7 +339,7 @@ export default function ShiftRosterPage() {
         breadcrumb={
           <Link
             href={`/${locale}/time`}
-            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             {tNav("time")}
@@ -375,7 +375,7 @@ export default function ShiftRosterPage() {
                     </label>
                     <select
                       id="swap-target"
-                      className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                      className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
                       value={targetEmpId}
                       onChange={(e) => setTargetEmpId(e.target.value)}
                       required
@@ -483,7 +483,7 @@ export default function ShiftRosterPage() {
                     </label>
                     <select
                       id="gen-pattern"
-                      className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                      className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
                       value={selectedPatternId}
                       onChange={(e) => setSelectedPatternId(e.target.value)}
                       required
@@ -561,12 +561,12 @@ export default function ShiftRosterPage() {
                     <div
                       role="group"
                       aria-labelledby="gen-employees-label"
-                      className="max-h-32 overflow-y-auto rounded border border-border p-2 space-y-1 text-xs"
+                      className="max-h-32 overflow-y-auto rounded-sm border border-border p-2 space-y-1 text-xs"
                     >
                       {employees.map((emp) => (
                         <label
                           key={emp.id}
-                          className="flex items-center gap-2 hover:bg-surface p-1 rounded cursor-pointer"
+                          className="flex items-center gap-2 hover:bg-surface p-1 rounded-sm cursor-pointer"
                         >
                           <input
                             type="checkbox"
@@ -758,7 +758,7 @@ export default function ShiftRosterPage() {
 
           {/* Focusable so keyboard users can scroll the wide roster. */}
           <div
-            className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+            className="overflow-x-auto focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
             role="region"
             aria-label={t("tabRoster")}
             tabIndex={0}
@@ -766,7 +766,7 @@ export default function ShiftRosterPage() {
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-border bg-surface font-semibold text-muted-foreground">
-                  <th className="sticky left-0 bg-surface backdrop-blur z-10 px-3 py-2 w-48 border-r border-border">
+                  <th className="sticky left-0 bg-surface backdrop-blur-sm z-10 px-3 py-2 w-48 border-r border-border">
                     {t("colEmployee")}
                   </th>
                   {daysArray.map((day) => (

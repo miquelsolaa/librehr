@@ -161,7 +161,7 @@ export default function CustomFieldsSettingsPage() {
         breadcrumb={
           <Link
             href={`/${locale}/settings`}
-            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             {tNav("settings")}
@@ -233,7 +233,7 @@ export default function CustomFieldsSettingsPage() {
                     </label>
                     <select
                       id="cf-type"
-                      className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                      className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
                       value={fieldType}
                       onChange={(e) =>
                         setFieldType(e.target.value as CustomFieldType)
@@ -255,7 +255,7 @@ export default function CustomFieldsSettingsPage() {
                     </label>
                     <select
                       id="cf-visibility"
-                      className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                      className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
                       value={visibility}
                       onChange={(e) =>
                         setVisibility(e.target.value as CustomFieldVisibility)
@@ -300,7 +300,7 @@ export default function CustomFieldsSettingsPage() {
                     type="checkbox"
                     checked={required}
                     onChange={(e) => setRequired(e.target.checked)}
-                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                    className="h-4 w-4 rounded-sm border-border text-primary focus:ring-primary"
                   />
                   <label
                     htmlFor="cf-required"
@@ -362,7 +362,7 @@ export default function CustomFieldsSettingsPage() {
                     <h3 className="text-sm font-semibold text-foreground">
                       {def.name}
                     </h3>
-                    <code className="text-xs bg-surface-raised px-1.5 py-0.5 rounded text-muted-foreground font-mono">
+                    <code className="text-xs bg-surface-raised px-1.5 py-0.5 rounded-sm text-muted-foreground font-mono">
                       {def.code}
                     </code>
                     {def.required && (

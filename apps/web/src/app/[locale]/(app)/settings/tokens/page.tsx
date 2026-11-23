@@ -147,7 +147,7 @@ export default function TokensSettingsPage() {
         breadcrumb={
           <Link
             href={`/${locale}/settings`}
-            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             {tNav("settings")}
@@ -221,7 +221,7 @@ export default function TokensSettingsPage() {
                   </label>
                   <select
                     id="token-expires"
-                    className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                    className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
                     value={expiresInDays}
                     onChange={(e) => setExpiresInDays(Number(e.target.value))}
                   >
@@ -332,7 +332,7 @@ export default function TokensSettingsPage() {
                     <h3 className="text-sm font-semibold text-foreground">
                       {token.name}
                     </h3>
-                    <code className="text-xs bg-surface-raised px-1.5 py-0.5 rounded text-muted-foreground font-mono">
+                    <code className="text-xs bg-surface-raised px-1.5 py-0.5 rounded-sm text-muted-foreground font-mono">
                       {token.prefix}...
                     </code>
                   </div>
