@@ -25,6 +25,12 @@
       "matchDepTypes": ["devDependencies"],
       "matchUpdateTypes": ["minor", "patch"],
       "automerge": true
+    },
+    {
+      "description": "TypeScript majors wait for approval on the Dependency Dashboard until typescript-eslint supports them (8.73 peers on typescript <6.1); linting is type-aware, so a TS major it does not support fails CI.",
+      "matchPackageNames": ["typescript"],
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
     }
   ]
 }
