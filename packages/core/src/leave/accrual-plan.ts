@@ -162,8 +162,15 @@ function activeDays(input: AccrualTargetInput) {
       if (start <= end) ranges.push({ start, end, weight });
     }
   }
-  return (from: string, to: string) =>
-    weightedDays(ranges, from, to) / FULL_DAY_WEIGHT;
+  return (from: string, to: string) => weightedDays(ranges, from, to);
+}
+
+/** lcm(28, 29, 30, 31): a common denominator for every month length. */
+const MONTH_LENGTHS_LCM = 377_580n;
+
+/** n / d rounded half up, for n >= 0 and d > 0. */
+function roundHalfUp(n: bigint, d: bigint): number {
+  return Number((2n * n + d) / (2n * d));
 }
 
 const validRatio = (r: number) => r > 0 && r <= 1;
@@ -216,31 +223,43 @@ export function accrualTargetCents(input: AccrualTargetInput): number {
   const monthEnd = month.toPlainDate({ day: month.daysInMonth }).toString();
   const ranges = activeRanges(input, yearStart, yearEnd);
   if (ranges.length === 0) return 0;
-  const daysInYear = getDaysInYear(year);
-  const daysIn = activeDays(input);
+  const daysInYear = BigInt(getDaysInYear(year));
+  // Weighted days are integers (days × FULL_DAY_WEIGHT), so the entitlement
+  // is an exact fraction; it is rounded once, half up, with no float error.
+  const weighted = activeDays(input);
+  const scale = BigInt(FULL_DAY_WEIGHT);
+  const ratio = BigInt(Math.round(input.fteRatio * FULL_DAY_WEIGHT));
+  const allowance = BigInt(allowanceCents) * ratio;
 
-  let fraction: number;
+  let num: bigint;
+  let den: bigint;
   switch (input.policy.accrualMethod) {
     case "upfront":
       if (ranges[0]!.start > monthEnd) return 0;
-      fraction = daysIn(yearStart, yearEnd) / daysInYear;
+      num = allowance * BigInt(weighted(yearStart, yearEnd));
+      den = scale * scale * daysInYear;
       break;
     case "daily":
-      fraction = daysIn(yearStart, monthEnd) / daysInYear;
+      num = allowance * BigInt(weighted(yearStart, monthEnd));
+      den = scale * scale * daysInYear;
       break;
     case "monthly": {
-      let months = 0;
+      // Σ weighted_m / daysInMonth_m over 12 months, on a common denominator.
+      let months = 0n;
       for (let m = 1; m <= month.month; m++) {
         const ym = Temporal.PlainYearMonth.from({ year, month: m });
         const from = ym.toPlainDate({ day: 1 }).toString();
         const to = ym.toPlainDate({ day: ym.daysInMonth }).toString();
-        months += daysIn(from, to) / ym.daysInMonth;
+        months +=
+          BigInt(weighted(from, to)) *
+          (MONTH_LENGTHS_LCM / BigInt(ym.daysInMonth));
       }
-      fraction = months / 12;
+      num = allowance * months;
+      den = scale * scale * 12n * MONTH_LENGTHS_LCM;
       break;
     }
   }
-  return Math.round(allowanceCents * fraction * input.fteRatio);
+  return roundHalfUp(num, den);
 }
 
 /**
