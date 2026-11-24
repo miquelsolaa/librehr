@@ -17,7 +17,7 @@
   },
   "devDependencies": {
     "@librehr/config": "workspace:*",
-    "@types/node": "^22.13.4",
+    "@types/node": "^26.0.0",
     "typescript": "^6.0.3",
     "vitest": "^3.0.5"
   },
