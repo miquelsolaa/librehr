@@ -78,7 +78,7 @@ export function verifyLicenseKey(
   const signature = decodeBase64Url(signatureSegment);
   if (!payloadBytes || !signature) return communityState("invalid");
 
-  let signatureOk = false;
+  let signatureOk: boolean;
   try {
     signatureOk = crypto.verify(
       null,

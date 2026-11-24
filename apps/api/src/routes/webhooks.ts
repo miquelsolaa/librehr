@@ -414,9 +414,9 @@ export function createWebhookRoutes(sql: Sql, urlPolicy: OutboundUrlPolicy) {
 
     const startTime = performance.now();
     let statusCode = 0;
-    let durationMs = 0;
+    let durationMs: number;
     let errorMessage: string | null = null;
-    let success = false;
+    let success: boolean;
 
     try {
       const response = await fetch(target, {
