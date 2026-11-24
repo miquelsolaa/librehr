@@ -170,7 +170,7 @@ export default function TimeCorrectionsPage() {
                 onChange={(e) =>
                   setProposedType(e.target.value as typeof proposedType)
                 }
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-hidden focus:ring-2 focus:ring-focus-ring"
               >
                 <option value="clock_in">{t("clockIn")}</option>
                 <option value="clock_out">{t("clockOut")}</option>
@@ -209,7 +209,7 @@ export default function TimeCorrectionsPage() {
                 required
                 rows={3}
                 placeholder={t("correctionReasonPlaceholder")}
-                className="w-full rounded-md border border-border bg-background p-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring"
+                className="w-full rounded-md border border-border bg-background p-2.5 text-sm text-foreground focus:outline-hidden focus:ring-2 focus:ring-focus-ring"
               />
             </div>
 

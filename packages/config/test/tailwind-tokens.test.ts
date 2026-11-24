@@ -2,13 +2,21 @@ import { describe, it, expect } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { librehrTailwindPreset } from "../tailwind/preset";
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "../../..");
+const themeCss = readFileSync(
+  path.resolve(__dirname, "../tailwind/theme.css"),
+  "utf8",
+);
+
+/** Names declared in the theme under a v4 namespace, e.g. `--color-<name>`. */
+function themeNames(namespace: string): string[] {
+  const pattern = new RegExp(`^\\s*--${namespace}-([\\w-]+)\\s*:`, "gm");
+  return [...themeCss.matchAll(pattern)].map((match) => match[1] ?? "");
+}
 const scanRoots = ["apps/web/src", "packages/ui/src"];
 
-// shadcn-style token names that are easy to paste in but that our preset
+// shadcn-style token names that are easy to paste in but that our theme
 // does not define. Tailwind drops unknown classes silently, so a typo here
 // renders as unstyled UI instead of failing the build.
 const suspectNames = [
@@ -31,7 +39,7 @@ const utilityPrefixes = [
 ];
 
 function definedColorNames(): Set<string> {
-  return new Set(Object.keys(librehrTailwindPreset.theme.extend.colors));
+  return new Set(themeNames("color"));
 }
 
 function listSourceFiles(dir: string): string[] {
@@ -69,11 +77,41 @@ function findOffenders(
   return offenders;
 }
 
-// Tailwind v3 built-in radius scale; anything else must come from the preset.
-const builtInRadii = ["none", "sm", "md", "lg", "xl", "2xl", "3xl", "full"];
+// Tailwind v4 built-in radius scale; anything else must come from the theme.
+const builtInRadii = [
+  "none",
+  "xs",
+  "sm",
+  "md",
+  "lg",
+  "xl",
+  "2xl",
+  "3xl",
+  "4xl",
+  "full",
+];
 
 describe("tailwind semantic tokens", () => {
-  it("source only uses color tokens the preset defines", () => {
+  it("theme maps the DESIGN.md tokens and radii", () => {
+    expect(themeNames("color")).toEqual(
+      expect.arrayContaining([
+        "surface-raised",
+        "muted-foreground",
+        "focus-ring",
+        "scrim",
+      ]),
+    );
+    expect(themeNames("radius")).toEqual(["input", "card", "dialog"]);
+  });
+
+  it("dark mode follows the .dark class, not the OS preference", () => {
+    // next-themes toggles `.dark` on <html> (apps/web layout, attribute="class").
+    expect(themeCss).toMatch(
+      /@custom-variant\s+dark\s+\(\s*&:where\(\s*\.dark\s*,\s*\.dark\s+\*\s*\)\s*\)\s*;/,
+    );
+  });
+
+  it("source only uses color tokens the theme defines", () => {
     const defined = definedColorNames();
     const undefinedNames = suspectNames.filter((name) => !defined.has(name));
     const pattern = new RegExp(
@@ -92,11 +130,8 @@ describe("tailwind semantic tokens", () => {
     expect(findOffenders(pattern)).toEqual([]);
   });
 
-  it("source only uses radius tokens the preset or Tailwind defines", () => {
-    const allowed = new Set([
-      ...builtInRadii,
-      ...Object.keys(librehrTailwindPreset.theme.extend.borderRadius),
-    ]);
+  it("source only uses radius tokens the theme or Tailwind defines", () => {
+    const allowed = new Set([...builtInRadii, ...themeNames("radius")]);
     const pattern = /(?<![\w-])rounded-([a-z0-9]+)(?![\w-])/g;
 
     // Side/corner variants (rounded-t-lg) are skipped by the lookahead.

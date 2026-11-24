@@ -14,7 +14,7 @@ import { getApiClient } from "@/lib/api-client";
 import type { LeaveTypeBalance } from "@librehr/contracts";
 
 const linkClass =
-  "inline-flex min-h-11 items-center text-sm font-medium text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring rounded-input";
+  "inline-flex min-h-11 items-center text-sm font-medium text-primary underline underline-offset-4 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring rounded-input";
 
 export default function HomePage() {
   const t = useTranslations("home");

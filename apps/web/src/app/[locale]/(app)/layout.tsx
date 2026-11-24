@@ -255,7 +255,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               // The sidebar carries the brand on desktop.
               <a
                 href={`/${locale}/home`}
-                className="flex min-w-0 items-center gap-2 rounded-input focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring md:hidden"
+                className="flex min-w-0 items-center gap-2 rounded-input focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring md:hidden"
               >
                 <LibreHRMark
                   size={28}

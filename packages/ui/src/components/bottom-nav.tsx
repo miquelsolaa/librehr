@@ -78,7 +78,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                 : undefined
             }
             className={cn(
-              "flex min-h-[48px] min-w-[48px] flex-1 flex-col items-center justify-center gap-1 rounded-input px-0 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
+              "flex min-h-[48px] min-w-[48px] flex-1 flex-col items-center justify-center gap-1 rounded-input px-0 py-1 text-xs font-medium transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring",
               active
                 ? "text-primary"
                 : "text-muted-foreground hover:text-foreground",
@@ -111,7 +111,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                   aria-current={activeHref === item.href ? "page" : undefined}
                   onClick={() => setOpen(false)}
                   className={cn(
-                    "flex min-h-[44px] items-center gap-3 rounded-input px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring",
+                    "flex min-h-[44px] items-center gap-3 rounded-input px-3 text-sm font-medium focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring",
                     activeHref === item.href
                       ? "bg-accent text-primary"
                       : "text-foreground hover:bg-accent",
@@ -152,7 +152,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             aria-expanded={open}
             aria-controls={open ? panelId : undefined}
             onClick={() => setOpen((value) => !value)}
-            className="flex min-h-[48px] min-w-[48px] flex-1 flex-col items-center justify-center gap-1 rounded-input px-1 py-1 text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+            className="flex min-h-[48px] min-w-[48px] flex-1 flex-col items-center justify-center gap-1 rounded-input px-1 py-1 text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
           >
             <span className="relative text-lg leading-4">
               <span aria-hidden="true">⋯</span>

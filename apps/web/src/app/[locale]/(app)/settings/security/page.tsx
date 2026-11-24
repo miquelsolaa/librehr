@@ -201,7 +201,7 @@ export default function SecuritySettingsPage() {
         breadcrumb={
           <Link
             href={`/${locale}/settings`}
-            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             {tNav("settings")}
@@ -327,7 +327,7 @@ export default function SecuritySettingsPage() {
                 checked={requireTwoFactor}
                 onChange={handleToggleOrgRequirement}
                 disabled={actionLoading || isLoading}
-                className="h-5 w-5 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                className="h-5 w-5 rounded-sm border-border text-primary focus:ring-primary cursor-pointer"
               />
             </div>
           </div>
@@ -468,7 +468,7 @@ export default function SecuritySettingsPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-2 rounded-input border border-border bg-surface p-3 font-mono text-xs text-center">
                   {setupData.recoveryCodes.map((code) => (
-                    <span key={code} className="p-1 rounded bg-background">
+                    <span key={code} className="p-1 rounded-sm bg-background">
                       {code}
                     </span>
                   ))}

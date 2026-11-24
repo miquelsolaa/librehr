@@ -338,7 +338,7 @@ packages/
   ui/           Design system (shadcn/Radix-based), CSS tokens, Storybook
   i18n/         Catalogs (ca, es, en) and CI validation tools
   emails/       React Email templates (Invite, Password Reset)
-  config/       Shared ESLint flat configs, Prettier, Tailwind preset
+  config/       Shared ESLint flat configs, Prettier, Tailwind theme (CSS)
   testing/      Testcontainers helpers and test fixtures
 infra/
   docker/       Multi-stage Dockerfiles for production containers

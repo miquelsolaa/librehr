@@ -19,7 +19,7 @@ export const DropdownMenuContent = React.forwardRef<
       align={align}
       collisionPadding={8}
       className={cn(
-        "z-50 max-h-[var(--radix-dropdown-menu-content-available-height)] min-w-56 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-card border border-border bg-surface-raised p-1 text-foreground shadow-lg",
+        "z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-56 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-card border border-border bg-surface-raised p-1 text-foreground shadow-lg",
         "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
         className,
       )}
@@ -30,7 +30,7 @@ export const DropdownMenuContent = React.forwardRef<
 DropdownMenuContent.displayName = MenuPrimitive.Content.displayName;
 
 const itemClasses =
-  "relative flex min-h-11 cursor-pointer select-none items-center gap-2 rounded-input px-3 text-sm outline-none transition-colors data-[highlighted]:bg-accent data-[highlighted]:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 md:min-h-9";
+  "relative flex min-h-11 cursor-pointer select-none items-center gap-2 rounded-input px-3 text-sm outline-hidden transition-colors data-highlighted:bg-accent data-highlighted:text-foreground data-disabled:pointer-events-none data-disabled:opacity-50 md:min-h-9";
 
 export const DropdownMenuItem = React.forwardRef<
   React.ElementRef<typeof MenuPrimitive.Item>,

@@ -94,7 +94,7 @@ export default function AuditorAccessSettingsPage() {
         breadcrumb={
           <Link
             href={`/${locale}/settings`}
-            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             {tNav("settings")}
@@ -164,7 +164,7 @@ export default function AuditorAccessSettingsPage() {
               id="auditors-heading"
               ref={auditorsHeading}
               tabIndex={-1}
-              className="flex items-center gap-2 text-base font-semibold text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+              className="flex items-center gap-2 text-base font-semibold text-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
             >
               <Users className="h-5 w-5 text-primary" aria-hidden="true" />
               {t("listTitle")}
@@ -185,7 +185,7 @@ export default function AuditorAccessSettingsPage() {
               id="pending-heading"
               ref={pendingHeading}
               tabIndex={-1}
-              className="flex items-center gap-2 text-base font-semibold text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+              className="flex items-center gap-2 text-base font-semibold text-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
             >
               <Mail className="h-5 w-5 text-primary" aria-hidden="true" />
               {t("pendingTitle")}

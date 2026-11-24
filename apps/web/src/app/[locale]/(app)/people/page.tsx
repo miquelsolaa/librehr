@@ -223,7 +223,7 @@ export default function PeoplePage() {
         actions={
           <>
             <div className="flex items-center rounded-input border border-border bg-surface p-1">
-              <span className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-sm">
+              <span className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-xs">
                 {t("directory")}
               </span>
               <Link
@@ -286,7 +286,7 @@ export default function PeoplePage() {
                       </label>
                       <select
                         id="invite-role"
-                        className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                        className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
                         value={inviteRole}
                         onChange={(e) =>
                           setInviteRole(
@@ -341,7 +341,7 @@ export default function PeoplePage() {
 
         <div className="flex items-center gap-2">
           <select
-            className="h-10 rounded-input border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+            className="h-10 rounded-input border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
             value={selectedDept}
             onChange={(e) => setSelectedDept(e.target.value)}
             aria-label={t("allDepartments")}
@@ -355,7 +355,7 @@ export default function PeoplePage() {
           </select>
 
           <select
-            className="h-10 rounded-input border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+            className="h-10 rounded-input border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
             aria-label={t("allStatuses")}

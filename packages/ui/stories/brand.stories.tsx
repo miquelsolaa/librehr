@@ -45,7 +45,7 @@ const BrandPage: React.FC = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Light Theme */}
-          <div className="p-8 rounded-xl bg-white border border-slate-200 shadow-sm space-y-6">
+          <div className="p-8 rounded-xl bg-white border border-slate-200 shadow-xs space-y-6">
             <span className="text-xs font-semibold uppercase text-slate-400 tracking-wider">
               Light Canvas (Mediterranean Pine #1a564b)
             </span>
@@ -60,7 +60,7 @@ const BrandPage: React.FC = () => {
           </div>
 
           {/* Dark Theme */}
-          <div className="p-8 rounded-xl bg-[#11151c] border border-slate-800 shadow-sm space-y-6">
+          <div className="p-8 rounded-xl bg-[#11151c] border border-slate-800 shadow-xs space-y-6">
             <span className="text-xs font-semibold uppercase text-slate-400 tracking-wider">
               Dark Canvas (Luminous Sage #4ecbb6)
             </span>
@@ -169,7 +169,7 @@ const BrandPage: React.FC = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Primary Pine */}
-          <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
             <div className="h-28 bg-[#1a564b] p-4 flex flex-col justify-end text-white">
               <span className="text-xs font-semibold uppercase tracking-wider opacity-80">
                 Primary (Light)
@@ -186,7 +186,7 @@ const BrandPage: React.FC = () => {
           </div>
 
           {/* Primary Sage */}
-          <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
             <div className="h-28 bg-[#4ecbb6] p-4 flex flex-col justify-end text-[#0d201c]">
               <span className="text-xs font-semibold uppercase tracking-wider opacity-80">
                 Primary (Dark)
@@ -203,7 +203,7 @@ const BrandPage: React.FC = () => {
           </div>
 
           {/* Accent Terracotta */}
-          <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
             <div className="h-28 bg-[#d9822b] p-4 flex flex-col justify-end text-white">
               <span className="text-xs font-semibold uppercase tracking-wider opacity-80">
                 Warm Accent
@@ -342,7 +342,7 @@ const BrandPage: React.FC = () => {
               key={icon.name}
               className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center text-center space-y-2"
             >
-              <div className="p-3 rounded-lg bg-white dark:bg-slate-800 text-[#1a564b] dark:text-[#4ecbb6] shadow-sm">
+              <div className="p-3 rounded-lg bg-white dark:bg-slate-800 text-[#1a564b] dark:text-[#4ecbb6] shadow-xs">
                 {icon.component}
               </div>
               <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">

@@ -82,7 +82,7 @@ export function NotificationBell() {
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="relative flex h-9 w-9 items-center justify-center rounded-md border border-border bg-background hover:bg-surface focus:outline-none focus:ring-2 focus:ring-focus-ring"
+        className="relative flex h-9 w-9 items-center justify-center rounded-md border border-border bg-background hover:bg-surface focus:outline-hidden focus:ring-2 focus:ring-focus-ring"
       >
         <Bell className="h-4 w-4 text-foreground" aria-hidden="true" />
         <span className="sr-only">{t("title")}</span>
