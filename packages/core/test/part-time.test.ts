@@ -234,6 +234,17 @@ describe("part-time accrual", () => {
       );
     });
 
+    it("rounds an exact half cent up, whatever the float error (CI seed -1285587461)", () => {
+      // 14.5 days at 3%: exactly 43.5 cents for 2029, so half-up gives 44.
+      const input = base(
+        "daily",
+        14.5,
+        [{ start: "1990-01-01", end: null, fteRatio: 0.03 }],
+        periodOf(2029, 12),
+      );
+      expect(accrualTargetCents(input)).toBe(44);
+    });
+
     it("daily: a mid-year change of contract weights each day", () => {
       fc.assert(
         fc.property(
@@ -259,8 +270,11 @@ describe("part-time accrual", () => {
             const days = getDaysInYear(y);
             const ppm = (r: number) => Math.round(r * FULL_DAY_WEIGHT);
             const weighted = s * ppm(r1) + (days - s) * ppm(r2);
+            // Exact half-up rounding of a·100·weighted / (FULL_DAY_WEIGHT·days).
+            const num = BigInt(Math.round(a * 100)) * BigInt(weighted);
+            const den = BigInt(FULL_DAY_WEIGHT) * BigInt(days);
             expect(accrualTargetCents(input)).toBe(
-              Math.round((a * 100 * (weighted / FULL_DAY_WEIGHT)) / days),
+              Number((2n * num + den) / (2n * den)),
             );
           },
         ),
