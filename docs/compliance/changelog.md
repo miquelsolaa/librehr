@@ -2,6 +2,11 @@
 
 All legal and regulatory revisions affecting LibreHR are tracked here.
 
+## [2026-11-26] - Email verification and auth link retention (`AUTH-001`)
+
+- **Email verification (`AUTH-001`):** Accounts confirm their email address with a single-use link (24 h by default) plus the account password, so whoever receives a link sent to a mistyped address cannot confirm it. Password reset links go only to confirmed addresses. Each confirmation writes an `auth.email_verified` audit entry with ids only.
+- **Retention (`ADM-005` pending):** Rows of `email_verification_tokens` (which hold the address a link was sent to) and `password_reset_tokens` are kept 30 days. Until ADM-005 ships, the API deletes older rows whenever a new link is requested. See `COMPLIANCE.md` section 5.
+
 ## [2026-11-02] - Milestone M5: Integrations, Token Security & Hash Chain Verification
 
 - **Token Security & Scoping (`ADM-006`):** Personal Access Tokens (PATs) use high-entropy prefixing (`lhr_`), one-way SHA-256 storage, and strict scope verification, preventing credential leakage in compliance with ISO/IEC 27001 access control requirements.

@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import type { Sql } from "postgres";
 import { hashBearerToken } from "@librehr/db";
+import { verifyPassword } from "./password.js";
 
 /**
  * AUTH-001 email verification.
@@ -9,7 +10,10 @@ import { hashBearerToken } from "@librehr/db";
  * stored, with the address it was sent to. A token works once, until it
  * expires (24 h by default), and only while that address is still the
  * account's email. Requesting a new link spends the user's earlier unused
- * links, so at most one is ever valid. Confirming grants no session.
+ * links, so at most one is ever valid. Confirming also needs the account
+ * password, so a stranger who receives a link sent to a mistyped address
+ * cannot verify it (and then get password reset links for the account).
+ * Confirming grants no session.
  */
 
 /** Default cap on links per account per hour, whatever IP asks for them. */
@@ -72,19 +76,49 @@ export async function createEmailVerificationToken(
   });
 }
 
+export type EmailVerificationResult =
+  | { status: "verified"; userId: string }
+  | { status: "invalid_token" }
+  | { status: "invalid_password" };
+
 /**
- * Marks the account's email as verified with a link token: spends the token
- * and audits the verification in each of the user's organizations, in one
- * transaction (librehr_auth_verify_email, migration 0043). Returns the user
- * id, or null for an unknown, used, expired or no longer matching token.
+ * Marks the account's email as verified with a link token and the account
+ * password: spends the token and audits the verification in each of the
+ * user's organizations, in one transaction (librehr_auth_verify_email,
+ * migration 0043).
+ *
+ * The token is looked up first, so the password is checked against the
+ * account the link belongs to. A wrong password spends nothing, so the
+ * owner can still use the link. Accounts without a password (single sign-on
+ * only) cannot confirm this way. `invalid_token` covers an unknown, used,
+ * expired or no longer matching token.
  */
 export async function verifyEmailWithToken(
   sql: Sql,
   token: string,
-): Promise<string | null> {
+  password: string,
+): Promise<EmailVerificationResult> {
+  const tokenHash = hashBearerToken(token);
+  const [link] = await sql<{ userId: string; passwordHash: string | null }[]>`
+    SELECT t.user_id AS "userId", u.password_hash AS "passwordHash"
+    FROM email_verification_tokens t
+    JOIN users u ON u.id = t.user_id
+    WHERE t.token_hash = ${tokenHash}
+      AND t.used_at IS NULL
+      AND t.expires_at > now()
+      AND t.email = u.email`;
+  if (!link) return { status: "invalid_token" };
+  if (!(await verifyPassword(password, link.passwordHash))) {
+    return { status: "invalid_password" };
+  }
+  // The function re-checks the token under lock: it may have been spent or
+  // the email changed since the lookup above.
   const [row] = await sql<{ userId: string | null }[]>`
-    SELECT librehr_auth_verify_email(${hashBearerToken(token)}) AS "userId"`;
-  return row?.userId ?? null;
+    SELECT librehr_auth_verify_email(${tokenHash}, ${link.userId}::uuid)
+      AS "userId"`;
+  return row?.userId
+    ? { status: "verified", userId: row.userId }
+    : { status: "invalid_token" };
 }
 
 export type VerificationLocale = "ca" | "es" | "en";
@@ -101,26 +135,26 @@ const copy: Record<
   ca: {
     subject: "Confirma la teva adreça electrònica a LibreHR",
     intro:
-      "Confirma que aquesta és l'adreça electrònica del teu compte de LibreHR. La farem servir per enviar-te els enllaços per restablir la contrasenya.",
+      "S'ha creat un compte de LibreHR amb aquesta adreça electrònica. Si l'has creat tu, confirma-la amb la contrasenya del compte. Si no l'has creat tu, no la confirmis: ignora aquest correu.",
     action: "Confirma l'adreça electrònica",
     outro: (hours) =>
-      `L'enllaç caduca d'aquí a ${hours} ${hours === 1 ? "hora" : "hores"} i només es pot fer servir una vegada. Si no tens cap compte a LibreHR, ignora aquest correu.`,
+      `L'enllaç caduca d'aquí a ${hours} ${hours === 1 ? "hora" : "hores"} i només es pot fer servir una vegada.`,
   },
   es: {
     subject: "Confirma tu dirección de correo en LibreHR",
     intro:
-      "Confirma que esta es la dirección de correo de tu cuenta de LibreHR. La usaremos para enviarte los enlaces para restablecer la contraseña.",
+      "Se ha creado una cuenta de LibreHR con esta dirección de correo. Si la has creado tú, confírmala con la contraseña de la cuenta. Si no la has creado tú, no la confirmes: ignora este correo.",
     action: "Confirmar la dirección de correo",
     outro: (hours) =>
-      `El enlace caduca en ${hours} ${hours === 1 ? "hora" : "horas"} y solo se puede usar una vez. Si no tienes ninguna cuenta en LibreHR, ignora este correo.`,
+      `El enlace caduca en ${hours} ${hours === 1 ? "hora" : "horas"} y solo se puede usar una vez.`,
   },
   en: {
     subject: "Confirm your email address on LibreHR",
     intro:
-      "Confirm that this is the email address of your LibreHR account. We will use it to send you password reset links.",
+      "A LibreHR account was created with this email address. If you created it, confirm the address with the account password. If you did not, do not confirm it: ignore this email.",
     action: "Confirm email address",
     outro: (hours) =>
-      `The link expires in ${hours} ${hours === 1 ? "hour" : "hours"} and works only once. If you do not have a LibreHR account, ignore this email.`,
+      `The link expires in ${hours} ${hours === 1 ? "hour" : "hours"} and works only once.`,
   },
 };
 
