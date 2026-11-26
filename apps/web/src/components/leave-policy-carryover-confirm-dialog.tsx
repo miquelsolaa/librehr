@@ -41,12 +41,6 @@ export function LeavePolicyCarryoverConfirmDialog({
   onCloseAutoFocus,
 }: LeavePolicyCarryoverConfirmDialogProps) {
   const t = useTranslations("leavePolicies");
-  const [acknowledged, setAcknowledged] = React.useState(false);
-  const ackId = React.useId();
-
-  React.useEffect(() => {
-    if (open) setAcknowledged(false);
-  }, [open]);
 
   return (
     <Dialog
@@ -72,32 +66,54 @@ export function LeavePolicyCarryoverConfirmDialog({
           <strong>{t("carryoverLegalPendingTitle")}</strong>{" "}
           {t("carryoverLegalPending")}
         </p>
-        <div className="flex items-start gap-2">
-          <input
-            id={ackId}
-            type="checkbox"
-            checked={acknowledged}
-            onChange={(event) => setAcknowledged(event.target.checked)}
-            className="mt-0.5 h-6 w-6 shrink-0 rounded-sm border-border"
-          />
-          <label htmlFor={ackId} className="text-sm font-medium">
-            {t("carryoverConfirmAck")}
-          </label>
-        </div>
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onCancel}>
-            {t("carryoverConfirmCancel")}
-          </Button>
-          <Button
-            type="button"
-            variant="danger"
-            disabled={!acknowledged}
-            onClick={onConfirm}
-          >
-            {t("carryoverConfirmSubmit")}
-          </Button>
-        </DialogFooter>
+        <CarryoverAcknowledgement onCancel={onCancel} onConfirm={onConfirm} />
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Lives inside `DialogContent`, which Radix unmounts on close, so every
+ * opening starts unacknowledged from its first frame (no reset effect).
+ */
+function CarryoverAcknowledgement({
+  onCancel,
+  onConfirm,
+}: {
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const t = useTranslations("leavePolicies");
+  const [acknowledged, setAcknowledged] = React.useState(false);
+  const ackId = React.useId();
+
+  return (
+    <>
+      <div className="flex items-start gap-2">
+        <input
+          id={ackId}
+          type="checkbox"
+          checked={acknowledged}
+          onChange={(event) => setAcknowledged(event.target.checked)}
+          className="mt-0.5 h-6 w-6 shrink-0 rounded-sm border-border"
+        />
+        <label htmlFor={ackId} className="text-sm font-medium">
+          {t("carryoverConfirmAck")}
+        </label>
+      </div>
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onCancel}>
+          {t("carryoverConfirmCancel")}
+        </Button>
+        <Button
+          type="button"
+          variant="danger"
+          disabled={!acknowledged}
+          onClick={onConfirm}
+        >
+          {t("carryoverConfirmSubmit")}
+        </Button>
+      </DialogFooter>
+    </>
   );
 }

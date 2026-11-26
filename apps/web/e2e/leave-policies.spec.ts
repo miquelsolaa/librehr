@@ -224,6 +224,14 @@ test("a failed carry-over save is reported and nothing changes", async ({
   await expect(
     page.getByText("Off: the whole balance is carried over"),
   ).toBeVisible();
+
+  // Trying again needs a fresh acknowledgement (#133 review).
+  await page.getByRole("button", { name: "Save carry-over rule" }).click();
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByLabel(ACK)).not.toBeChecked();
+  await expect(
+    dialog.getByRole("button", { name: "Turn on the cap" }),
+  ).toBeDisabled();
 });
 
 test("invalid hours are refused before saving, and a failed save is reported", async ({
