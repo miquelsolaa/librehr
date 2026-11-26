@@ -125,10 +125,31 @@ export class TokenRepository {
     `;
   }
 
+  /**
+   * Revokes every personal access token of a user in **every** organization
+   * (issue #35), through the SECURITY DEFINER function of migration 0039:
+   * the runtime role cannot see other organizations' tokens itself. Runs in
+   * the caller's transaction, so it commits or rolls back with it. Returns
+   * the revoked tokens' ids and organizations, for auditing each one in its
+   * own organization.
+   */
+  async revokeAllForUser(
+    tx: TenantTx,
+    userId: string,
+  ): Promise<{ id: string; organizationId: string }[]> {
+    const rows = await tx<{ id: string; organizationId: string }[]>`
+      SELECT id, organization_id AS "organizationId"
+      FROM librehr_revoke_user_tokens(${userId}::uuid)
+    `;
+    return rows.map((r) => ({ id: r.id, organizationId: r.organizationId }));
+  }
+
   async delete(tx: TenantTx, id: string, userId: string): Promise<boolean> {
+    // organization_id repeats what RLS already enforces (belt and braces).
     const res = await tx`
       DELETE FROM personal_access_tokens
       WHERE id = ${id} AND user_id = ${userId}
+        AND organization_id = ${tx.__tenantContext.organizationId}
     `;
     return res.count > 0;
   }

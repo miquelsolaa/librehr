@@ -2049,6 +2049,7 @@ import type {
   MeResponse,
   TwoFactorSetupResponse,
   TwoFactorEnableRequest,
+  TwoFactorEnableResponse,
   TwoFactorVerifyRequest,
   OrgSecuritySettings,
   UpdateOrgSecuritySettings,
@@ -2946,8 +2947,8 @@ export class LibreHrApiClient {
     });
   }
 
-  async enableTwoFactor(data: TwoFactorEnableRequest): Promise<{ success: boolean }> {
-    return this.request<{ success: boolean }>('/v1/auth/2fa/enable', {
+  async enableTwoFactor(data: TwoFactorEnableRequest): Promise<TwoFactorEnableResponse> {
+    return this.request<TwoFactorEnableResponse>('/v1/auth/2fa/enable', {
       method: 'POST',
       body: JSON.stringify(data),
     });
