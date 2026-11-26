@@ -179,13 +179,23 @@ const API_FIXTURES: Record<string, unknown> = {
     terminationDate: null,
     terminationReason: null,
     employmentType: "indefinido",
+    workingHoursPerWeek: 37.5,
     startDate: "2024-03-01",
     hasNationalId: true,
     hasIban: false,
     createdAt: TIMESTAMP,
     updatedAt: TIMESTAMP,
   },
-  [`/v1/employees/${EMPLOYEE_ID}/employment-history`]: [],
+  [`/v1/employees/${EMPLOYEE_ID}/employment-history`]: [
+    {
+      id: "00000000-0000-4000-8000-000000000009",
+      jobTitle: "Operations Lead",
+      employmentType: "indefinido",
+      workingHoursPerWeek: 37.5,
+      startDate: "2024-03-01",
+      endDate: null,
+    },
+  ],
   [`/v1/people/${EMPLOYEE_ID}/emergency-contacts`]: [
     {
       id: "00000000-0000-4000-8000-000000000007",
@@ -374,7 +384,13 @@ const SIGNED_IN_SCREENS: PageCase[] = [
   {
     path: `/en/people/${EMPLOYEE_ID}`,
     heading: "Alex Example",
-    ready: visible((page) => page.getByText("Sam Example")),
+    // Scanned with the admin's add-period form (weekly hours, #131) shown.
+    ready: async (page) => {
+      await expect(page.getByText("Sam Example").first()).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Add period" }),
+      ).toBeVisible();
+    },
   },
   { path: "/en/settings", heading: "Settings" },
   {
