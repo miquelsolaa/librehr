@@ -4,6 +4,8 @@
  */
 
 import type {
+  PasswordResetConfirm,
+  PasswordResetRequest,
   SignInRequest,
   SignInResult,
   SessionResponse,
@@ -220,6 +222,21 @@ export class LibreHrApiClient {
 
   async signIn(data: SignInRequest): Promise<SignInResult> {
     return this.request<SignInResult>('/v1/auth/sign-in', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // AUTH-001: always resolves for a well-formed email, account or not.
+  async requestPasswordReset(data: PasswordResetRequest): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>('/v1/auth/password-reset', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async confirmPasswordReset(data: PasswordResetConfirm): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>('/v1/auth/password-reset/confirm', {
       method: 'POST',
       body: JSON.stringify(data),
     });

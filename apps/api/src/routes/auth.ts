@@ -2,6 +2,8 @@ import crypto from "node:crypto";
 import { Hono, type Context } from "hono";
 import type { Sql } from "postgres";
 import {
+  PasswordResetConfirmSchema,
+  PasswordResetRequestSchema,
   SignInRequestSchema,
   TwoFactorEnableRequestSchema,
   TwoFactorVerifyRequestSchema,
@@ -31,7 +33,18 @@ import {
   setSessionCookie,
   type SessionCookieOptions,
 } from "../lib/session-cookie.js";
-import { ConflictError, UnauthorizedError } from "../errors/index.js";
+import {
+  ConflictError,
+  UnauthorizedError,
+  ValidationError,
+} from "../errors/index.js";
+import type { MailPort } from "../ports/mail.js";
+import { logger } from "../middleware/logger.js";
+import {
+  createPasswordResetToken,
+  passwordResetEmail,
+  resetPasswordWithToken,
+} from "../lib/password-reset.js";
 import { parseJsonBody } from "../lib/validate.js";
 import { FailureLockout } from "../lib/failure-lockout.js";
 import {
@@ -47,6 +60,13 @@ export interface AuthRouteOptions {
   nodeEnv?: SessionCookieOptions["nodeEnv"];
   /** Trusted reverse-proxy hops (TRUST_PROXY) for rate-limit client IPs. */
   trustProxy?: number | undefined;
+  /** Sends password reset emails (AUTH-001); without it no email goes out. */
+  mailPort?: MailPort | undefined;
+  /** Public web app URL (APP_URL), the base of password reset links. */
+  appUrl?: string | undefined;
+  /** Overrides of the reset limits (tests); see lib/password-reset.ts. */
+  passwordReset?:
+    { maxLinksPerAccountPerHour?: number | undefined } | undefined;
 }
 
 function challengeSecret(value: string | undefined): string | null {
@@ -327,6 +347,85 @@ export function createAuthRoutes(
     if (!session) throw noActiveMembership();
     return issueSession(c, session);
   });
+
+  // AUTH-001 password reset. The request answers 202 for any well-formed
+  // email and sends the email without awaiting it, so neither the status nor
+  // the response time tells whether an account exists. Besides these
+  // per-IP buckets, createPasswordResetToken caps links per account in the
+  // database, so rotating IPs cannot flood one inbox.
+  const resetRequestLimit = createRateLimiter({
+    windowMs: 15 * minute,
+    max: 5,
+    trustProxy,
+    account: (c) => bodyField(c, "email"),
+  });
+  // Tokens are 256-bit, so guessing is hopeless; a per-IP bucket is enough.
+  const resetConfirmLimit = createRateLimiter({
+    windowMs: minute,
+    max: 10,
+    trustProxy,
+  });
+  const resetLinksPerHour = options.passwordReset?.maxLinksPerAccountPerHour;
+  const { mailPort, appUrl } = options;
+  if (!mailPort || !appUrl) {
+    logger.warn(
+      { mail: Boolean(mailPort), appUrl: Boolean(appUrl) },
+      "password reset emails are off: SMTP or APP_URL is not configured",
+    );
+  }
+
+  router.post("/password-reset", perIp(), resetRequestLimit, async (c) => {
+    const body = await c.req.json().catch(() => null);
+    const parsed = PasswordResetRequestSchema.safeParse(body);
+    if (!parsed.success) throw ValidationError.fromZod(parsed.error);
+    const { email, locale = "ca" } = parsed.data;
+    if (!mailPort || !appUrl) return c.json({ success: true }, 202);
+
+    void createPasswordResetToken(sql, email, resetLinksPerHour)
+      .then((created) => {
+        if (!created) return;
+        const message = passwordResetEmail(appUrl, locale, created.token);
+        return mailPort.sendMail({ to: email, ...message });
+      })
+      .catch((err: unknown) => {
+        // Only the error class and code: SMTP messages often quote the
+        // recipient address.
+        const code =
+          typeof err === "object" && err !== null && "code" in err
+            ? String(err.code)
+            : undefined;
+        logger.error(
+          { errName: err instanceof Error ? err.name : "unknown", code },
+          "password reset email failed",
+        );
+      });
+
+    return c.json({ success: true }, 202);
+  });
+
+  router.post(
+    "/password-reset/confirm",
+    perIp(),
+    resetConfirmLimit,
+    async (c) => {
+      const body = await c.req.json().catch(() => null);
+      const parsed = PasswordResetConfirmSchema.safeParse(body);
+      if (!parsed.success) throw ValidationError.fromZod(parsed.error);
+
+      const userId = await resetPasswordWithToken(
+        sql,
+        parsed.data.token,
+        parsed.data.password,
+      );
+      if (!userId) {
+        throw new ValidationError({
+          code: "RESET_TOKEN_INVALID",
+          detail: "The reset link is invalid, used or expired",
+        });
+      }
+      return c.json({ success: true });
+    },
+  );
 
   // Verify 2FA challenge token and issue session
   router.post("/2fa/verify", perIp(), verifyLimit, async (c) => {

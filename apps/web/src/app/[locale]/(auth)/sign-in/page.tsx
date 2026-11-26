@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button, DayRing, Input, LibreHRMark } from "@librehr/ui";
@@ -323,6 +324,14 @@ export default function SignInPage() {
                     placeholder={tAuth("passwordPlaceholder")}
                   />
                 </div>
+                <p className="mt-2 text-right text-sm">
+                  <Link
+                    href={`/${locale}/forgot-password`}
+                    className="font-medium text-primary hover:underline"
+                  >
+                    {tAuth("forgotPasswordLink")}
+                  </Link>
+                </p>
               </div>
 
               <div className="pt-2">
