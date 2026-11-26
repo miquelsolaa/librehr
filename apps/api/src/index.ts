@@ -4,6 +4,7 @@ import { runMigrations } from "@librehr/db/migrate";
 import { configureEnvelopeKey } from "@librehr/db";
 import { loadEnv } from "./env.js";
 import { createApp } from "./app.js";
+import { LocalStorageAdapter } from "./adapters/storage-local.js";
 import { loadEdition } from "./extensions/load.js";
 import { BetterAuthAdapter } from "./adapters/better-auth.js";
 import { SmtpMailAdapter } from "./adapters/mail-smtp.js";
@@ -67,6 +68,9 @@ async function bootstrap() {
     license: edition.license,
     extensions: edition.extensions,
     mailPort,
+    // Without this the adapter falls back to ./data/storage under the cwd,
+    // which in the container is outside the mounted storage volume.
+    storagePort: new LocalStorageAdapter(env.STORAGE_LOCAL_DIR),
     sessionSecret: env.SESSION_SECRET,
     timeChainKey: env.TIME_CHAIN_KEY,
     nodeEnv: env.NODE_ENV,

@@ -102,6 +102,7 @@ LibreHR is designed to be easily self-hostable on any standard Linux server, VPS
    | `PUBLIC_API_URL`         | no       | Browser-facing API URL baked into the web image. Leave empty (same origin); see [Public URLs](#public-urls-and-the-reverse-proxy) |
    | `SMTP_HOST`              | yes      | Your SMTP relay (`SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` are optional)                                                 |
    | `SCHEDULER_*`            | no       | Worker job scheduler: on by default; see [the job scheduler guide](job-scheduler.md)                                              |
+   | `STORAGE_LOCAL_DIR`      | no       | Directory for uploaded document files. The compose file sets `/data/storage`, the `librehr_storage` volume; back it up            |
 
    In production the API also refuses a `DATABASE_URL` that connects as
    `librehr_owner`, as the migration role, or as the bootstrap superuser

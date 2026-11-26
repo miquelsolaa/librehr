@@ -43,6 +43,39 @@ All LibreHR database migrations are designed to be forward-only and safe to run 
    curl -f http://localhost:3001/readyz
    ```
 
+## Document files move to the storage volume (`STORAGE_LOCAL_DIR`)
+
+Earlier releases ignored `STORAGE_LOCAL_DIR`: the API wrote uploaded document
+files to `./data/storage` under its working directory, which in the container
+is `/app/data/storage`, outside the `librehr_storage` volume. Files there are
+lost whenever the container is recreated. The API now writes to
+`STORAGE_LOCAL_DIR` (`/data/storage` in the bundled compose file, the volume),
+and the image creates that directory owned by the API user.
+
+A volume created by an earlier release is owned by `root`, so the API cannot
+write to it. Before you recreate the `api` container, save any files the old
+container holds; after the upgrade, copy them back and fix the ownership:
+
+```bash
+# Before upgrading (prints an error if there is nothing to save):
+docker compose --env-file .env -f infra/compose/docker-compose.yml \
+  cp api:/app/data/storage ./librehr-storage-copy
+# After `up -d` with the new image:
+docker compose --env-file .env -f infra/compose/docker-compose.yml \
+  exec --user root api chown librehr:nodejs /data/storage
+# Only if the first command saved files:
+docker compose --env-file .env -f infra/compose/docker-compose.yml \
+  cp ./librehr-storage-copy/. api:/data/storage/
+docker compose --env-file .env -f infra/compose/docker-compose.yml \
+  exec --user root api chown -R librehr:nodejs /data/storage
+```
+
+The copy holds employee documents: delete it once the files are back in the
+volume. A document whose file was already lost still has its database row;
+downloading it answers "not found". Outside Docker, set `STORAGE_LOCAL_DIR`
+to the directory that already holds your files (by default `./data/storage`
+relative to where the API starts), or move them there.
+
 ## Enabling 2FA revokes personal access tokens (migration 0039)
 
 From this release, enabling two-factor authentication ends the account's
