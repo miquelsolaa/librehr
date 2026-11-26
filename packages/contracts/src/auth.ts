@@ -30,6 +30,26 @@ export const PasswordResetConfirmSchema = z.object({
 });
 export type PasswordResetConfirm = z.infer<typeof PasswordResetConfirmSchema>;
 
+/**
+ * AUTH-001: asks for a new email verification link for the signed-in
+ * account. `locale` picks the email language and the web path of the link;
+ * without it the organization's default locale is used.
+ */
+export const EmailVerificationRequestSchema = z.object({
+  locale: z.enum(["ca", "es", "en"]).optional(),
+});
+export type EmailVerificationRequest = z.infer<
+  typeof EmailVerificationRequestSchema
+>;
+
+/** AUTH-001: confirms the account's email with the token from the link. */
+export const EmailVerificationConfirmSchema = z.object({
+  token: z.string().min(20).max(200),
+});
+export type EmailVerificationConfirm = z.infer<
+  typeof EmailVerificationConfirmSchema
+>;
+
 export const AuthUserSchema = z.object({
   id: z.guid(),
   email: z.string().email(),
@@ -66,6 +86,8 @@ export const MeResponseSchema = z.object({
     requireTwoFactor: z.boolean().optional(),
   }),
   permissions: z.array(z.string()),
+  /** AUTH-001: whether the account's email address has been confirmed. */
+  emailVerified: z.boolean(),
 });
 export type MeResponse = z.infer<typeof MeResponseSchema>;
 

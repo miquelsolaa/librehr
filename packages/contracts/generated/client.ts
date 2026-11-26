@@ -4,6 +4,8 @@
  */
 
 import type {
+  EmailVerificationConfirm,
+  EmailVerificationRequest,
   PasswordResetConfirm,
   PasswordResetRequest,
   SignInRequest,
@@ -238,6 +240,22 @@ export class LibreHrApiClient {
 
   async confirmPasswordReset(data: PasswordResetConfirm): Promise<{ success: boolean }> {
     return this.request<{ success: boolean }>('/v1/auth/password-reset/confirm', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // AUTH-001: emails a verification link to the signed-in account.
+  async requestEmailVerification(data: EmailVerificationRequest = {}): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>('/v1/auth/email-verification', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // AUTH-001: works without a session, so the link opens on any device.
+  async confirmEmailVerification(data: EmailVerificationConfirm): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>('/v1/auth/email-verification/confirm', {
       method: 'POST',
       body: JSON.stringify(data),
     });

@@ -346,6 +346,14 @@ export function createInvitationRoutes(
               code: "INVALID_CREDENTIALS",
             });
           user = account;
+          // Accepting a link that only reached this mailbox proves it
+          // (AUTH-001): new accounts are inserted verified, and so an
+          // existing account whose email is the invited one becomes verified.
+          await tx`
+            UPDATE users SET email_verified = true, updated_at = now()
+            WHERE id = ${account.id} AND email = ${invite.email}
+              AND NOT email_verified
+          `;
         }
 
         // 3. TIM-008: an invitation older than the last access change of an

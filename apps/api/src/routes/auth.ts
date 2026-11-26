@@ -2,6 +2,8 @@ import crypto from "node:crypto";
 import { Hono, type Context } from "hono";
 import type { Sql } from "postgres";
 import {
+  EmailVerificationConfirmSchema,
+  EmailVerificationRequestSchema,
   PasswordResetConfirmSchema,
   PasswordResetRequestSchema,
   SignInRequestSchema,
@@ -47,6 +49,12 @@ import {
   passwordResetEmail,
   resetPasswordWithToken,
 } from "../lib/password-reset.js";
+import {
+  sendEmailVerification,
+  verifyEmailWithToken,
+  type EmailVerificationOptions,
+} from "../lib/email-verification.js";
+import { requireInteractiveSession } from "../middleware/pat-scopes.js";
 import { parseJsonBody } from "../lib/validate.js";
 import { FailureLockout } from "../lib/failure-lockout.js";
 import type { RateLimitStore } from "../lib/rate-limit-store.js";
@@ -72,6 +80,8 @@ export interface AuthRouteOptions {
   /** Overrides of the reset limits (tests); see lib/password-reset.ts. */
   passwordReset?:
     { maxLinksPerAccountPerHour?: number | undefined } | undefined;
+  /** Overrides of the email verification defaults (cap, link lifetime). */
+  emailVerification?: EmailVerificationOptions | undefined;
 }
 
 function challengeSecret(value: string | undefined): string | null {
@@ -394,7 +404,7 @@ export function createAuthRoutes(
   if (!mailPort || !appUrl) {
     logger.warn(
       { mail: Boolean(mailPort), appUrl: Boolean(appUrl) },
-      "password reset emails are off: SMTP or APP_URL is not configured",
+      "password reset and email verification emails are off: SMTP or APP_URL is not configured",
     );
   }
 
@@ -450,6 +460,87 @@ export function createAuthRoutes(
         throw new ValidationError({
           code: "RESET_TOKEN_INVALID",
           detail: "The reset link is invalid, used or expired",
+        });
+      }
+      return c.json({ success: true });
+    },
+  );
+
+  // AUTH-001 email verification. Requesting a link needs an interactive
+  // session (personal access tokens are refused); confirming needs only the
+  // 256-bit token, so the link works on another device, and grants no
+  // session. Besides these buckets, createEmailVerificationToken caps links
+  // per account in the database.
+  const verificationUserLimit = createRateLimiter({
+    name: "auth.email-verification.user",
+    store,
+    windowMs: 15 * minute,
+    max: 3,
+    trustProxy,
+    account: (c) => currentUser(c).id,
+  });
+  const verificationConfirmLimit = createRateLimiter({
+    name: "auth.email-verification-confirm.ip",
+    store,
+    windowMs: minute,
+    max: 10,
+    trustProxy,
+  });
+
+  router.post(
+    "/email-verification",
+    requireAuth,
+    perIp("auth.email-verification.ip"),
+    verificationUserLimit,
+    async (c) => {
+      requireInteractiveSession(c);
+      const user = currentUser(c);
+      const body: unknown = await c.req.json().catch(() => ({}));
+      const parsed = EmailVerificationRequestSchema.safeParse(body ?? {});
+      if (!parsed.success) throw ValidationError.fromZod(parsed.error);
+      if (!mailPort || !appUrl) {
+        return c.json(
+          createProblemDetails({
+            status: 503,
+            title: "Service unavailable",
+            detail: "Email is not configured on this instance",
+            code: "EMAIL_UNAVAILABLE",
+          }),
+          503,
+          { "Content-Type": "application/problem+json" },
+        );
+      }
+      let locale: string | undefined = parsed.data.locale;
+      if (!locale) {
+        const [org] = await sql<{ defaultLocale: string }[]>`
+          SELECT default_locale AS "defaultLocale" FROM organizations
+          WHERE id = ${user.organizationId}`;
+        locale = org?.defaultLocale;
+      }
+      sendEmailVerification(
+        sql,
+        { mailPort, appUrl },
+        user.id,
+        locale,
+        options.emailVerification,
+      );
+      return c.json({ success: true }, 202);
+    },
+  );
+
+  router.post(
+    "/email-verification/confirm",
+    perIp("auth.email-verification-confirm.ip-burst"),
+    verificationConfirmLimit,
+    async (c) => {
+      const body = await c.req.json().catch(() => null);
+      const parsed = EmailVerificationConfirmSchema.safeParse(body);
+      if (!parsed.success) throw ValidationError.fromZod(parsed.error);
+      const userId = await verifyEmailWithToken(sql, parsed.data.token);
+      if (!userId) {
+        throw new ValidationError({
+          code: "VERIFICATION_TOKEN_INVALID",
+          detail: "The verification link is invalid, used or expired",
         });
       }
       return c.json({ success: true });

@@ -50,6 +50,7 @@ import {
   type TimeTrackingConfigInput,
 } from "./lib/time-tracking-config.js";
 import type { TwoFactorConfigInput } from "./lib/two-factor-config.js";
+import type { EmailVerificationOptions } from "./lib/email-verification.js";
 import { createScheduleRoutes } from "./routes/schedules.js";
 import { createDocumentRoutes } from "./routes/documents.js";
 import { createChecklistRoutes } from "./routes/checklists.js";
@@ -116,6 +117,12 @@ export interface AppDependencies {
   /** Overrides of the password reset limits (AUTH-001, tests). */
   passwordReset?:
     { maxLinksPerAccountPerHour?: number | undefined } | undefined;
+  /**
+   * Overrides of the email verification defaults (AUTH-001): links per
+   * account per hour (3) and link lifetime (24 h); see
+   * lib/email-verification.ts.
+   */
+  emailVerification?: EmailVerificationOptions | undefined;
   /**
    * Store of rate limits and lockouts. Defaults to the shared Postgres store
    * on `sql`, keyed with `sessionSecret`; tests inject one with its own key
@@ -271,6 +278,7 @@ export function createApp(deps: AppDependencies) {
       mailPort: deps.mailPort,
       appUrl: config.appUrl,
       passwordReset: deps.passwordReset,
+      emailVerification: deps.emailVerification,
     }),
   );
   app.route("/v1", createMeRoutes(deps.sql));
@@ -295,6 +303,9 @@ export function createApp(deps: AppDependencies) {
     createSetupRoutes(deps.sql, {
       rateLimitStore,
       trustProxy: deps.trustProxy,
+      mailPort: deps.mailPort,
+      appUrl: config.appUrl,
+      emailVerification: deps.emailVerification,
     }),
   );
   app.route("/v1", createAuditRoutes(deps.sql));

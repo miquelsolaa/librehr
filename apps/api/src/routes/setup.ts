@@ -15,6 +15,11 @@ import { ConflictError, UnauthorizedError } from "../errors/index.js";
 import { hashPassword, verifyPassword } from "../lib/password.js";
 import { createRateLimiter } from "../middleware/rate-limit.js";
 import type { RateLimitStore } from "../lib/rate-limit-store.js";
+import type { MailPort } from "../ports/mail.js";
+import {
+  sendEmailVerification,
+  type EmailVerificationOptions,
+} from "../lib/email-verification.js";
 
 /**
  * ORG-001 is a first-run wizard: once any organization exists the endpoint is
@@ -41,6 +46,11 @@ export function createSetupRoutes(
   options: {
     rateLimitStore: RateLimitStore;
     trustProxy?: number | undefined;
+    /** Sends the admin's email verification link (AUTH-001). */
+    mailPort?: MailPort | undefined;
+    /** Public web app URL (APP_URL), the base of verification links. */
+    appUrl?: string | undefined;
+    emailVerification?: EmailVerificationOptions | undefined;
   },
 ) {
   const router = new Hono();
@@ -102,7 +112,8 @@ export function createSetupRoutes(
     // step fails, nothing is left behind.
     const orgId = crypto.randomUUID();
 
-    await withTenant(sql, { organizationId: orgId }, async (tx) => {
+    const tenant = { organizationId: orgId };
+    const adminId = await withTenant(sql, tenant, async (tx) => {
       // Serialises concurrent first-run attempts; the check below then sees
       // any organization committed by the winner.
       await tx`SELECT pg_advisory_xact_lock(hashtext('librehr.setup_wizard'))`;
@@ -139,10 +150,12 @@ export function createSetupRoutes(
       `;
       const managementDeptId = deptRows[0]?.id ?? null;
 
-      // 2d. Create Admin User
+      // 2d. Create Admin User. The typed address is unverified until the
+      // emailed link is confirmed (AUTH-001); an existing account keeps its
+      // flag.
       const userRows = await tx<{ id: string }[]>`
         INSERT INTO users (email, name, password_hash, email_verified)
-        VALUES (${data.adminEmail}, ${data.adminName}, ${passwordHash}, true)
+        VALUES (${data.adminEmail}, ${data.adminName}, ${passwordHash}, false)
         ON CONFLICT (email) DO NOTHING
         RETURNING id
       `;
@@ -207,7 +220,21 @@ export function createSetupRoutes(
           employeeId: emp.id,
         },
       });
+      return userId;
     });
+
+    // After the commit, so a failed setup sends nothing. Without SMTP or
+    // APP_URL the admin stays unverified; the web app says so.
+    const { mailPort, appUrl } = options;
+    if (mailPort && appUrl) {
+      sendEmailVerification(
+        sql,
+        { mailPort, appUrl },
+        adminId,
+        data.defaultLocale,
+        options.emailVerification,
+      );
+    }
 
     return c.json({
       success: true,

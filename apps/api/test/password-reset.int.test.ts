@@ -30,6 +30,7 @@ describe("password reset (AUTH-001)", () => {
   const ssoOnly = "c9100000-0000-0000-0000-000000000002";
   const twoFactor = "c9100000-0000-0000-0000-000000000003";
   const capUser = "c9100000-0000-0000-0000-000000000004";
+  const unverified = "c9100000-0000-0000-0000-000000000005";
   const appUrl = "https://hr.example.invalid";
   const oldPassword = "old-password-123";
   const newPassword = "new-password-456";
@@ -91,11 +92,14 @@ describe("password reset (AUTH-001)", () => {
       (${orgA}, 'Reset A', 'reset-a', 'Europe/Madrid'),
       (${orgB}, 'Reset B', 'reset-b', 'Europe/Madrid')`;
     const hash = await hashPassword(oldPassword);
-    await sql`INSERT INTO users (id, email, name, password_hash) VALUES
-      (${user}, ${emailOf(user)}, 'Reset User', ${hash}),
-      (${ssoOnly}, ${emailOf(ssoOnly)}, 'SSO User', NULL),
-      (${twoFactor}, ${emailOf(twoFactor)}, 'Two Factor', ${hash}),
-      (${capUser}, ${emailOf(capUser)}, 'Capped', ${hash})`;
+    // Reset links go only to verified addresses (AUTH-001).
+    await sql`INSERT INTO users (id, email, name, password_hash, email_verified)
+      VALUES
+      (${user}, ${emailOf(user)}, 'Reset User', ${hash}, true),
+      (${ssoOnly}, ${emailOf(ssoOnly)}, 'SSO User', NULL, true),
+      (${twoFactor}, ${emailOf(twoFactor)}, 'Two Factor', ${hash}, true),
+      (${capUser}, ${emailOf(capUser)}, 'Capped', ${hash}, true),
+      (${unverified}, ${emailOf(unverified)}, 'Unverified', ${hash}, false)`;
     await sql`UPDATE users SET two_factor_enabled = true,
       two_factor_secret = ${generateTotpSecret()} WHERE id = ${twoFactor}`;
     for (const [org, ids] of [
@@ -148,6 +152,18 @@ describe("password reset (AUTH-001)", () => {
       expect(sent.slice(before).some((m) => m.to === emailOf(ssoOnly))).toBe(
         false,
       );
+    });
+
+    it("sends nothing to an account whose email is unverified", async () => {
+      const before = sent.length;
+      expect((await requestReset(emailOf(unverified))).status).toBe(202);
+      await freshToken(user);
+      expect(sent.slice(before).some((m) => m.to === emailOf(unverified))).toBe(
+        false,
+      );
+      const rows = await db.adminSql`
+        SELECT 1 FROM password_reset_tokens WHERE user_id = ${unverified}`;
+      expect(rows).toHaveLength(0);
     });
 
     it("emails an absolute, localized link and stores only the token hash", async () => {
