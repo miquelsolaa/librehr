@@ -91,9 +91,14 @@ describe("enabling 2FA revokes personal access tokens", () => {
       SELECT two_factor_enabled AS on FROM users WHERE id = ${userId}`;
     return row?.on;
   };
+  /**
+   * token.revoke entries as the organization itself sees them: read as the
+   * runtime role, so RLS scopes them to `organizationId`. (The superuser
+   * pool bypasses RLS and would return every organization's rows.)
+   */
   const revokeEntries = (organizationId: string, actorId: string) =>
     withTenant(
-      db.adminSql,
+      db.appSql,
       { organizationId },
       (tx) =>
         tx<
@@ -205,7 +210,7 @@ describe("enabling 2FA revokes personal access tokens", () => {
       },
     ]);
     const [enabled] = await withTenant(
-      db.adminSql,
+      db.appSql,
       { organizationId: orgA },
       (tx) =>
         tx<{ metadata: unknown }[]>`
