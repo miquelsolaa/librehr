@@ -22,6 +22,7 @@ import type {
   ProblemDetails,
 } from "@librehr/contracts";
 import { createApp } from "../src/app.js";
+import { isolatedRateLimitStore } from "./support/rate-limit.js";
 import { BetterAuthAdapter } from "../src/adapters/better-auth.js";
 import { hashPassword } from "../src/lib/password.js";
 
@@ -154,6 +155,7 @@ describe("auditor access expiry (TIM-008)", () => {
     await db.adminSql`UPDATE users SET password_hash = ${hash}`;
     app = createApp({
       sql: db.appSql,
+      rateLimitStore: isolatedRateLimitStore(db.appSql),
       authPort: new BetterAuthAdapter(db.appSql),
       sessionSecret: "a-secure-test-secret-with-at-least-32-characters",
     });

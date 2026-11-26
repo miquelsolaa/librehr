@@ -9,6 +9,7 @@ import {
 import { TokenRepository, hashBearerToken, withTenant } from "@librehr/db";
 import { runMigrations } from "@librehr/db/migrate";
 import { createApp } from "../src/app.js";
+import { isolatedRateLimitStore } from "./support/rate-limit.js";
 import {
   businessEdition,
   hasBusinessEdition,
@@ -88,6 +89,7 @@ describe("API on the restricted runtime role", () => {
 
     app = createApp({
       sql: db.appSql,
+      rateLimitStore: isolatedRateLimitStore(db.appSql),
       authPort: new BetterAuthAdapter(db.appSql),
       sessionSecret,
       // SSO is Business (LIC-003) and off by default (SSO_ENABLED); this

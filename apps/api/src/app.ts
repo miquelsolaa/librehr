@@ -178,7 +178,11 @@ export function createApp(deps: AppDependencies) {
   const config = resolveAppConfig(deps.config, deps.nodeEnv);
   const rateLimitStore =
     deps.rateLimitStore ??
-    createPostgresRateLimitStore(deps.sql, { secret: deps.sessionSecret });
+    createPostgresRateLimitStore(deps.sql, {
+      secret: deps.sessionSecret,
+      // Fail at startup rather than hash keys with the public dev key.
+      requireSecret: config.nodeEnv === "production",
+    });
 
   // 1. Global Middleware Pipeline (per ARCHITECTURE.md 3.2)
   app.use(

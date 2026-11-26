@@ -105,6 +105,7 @@ describe("GET /v1/time/export/employees (TIM-006, TIM-008)", () => {
     ];
     app = createApp({
       sql: await db.appSql(),
+      rateLimitStore: isolatedRateLimitStore(await db.appSql()),
       authPort: fixtureAuthPort(people),
     });
   }, 90000);

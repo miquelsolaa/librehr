@@ -209,7 +209,10 @@ export function createAuthRoutes(
   /**
    * Checks a TOTP or single-use recovery code for an account.
    *
-   * - `{ lockedMs }`: the account had too many recent failures; nothing is checked.
+   * - Every check first reserves an attempt atomically (issue #35): at most
+   *   `maxFailures` codes are checked per window, even when guesses arrive
+   *   concurrently at several replicas. `{ lockedMs }`: the account is
+   *   locked and nothing is checked. A correct code clears the counter.
    * - A TOTP code is accepted only for a time step later than the last one
    *   accepted (no replay, also not by parallel requests).
    * - A recovery code is burned in the same conditional UPDATE that accepts
@@ -222,8 +225,11 @@ export function createAuthRoutes(
     rawCode: string,
   ): Promise<"ok" | "invalid" | { lockedMs: number }> => {
     const key = lockoutKey(userRow.id);
-    const lockedMs = await secondFactorLockout.lockedFor([key]);
-    if (lockedMs > 0) return { lockedMs };
+    const reservation = await secondFactorLockout.reserve(
+      key,
+      twoFactor.lockout.maxFailures,
+    );
+    if (!reservation.allowed) return { lockedMs: reservation.lockedMs };
 
     const code = rawCode.trim();
     const secret = userRow.twoFactorSecret;
@@ -237,12 +243,8 @@ export function createAuthRoutes(
             hashRecoveryCode(code),
           );
 
-    if (!valid) {
-      await secondFactorLockout.recordFailure([
-        { key, limit: twoFactor.lockout.maxFailures },
-      ]);
-      return "invalid";
-    }
+    // The reservation already counted this failure.
+    if (!valid) return "invalid";
     await secondFactorLockout.reset(key);
     if (secret && userRow.twoFactorSecretIsPlaintext) {
       await userRepo.reencryptTwoFactorSecret(sql, userRow.id, secret);

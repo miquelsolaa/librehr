@@ -80,7 +80,7 @@ describe("shared rate limits across API instances (issue #35)", () => {
   });
 
   it("opens a new window on every instance once the old one ends", async () => {
-    let now = Date.parse("2026-06-01T10:00:00Z");
+    let now = Date.parse("2099-06-01T10:00:00Z");
     const clock = () => now;
     const a = replica(clock);
     const b = replica(clock);
@@ -94,7 +94,7 @@ describe("shared rate limits across API instances (issue #35)", () => {
   });
 
   it("shares a lockout between instances until it expires", async () => {
-    let now = Date.parse("2026-06-01T11:00:00Z");
+    let now = Date.parse("2099-06-01T11:00:00Z");
     const lockout = () =>
       new FailureLockout({
         name: "auth.2fa",

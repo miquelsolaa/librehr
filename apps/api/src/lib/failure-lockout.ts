@@ -1,4 +1,4 @@
-import type { RateLimitStore } from "./rate-limit-store.js";
+import type { AttemptReservation, RateLimitStore } from "./rate-limit-store.js";
 
 export interface FailureLockoutOptions {
   /** Bucket namespace, unique per lockout ("auth.2fa"). */
@@ -39,6 +39,20 @@ export class FailureLockout {
         lockoutMs: this.options.lockoutMs,
       },
     );
+  }
+
+  /**
+   * Counts an attempt atomically before it is verified, refused while the
+   * key is locked, so at most `limit` attempts per window are ever checked,
+   * whatever the concurrency and the number of replicas. Call `reset` when
+   * the attempt succeeds; a failed attempt needs nothing more.
+   */
+  reserve(key: string, limit: number): Promise<AttemptReservation> {
+    return this.options.store.reserveAttempt(this.key(key), {
+      limit,
+      windowMs: this.options.failureWindowMs,
+      lockoutMs: this.options.lockoutMs,
+    });
   }
 
   /** Clears the failures of a key after a successful attempt. */

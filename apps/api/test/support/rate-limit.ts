@@ -2,27 +2,31 @@ import crypto from "node:crypto";
 import type { Sql } from "postgres";
 import {
   createPostgresRateLimitStore,
+  type FailurePolicy,
   type RateLimitStore,
 } from "../../src/lib/rate-limit-store.js";
 
 /**
- * The shared Postgres store under a random key prefix: an app built with it
- * starts with fresh counters although it shares the test database with
- * other apps of the same file.
+ * The shared Postgres store under a random (or given) key prefix: an app
+ * built with it starts with fresh counters although it shares the test
+ * database with other apps of the same file. Two apps given the same
+ * `prefix` behave as two replicas of one deployment.
  */
 export function isolatedRateLimitStore(
   sql: Sql,
-  now?: () => number,
+  options: { prefix?: string; now?: () => number } = {},
 ): RateLimitStore {
   return createPostgresRateLimitStore(sql, {
-    keyPrefix: `${crypto.randomUUID()}:`,
-    now,
+    keyPrefix: `${options.prefix ?? crypto.randomUUID()}:`,
+    now: options.now,
   });
 }
 
 /**
  * In-memory test double for routes exercised against a fake `sql`, where the
- * Postgres store has no table to write to. Never used by the app itself.
+ * Postgres store has no table to write to. It mirrors the semantics of
+ * RateLimitRepository; rate-limit-store-parity.int.test.ts runs the same
+ * scenarios against both. Never used by the app itself.
  */
 export function memoryRateLimitStore(now = Date.now): RateLimitStore {
   const hits = new Map<string, { count: number; resetAt: number }>();
@@ -30,7 +34,28 @@ export function memoryRateLimitStore(now = Date.now): RateLimitStore {
     string,
     { count: number; windowStart: number; lockedUntil: number }
   >();
+
+  /** One failure (or reserved attempt) against `key`; mirrors failureUpsert. */
+  const fail = (key: string, policy: FailurePolicy, at: number) => {
+    let record = failures.get(key);
+    if (!record || at - record.windowStart > policy.windowMs) {
+      record = { count: 0, windowStart: at, lockedUntil: 0 };
+    }
+    record = { ...record, count: record.count + 1 };
+    if (record.count >= policy.limit) {
+      record = {
+        count: 0,
+        windowStart: at,
+        lockedUntil: at + policy.lockoutMs,
+      };
+    }
+    failures.set(key, record);
+  };
+  const lockedMs = (key: string, at: number) =>
+    Math.max(0, (failures.get(key)?.lockedUntil ?? 0) - at);
+
   return {
+    now,
     async hit(key, windowMs) {
       const at = now();
       const current = hits.get(key);
@@ -43,28 +68,18 @@ export function memoryRateLimitStore(now = Date.now): RateLimitStore {
     },
     async lockedFor(keys) {
       const at = now();
-      return Math.max(
-        0,
-        ...keys.map((k) => (failures.get(k)?.lockedUntil ?? 0) - at),
-      );
+      return Math.max(0, ...keys.map((k) => lockedMs(k, at)));
     },
     async recordFailure(entries, policy) {
       const at = now();
-      for (const { key, limit } of entries) {
-        let record = failures.get(key);
-        if (!record || at - record.windowStart > policy.windowMs) {
-          record = { count: 0, windowStart: at, lockedUntil: 0 };
-        }
-        record.count++;
-        if (record.count >= limit) {
-          record = {
-            count: 0,
-            windowStart: at,
-            lockedUntil: at + policy.lockoutMs,
-          };
-        }
-        failures.set(key, record);
-      }
+      for (const { key, limit } of entries) fail(key, { ...policy, limit }, at);
+    },
+    async reserveAttempt(key, policy) {
+      const at = now();
+      const locked = lockedMs(key, at);
+      if (locked > 0) return { allowed: false, lockedMs: locked };
+      fail(key, policy, at);
+      return { allowed: true };
     },
     async reset(key) {
       failures.delete(key);

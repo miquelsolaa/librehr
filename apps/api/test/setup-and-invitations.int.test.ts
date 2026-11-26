@@ -3,7 +3,10 @@ import { getTestDatabase, type TestDatabase } from "@librehr/testing";
 import { runMigrations } from "@librehr/db/migrate";
 import type { Sql } from "postgres";
 import { createApp } from "../src/app.js";
-import { memoryRateLimitStore } from "./support/rate-limit.js";
+import {
+  isolatedRateLimitStore,
+  memoryRateLimitStore,
+} from "./support/rate-limit.js";
 import type { AuthPort, AuthSession } from "../src/ports/auth.js";
 import type { AuthUser, ProblemDetails } from "@librehr/contracts";
 
@@ -43,7 +46,11 @@ describe("Setup Wizard & Invitations API (ORG-001, AUTH-005)", () => {
     db = await getTestDatabase();
     if (db) {
       await runMigrations(db.connectionString);
-      app = createApp({ sql: await db.appSql(), authPort });
+      app = createApp({
+        sql: await db.appSql(),
+        rateLimitStore: isolatedRateLimitStore(await db.appSql()),
+        authPort,
+      });
     }
   });
 

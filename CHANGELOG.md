@@ -7,7 +7,7 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ### Security
 
-- **Shared rate limits and lockouts (#35):** the request rate limits (sign-in, two-factor, setup wizard, kiosk, time exports) and the failure lockouts (two-factor codes, kiosk PINs) move from per-process memory to Postgres (`rate_limit_buckets`, migration 0038), so several API replicas share one budget per client. Limits and windows are unchanged. Bucket keys are HMAC-SHA256 digests under a key derived from `SESSION_SECRET`; no IP, email or identifier is stored. Replicas must share the same `SESSION_SECRET`.
+- **Shared rate limits and lockouts (#35):** the request rate limits (sign-in, two-factor, setup wizard, kiosk, time exports) and the failure lockouts (two-factor codes, kiosk PINs) move from per-process memory to Postgres (`rate_limit_buckets`, migration 0038), so several API replicas share one budget per client. Limits and windows are unchanged. Bucket keys are HMAC-SHA256 digests under a key derived from `SESSION_SECRET`; no IP, email or identifier is stored. Replicas must share the same `SESSION_SECRET`. Windows use the database clock. Two-factor codes and kiosk PINs reserve each attempt atomically before it is checked, so at most the configured number of guesses is ever verified, even when they arrive concurrently at several replicas. Rate limits count IPv6 clients per /64. The API refuses to start in production without `SESSION_SECRET`.
 
 ### Leave balances per leave type
 

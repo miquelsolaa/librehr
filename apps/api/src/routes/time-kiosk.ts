@@ -18,7 +18,7 @@ import { permissionScope } from "../policies/can.js";
 import { ForbiddenError } from "../errors/index.js";
 import { parseJsonBody } from "../lib/validate.js";
 import { FailureLockout } from "../lib/failure-lockout.js";
-import { clientIp } from "../lib/client-ip.js";
+import { clientIp, rateLimitAddress } from "../lib/client-ip.js";
 import type { RateLimitStore } from "../lib/rate-limit-store.js";
 import type { TimeChainSigner } from "@librehr/db";
 import type { TimeTrackingConfig } from "../lib/time-tracking-config.js";
@@ -106,11 +106,10 @@ export function createTimeKioskRoutes(
       );
 
       const identifierKey = `id:${user.organizationId}:${identifier.trim().toLowerCase()}`;
-      const ipKey = `ip:${user.organizationId}:${clientIp(c, trustProxy)}`;
+      const ipKey = `ip:${user.organizationId}:${rateLimitAddress(clientIp(c, trustProxy))}`;
 
-      const lockedMs = await lockout.lockedFor([identifierKey, ipKey]);
-      if (lockedMs > 0) {
-        return c.json(
+      const locked = (lockedMs: number) =>
+        c.json(
           createProblemDetails({
             status: 429,
             title: "Too Many Requests",
@@ -120,10 +119,23 @@ export function createTimeKioskRoutes(
           429,
           {
             "Content-Type": "application/problem+json",
-            "Retry-After": Math.ceil(lockedMs / 1000).toString(),
+            "Retry-After": Math.max(1, Math.ceil(lockedMs / 1000)).toString(),
           },
         );
-      }
+
+      // The per-IP lockout counts failures after the check (it stops one
+      // device spraying many identifiers); checking it first keeps a locked
+      // IP from using up identifiers' attempts.
+      const ipLockedMs = await lockout.lockedFor([ipKey]);
+      if (ipLockedMs > 0) return locked(ipLockedMs);
+      // The per-identifier limit is reserved atomically before the PIN is
+      // checked (issue #35): at most maxFailuresPerIdentifier PINs are ever
+      // checked per window, whatever the concurrency across replicas.
+      const reservation = await lockout.reserve(
+        identifierKey,
+        kiosk.maxFailuresPerIdentifier,
+      );
+      if (!reservation.allowed) return locked(reservation.lockedMs);
 
       const found = await withTenant(
         sql,
@@ -136,8 +148,8 @@ export function createTimeKioskRoutes(
       if (!found?.pinHash) await verifyKioskPin(pin, await decoy(), null);
 
       if (!found || !check.valid) {
+        // The identifier's failure was counted by its reservation.
         await lockout.recordFailure([
-          { key: identifierKey, limit: kiosk.maxFailuresPerIdentifier },
           { key: ipKey, limit: kiosk.maxFailuresPerIp },
         ]);
         return c.json(genericInvalid(), 401, {

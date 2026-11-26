@@ -3,7 +3,10 @@ import type { Sql } from "postgres";
 import { getTestDatabase, type TestDatabase } from "@librehr/testing";
 import { runMigrations } from "@librehr/db/migrate";
 import { createApp } from "../src/app.js";
-import { memoryRateLimitStore } from "./support/rate-limit.js";
+import {
+  isolatedRateLimitStore,
+  memoryRateLimitStore,
+} from "./support/rate-limit.js";
 import type { AuthPort, AuthSession } from "../src/ports/auth.js";
 import type { AuthUser, ProblemDetails } from "@librehr/contracts";
 
@@ -87,7 +90,11 @@ describe("Time Tracking API Integration Tests (TIM-001 - TIM-006)", () => {
     db = await getTestDatabase();
     if (db) {
       await runMigrations(db.connectionString);
-      app = createApp({ sql: await db.appSql(), authPort });
+      app = createApp({
+        sql: await db.appSql(),
+        rateLimitStore: isolatedRateLimitStore(await db.appSql()),
+        authPort,
+      });
     }
   });
 
