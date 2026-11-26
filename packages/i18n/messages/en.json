@@ -62,7 +62,9 @@
     "genericError": "Something went wrong. Try again.",
     "verifyEmail": {
       "title": "Confirm your email address",
-      "description": "Confirm that this address is yours. Password reset links are only sent to confirmed addresses.",
+      "description": "Enter the password of your LibreHR account to confirm that this address is yours. If you did not create the account, do not confirm it.",
+      "passwordLabel": "Account password",
+      "wrongPassword": "That is not the password of the account this link was sent for.",
       "submit": "Confirm email address",
       "done": "Your email address is confirmed.",
       "invalidLink": "This confirmation link is invalid, already used or expired. Sign in and ask for a new one from the notice at the top of the page.",

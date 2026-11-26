@@ -62,7 +62,9 @@
     "genericError": "Alguna cosa ha fallat. Torna-ho a provar.",
     "verifyEmail": {
       "title": "Confirma la teva adreça de correu",
-      "description": "Confirma que aquesta adreça és teva. Només enviem enllaços per restablir la contrasenya a adreces confirmades.",
+      "description": "Escriu la contrasenya del teu compte de LibreHR per confirmar que aquesta adreça és teva. Si no has creat el compte, no la confirmis.",
+      "passwordLabel": "Contrasenya del compte",
+      "wrongPassword": "Aquesta no és la contrasenya del compte per al qual s'ha enviat l'enllaç.",
       "submit": "Confirma l'adreça de correu",
       "done": "Has confirmat la teva adreça de correu.",
       "invalidLink": "Aquest enllaç de confirmació no és vàlid, ja s'ha fet servir o ha caducat. Inicia la sessió i demana'n un de nou a l'avís de la part superior de la pàgina.",

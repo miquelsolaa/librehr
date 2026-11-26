@@ -20,7 +20,8 @@ export function EmailVerificationBanner() {
   const t = useTranslations("auth.verifyEmail");
   const tAuth = useTranslations("auth");
 
-  const [unverified, setUnverified] = React.useState(false);
+  // null until /me answers; then whether the address still needs confirming.
+  const [unverified, setUnverified] = React.useState<boolean | null>(null);
   const [isSending, setIsSending] = React.useState(false);
   const [feedback, setFeedback] = React.useState<Feedback | null>(null);
 
@@ -40,7 +41,12 @@ export function EmailVerificationBanner() {
     };
   }, []);
 
-  if (!unverified) return null;
+  // A hidden marker once the check is done, so "verified" is observable
+  // (e2e) and not confused with "not checked yet".
+  if (unverified === false) {
+    return <span hidden data-email-verification="verified" />;
+  }
+  if (unverified === null) return null;
 
   const resend = async () => {
     setIsSending(true);
@@ -76,6 +82,7 @@ export function EmailVerificationBanner() {
 
   return (
     <section
+      data-email-verification="unverified"
       aria-labelledby="email-verification-banner-title"
       className="mb-6 flex flex-col gap-3 rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-foreground sm:flex-row sm:items-start"
     >

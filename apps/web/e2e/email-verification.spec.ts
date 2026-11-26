@@ -6,6 +6,7 @@ import { mockRoute, seedProfile } from "./support/mock-api";
 // mocked; apps/api/test/email-verification.int.test.ts covers the server.
 const WCAG_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 const TOKEN = "sample-verification-token-0123456789abcdef";
+const PASSWORD = "sample-account-password";
 
 async function expectNoAxeViolations(page: Page): Promise<void> {
   const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
@@ -59,14 +60,52 @@ test.describe("email verification (AUTH-001)", () => {
     expect(submitted).toBeUndefined();
     await expectNoAxeViolations(page);
 
+    await page.getByLabel("Account password").fill(PASSWORD);
     await page.getByRole("button", { name: "Confirm email address" }).click();
     await expect(page.getByRole("status")).toContainText(
       "Your email address is confirmed.",
     );
-    expect(submitted).toEqual({ token: TOKEN });
+    expect(submitted).toEqual({ token: TOKEN, password: PASSWORD });
     await expect(
       page.getByRole("link", { name: "Go to LibreHR" }),
     ).toBeVisible();
+  });
+
+  test("a wrong password keeps the form so the link can be tried again", async ({
+    page,
+  }) => {
+    let attempts = 0;
+    await mockRoute(
+      page,
+      "**/v1/auth/email-verification/confirm",
+      async (route) => {
+        attempts += 1;
+        await route.fulfill({
+          status: 401,
+          contentType: "application/problem+json",
+          json: {
+            type: "about:blank",
+            title: "Unauthorized",
+            status: 401,
+            code: "INVALID_CREDENTIALS",
+          },
+        });
+      },
+    );
+
+    await page.goto(`/en/verify-email#token=${TOKEN}`);
+    await page.getByLabel("Account password").fill("not-the-password");
+    await page.getByRole("button", { name: "Confirm email address" }).click();
+    await expect(
+      page
+        .getByRole("alert")
+        .filter({ hasText: "That is not the password of the account" }),
+    ).toBeVisible();
+    expect(attempts).toBe(1);
+    await expect(
+      page.getByRole("button", { name: "Confirm email address" }),
+    ).toBeVisible();
+    await expectNoAxeViolations(page);
   });
 
   test("explains an invalid, used or expired link", async ({ page }) => {
@@ -88,6 +127,7 @@ test.describe("email verification (AUTH-001)", () => {
     );
 
     await page.goto(`/en/verify-email#token=${TOKEN}`);
+    await page.getByLabel("Account password").fill(PASSWORD);
     await page.getByRole("button", { name: "Confirm email address" }).click();
     await expect(
       page
@@ -164,9 +204,14 @@ test.describe("email verification (AUTH-001)", () => {
   test("a verified user sees no banner", async ({ page }) => {
     await seedProfile(page, { role: "admin", name: "Sample Person" });
     await mockMe(page, true);
-    const meLoaded = page.waitForResponse("**/v1/me");
     await page.goto("/en/home");
-    await meLoaded;
+    // The banner renders this marker only after applying /v1/me.
+    await expect(
+      page.locator('[data-email-verification="verified"]'),
+    ).toBeAttached();
+    await expect(
+      page.locator('[data-email-verification="unverified"]'),
+    ).toHaveCount(0);
     await expect(
       page.getByRole("heading", { name: "Confirm your email address" }),
     ).toHaveCount(0);

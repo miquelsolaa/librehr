@@ -62,7 +62,9 @@
     "genericError": "Algo ha fallado. Vuelve a probar.",
     "verifyEmail": {
       "title": "Confirma tu dirección de correo",
-      "description": "Confirma que esta dirección es tuya. Solo enviamos enlaces para restablecer la contraseña a direcciones confirmadas.",
+      "description": "Escribe la contraseña de tu cuenta de LibreHR para confirmar que esta dirección es tuya. Si no has creado la cuenta, no la confirmes.",
+      "passwordLabel": "Contraseña de la cuenta",
+      "wrongPassword": "Esta no es la contraseña de la cuenta para la que se envió el enlace.",
       "submit": "Confirmar dirección de correo",
       "done": "Has confirmado tu dirección de correo.",
       "invalidLink": "Este enlace de confirmación no es válido, ya se ha usado o ha caducado. Inicia sesión y pide uno nuevo en el aviso de la parte superior de la página.",
