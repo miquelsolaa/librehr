@@ -8,7 +8,10 @@ import {
   uuid,
   index,
   bigint,
+  integer,
+  check,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { primaryId, timestamps, organizationIdCol } from "./common.js";
 import { organizations } from "./platform.js";
 
@@ -63,6 +66,39 @@ export const sessions = pgTable(
   (table) => [
     index("sessions_token_idx").on(table.token),
     index("sessions_user_idx").on(table.userId),
+  ],
+);
+
+// Shared rate-limit and lockout counters (migration 0038, issue #35). A
+// global system table like sessions: pre-auth and cross-tenant, so no
+// organization_id and no RLS. `key` is an HMAC digest, never a raw value.
+// The table's storage parameter (fillfactor = 70) is set in the migration
+// only; drizzle does not model it.
+export const rateLimitBuckets = pgTable(
+  "rate_limit_buckets",
+  {
+    key: text("key").primaryKey(),
+    windowStart: timestamp("window_start", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
+    count: integer("count").notNull(),
+    lockedUntil: timestamp("locked_until", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    expiresAt: timestamp("expires_at", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
+  },
+  (table) => [
+    index("rate_limit_buckets_expires_at_idx").on(table.expiresAt),
+    check(
+      "rate_limit_buckets_key_digest",
+      sql`${table.key} ~ '^[0-9a-f]{64}$'`,
+    ),
+    check("rate_limit_buckets_count_nonnegative", sql`${table.count} >= 0`),
   ],
 );
 
