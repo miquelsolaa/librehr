@@ -268,9 +268,23 @@ describe("planAccrual (LEA-002)", () => {
     });
   });
 
+  it("rounds an exact half cent up, without float error (2565 × 0.7 = 1795.5)", () => {
+    // In floating point 2565 * 0.7 is 1795.4999999999998, which Math.round
+    // takes down to 1795; the exact value is 1795.5, rounded half up.
+    for (const method of ["upfront", "monthly", "daily"] as const) {
+      const b = base({ method, allowance: 25.65, fteRatio: 0.7 });
+      expect(totalCents(runMonths(b, 2000, [12]))).toBe(1796);
+      expect(totalCents(runMonths(b, 2000, ALL_MONTHS))).toBe(1796);
+    }
+  });
+
   describe("properties", () => {
     const allowanceCents = fc.integer({ min: 1, max: 9999 });
-    const fte = fc.integer({ min: 1, max: 100 }).map((n) => n / 100);
+    /** FTE as an integer percentage, so the expected values stay exact. */
+    const ftePercent = fc.integer({ min: 1, max: 100 });
+    /** num / den rounded half up, in exact integer arithmetic. */
+    const roundHalfUp = (num: number, den: number) =>
+      Math.floor((2 * num + den) / (2 * den));
     const year = fc.integer({ min: 2000, max: 2100 });
     const dayOfYear = fc.integer({ min: 0, max: 365 });
     const method = fc.constantFrom<AccrualMethod>(
@@ -294,17 +308,23 @@ describe("planAccrual (LEA-002)", () => {
       fc.assert(
         fc.property(
           allowanceCents,
-          fte,
+          ftePercent,
           method,
           year,
           months,
-          (a, f, m, y, ran) => {
-            const b = base({ method: m, allowance: a / 100, fteRatio: f });
+          (a, p, m, y, ran) => {
+            const b = base({
+              method: m,
+              allowance: a / 100,
+              fteRatio: p / 100,
+            });
             expect(totalCents(runMonths(b, y, ran))).toBe(
-              Math.round(a * 1 * f),
+              roundHalfUp(a * p, 100),
             );
           },
         ),
+        // Shrunk CI counterexample (seed -1074543020): a float oracle said 1795.
+        { examples: [[2565, 70, "upfront", 2000, [12]]] },
       );
     });
 
@@ -312,12 +332,12 @@ describe("planAccrual (LEA-002)", () => {
       fc.assert(
         fc.property(
           allowanceCents,
-          fte,
+          ftePercent,
           fc.constantFrom<AccrualMethod>("upfront", "daily"),
           year,
           dayOfYear,
           dayOfYear,
-          (a, f, m, y, s, e) => {
+          (a, p, m, y, s, e) => {
             const span = {
               start: dateIn(y, Math.min(s, e)),
               end: dateIn(y, Math.max(s, e)),
@@ -325,11 +345,12 @@ describe("planAccrual (LEA-002)", () => {
             const b = base({
               method: m,
               allowance: a / 100,
-              fteRatio: f,
+              fteRatio: p / 100,
               employment: [span],
             });
-            const expected = Math.round(
-              a * (days(span.start, span.end) / getDaysInYear(y)) * f,
+            const expected = roundHalfUp(
+              a * p * days(span.start, span.end),
+              100 * getDaysInYear(y),
             );
             expect(totalCents(runMonths(b, y, ALL_MONTHS))).toBe(expected);
           },
@@ -341,18 +362,18 @@ describe("planAccrual (LEA-002)", () => {
       fc.assert(
         fc.property(
           allowanceCents,
-          fte,
+          ftePercent,
           method,
           year,
           dayOfYear,
           fc.integer({ min: 1, max: 12 }),
           fc.integer({ min: 0, max: 9999 }),
-          (a, f, m, y, s, month, accrued) => {
+          (a, p, m, y, s, month, accrued) => {
             const input = {
               ...base({
                 method: m,
                 allowance: a / 100,
-                fteRatio: f,
+                fteRatio: p / 100,
                 employment: [{ start: dateIn(y, s), end: null }],
               }),
               period: `${y}-${String(month).padStart(2, "0")}`,
