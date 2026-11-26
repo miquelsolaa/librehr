@@ -229,6 +229,18 @@ earlier versions (`QUEUE_RETENTION` in `apps/worker/src/lib/queue-setup.ts`).
 Database backups contain whatever job rows existed when they were taken, so
 expire backups under your retention policy as well.
 
+### Background export files
+
+Large organization time exports (TIM-006, issue #38) are built by the worker
+and stored as files under `STORAGE_LOCAL_DIR`. The API serves them from the
+same directory, so both must see it: the bundled compose file mounts the
+`librehr_storage` volume in both containers. Outside Docker, set
+`STORAGE_LOCAL_DIR` to the same absolute path for both processes. A file can
+be downloaded by its requester for `TIME_EXPORT_FILE_TTL_HOURS` (default 168,
+7 days) and is then deleted; files larger than `TIME_EXPORT_MAX_FILE_MB`
+(default 100) fail. The files are not encrypted by LibreHR, so keep the volume
+on encrypted storage and out of world-readable backups.
+
 ## 4. Upgrading from Postgres 16 to Postgres 18
 
 > [!WARNING]

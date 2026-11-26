@@ -103,6 +103,23 @@ so give every instance the same `SCHEDULER_*` values; pg-boss sends one tick
 per occurrence however many instances run. A tick that reaches a worker with
 `SCHEDULER_ENABLED=false` does nothing.
 
+## Background time exports
+
+Besides the tick, the worker installs two more schedules for TIM-006
+background exports (issue #38, [ADR 0009](../adr/0009-background-time-exports.md)).
+They do not depend on `SCHEDULER_ENABLED`, so disabling the tick never strands
+a requested export:
+
+- `time.export.dispatch`, every minute: lists queued `time_exports` rows
+  through `librehr_queued_time_exports()` (migration 0045, owner-only like
+  `librehr_scheduler_organizations()`) and enqueues `time.export` with
+  `{ organizationId, exportId }`. A new export therefore starts within about
+  a minute.
+- `time.export.cleanup`, every hour: deletes files older than
+  `TIME_EXPORT_FILE_TTL_HOURS` (default 168) and marks their rows `expired`,
+  and fails exports stuck in `running` for more than 2 hours
+  (`EXPORT_STALLED`). The rows and audit entries are kept.
+
 ## Known limitations
 
 - **`retention.enforce` is not implemented yet (ADM-005).** It is scheduled

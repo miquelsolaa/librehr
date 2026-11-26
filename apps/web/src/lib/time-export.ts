@@ -14,7 +14,12 @@ export type ExportErrorKey =
   | "exportErrorNotFound"
   | "exportErrorNoOwnRecord"
   | "exportErrorTooLarge"
+  | "exportErrorTooLargeAsync"
   | "exportErrorRateLimited"
+  | "exportErrorInProgress"
+  | "exportErrorNotReady"
+  | "exportErrorExpired"
+  | "exportErrorEmpty"
   | "scheduleNotConfigured"
   | "exportUnavailable";
 
@@ -81,6 +86,12 @@ export function exportErrorKey(
   if (problem.code === "SCHEDULE_NOT_CONFIGURED")
     return "scheduleNotConfigured";
   if (problem.code === "EXPORT_TOO_LARGE") return "exportErrorTooLarge";
+  // Issue #38: background export problems.
+  if (problem.code === "EXPORT_IN_PROGRESS") return "exportErrorInProgress";
+  if (problem.code === "EXPORT_NOT_READY") return "exportErrorNotReady";
+  if (problem.code === "EXPORT_EMPTY") return "exportErrorEmpty";
+  if (problem.code === "EXPORT_EXPIRED" || problem.status === 410)
+    return "exportErrorExpired";
   switch (problem.status) {
     case 400:
       return "exportErrorInvalidPeriod";
@@ -99,6 +110,29 @@ export function exportErrorKey(
     default:
       return "exportUnavailable";
   }
+}
+
+/**
+ * Issue #38: whether a refused synchronous export can be queued in the
+ * background instead (the API's 422 carries `asyncAvailable`).
+ */
+export function asyncExportAvailable(err: unknown): boolean {
+  if (typeof err !== "object" || err === null) return false;
+  const problem = err as { code?: unknown; asyncAvailable?: unknown };
+  return problem.code === "EXPORT_TOO_LARGE" && problem.asyncAvailable === true;
+}
+
+/** A background export the worker has not finished yet. */
+export function isActiveExportJob(job: { status: string }): boolean {
+  return job.status === "queued" || job.status === "running";
+}
+
+/**
+ * Delay before the next status check of a running background export: 3 s,
+ * doubling up to one minute, so a long export does not poll every few seconds.
+ */
+export function exportPollDelay(attempt: number): number {
+  return Math.min(3_000 * 2 ** Math.max(0, attempt), 60_000);
 }
 
 /** Saves a blob under `filename` through a temporary object URL. */
