@@ -17,6 +17,7 @@ import { runMigrations } from "@librehr/db/migrate";
 import type { AuthUser, ProblemDetails, WebhookItem } from "@librehr/contracts";
 import { createApp } from "../src/app.js";
 import type { AuthPort, AuthSession } from "../src/ports/auth.js";
+import type { OutboundSender } from "../src/lib/outbound-request.js";
 
 class MockAuthPort implements AuthPort {
   private sessions = new Map<string, AuthSession>();
@@ -89,6 +90,9 @@ describe("Outbound Webhooks API (ADM-006)", () => {
     return addresses;
   };
 
+  // No real network either: the outbound sender is a per-test fake.
+  const sendWebhook = vi.fn<OutboundSender>();
+
   const call = (
     method: string,
     path: string,
@@ -126,12 +130,12 @@ describe("Outbound Webhooks API (ADM-006)", () => {
     app = createApp({
       sql: db.appSql,
       authPort,
-      config: { nodeEnv: "production", resolveHost },
+      config: { nodeEnv: "production", resolveHost, sendWebhook },
     });
   }, 60000);
 
   afterEach(() => {
-    vi.unstubAllGlobals();
+    sendWebhook.mockReset();
   });
 
   afterAll(async () => {
@@ -195,13 +199,15 @@ describe("Outbound Webhooks API (ADM-006)", () => {
   });
 
   it("POST /v1/webhooks/:id/test sends ping and records delivery", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response("ok", { status: 200 })),
-    );
+    sendWebhook.mockResolvedValue({ status: 200 });
 
     const res = await call("POST", `/v1/webhooks/${createdId}/test`, admin);
     expect(res.status).toBe(200);
+    // Pinned to the address the guard validated, keeping the hostname.
+    expect(sendWebhook.mock.calls[0]?.[0]).toMatchObject({
+      hostname: "hooks.slack.com",
+      addresses: ["93.184.216.34"],
+    });
     const result = (await res.json()) as {
       success: boolean;
       statusCode: number;
@@ -275,46 +281,35 @@ describe("Outbound Webhooks API (ADM-006)", () => {
     expect(row?.url).toBe("https://hooks.slack.com/services/test");
   });
 
-  it("re-checks the URL before sending and never fetches a private target", async () => {
+  it("re-checks the URL before sending and never sends to a private target", async () => {
     // A row stored before the guard existed (or whose DNS changed since).
     const [legacy] = await db.adminSql<{ id: string }[]>`
       INSERT INTO webhooks (organization_id, name, url, secret, events)
       VALUES (${orgId}, 'Legacy', 'http://169.254.169.254/latest', 'whsec_legacy',
               '["employee.created"]'::jsonb)
       RETURNING id`;
-    const fetchSpy = vi.fn();
-    vi.stubGlobal("fetch", fetchSpy);
-
     const res = await call("POST", `/v1/webhooks/${legacy!.id}/test`, admin);
     expect(res.status).toBe(400);
     expect(((await res.json()) as ProblemDetails).code).toBe(
       "OUTBOUND_URL_NOT_ALLOWED",
     );
-    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(sendWebhook).not.toHaveBeenCalled();
 
     await db.adminSql`DELETE FROM webhooks WHERE id = ${legacy!.id}`;
   });
 
   it("does not follow redirects and keeps errors generic", async () => {
-    const fetchSpy = vi.fn().mockResolvedValue(
-      new Response(null, {
-        status: 302,
-        headers: { Location: "http://169.254.169.254/" },
-      }),
-    );
-    vi.stubGlobal("fetch", fetchSpy);
+    sendWebhook.mockResolvedValue({ status: 302 });
 
     const res = await call("POST", `/v1/webhooks/${createdId}/test`, admin);
     expect(res.status).toBe(200);
     const result = (await res.json()) as { success: boolean; error: string };
     expect(result.success).toBe(false);
     expect(result.error).not.toContain("169.254");
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect(fetchSpy.mock.calls[0]?.[1]).toMatchObject({ redirect: "manual" });
+    expect(sendWebhook).toHaveBeenCalledTimes(1);
 
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockRejectedValue(new Error("connect ECONNREFUSED 10.1.2.3:443")),
+    sendWebhook.mockRejectedValue(
+      new Error("connect ECONNREFUSED 10.1.2.3:443"),
     );
     const failed = await call("POST", `/v1/webhooks/${createdId}/test`, admin);
     const failure = (await failed.json()) as { error: string };
