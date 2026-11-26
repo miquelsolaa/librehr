@@ -101,6 +101,10 @@ const BLOCKED_V6: ReadonlyArray<readonly [Bytes, number]> = [
   [[0x01, 0x00], 64], // discard-only 100::/64
   [[0x20, 0x01, 0x00, 0x00], 32], // Teredo (embeds an obfuscated IPv4)
   [[0x20, 0x01, 0x0d, 0xb8], 32], // documentation
+  [[0x3f, 0xff, 0x00], 20], // documentation 3fff::/20 (RFC 9637)
+  // IPv4-translated ::ffff:0:a.b.c.d (RFC 2765, SIIT): a translator would
+  // forward it to the embedded IPv4 address, private or not.
+  [[0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 0, 0], 96],
   [[0xfc], 7], // unique local fc00::/7
   [[0xfe, 0x80], 10], // link-local fe80::/10
   [[0xfe, 0xc0], 10], // deprecated site-local

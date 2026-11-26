@@ -772,6 +772,8 @@ registry.registerPath({
   method: "post",
   path: "/v1/invitations",
   summary: "Invite a new member via email",
+  description:
+    "Admins only. Inviting an `admin` or an `auditor` grants access, so it needs an interactive session: a personal access token, even an admin-scoped one, gets 403 `TOKEN_SCOPE_INSUFFICIENT` and nothing is created (TIM-008, issue #35). `manager` and `employee` invitations accept admin-scoped tokens.",
   request: {
     body: {
       content: {
@@ -783,6 +785,16 @@ registry.registerPath({
     201: {
       description: "Invitation created and email queued",
       content: { "application/json": { schema: InvitationResponseSchema } },
+    },
+    400: {
+      description:
+        "VALIDATION_FAILED, AUDITOR_ACCESS_END_IN_PAST or AUDITOR_ACCESS_END_TOO_FAR",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    403: {
+      description:
+        "FORBIDDEN (not an admin), or TOKEN_SCOPE_INSUFFICIENT: a personal access token inviting an admin or an auditor, or without the admin scope",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
   },
 });

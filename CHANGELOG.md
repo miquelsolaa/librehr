@@ -5,6 +5,10 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## [Unreleased]
 
+### Security
+
+- **Webhook delivery pinned to the validated IP (#35, `ADM-006`):** the SSRF guard resolved the webhook host and checked its addresses, then the HTTP client resolved it again on connect, leaving a DNS-rebinding window. Deliveries now resolve once, validate every address and connect only to those addresses, keeping the hostname for the `Host` header, TLS SNI and certificate verification (always on, even with `NODE_TLS_REJECT_UNAUTHORIZED=0`). Redirects are never followed. Webhook delivery does not use `HTTP_PROXY`/`HTTPS_PROXY`; see `docs/guides/self-hosting.md`. IPv4-translated `::ffff:0:0/96` and the `3fff::/20` documentation range are now also rejected.
+
 ### Leave balances per leave type
 
 - **Per-type balances (`LEA-005`, #117):** `leave_ledger` records the leave type of every entry (migration 0033, with a backfill of usage, reversal and accrual entries). `GET /v1/leave/balance` returns `byType`, and the time-off and home pages show one balance per leave type. Untyped legacy entries form an "Unassigned" balance. Only leave types with a policy limit requests.

@@ -51,6 +51,55 @@ describe("Contracts schemas", () => {
     expect(validTerm.success).toBe(true);
   });
 
+  it("validates weekly contract hours on employment periods (LEA-002, #131)", async () => {
+    const { CreateEmploymentPeriodSchema } =
+      await import("../src/employment-history.js");
+    const { CreateEmployeeRequestSchema } = await import("../src/employees.js");
+    const period = {
+      jobTitle: "Clerk",
+      employmentType: "indefinido",
+      startDate: "2026-01-01",
+    };
+    const hours = (workingHoursPerWeek: unknown) =>
+      CreateEmploymentPeriodSchema.safeParse({ ...period, workingHoursPerWeek })
+        .success;
+
+    expect(CreateEmploymentPeriodSchema.safeParse(period).success).toBe(true);
+    for (const ok of [40, 37.5, 20.25, 0.01]) {
+      expect(hours(ok)).toBe(true);
+    }
+    for (const bad of [0, -1, 40.01, 41, 37.125, "37.5", null, Number.NaN]) {
+      expect(hours(bad)).toBe(false);
+    }
+    const employee = {
+      firstName: "Marta",
+      lastName: "Rovira",
+      email: "marta@librehr.cat",
+      jobTitle: "Clerk",
+    };
+    expect(
+      CreateEmployeeRequestSchema.safeParse({
+        ...employee,
+        workingHoursPerWeek: 30,
+      }).success,
+    ).toBe(true);
+    expect(
+      CreateEmployeeRequestSchema.safeParse({
+        ...employee,
+        workingHoursPerWeek: 41,
+      }).success,
+    ).toBe(false);
+    // Hours without a job title would be silently dropped: refused.
+    const { jobTitle: _jobTitle, ...noJob } = employee;
+    expect(
+      CreateEmployeeRequestSchema.safeParse({
+        ...noJob,
+        workingHoursPerWeek: 30,
+      }).success,
+    ).toBe(false);
+    expect(CreateEmployeeRequestSchema.safeParse(noJob).success).toBe(true);
+  });
+
   it("validates setup wizard and invitation schemas", async () => {
     const { SetupWizardRequestSchema } = await import("../src/org.js");
     const { CreateInvitationRequestSchema } =

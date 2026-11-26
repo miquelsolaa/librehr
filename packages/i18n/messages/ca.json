@@ -33,7 +33,7 @@
     "twoFactorTitle": "Autenticació de Doble Factor",
     "twoFactorDescription": "Introdueix el codi de 6 dígits generat per la teva aplicació autenticadora.",
     "twoFactorCodeLabel": "Codi d'autenticació (TOTP)",
-    "twoFactorBackupHint": "També pots introduir un codi de recuperació d'un sol ús (format xxxx-xxxx).",
+    "twoFactorBackupHint": "També pots introduir un codi de recuperació d'un sol ús (format xxxx-xxxx-xxxx-xxxx).",
     "verifyCodeButton": "Verificar i Accedir",
     "invalid2FaCode": "El codi de doble factor no és vàlid o ha caducat.",
     "signInWithSso": "Iniciar sessió amb SSO d'Empresa",

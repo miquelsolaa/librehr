@@ -4,7 +4,8 @@ import { AuditorAccessMaxDaysSchema } from "./auditor-access.js";
 export const SignInRequestSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
-  twoFactorCode: z.string().optional(),
+  // 6-digit TOTP or recovery code; bounded like /2fa/verify and /2fa/disable.
+  twoFactorCode: z.string().trim().min(6).max(64).optional(),
 });
 export type SignInRequest = z.infer<typeof SignInRequestSchema>;
 
@@ -90,7 +91,8 @@ export type TwoFactorEnableResponse = z.infer<
 
 export const TwoFactorVerifyRequestSchema = z.object({
   challengeToken: z.string().min(1),
-  code: z.string().min(6), // 6-digit TOTP or xxxx-xxxx recovery code
+  // 6-digit TOTP or recovery code (xxxx-xxxx-xxxx-xxxx; older xxxx-xxxx codes still work)
+  code: z.string().trim().min(6).max(64),
 });
 export type TwoFactorVerifyRequest = z.infer<
   typeof TwoFactorVerifyRequestSchema

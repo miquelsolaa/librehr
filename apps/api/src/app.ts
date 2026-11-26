@@ -71,6 +71,7 @@ import { AppError } from "./errors/index.js";
 import type { LicenseState } from "@librehr/contracts";
 import { createCorsOriginMatcher } from "./lib/cors-origin.js";
 import type { HostResolver } from "./lib/outbound-url.js";
+import type { OutboundSender } from "./lib/outbound-request.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -132,6 +133,8 @@ export interface AppConfig {
   webhooksAllowPrivate: boolean;
   /** DNS resolver for outbound URL checks; tests inject a fake. */
   resolveHost: HostResolver | undefined;
+  /** Sender for outbound webhook requests; tests inject a fake. */
+  sendWebhook: OutboundSender | undefined;
 }
 
 /**
@@ -157,6 +160,7 @@ export function resolveAppConfig(
     webhooksAllowPrivate:
       nodeEnv !== "production" && (config.webhooksAllowPrivate ?? false),
     resolveHost: config.resolveHost,
+    sendWebhook: config.sendWebhook,
   };
 }
 
@@ -319,10 +323,14 @@ export function createApp(deps: AppDependencies) {
   app.route("/v1", createAuditorAccessRoutes(deps.sql));
   app.route(
     "/v1",
-    createWebhookRoutes(deps.sql, {
-      allowPrivate: config.webhooksAllowPrivate,
-      resolve: config.resolveHost,
-    }),
+    createWebhookRoutes(
+      deps.sql,
+      {
+        allowPrivate: config.webhooksAllowPrivate,
+        resolve: config.resolveHost,
+      },
+      config.sendWebhook,
+    ),
   );
   app.route("/v1", createShiftRoutes(deps.sql));
 

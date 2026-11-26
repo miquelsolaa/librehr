@@ -33,7 +33,7 @@
     "twoFactorTitle": "Autenticación de Dos Factores",
     "twoFactorDescription": "Introduce el código de 6 dígitos generado por tu aplicación autenticadora.",
     "twoFactorCodeLabel": "Código de autenticación (TOTP)",
-    "twoFactorBackupHint": "También puedes introducir un código de recuperación de un solo uso (formato xxxx-xxxx).",
+    "twoFactorBackupHint": "También puedes introducir un código de recuperación de un solo uso (formato xxxx-xxxx-xxxx-xxxx).",
     "verifyCodeButton": "Verificar y Acceder",
     "invalid2FaCode": "El código de dos factores no es válido o ha caducado.",
     "signInWithSso": "Iniciar sesión con SSO de Empresa",
