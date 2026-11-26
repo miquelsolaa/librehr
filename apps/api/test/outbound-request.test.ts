@@ -1,11 +1,14 @@
+import { execFileSync } from "node:child_process";
 import { once } from "node:events";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import * as http from "node:http";
 import * as https from "node:https";
 import type { LookupAddress } from "node:dns";
 import type { AddressInfo } from "node:net";
 import * as tls from "node:tls";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import {
   pinnedLookup,
   pinnedRequestOptions,
@@ -38,11 +41,36 @@ function rebindingResolver(first: string[], later: string[] = ["127.0.0.1"]) {
   });
 }
 
-// Test-only throwaway certificate for another name (see the fixture header).
-const fixture = (name: string) =>
-  readFileSync(new URL(`./fixtures/tls/${name}`, import.meta.url), "utf8");
-const otherHostKey = fixture("test-only-other-host.key.pem");
-const otherHostCert = fixture("test-only-other-host.cert.pem");
+// A throwaway self-signed certificate for another name, generated per run
+// (needs the openssl CLI) so no key material is ever committed.
+const OTHER_HOST = "not-the-webhook-host.invalid";
+const certDir = mkdtempSync(join(tmpdir(), "librehr-webhook-tls-"));
+execFileSync(
+  "openssl",
+  [
+    "req",
+    "-x509",
+    "-newkey",
+    "ec",
+    "-pkeyopt",
+    "ec_paramgen_curve:prime256v1",
+    "-nodes",
+    "-days",
+    "1",
+    "-subj",
+    `/CN=${OTHER_HOST}`,
+    "-addext",
+    `subjectAltName=DNS:${OTHER_HOST}`,
+    "-keyout",
+    join(certDir, "key.pem"),
+    "-out",
+    join(certDir, "cert.pem"),
+  ],
+  { stdio: "ignore" },
+);
+const otherHostKey = readFileSync(join(certDir, "key.pem"), "utf8");
+const otherHostCert = readFileSync(join(certDir, "cert.pem"), "utf8");
+afterAll(() => rmSync(certDir, { recursive: true, force: true }));
 
 function lookupOnce(
   target: OutboundTarget,
@@ -171,8 +199,8 @@ describe("DNS pinning for outbound webhooks (issue #35)", () => {
 
     // Control: same pinned IP, hostname matching the certificate.
     const matching: OutboundTarget = {
-      url: new URL(`https://not-the-webhook-host.invalid:${port}/hook`),
-      hostname: "not-the-webhook-host.invalid",
+      url: new URL(`https://${OTHER_HOST}:${port}/hook`),
+      hostname: OTHER_HOST,
       addresses: ["127.0.0.1"],
     };
     await expect(
