@@ -315,6 +315,11 @@ registry.registerPath({
       description: "Invalid credentials",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
+    403: {
+      description:
+        "SSO_REQUIRED: the password is correct, but every organization of the account requires single sign-on (AUTH-004)",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
   },
 });
 
@@ -890,6 +895,11 @@ registry.registerPath({
     200: {
       description: "Invitation accepted and session created",
       content: { "application/json": { schema: SessionResponseSchema } },
+    },
+    403: {
+      description:
+        "SSO_REQUIRED: the invitation was accepted, but the organization requires single sign-on, so no password session is opened (AUTH-004)",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
   },
 });

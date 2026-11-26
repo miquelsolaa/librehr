@@ -213,6 +213,34 @@ export function createAuthRoutes(
     });
   };
 
+  // AUTH-004: a password session that opened in an organization requiring
+  // SSO is a break-glass sign-in (admin with TOTP). It is audited in that
+  // organization; if the entry cannot be written, the session is revoked so
+  // no break-glass sign-in goes unrecorded.
+  const auditBreakGlass = async (session: AuthSession) => {
+    if (!session.breakGlass) return;
+    try {
+      await withTenant(
+        sql,
+        {
+          organizationId: session.user.organizationId,
+          userId: session.user.id,
+        },
+        (tx) =>
+          auditRepo.log(tx, {
+            actorId: session.user.id,
+            action: "auth.sso.break_glass",
+            resourceType: "user",
+            resourceId: session.user.id,
+            metadata: { authMethod: "password" },
+          }),
+      );
+    } catch (err) {
+      await authPort.revokeSession(session.token);
+      throw err;
+    }
+  };
+
   const noActiveMembership = () =>
     new UnauthorizedError({
       code: "INVALID_CREDENTIALS",
@@ -363,8 +391,11 @@ export function createAuthRoutes(
       }
     }
 
+    // Throws SsoRequiredError (403 SSO_REQUIRED) when every membership
+    // requires single sign-on (AUTH-004); the password already verified.
     const session = await authPort.createSession(user);
     if (!session) throw noActiveMembership();
+    await auditBreakGlass(session);
     return issueSession(c, session);
   });
 
@@ -531,6 +562,7 @@ export function createAuthRoutes(
         { "Content-Type": "application/problem+json" },
       );
     }
+    await auditBreakGlass(session);
     return issueSession(c, session);
   });
 

@@ -426,6 +426,9 @@ export function createInvitationRoutes(
         { "Content-Type": "application/problem+json" },
       );
     }
+    // AUTH-004: in an organization that requires SSO, the acceptance above
+    // has committed and createSession throws SsoRequiredError (403
+    // SSO_REQUIRED); the client continues with single sign-on.
     const session = await authPort.createSession(authUser);
     if (!session) {
       throw new UnauthorizedError({

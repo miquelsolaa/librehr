@@ -1,4 +1,5 @@
 import type { ZodError } from "zod";
+import { SSO_REQUIRED_CODE } from "@librehr/contracts";
 import {
   AppError,
   type AppErrorOptions,
@@ -34,6 +35,20 @@ export class ForbiddenError extends AppError {
       title: "Forbidden",
       code: options.code ?? "FORBIDDEN",
       detail: options.detail ?? "You do not have permission to do this",
+    });
+  }
+}
+
+/**
+ * AUTH-004: a password session was refused because the organization requires
+ * single sign-on. Raised only after the password (and second factor)
+ * verified, and it names no organization.
+ */
+export class SsoRequiredError extends ForbiddenError {
+  constructor() {
+    super({
+      code: SSO_REQUIRED_CODE,
+      detail: "This organization requires single sign-on",
     });
   }
 }

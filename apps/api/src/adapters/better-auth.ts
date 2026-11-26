@@ -1,8 +1,15 @@
 import crypto from "node:crypto";
 import type { Sql } from "postgres";
 import { IdentityRepository, hashBearerToken } from "@librehr/db";
-import type { AuthPort, AuthSession, SessionSubject } from "../ports/auth.js";
+import type {
+  AuthPort,
+  AuthSession,
+  CreateSessionOptions,
+  SessionSubject,
+} from "../ports/auth.js";
 import { verifyPassword } from "../lib/password.js";
+import { SsoRequiredError } from "../errors/index.js";
+import { logger } from "../middleware/logger.js";
 
 /** Sessions last 7 days; the cookie Max-Age is derived from expiresAt. */
 export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -13,12 +20,23 @@ export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
  * lookup functions (migrations 0019/0020), always keyed by a secret the
  * caller holds (a session token), never by a bare user id.
  */
+export interface BetterAuthAdapterOptions {
+  /**
+   * AUTH-004 "Require SSO" is active on this instance: the licence grants
+   * `sso` and SSO_ENABLED is true (see lib/sso-enforcement.ts). When false,
+   * organizations' enforce_sso settings are stored but have no effect.
+   */
+  ssoEnforcement?: boolean | undefined;
+}
+
 export class BetterAuthAdapter implements AuthPort {
   private sql: Sql;
   private identity = new IdentityRepository();
+  private ssoEnforcement: boolean;
 
-  constructor(sql: Sql) {
+  constructor(sql: Sql, options: BetterAuthAdapterOptions = {}) {
     this.sql = sql;
+    this.ssoEnforcement = options.ssoEnforcement ?? false;
   }
 
   async verifyCredentials(
@@ -54,23 +72,37 @@ export class BetterAuthAdapter implements AuthPort {
     };
   }
 
-  async createSession(user: SessionSubject): Promise<AuthSession | null> {
+  async createSession(
+    user: SessionSubject,
+    options: CreateSessionOptions = {},
+  ): Promise<AuthSession | null> {
     const token = crypto.randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
+    const authMethod = options.authMethod ?? "password";
 
     await this.sql`
-      INSERT INTO sessions (user_id, token, expires_at, organization_id)
-      VALUES (${user.id}, ${hashBearerToken(token)}, ${expiresAt}, ${user.organizationId ?? null})
+      INSERT INTO sessions (user_id, token, expires_at, organization_id, auth_method)
+      VALUES (${user.id}, ${hashBearerToken(token)}, ${expiresAt}, ${user.organizationId ?? null}, ${authMethod})
     `;
 
     // Picks the pinned org (or the default membership), refusing memberships
-    // of terminated employees (EMP-007).
+    // of terminated employees (EMP-007) and, for password sessions while
+    // enforcement is active, of organizations that require SSO (AUTH-004).
     const membership = await this.identity.bindSessionOrganization(
       this.sql,
       token,
+      { enforceSso: this.ssoEnforcement },
     );
-    if (!membership) {
+    if (!membership || membership.ssoRequired) {
       await this.revokeSession(token);
+      if (membership?.ssoRequired) {
+        // No user id, email or organization (AGENTS.md section 4).
+        logger.warn(
+          { code: "SSO_REQUIRED" },
+          "password session refused: organization requires single sign-on",
+        );
+        throw new SsoRequiredError();
+      }
       return null;
     }
 
@@ -87,12 +119,24 @@ export class BetterAuthAdapter implements AuthPort {
       },
       token,
       expiresAt,
+      authMethod,
+      breakGlass: membership.breakGlass,
     };
   }
 
   async getSession(token: string): Promise<AuthSession | null> {
     const row = await this.identity.session(this.sql, token);
     if (!row) return null;
+    // AUTH-004: checked at lookup time, so switching "Require SSO" on ends
+    // password sessions at once and lifting it (or a licence lapse) restores
+    // them. Nothing is deleted.
+    if (
+      this.ssoEnforcement &&
+      row.authMethod === "password" &&
+      !row.passwordAllowed
+    ) {
+      return null;
+    }
 
     return {
       user: {
@@ -105,6 +149,7 @@ export class BetterAuthAdapter implements AuthPort {
       },
       token,
       expiresAt: new Date(row.expiresAt),
+      authMethod: row.authMethod,
     };
   }
 

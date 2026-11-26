@@ -16,6 +16,19 @@ export interface MembershipLookup {
   role: string;
 }
 
+/** How a session was authenticated (sessions.auth_method, migration 0041). */
+export type SessionAuthMethod = "password" | "sso";
+
+/**
+ * Outcome of binding a new session (AUTH-004). `ssoRequired` means every
+ * active membership was skipped because its organization requires single
+ * sign-on for password sessions; `breakGlass` means the session opened in
+ * such an organization as an admin with TOTP enabled.
+ */
+export type SessionBinding =
+  | (MembershipLookup & { ssoRequired: false; breakGlass: boolean })
+  | { ssoRequired: true };
+
 export interface SessionLookup {
   userId: string;
   email: string;
@@ -24,6 +37,13 @@ export interface SessionLookup {
   organizationId: string;
   role: string;
   expiresAt: Date;
+  authMethod: SessionAuthMethod;
+  /**
+   * False when the session is a password session and its organization
+   * requires SSO (the user is not a break-glass admin). Computed as if
+   * enforcement were active; the caller decides whether it is.
+   */
+  passwordAllowed: boolean;
 }
 
 export interface PersonalAccessTokenLookup {
@@ -78,16 +98,40 @@ export class IdentityRepository {
    * (oldest by created_at, then id). Keyed by the session token, never by a
    * bare user id (migration 0020). Returns null when the session is unknown or
    * expired, or the user has no active membership there.
+   *
+   * With `enforceSso` (AUTH-004, migration 0041), a password session skips
+   * memberships of organizations that require single sign-on, unless the
+   * user is a break-glass admin there.
    */
   async bindSessionOrganization(
     sql: Sql,
     token: string,
-  ): Promise<MembershipLookup | null> {
-    const rows = await sql<MembershipLookup[]>`
-      SELECT organization_id AS "organizationId", role
-      FROM librehr_auth_session_bind_org(${hashBearerToken(token)})
+    options: { enforceSso?: boolean | undefined } = {},
+  ): Promise<SessionBinding | null> {
+    const rows = await sql<
+      {
+        organizationId: string | null;
+        role: string | null;
+        ssoRequired: boolean;
+        breakGlass: boolean;
+      }[]
+    >`
+      SELECT organization_id AS "organizationId", role,
+             sso_required AS "ssoRequired", break_glass AS "breakGlass"
+      FROM librehr_auth_session_bind_org(
+        ${hashBearerToken(token)}, ${options.enforceSso ?? false}
+      )
     `;
-    return rows[0] ?? null;
+    const row = rows[0];
+    if (!row) return null;
+    if (row.ssoRequired) return { ssoRequired: true };
+    if (!row.organizationId || !row.role) return null;
+    return {
+      organizationId: row.organizationId,
+      role: row.role,
+      ssoRequired: false,
+      breakGlass: row.breakGlass,
+    };
   }
 
   async session(sql: Sql, token: string): Promise<SessionLookup | null> {
@@ -95,8 +139,9 @@ export class IdentityRepository {
       SELECT user_id AS "userId", email, name,
              two_factor_enabled AS "twoFactorEnabled",
              organization_id AS "organizationId", role,
-             expires_at AS "expiresAt"
-      FROM librehr_auth_session(${hashBearerToken(token)})
+             expires_at AS "expiresAt", auth_method AS "authMethod",
+             password_allowed AS "passwordAllowed"
+      FROM librehr_auth_session_v2(${hashBearerToken(token)})
     `;
     return rows[0] ?? null;
   }
