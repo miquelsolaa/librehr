@@ -7,6 +7,13 @@ import {
 } from "../../src/lib/rate-limit-store.js";
 
 /**
+ * Never inject a fake clock into a Postgres store far in the past or future
+ * on a database other test files share (the CI `librehr_test` database):
+ * its sweep deletes every bucket that expired before the fake "now", so a
+ * future clock would wipe other files' live counters and lockouts. Use fake
+ * clocks only on a per-file database (createRoleSeparatedDatabase), as the
+ * rate-limit suites do, or the memory double.
+ *
  * The shared Postgres store under a random (or given) key prefix: an app
  * built with it starts with fresh counters although it shares the test
  * database with other apps of the same file. Two apps given the same
@@ -38,15 +45,20 @@ export function memoryRateLimitStore(now = Date.now): RateLimitStore {
   /** One failure (or reserved attempt) against `key`; mirrors failureUpsert. */
   const fail = (key: string, policy: FailurePolicy, at: number) => {
     let record = failures.get(key);
+    // A new window keeps any lock: a lockout may outlast the window.
     if (!record || at - record.windowStart > policy.windowMs) {
-      record = { count: 0, windowStart: at, lockedUntil: 0 };
+      record = {
+        count: 0,
+        windowStart: at,
+        lockedUntil: record?.lockedUntil ?? 0,
+      };
     }
     record = { ...record, count: record.count + 1 };
     if (record.count >= policy.limit) {
       record = {
         count: 0,
         windowStart: at,
-        lockedUntil: at + policy.lockoutMs,
+        lockedUntil: Math.max(record.lockedUntil, at + policy.lockoutMs),
       };
     }
     failures.set(key, record);

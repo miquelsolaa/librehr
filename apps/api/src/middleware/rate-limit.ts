@@ -21,10 +21,11 @@ export interface RateLimiterOptions {
    */
   account?:
     ((c: Context) => Promise<string | null> | string | null) | undefined;
+  /** Bound on the in-process cache of refused keys (default 10 000). */
+  refusalCacheSize?: number | undefined;
 }
 
-/** Bound on the per-limiter cache of refused keys. */
-const BLOCKED_CACHE_MAX = 10_000;
+const DEFAULT_REFUSAL_CACHE_SIZE = 10_000;
 
 /**
  * Fixed-window rate limiter. Counters live in the shared store (Postgres in
@@ -41,6 +42,7 @@ export function createRateLimiter(
   const trustProxy = options.trustProxy ?? 0;
   const { store } = options;
   const blockedUntil = new Map<string, number>();
+  const cacheSize = options.refusalCacheSize ?? DEFAULT_REFUSAL_CACHE_SIZE;
 
   const tooMany = (c: Context, retryInMs: number) =>
     c.json(
@@ -57,12 +59,15 @@ export function createRateLimiter(
       },
     );
 
-  const remember = (key: string, until: number, now: number) => {
-    if (blockedUntil.size >= BLOCKED_CACHE_MAX) {
-      for (const [k, t] of blockedUntil) if (t <= now) blockedUntil.delete(k);
+  // When full, the oldest entry (Map insertion order) is evicted: O(1), and
+  // an evicted key is simply asked about at the store again.
+  const remember = (key: string, until: number) => {
+    blockedUntil.delete(key);
+    if (blockedUntil.size >= cacheSize) {
+      const oldest = blockedUntil.keys().next();
+      if (!oldest.done) blockedUntil.delete(oldest.value);
     }
-    // Still full: skip caching; the store keeps refusing on its own.
-    if (blockedUntil.size < BLOCKED_CACHE_MAX) blockedUntil.set(key, until);
+    blockedUntil.set(key, until);
   };
 
   return async (c, next) => {
@@ -84,7 +89,7 @@ export function createRateLimiter(
 
     const { count, resetInMs } = await store.hit(key, options.windowMs);
     if (count > options.max) {
-      remember(key, now + resetInMs, now);
+      remember(key, now + resetInMs);
       return tooMany(c, resetInMs);
     }
 

@@ -159,6 +159,26 @@ describe("rateLimitAddress", () => {
     expect(rateLimitAddress("::1")).toBe("0:0:0:0::/64");
     expect(rateLimitAddress("64:ff9b::203.0.113.7")).toBe("64:ff9b:0:0::/64");
   });
+
+  it("keys IPv6 addresses that embed an IPv4 address on that IPv4 address", () => {
+    // IPv4-mapped, in every spelling.
+    expect(rateLimitAddress("::ffff:203.0.113.7")).toBe("203.0.113.7");
+    expect(rateLimitAddress("::FFFF:203.0.113.7")).toBe("203.0.113.7");
+    expect(rateLimitAddress("::ffff:cb00:7107")).toBe("203.0.113.7");
+    expect(rateLimitAddress("0:0:0:0:0:ffff:cb00:7107")).toBe("203.0.113.7");
+    expect(rateLimitAddress("0000:0000:0000:0000:0000:ffff:203.0.113.7")).toBe(
+      "203.0.113.7",
+    );
+    // IPv4-translated.
+    expect(rateLimitAddress("::ffff:0:203.0.113.7")).toBe("203.0.113.7");
+    expect(rateLimitAddress("::ffff:0:cb00:7107")).toBe("203.0.113.7");
+    // Deprecated IPv4-compatible.
+    expect(rateLimitAddress("::203.0.113.7")).toBe("203.0.113.7");
+    expect(rateLimitAddress("::cb00:7107")).toBe("203.0.113.7");
+    // Not embedded: loopback and unspecified stay IPv6.
+    expect(rateLimitAddress("::1")).toBe("0:0:0:0::/64");
+    expect(rateLimitAddress("::")).toBe("0:0:0:0::/64");
+  });
 });
 
 describe("createRateLimiter", () => {
@@ -217,6 +237,48 @@ describe("createRateLimiter", () => {
     expect(keys).toHaveLength(1);
     expect(keys[0]).toMatch(/^test\.x:/);
     expect(keys[0]).not.toContain("ana@example.invalid");
+  });
+
+  it("evicts the oldest refused key when the refusal cache is full", async () => {
+    const inner = memoryRateLimitStore();
+    const asked: string[] = [];
+    const app = new Hono();
+    app.post(
+      "/x",
+      createRateLimiter({
+        name: "test.evict",
+        store: {
+          ...inner,
+          hit: (key, windowMs) => {
+            asked.push(key);
+            return inner.hit(key, windowMs);
+          },
+        },
+        windowMs: 60_000,
+        max: 0,
+        trustProxy: 1,
+        refusalCacheSize: 2,
+      }),
+      (c) => c.text("ok"),
+    );
+    const from = async (ip: string) =>
+      (
+        await app.request("/x", {
+          method: "POST",
+          headers: { "X-Forwarded-For": ip },
+        })
+      ).status;
+    // max 0: every key is refused and cached; the cache holds two.
+    for (const ip of ["192.0.2.1", "192.0.2.2", "192.0.2.3"]) {
+      expect(await from(ip)).toBe(429);
+    }
+    asked.length = 0;
+    // .2 and .3 are cached; .1 (the oldest) was evicted and asks again.
+    expect(await from("192.0.2.2")).toBe(429);
+    expect(await from("192.0.2.3")).toBe(429);
+    expect(asked).toEqual([]);
+    expect(await from("192.0.2.1")).toBe(429);
+    expect(asked).toEqual(["test.evict:192.0.2.1"]);
   });
 
   it("refuses locally after a 429 until the window resets, without asking the store", async () => {
@@ -367,6 +429,65 @@ describe("fail closed (issue #35)", () => {
     });
     expect(res.status).toBe(500);
     expect(checked).toBe(false);
+  });
+
+  it("keeps a reserved 2FA attempt counted when the check itself fails", async () => {
+    // Accepted fail-closed risk: an attempt is reserved before it is
+    // checked, so an error during the check still uses up the attempt.
+    const user = {
+      id: "00000000-0000-4000-8000-000000000001",
+      email: "two-factor@example.invalid",
+      name: "Two Factor",
+    };
+    const authPort: AuthPort = {
+      async verifyCredentials() {
+        return user;
+      },
+      async createSession() {
+        return null;
+      },
+      async getSession() {
+        return null;
+      },
+      async revokeSession() {},
+    };
+    const sql = scriptedSql((text) => {
+      if (text.startsWith("UPDATE users")) {
+        throw new Error("database unavailable");
+      }
+      return text.includes("FROM users")
+        ? [
+            {
+              ...user,
+              emailVerified: true,
+              twoFactorEnabled: true,
+              twoFactorSecret: "JBSWY3DPEHPK3PXP",
+              twoFactorRecoveryCodes: [],
+            },
+          ]
+        : [];
+    });
+    const app = createApp({
+      sql,
+      authPort,
+      sessionSecret: "test-session-secret-with-at-least-32-chars",
+      rateLimitStore: memoryRateLimitStore(),
+      twoFactor: { lockout: { maxFailures: 1 } },
+    });
+    const signIn = () =>
+      app.request("/v1/auth/sign-in", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: user.email,
+          password: "a-password",
+          twoFactorCode: "abcd-efgh",
+        }),
+      });
+    expect((await signIn()).status).toBe(500);
+    const next = await signIn();
+    expect(next.status).toBe(429);
+    expect(await next.json()).toMatchObject({ code: "TWO_FACTOR_LOCKED" });
   });
 
   it("refuses to build a production app without a session secret", () => {

@@ -41,29 +41,53 @@ export function clientIp(c: Context, trustProxy: number): string {
 /**
  * The address a rate limit counts against. An IPv6 client usually holds a
  * whole /64 and can rotate through it freely, so IPv6 addresses are grouped
- * by their /64 prefix; IPv4 (and IPv4-mapped IPv6) addresses count alone.
+ * by their /64 prefix. IPv4 addresses count alone, and so do IPv6 addresses
+ * that embed one, in any spelling: IPv4-mapped (::ffff:a.b.c.d, also
+ * written in hex or in full), IPv4-translated (::ffff:0:a.b.c.d) and the
+ * deprecated IPv4-compatible form (::a.b.c.d). Otherwise every IPv4 client
+ * seen through a dual-stack socket would share one ::/64 budget.
  *
  * Example: "2001:db8:1:2:aaaa::1" -> "2001:db8:1:2::/64";
- * "::ffff:203.0.113.7" -> "203.0.113.7".
+ * "::ffff:cb00:7107" -> "203.0.113.7".
  */
 export function rateLimitAddress(ip: string): string {
   const address = (ip.split("%")[0] ?? ip).toLowerCase();
   if (!isIPv6(address)) return ip;
-  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(address);
-  if (mapped?.[1]) return mapped[1];
-  // A trailing dotted quad fills the last two 16-bit groups.
+  const g = expandIPv6(address);
+  const zero = (from: number, to: number) =>
+    g.slice(from, to).every((x) => x === 0);
+  const embedded =
+    (zero(0, 5) && g[5] === 0xffff) || // IPv4-mapped
+    (zero(0, 4) && g[4] === 0xffff && g[5] === 0) || // IPv4-translated
+    (zero(0, 6) && (g[6] ?? 0) !== 0); // IPv4-compatible (not :: or ::1)
+  if (embedded) {
+    const hi = g[6] ?? 0;
+    const lo = g[7] ?? 0;
+    return [hi >> 8, hi & 0xff, lo >> 8, lo & 0xff].join(".");
+  }
+  return `${g
+    .slice(0, 4)
+    .map((x) => x.toString(16))
+    .join(":")}::/64`;
+}
+
+/** The eight 16-bit groups of a valid IPv6 address (dotted tail included). */
+function expandIPv6(address: string): number[] {
   const groups = (part: string) =>
     part
-      ? part.split(":").flatMap((g) => (g.includes(".") ? ["0", "0"] : [g]))
+      ? part.split(":").flatMap((x) => {
+          if (!x.includes(".")) return [parseInt(x, 16)];
+          const [a = 0, b = 0, c = 0, d = 0] = x.split(".").map(Number);
+          return [(a << 8) | b, (c << 8) | d];
+        })
       : [];
   const [head = "", tail] = address.split("::");
   const left = groups(head);
-  const right = tail === undefined ? [] : groups(tail);
-  const zeros = Array<string>(8 - left.length - right.length).fill("0");
-  const all = tail === undefined ? left : [...left, ...zeros, ...right];
-  const prefix = all
-    .slice(0, 4)
-    .map((g) => parseInt(g, 16).toString(16))
-    .join(":");
-  return `${prefix}::/64`;
+  if (tail === undefined) return left;
+  const right = groups(tail);
+  return [
+    ...left,
+    ...Array<number>(8 - left.length - right.length).fill(0),
+    ...right,
+  ];
 }

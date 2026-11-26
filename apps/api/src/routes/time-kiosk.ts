@@ -125,7 +125,9 @@ export function createTimeKioskRoutes(
 
       // The per-IP lockout counts failures after the check (it stops one
       // device spraying many identifiers); checking it first keeps a locked
-      // IP from using up identifiers' attempts.
+      // IP from using up identifiers' attempts. Check-then-record: a
+      // concurrent burst can exceed it (bounded by the per-IP rate limit and
+      // the per-identifier reservation); see issue #178.
       const ipLockedMs = await lockout.lockedFor([ipKey]);
       if (ipLockedMs > 0) return locked(ipLockedMs);
       // The per-identifier limit is reserved atomically before the PIN is

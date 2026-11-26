@@ -97,6 +97,22 @@ const scenarios: Array<[string, Scenario]> = [
     },
   ],
   [
+    "keeps a lockout longer than the window when a new window starts",
+    async (store, setNow) => {
+      await store.recordFailure([{ key: "l", limit: 1 }], policy);
+      // The 60 s window is stale, the 5 min lock is not.
+      setNow(T0 + 120_000);
+      await store.recordFailure([{ key: "l", limit: 3 }], policy);
+      expect(await store.lockedFor(["l"])).toBe(180_000);
+      expect(await store.reserveAttempt("l", { ...policy, limit: 3 })).toEqual({
+        allowed: false,
+        lockedMs: 180_000,
+      });
+      setNow(T0 + 300_000);
+      expect(await store.lockedFor(["l"])).toBe(0);
+    },
+  ],
+  [
     "reports the latest lock among several keys",
     async (store, setNow) => {
       await store.recordFailure([{ key: "x", limit: 1 }], policy);
