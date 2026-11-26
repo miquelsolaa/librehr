@@ -76,7 +76,6 @@ async function bootstrap() {
       appUrl: env.APP_URL,
       corsOrigins: env.CORS_ORIGINS,
       publicApiUrl: env.BETTER_AUTH_URL,
-      ssoEnabled: env.SSO_ENABLED,
       webhooksAllowPrivate: env.WEBHOOKS_ALLOW_PRIVATE,
     },
   });

@@ -5,8 +5,18 @@ import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button, DayRing, Input, LibreHRMark } from "@librehr/ui";
+import { SsoErrorCodeSchema, type SsoErrorCode } from "@librehr/contracts";
 import { getApiClient } from "@/lib/api-client";
 import { setStoredSession } from "@/lib/auth";
+
+// AUTH-004: causes named only once the identity provider has authenticated
+// the person; state, token and provider failures share a generic message.
+const SSO_ERROR_MESSAGES: Partial<Record<SsoErrorCode, string>> = {
+  SSO_NO_ACCOUNT: "ssoErrorNoAccount",
+  SSO_DOMAIN_NOT_ALLOWED: "ssoErrorDomainNotAllowed",
+  SSO_IDENTITY_CONFLICT: "ssoErrorIdentityConflict",
+  SSO_EMAIL_NOT_VERIFIED: "ssoErrorEmailNotVerified",
+};
 
 export default function SignInPage() {
   const router = useRouter();
@@ -33,6 +43,27 @@ export default function SignInPage() {
     null,
   );
   const [twoFactorCode, setTwoFactorCode] = React.useState("");
+
+  // Coming back from GET /v1/sso/callback: an error code in the query, or a
+  // 2FA challenge in the fragment (never sent to a server). Both are read
+  // once and removed from the address bar.
+  React.useEffect(() => {
+    const url = new URL(window.location.href);
+    const ssoError = url.searchParams.get("sso_error");
+    const challenge = new URLSearchParams(url.hash.slice(1)).get(
+      "sso_challenge",
+    );
+    if (ssoError === null && !url.hash) return;
+    url.searchParams.delete("sso_error");
+    window.history.replaceState(null, "", url.pathname + url.search);
+    if (challenge) {
+      setChallengeToken(challenge);
+    } else if (ssoError !== null) {
+      const code = SsoErrorCodeSchema.safeParse(ssoError);
+      const key = code.success ? SSO_ERROR_MESSAGES[code.data] : undefined;
+      setErrorMessage(tAuth(key ?? "ssoErrorGeneric"));
+    }
+  }, [tAuth]);
 
   // SSO Flow State
   const [showSsoPrompt, setShowSsoPrompt] = React.useState(false);
@@ -111,6 +142,7 @@ export default function SignInPage() {
       const res = await client.authorizeSso({
         domain: ssoDomain.trim() || undefined,
         email: email.trim() || undefined,
+        locale: locale === "es" || locale === "en" ? locale : "ca",
       });
 
       window.location.href = res.authorizationUrl;

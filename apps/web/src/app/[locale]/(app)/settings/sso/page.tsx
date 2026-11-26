@@ -13,7 +13,7 @@ import {
   ChevronLeft,
 } from "lucide-react";
 import { Button, ConfirmDialog, Input, PageHeader } from "@librehr/ui";
-import { getApiClient } from "@/lib/api-client";
+import { apiUrl, getApiClient } from "@/lib/api-client";
 import type {
   ProblemDetails,
   SsoConfig,
@@ -47,16 +47,16 @@ export default function SsoSettingsPage() {
     null,
   );
   const [copiedCallback, setCopiedCallback] = React.useState(false);
-  const [unavailable, setUnavailable] = React.useState(false);
   // LIC-003: SSO is a LibreHR Business feature.
   const [licenseRequired, setLicenseRequired] = React.useState(false);
   const [confirmDisable, setConfirmDisable] = React.useState(false);
   const [isDisabling, setIsDisabling] = React.useState(false);
 
+  // The API reports the redirect URI it sends (BETTER_AUTH_URL based); before
+  // the first save, the API address as this browser reaches it.
   const callbackUrl =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/v1/sso/callback`
-      : "https://your-domain.com/v1/sso/callback";
+    config?.redirectUri ??
+    (typeof window !== "undefined" ? apiUrl("/v1/sso/callback") : "");
 
   const loadConfig = React.useCallback(async () => {
     setIsLoading(true);
@@ -83,8 +83,6 @@ export default function SsoSettingsPage() {
       const problem = err as Partial<ProblemDetails> | null;
       if (problem?.code === "LICENSE_REQUIRED") {
         setLicenseRequired(true);
-      } else if (problem?.code === "SSO_DISABLED") {
-        setUnavailable(true);
       } else {
         setErrorMessage(t("loadError"));
       }
@@ -116,7 +114,8 @@ export default function SsoSettingsPage() {
     if (p === "google") {
       setIssuerUrl("https://accounts.google.com");
     } else if (p === "microsoft") {
-      setIssuerUrl("https://login.microsoftonline.com/common/v2.0");
+      // Multi-tenant issuers (/common) are refused: the tenant ID is needed.
+      setIssuerUrl("");
     } else if (!issuerUrl.startsWith("https://")) {
       setIssuerUrl("https://auth.company.com");
     }
@@ -154,8 +153,14 @@ export default function SsoSettingsPage() {
 
       setConfig(saved);
       setSuccessMessage(t("ssoSavedSuccess"));
-    } catch {
-      setErrorMessage(t("ssoSaveError"));
+    } catch (err) {
+      const problem = err as Partial<ProblemDetails> | null;
+      const issuerRejected = problem?.errors?.some(
+        (issue) => issue.field === "issuerUrl",
+      );
+      setErrorMessage(
+        issuerRejected ? t("ssoIssuerUrlInvalid") : t("ssoSaveError"),
+      );
     } finally {
       setIsSaving(false);
     }
@@ -200,16 +205,6 @@ export default function SsoSettingsPage() {
         >
           <AlertCircle className="h-4 w-4 text-info" aria-hidden="true" />
           {t("ssoLicenseRequired")}
-        </div>
-      )}
-
-      {unavailable && (
-        <div
-          role="status"
-          className="rounded-card border border-border bg-surface p-4 text-sm text-muted-foreground flex items-center gap-2"
-        >
-          <AlertCircle className="h-4 w-4" />
-          {t("ssoUnavailable")}
         </div>
       )}
 
@@ -376,9 +371,20 @@ export default function SsoSettingsPage() {
                   required
                   value={issuerUrl}
                   onChange={(e) => setIssuerUrl(e.target.value)}
-                  placeholder="https://accounts.google.com"
+                  placeholder={
+                    provider === "microsoft"
+                      ? "https://login.microsoftonline.com/<tenant-id>/v2.0"
+                      : "https://accounts.google.com"
+                  }
+                  aria-describedby="issuerUrl-hint"
                   className="mt-1 font-mono text-xs"
                 />
+                <p
+                  id="issuerUrl-hint"
+                  className="text-xs text-muted-foreground mt-1"
+                >
+                  {t("ssoIssuerUrlHint")}
+                </p>
               </div>
 
               <div>

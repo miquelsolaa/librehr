@@ -145,8 +145,6 @@ export interface AppConfig {
   corsOrigins: string[];
   /** Public API base URL (BETTER_AUTH_URL), used for the SSO redirect URI. */
   publicApiUrl: string;
-  /** SSO_ENABLED. */
-  ssoEnabled: boolean;
   /** WEBHOOKS_ALLOW_PRIVATE (never true in production; env.ts refuses it). */
   webhooksAllowPrivate: boolean;
   /** DNS resolver for outbound URL checks; tests inject a fake. */
@@ -162,7 +160,7 @@ export interface AppConfig {
 
 /**
  * Fills unset settings with closed defaults: an unknown NODE_ENV is treated
- * as production, SSO is off and webhooks must target public https URLs.
+ * as production and webhooks must target public https URLs.
  * `fallbackNodeEnv` is the top-level `nodeEnv` dependency, when given.
  */
 export function resolveAppConfig(
@@ -179,7 +177,6 @@ export function resolveAppConfig(
     appUrl: config.appUrl,
     corsOrigins: config.corsOrigins ?? [],
     publicApiUrl: config.publicApiUrl ?? "http://localhost:3001",
-    ssoEnabled: config.ssoEnabled ?? false,
     webhooksAllowPrivate:
       nodeEnv !== "production" && (config.webhooksAllowPrivate ?? false),
     resolveHost: config.resolveHost,
@@ -383,7 +380,6 @@ export function createApp(deps: AppDependencies) {
     sql: deps.sql,
     requireAuth,
     publicApiUrl: config.publicApiUrl,
-    ssoEnabled: config.ssoEnabled,
     createError: (init) => new AppError(init),
     appUrl: config.appUrl,
     rateLimit: (name, limit) =>

@@ -73,7 +73,7 @@ describe("SSO needs a Business licence (LIC-003, AUTH-004)", () => {
         // Production refuses to start without one (rate-limit key hashing).
         sessionSecret: "test-session-secret-with-at-least-32-chars",
         authPort: new MockAuthPort(),
-        config: { nodeEnv: "production", ssoEnabled: true },
+        config: { nodeEnv: "production" },
       });
       const { status, body } = await requestSso(app, method, path);
       expect(status).toBe(403);
@@ -88,7 +88,7 @@ describe("SSO needs a Business licence (LIC-003, AUTH-004)", () => {
       // Production refuses to start without one (rate-limit key hashing).
       sessionSecret: "test-session-secret-with-at-least-32-chars",
       authPort: new MockAuthPort(),
-      config: { nodeEnv: "production", ssoEnabled: true },
+      config: { nodeEnv: "production" },
       license: edition.license,
       extensions: edition.extensions,
     });
@@ -157,7 +157,7 @@ describe("Stored SSO configuration without a licence (LIC-003)", () => {
       // Production refuses to start without one (rate-limit key hashing).
       sessionSecret: "test-session-secret-with-at-least-32-chars",
       authPort,
-      config: { nodeEnv: "production", ssoEnabled: true },
+      config: { nodeEnv: "production" },
     });
   }, 60000);
 
@@ -240,7 +240,7 @@ describe("Stored SSO configuration without a licence (LIC-003)", () => {
 });
 
 describe.skipIf(!hasBusinessEdition)(
-  "Licensed SSO is unavailable unless SSO_ENABLED (AUTH-004)",
+  "Licensed SSO needs no other switch (AUTH-004)",
   () => {
     const edition = businessEdition();
     const app = createApp({
@@ -248,15 +248,16 @@ describe.skipIf(!hasBusinessEdition)(
       // Production refuses to start without one (rate-limit key hashing).
       sessionSecret: "test-session-secret-with-at-least-32-chars",
       authPort: new MockAuthPort(),
+      // SSO_ENABLED is no longer read: the licence alone mounts the routes.
       config: { nodeEnv: "production" },
       license: edition.license,
       extensions: edition.extensions,
     });
 
-    it.each(SSO_ROUTES)("%s %s returns 404", async (method, path) => {
-      const { status, body } = await requestSso(app, method, path);
-      expect(status).toBe(404);
-      expect(body.code).toBe("SSO_DISABLED");
+    it("mounts the routes, which ask for authentication", async () => {
+      const { status, body } = await requestSso(app, "GET", "/v1/sso/config");
+      expect(status).toBe(401);
+      expect(body.code).not.toBe("SSO_DISABLED");
     });
   },
 );
@@ -325,7 +326,6 @@ describe.skipIf(!hasBusinessEdition)(
         extensions: edition.extensions,
         config: {
           nodeEnv: "production",
-          ssoEnabled: true,
           publicApiUrl: "https://api.hr.example.com",
           // Saving and authorize read the issuer's discovery document.
           oidcHttp: new FakeOidcProvider(

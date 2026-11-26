@@ -10,6 +10,7 @@ import { TokenRepository, hashBearerToken, withTenant } from "@librehr/db";
 import { runMigrations } from "@librehr/db/migrate";
 import { createApp } from "../src/app.js";
 import { isolatedRateLimitStore } from "./support/rate-limit.js";
+import { FakeOidcProvider } from "./support/fake-oidc-provider.js";
 import {
   businessEdition,
   hasBusinessEdition,
@@ -92,10 +93,16 @@ describe("API on the restricted runtime role", () => {
       rateLimitStore: isolatedRateLimitStore(db.appSql),
       authPort: new BetterAuthAdapter(db.appSql),
       sessionSecret,
-      // SSO is Business (LIC-003) and off by default (SSO_ENABLED); this
-      // suite covers its lookup.
+      // SSO is Business (LIC-003); this suite covers its lookup.
       ...businessEdition(),
-      config: { ssoEnabled: true },
+      // Authorize reads the provider's discovery document.
+      config: {
+        oidcHttp: new FakeOidcProvider(
+          "https://idp.example.invalid",
+          "client-b",
+          "secret",
+        ).http,
+      },
     });
   }, 60000);
 

@@ -52,7 +52,6 @@ describe.skipIf(!hasBusinessEdition)("SSO sign-in callback (AUTH-004)", () => {
       config: {
         appUrl,
         publicApiUrl,
-        ssoEnabled: true,
         oidcHttp: idp.http,
         ...config,
       },

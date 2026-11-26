@@ -97,14 +97,17 @@ describe("loadEnv (DOC-004, AUTH-001)", () => {
     expect(msg).not.toContain("my_dev_password");
   });
 
-  it("keeps SSO and private webhook targets off by default", () => {
+  it("keeps private webhook targets off by default", () => {
     const env = loadEnv(strongProdEnv);
-    expect(env.SSO_ENABLED).toBe(false);
     expect(env.WEBHOOKS_ALLOW_PRIVATE).toBe(false);
     expect(env.CORS_ORIGINS).toEqual([]);
-    expect(loadEnv({ ...strongProdEnv, SSO_ENABLED: "true" }).SSO_ENABLED).toBe(
-      true,
-    );
+  });
+
+  it("ignores the retired SSO_ENABLED setting (AUTH-004)", () => {
+    for (const value of ["true", "false", "anything"]) {
+      const env = loadEnv({ ...strongProdEnv, SSO_ENABLED: value });
+      expect(env).not.toHaveProperty("SSO_ENABLED");
+    }
   });
 
   it("parses APP_URL and comma-separated CORS_ORIGINS as origins", () => {

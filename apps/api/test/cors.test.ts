@@ -131,7 +131,6 @@ describe("CORS middleware", () => {
       const config = resolveAppConfig({ webhooksAllowPrivate: true });
       expect(config.nodeEnv).toBe("production");
       expect(config.webhooksAllowPrivate).toBe(false);
-      expect(config.ssoEnabled).toBe(false);
     } finally {
       process.env["NODE_ENV"] = previous;
     }

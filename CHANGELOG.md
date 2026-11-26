@@ -5,6 +5,11 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## [Unreleased]
 
+### Single sign-on (Business edition)
+
+- **OIDC sign-in (`AUTH-004`, #34):** members of an organization with a Business licence granting `sso` can sign in through Google, Microsoft Entra ID (tenant-specific issuers only) or a generic OIDC provider. The API uses the authorization-code flow with PKCE (S256), a single-use `state` bound to the browser by an HttpOnly cookie, a `nonce`, and verifies the id_token against the provider's keys (`jose`, MIT). Only existing members are signed in (no just-in-time accounts); the first sign-in links the provider identity (`sso_identities`, migration 0044) and later sign-ins use that link. Local two-factor authentication still applies. Successful and refused sign-ins are audited (`auth.sso.sign_in`, `auth.sso.sign_in_failed`, with a reason code and the provider only). The web app finishes the sign-in at `/{locale}/sso/complete`, explains refused sign-ins on the sign-in page (ca/es/en), and Settings > Single Sign-On shows the redirect URI the API sends.
+- **`SSO_ENABLED` is retired:** the licence alone enables single sign-on. The variable is ignored if still set (remove it from your `.env`), and the `SSO_DISABLED` 404 is gone.
+
 ### Security
 
 - **Webhook delivery pinned to the validated IP (#35, `ADM-006`):** the SSRF guard resolved the webhook host and checked its addresses, then the HTTP client resolved it again on connect, leaving a DNS-rebinding window. Deliveries now resolve once, validate every address and connect only to those addresses, keeping the hostname for the `Host` header, TLS SNI and certificate verification (always on, even with `NODE_TLS_REJECT_UNAUTHORIZED=0`). Redirects are never followed. Webhook delivery does not use `HTTP_PROXY`/`HTTPS_PROXY`; see `docs/guides/self-hosting.md`. IPv4-translated `::ffff:0:0/96` and the `3fff::/20` documentation range are now also rejected.
