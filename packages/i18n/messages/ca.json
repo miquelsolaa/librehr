@@ -59,7 +59,20 @@
     "requestNewLink": "Demana un enllaç nou",
     "resetDone": "Has canviat la contrasenya. Inicia la sessió amb la nova.",
     "tooManyRequests": "Massa intents. Espera uns minuts i torna-ho a provar.",
-    "genericError": "Alguna cosa ha fallat. Torna-ho a provar."
+    "genericError": "Alguna cosa ha fallat. Torna-ho a provar.",
+    "verifyEmail": {
+      "title": "Confirma la teva adreça de correu",
+      "description": "Confirma que aquesta adreça és teva. Només enviem enllaços per restablir la contrasenya a adreces confirmades.",
+      "submit": "Confirma l'adreça de correu",
+      "done": "Has confirmat la teva adreça de correu.",
+      "invalidLink": "Aquest enllaç de confirmació no és vàlid, ja s'ha fet servir o ha caducat. Inicia la sessió i demana'n un de nou a l'avís de la part superior de la pàgina.",
+      "continue": "Ves a LibreHR",
+      "bannerTitle": "Confirma la teva adreça de correu",
+      "bannerText": "Fins que no la confirmis, no et podem enviar enllaços per restablir la contrasenya. Obre l'enllaç del correu que t'hem enviat o demana'n un de nou.",
+      "bannerResend": "Envia un enllaç nou",
+      "bannerSent": "T'hem enviat un enllaç de confirmació nou. Si no arriba, mira la carpeta de correu brossa.",
+      "bannerUnavailable": "Aquest servidor encara no pot enviar correus. Qui administra LibreHR ha de configurar el correu (SMTP i APP_URL)."
+    }
   },
   "nav": {
     "more": "Més",

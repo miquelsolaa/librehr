@@ -59,7 +59,20 @@
     "requestNewLink": "Pedir un enlace nuevo",
     "resetDone": "Has cambiado la contraseña. Inicia sesión con la nueva.",
     "tooManyRequests": "Demasiados intentos. Espera unos minutos y vuelve a probar.",
-    "genericError": "Algo ha fallado. Vuelve a probar."
+    "genericError": "Algo ha fallado. Vuelve a probar.",
+    "verifyEmail": {
+      "title": "Confirma tu dirección de correo",
+      "description": "Confirma que esta dirección es tuya. Solo enviamos enlaces para restablecer la contraseña a direcciones confirmadas.",
+      "submit": "Confirmar dirección de correo",
+      "done": "Has confirmado tu dirección de correo.",
+      "invalidLink": "Este enlace de confirmación no es válido, ya se ha usado o ha caducado. Inicia sesión y pide uno nuevo en el aviso de la parte superior de la página.",
+      "continue": "Ir a LibreHR",
+      "bannerTitle": "Confirma tu dirección de correo",
+      "bannerText": "Hasta que la confirmes, no podemos enviarte enlaces para restablecer la contraseña. Abre el enlace del correo que te hemos enviado o pide uno nuevo.",
+      "bannerResend": "Enviar un enlace nuevo",
+      "bannerSent": "Te hemos enviado un enlace de confirmación nuevo. Si no llega, revisa la carpeta de correo no deseado.",
+      "bannerUnavailable": "Este servidor todavía no puede enviar correos. Quien administra LibreHR tiene que configurar el correo (SMTP y APP_URL)."
+    }
   },
   "nav": {
     "more": "Más",
