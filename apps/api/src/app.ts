@@ -113,6 +113,9 @@ export interface AppDependencies {
         pickerRateLimit?: { windowMs: number; max: number } | undefined;
       }
     | undefined;
+  /** Overrides of the password reset limits (AUTH-001, tests). */
+  passwordReset?:
+    { maxLinksPerAccountPerHour?: number | undefined } | undefined;
   /**
    * Store of rate limits and lockouts. Defaults to the shared Postgres store
    * on `sql`, keyed with `sessionSecret`; tests inject one with its own key
@@ -265,6 +268,9 @@ export function createApp(deps: AppDependencies) {
       nodeEnv: deps.nodeEnv,
       trustProxy: deps.trustProxy,
       twoFactor: deps.twoFactor,
+      mailPort: deps.mailPort,
+      appUrl: config.appUrl,
+      passwordReset: deps.passwordReset,
     }),
   );
   app.route("/v1", createMeRoutes(deps.sql));

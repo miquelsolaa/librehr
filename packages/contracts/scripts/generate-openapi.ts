@@ -11,6 +11,8 @@ import { ProblemDetailsSchema } from "../src/errors.js";
 import { EditionResponseSchema } from "../src/edition.js";
 import { SsoConfigSchema } from "../src/auth.js";
 import {
+  PasswordResetConfirmSchema,
+  PasswordResetRequestSchema,
   SignInRequestSchema,
   SessionResponseSchema,
   MeResponseSchema,
@@ -311,6 +313,63 @@ registry.registerPath({
     },
     401: {
       description: "Invalid credentials",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/auth/password-reset",
+  summary:
+    "Ask for a password reset link (AUTH-001). Answers 202 whether or not the email has an account; the link expires in 1 hour",
+  request: {
+    body: {
+      content: { "application/json": { schema: PasswordResetRequestSchema } },
+    },
+  },
+  responses: {
+    202: {
+      description: "Accepted; an email is sent if the account exists",
+      content: {
+        "application/json": { schema: z.object({ success: z.boolean() }) },
+      },
+    },
+    400: {
+      description: "Validation failure",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    429: {
+      description: "Too many requests",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/auth/password-reset/confirm",
+  summary:
+    "Set a new password with a reset link token (AUTH-001). The token works once; every session of the account is revoked",
+  request: {
+    body: {
+      content: { "application/json": { schema: PasswordResetConfirmSchema } },
+    },
+  },
+  responses: {
+    200: {
+      description: "Password changed",
+      content: {
+        "application/json": { schema: z.object({ success: z.boolean() }) },
+      },
+    },
+    400: {
+      description:
+        "Validation failure, or RESET_TOKEN_INVALID for an unknown, used or expired token",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    429: {
+      description: "Too many requests",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
   },
@@ -2043,6 +2102,8 @@ const clientTs = `/**
  */
 
 import type {
+  PasswordResetConfirm,
+  PasswordResetRequest,
   SignInRequest,
   SignInResult,
   SessionResponse,
@@ -2260,6 +2321,21 @@ export class LibreHrApiClient {
 
   async signIn(data: SignInRequest): Promise<SignInResult> {
     return this.request<SignInResult>('/v1/auth/sign-in', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // AUTH-001: always resolves for a well-formed email, account or not.
+  async requestPasswordReset(data: PasswordResetRequest): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>('/v1/auth/password-reset', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async confirmPasswordReset(data: PasswordResetConfirm): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>('/v1/auth/password-reset/confirm', {
       method: 'POST',
       body: JSON.stringify(data),
     });

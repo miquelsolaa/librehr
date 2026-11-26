@@ -9,6 +9,27 @@ export const SignInRequestSchema = z.object({
 });
 export type SignInRequest = z.infer<typeof SignInRequestSchema>;
 
+/**
+ * AUTH-001: asks for a password reset link. The API answers 202 whether or
+ * not the email belongs to an account. `locale` picks the email language and
+ * the web path of the link.
+ */
+export const PasswordResetRequestSchema = z.object({
+  email: z.string().trim().email().max(320),
+  locale: z.enum(["ca", "es", "en"]).optional(),
+});
+export type PasswordResetRequest = z.infer<typeof PasswordResetRequestSchema>;
+
+/** AUTH-001: sets a new password with the token from a reset link. */
+export const PasswordResetConfirmSchema = z.object({
+  token: z.string().min(20).max(200),
+  password: z
+    .string()
+    .min(8, "Password must have at least 8 characters")
+    .max(1024),
+});
+export type PasswordResetConfirm = z.infer<typeof PasswordResetConfirmSchema>;
+
 export const AuthUserSchema = z.object({
   id: z.guid(),
   email: z.string().email(),

@@ -32,8 +32,15 @@ the password. Resetting a password does not remove plaintext credentials from
 old backups; secure and expire those backups under your retention policy.
 
 This tool requires a database role permitted to update users and delete
-sessions. Recovery is an operator procedure, not an employee self-service
-password reset flow.
+sessions. Recovery is an operator procedure for accounts that cannot use the
+self-service reset. Everyone else resets their own password from the sign-in
+page ("Forgot your password?"): the emailed link expires in 1 hour, works
+once, signs the account out everywhere and revokes its personal access
+tokens, and the reset is recorded in the audit log of each organization the
+account belongs to. Reset links older than 30 days are deleted whenever a new
+one is requested. Self-service reset
+needs `SMTP_HOST` and `APP_URL`; without them, requests are accepted but no
+email is sent.
 
 LibreHR is designed to be easily self-hostable on any standard Linux server, VPS, or cloud instance running Docker.
 
