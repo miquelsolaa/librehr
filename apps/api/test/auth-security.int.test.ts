@@ -177,6 +177,10 @@ describe("Enterprise Auth & Security Hardening API (AUTH-003, AUTH-004, DOC-007)
     expect(body.secret).toBeDefined();
     expect(body.qrUri).toContain("otpauth://totp/");
     expect(body.recoveryCodes).toHaveLength(8);
+    // Issue #35: 64 bits per code.
+    for (const code of body.recoveryCodes) {
+      expect(code).toMatch(/^[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}$/);
+    }
   });
 
   it("POST /v1/auth/2fa/enable rejects a client-supplied secret with 400", async () => {

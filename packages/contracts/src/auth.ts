@@ -76,7 +76,8 @@ export type TwoFactorEnableRequest = z.infer<
 
 export const TwoFactorVerifyRequestSchema = z.object({
   challengeToken: z.string().min(1),
-  code: z.string().min(6), // 6-digit TOTP or xxxx-xxxx recovery code
+  // 6-digit TOTP or recovery code (xxxx-xxxx-xxxx-xxxx; older xxxx-xxxx codes still work)
+  code: z.string().min(6),
 });
 export type TwoFactorVerifyRequest = z.infer<
   typeof TwoFactorVerifyRequestSchema
