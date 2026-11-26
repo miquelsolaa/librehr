@@ -24,6 +24,8 @@ const LOOKUP_FUNCTIONS = [
   "librehr_auth_personal_access_token",
   "librehr_auth_invitation",
   "librehr_auth_sso_config",
+  "librehr_auth_sso_consume",
+  "librehr_auth_sso_resolve_user",
 ];
 
 // Production layout: NOSUPERUSER NOBYPASSRLS owner runs migrations, the
