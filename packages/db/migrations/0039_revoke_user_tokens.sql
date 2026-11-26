@@ -1,4 +1,4 @@
--- 0037_revoke_user_tokens.sql
+-- 0039_revoke_user_tokens.sql
 -- AUTH-003, ADM-006, issue #35: enabling 2FA revokes the account's personal
 -- access tokens in every organization, not only the one the session is in.
 --

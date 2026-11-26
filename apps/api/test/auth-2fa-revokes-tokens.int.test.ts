@@ -15,7 +15,7 @@ import { BetterAuthAdapter } from "../src/adapters/better-auth.js";
 import { hashPassword } from "../src/lib/password.js";
 
 // AUTH-003, issue #35: enabling 2FA revokes the account's personal access
-// tokens in every organization (migration 0037), in the same transaction that
+// tokens in every organization (migration 0039), in the same transaction that
 // promotes the secret and ends the other sessions. Runs against the
 // restricted runtime role, so RLS applies.
 describe("enabling 2FA revokes personal access tokens", () => {
@@ -273,7 +273,7 @@ describe("enabling 2FA revokes personal access tokens", () => {
     expect(await revokeEntries(orgA, atomic)).toEqual([]);
   });
 
-  describe("librehr_revoke_user_tokens (migration 0037)", () => {
+  describe("librehr_revoke_user_tokens (migration 0039)", () => {
     it("is executable by the runtime role only", async () => {
       const [grants] = await db.adminSql<
         { app: boolean; publicRole: boolean; securityDefiner: boolean }[]

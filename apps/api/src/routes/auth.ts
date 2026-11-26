@@ -510,7 +510,7 @@ export function createAuthRoutes(
           currentToken,
         );
         // Cross-organization delete through the SECURITY DEFINER function of
-        // migration 0037; each token is audited in its own organization.
+        // migration 0039; each token is audited in its own organization.
         const revoked = await tokenRepo.revokeAllForUser(tx, user.id);
         for (const token of revoked) {
           await auditRepo.logInOrganization(tx, token.organizationId, {

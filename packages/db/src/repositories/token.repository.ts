@@ -127,7 +127,7 @@ export class TokenRepository {
 
   /**
    * Revokes every personal access token of a user in **every** organization
-   * (issue #35), through the SECURITY DEFINER function of migration 0037:
+   * (issue #35), through the SECURITY DEFINER function of migration 0039:
    * the runtime role cannot see other organizations' tokens itself. Runs in
    * the caller's transaction, so it commits or rolls back with it. Returns
    * the revoked tokens' ids and organizations, for auditing each one in its
