@@ -1,8 +1,11 @@
+import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import {
   normalizePatScopes,
   patScopeAllows,
+  requireInteractiveSession,
 } from "../src/middleware/pat-scopes.js";
+import { errorHandler } from "../src/middleware/error-handler.js";
 
 describe("personal access token scopes (ADM-006)", () => {
   it("limits read tokens to safe methods", () => {
@@ -51,5 +54,37 @@ describe("personal access token scopes (ADM-006)", () => {
     expect(normalizePatScopes('["read"]')).toEqual(["read"]);
     expect(normalizePatScopes("not json")).toEqual([]);
     expect(normalizePatScopes({ read: true })).toEqual([]);
+  });
+});
+
+// TIM-008, issue #35: routes where only some requests are interactive-only.
+describe("requireInteractiveSession", () => {
+  const appWith = (patId: string | undefined) => {
+    const app = new Hono();
+    app.use("*", async (c, next) => {
+      if (patId)
+        (c.set as (key: string, value: unknown) => void)("patId", patId);
+      await next();
+    });
+    app.post("/x", (c) => {
+      requireInteractiveSession(c);
+      return c.json({ ok: true });
+    });
+    app.onError(errorHandler);
+    return app;
+  };
+
+  it("lets a session request through", async () => {
+    expect(
+      (await appWith(undefined).request("/x", { method: "POST" })).status,
+    ).toBe(200);
+  });
+
+  it("refuses a token request with the interactive-only problem", async () => {
+    const res = await appWith("pat-id").request("/x", { method: "POST" });
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({
+      code: "TOKEN_SCOPE_INSUFFICIENT",
+    });
   });
 });

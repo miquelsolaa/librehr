@@ -28,7 +28,10 @@ Their access is time-limited:
   requires `accessUntil` (`YYYY-MM-DD`), from today up to the organization's
   maximum access period ahead (default 90 days, configurable there from 1 to
   366). Other days give `400` with code `AUDITOR_ACCESS_END_IN_PAST` or
-  `AUDITOR_ACCESS_END_TOO_FAR`.
+  `AUDITOR_ACCESS_END_TOO_FAR`. Inviting an auditor (or an admin) needs an
+  interactive session: a personal access token, even an admin one, gets
+  `403` `TOKEN_SCOPE_INSUFFICIENT` and nothing is created (manager and
+  employee invitations still accept admin tokens).
 - When the last day ends, the auditor's sessions and API tokens stop
   working and they can no longer sign in. Nothing else is deleted. An
   invitation link whose access period has already ended answers `410`

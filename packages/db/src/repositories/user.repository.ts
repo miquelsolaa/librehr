@@ -251,6 +251,8 @@ export class UserRepository {
       WHERE id = ${userId}
         AND two_factor_enabled = true
         AND jsonb_typeof(two_factor_recovery_codes) = 'array'
+        -- Not constant time, and need not be: it compares SHA-256 hashes of
+        -- 64-bit random codes, so timing reveals nothing usable about a code.
         AND two_factor_recovery_codes @> jsonb_build_array(${codeHash}::text)
       RETURNING id
     `;

@@ -194,7 +194,7 @@ export async function getTestDatabase(): Promise<TestDatabase | null> {
   // 2. Try Testcontainers (if Docker daemon is running)
   try {
     const container: StartedPostgreSqlContainer = await new PostgreSqlContainer(
-      "postgres:17-alpine",
+      "postgres:18-alpine",
     )
       .withDatabase("librehr_test")
       .withUsername(BOOTSTRAP_USER)
