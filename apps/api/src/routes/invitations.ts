@@ -28,6 +28,12 @@ import {
   type SessionCookieOptions,
 } from "../lib/session-cookie.js";
 
+/** Roles whose invitation grants access control: interactive sessions only. */
+const INTERACTIVE_ONLY_INVITE_ROLES: ReadonlySet<string> = new Set([
+  "admin",
+  "auditor",
+]);
+
 export function createInvitationRoutes(
   sql: Sql,
   authPort: AuthPort,
@@ -79,11 +85,13 @@ export function createInvitationRoutes(
       });
     }
 
-    // TIM-008: inviting an auditor grants access, like the /v1/auditors
-    // routes, so it needs an interactive session: never a personal access
-    // token, even an admin one (issue #35). Other invitations still accept
-    // admin-scoped tokens.
-    if (parse.data.role === "auditor") requireInteractiveSession(c);
+    // Inviting an admin or an auditor grants access, like the /v1/auditors
+    // routes (TIM-008), so it needs an interactive session: never a personal
+    // access token, even an admin one (issue #35). Manager and employee
+    // invitations still accept admin-scoped tokens.
+    if (INTERACTIVE_ONLY_INVITE_ROLES.has(parse.data.role)) {
+      requireInteractiveSession(c);
+    }
 
     const created = await withTenant(
       sql,

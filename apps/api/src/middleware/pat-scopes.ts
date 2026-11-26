@@ -14,7 +14,7 @@ import { ForbiddenError } from "../errors/index.js";
  * non-interactive API clients), so credential and account-security
  * endpoints are never reachable with a token, whatever its scopes. Where
  * only some requests to an endpoint are interactive-only (an auditor
- * invitation, TIM-008), the route calls {@link requireInteractiveSession}.
+ * or admin invitation), the route calls {@link requireInteractiveSession}.
  */
 export const PAT_SCOPES = ["read", "write", "admin"] as const;
 
@@ -74,6 +74,10 @@ const tokenScopeInsufficient = () =>
 const isTokenRequest = (c: Context): boolean =>
   Boolean((c.get as (key: string) => unknown)("patId"));
 
+/** The scopes of the token this request was authenticated with. */
+const getPatScopes = (c: Context): string[] =>
+  normalizePatScopes((c.get as (key: string) => unknown)("patScopes"));
+
 /**
  * Refuses a request authenticated with a personal access token, with the
  * same 403 as the interactive-only route groups above. For endpoints where
@@ -93,10 +97,7 @@ export function requireInteractiveSession(c: Context): void {
  */
 export const patScopeMiddleware: MiddlewareHandler = async (c, next) => {
   if (isTokenRequest(c)) {
-    const scopes = normalizePatScopes(
-      (c.get as (key: string) => unknown)("patScopes"),
-    );
-    if (!patScopeAllows(scopes, c.req.method, c.req.path)) {
+    if (!patScopeAllows(getPatScopes(c), c.req.method, c.req.path)) {
       throw tokenScopeInsufficient();
     }
   }
