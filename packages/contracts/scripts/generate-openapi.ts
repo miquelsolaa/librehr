@@ -456,6 +456,11 @@ registry.registerPath({
         "FORBIDDEN, or LICENSE_REQUIRED without a Business licence that grants sso (LIC-003)",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
+    409: {
+      description:
+        "SSO_BREAK_GLASS_REQUIRED: SSO is required, but no admin of the organization has two-factor authentication to keep password sign-in (AUTH-004)",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
   },
 });
 

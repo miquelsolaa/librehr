@@ -338,6 +338,66 @@ describe("SSO enforcement for password sessions (AUTH-004)", () => {
     });
   });
 
+  // Decision Q4: new tokens need an SSO session or a break-glass admin. A
+  // password session of anyone else is already refused at lookup, and a
+  // token cannot create tokens (interactive-only route).
+  describe("personal access token creation", () => {
+    const session = async (user: string, method: "password" | "sso") => {
+      const token = crypto.randomBytes(32).toString("hex");
+      await db.adminSql`INSERT INTO sessions
+        (user_id, token, expires_at, organization_id, auth_method)
+        VALUES (${user}, ${hashBearerToken(token)},
+          now() + interval '1 hour', ${orgE}, ${method})`;
+      return token;
+    };
+    const createToken = (bearer: string) =>
+      enforcing.request("/v1/tokens", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${bearer}`,
+        },
+        body: JSON.stringify({ name: "CI", scopes: ["read"] }),
+      });
+
+    it("refuses a member's password session in an enforcing organization", async () => {
+      const res = await createToken(await session(employee, "password"));
+      expect(res.status).toBe(401);
+      const [row] = await db.adminSql<{ n: number }[]>`
+        SELECT count(*)::int AS n FROM personal_access_tokens
+        WHERE user_id = ${employee} AND name = 'CI'`;
+      expect(row!.n).toBe(0);
+    });
+
+    it("allows an SSO session", async () => {
+      expect((await createToken(await session(employee, "sso"))).status).toBe(
+        201,
+      );
+    });
+
+    it("allows a break-glass admin's password session", async () => {
+      expect(
+        (await createToken(await session(admin2fa, "password"))).status,
+      ).toBe(201);
+    });
+
+    it("refuses a token creating another token", async () => {
+      const pat = `lhr_${crypto.randomBytes(24).toString("hex")}`;
+      await withTenant(
+        db.adminSql,
+        { organizationId: orgE },
+        (tx) =>
+          tx`INSERT INTO personal_access_tokens
+          (organization_id, user_id, name, token_hash, prefix, scopes)
+          VALUES (${orgE}, ${admin2fa}, 'Admin automation',
+            ${TokenRepository.hashToken(pat)}, 'lhr_adm1', '["admin"]'::jsonb)`,
+      );
+      const res = await createToken(pat);
+      expect(res.status).toBe(403);
+      expect((await problem(res)).code).toBe("TOKEN_SCOPE_INSUFFICIENT");
+    });
+  });
+
   it("allows a password reset that still cannot open a session in an enforcing organization", async () => {
     const created = await createPasswordResetToken(
       db.appSql,

@@ -8,6 +8,7 @@ import { Button, Input } from "@librehr/ui";
 import { apiClient } from "../../../../../lib/api-client.js";
 import {
   AUDITOR_ACCESS_ERROR_CODES,
+  SSO_REQUIRED_CODE,
   type InvitationDetails,
 } from "@librehr/contracts";
 
@@ -76,7 +77,17 @@ export default function AcceptInvitePage() {
       });
 
       router.push(`/${locale}/home`);
-    } catch {
+    } catch (err) {
+      // AUTH-004: accepted, but the organization signs in with SSO only.
+      if (
+        typeof err === "object" &&
+        err !== null &&
+        "code" in err &&
+        err.code === SSO_REQUIRED_CODE
+      ) {
+        router.push(`/${locale}/sign-in?sso=required`);
+        return;
+      }
       setError(t("acceptFailed"));
     } finally {
       setSubmitting(false);

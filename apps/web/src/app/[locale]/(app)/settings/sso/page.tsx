@@ -14,10 +14,11 @@ import {
 } from "lucide-react";
 import { Button, ConfirmDialog, Input, PageHeader } from "@librehr/ui";
 import { getApiClient } from "@/lib/api-client";
-import type {
-  ProblemDetails,
-  SsoConfig,
-  SsoProvider,
+import {
+  SSO_BREAK_GLASS_REQUIRED_CODE,
+  type ProblemDetails,
+  type SsoConfig,
+  type SsoProvider,
 } from "@librehr/contracts";
 
 export default function SsoSettingsPage() {
@@ -52,6 +53,8 @@ export default function SsoSettingsPage() {
   const [licenseRequired, setLicenseRequired] = React.useState(false);
   const [confirmDisable, setConfirmDisable] = React.useState(false);
   const [isDisabling, setIsDisabling] = React.useState(false);
+  // AUTH-004: switching "Require SSO" on signs members out, so it is confirmed.
+  const [confirmEnforce, setConfirmEnforce] = React.useState(false);
 
   const callbackUrl =
     typeof window !== "undefined"
@@ -122,22 +125,37 @@ export default function SsoSettingsPage() {
     }
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
-    setErrorMessage(null);
-    setSuccessMessage(null);
-
-    const domains = allowedDomains
+  const parseDomains = () =>
+    allowedDomains
       .split(",")
       .map((d) => d.trim().toLowerCase())
       .filter(Boolean);
 
-    if (domains.length === 0) {
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    if (parseDomains().length === 0) {
       setErrorMessage(t("ssoDomainsRequired"));
-      setIsSaving(false);
       return;
     }
+    if (enforceSso && !enabled) {
+      setErrorMessage(t("ssoEnforceNeedsEnabled"));
+      return;
+    }
+    if (enforceSso && !config?.enforceSso) {
+      setConfirmEnforce(true);
+      return;
+    }
+    void saveConfig();
+  };
+
+  const saveConfig = async () => {
+    setIsSaving(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    const domains = parseDomains();
 
     try {
       const client = getApiClient();
@@ -154,8 +172,15 @@ export default function SsoSettingsPage() {
 
       setConfig(saved);
       setSuccessMessage(t("ssoSavedSuccess"));
-    } catch {
-      setErrorMessage(t("ssoSaveError"));
+    } catch (err) {
+      const problem = err as Partial<ProblemDetails> | null;
+      setErrorMessage(
+        problem?.code === SSO_BREAK_GLASS_REQUIRED_CODE
+          ? t("ssoEnforceBreakGlassError")
+          : problem?.errors?.some((e) => e.field === "enforceSso")
+            ? t("ssoEnforceNeedsEnabled")
+            : t("ssoSaveError"),
+      );
     } finally {
       setIsSaving(false);
     }
@@ -463,6 +488,16 @@ export default function SsoSettingsPage() {
                 </Button>
               </div>
             </form>
+            <ConfirmDialog
+              open={confirmEnforce}
+              onOpenChange={setConfirmEnforce}
+              title={t("ssoEnforceConfirmTitle")}
+              description={t("ssoEnforceConfirmBody")}
+              confirmText={t("ssoEnforceConfirm")}
+              cancelText={tCommon("cancel")}
+              isLoading={isSaving}
+              onConfirm={saveConfig}
+            />
           </div>
 
           {/* Callback URI Info Card */}

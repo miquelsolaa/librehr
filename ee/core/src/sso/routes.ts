@@ -3,6 +3,7 @@ import type { Hono } from "hono";
 import {
   type AuthUser,
   SaveSsoConfigRequestSchema,
+  SSO_BREAK_GLASS_REQUIRED_CODE,
   SsoAuthorizeRequestSchema,
   createProblemDetails,
 } from "@librehr/contracts";
@@ -135,6 +136,21 @@ function registerSsoRoutes(router: Hono, context: EeExtensionContext): void {
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
+        const previous = await ssoRepo.getConfig(tx);
+        // AUTH-004: requiring SSO needs a way back in if the identity
+        // provider fails, so at least one admin must keep password sign-in.
+        if (
+          parsed.data.enforceSso &&
+          (await ssoRepo.countBreakGlassAdmins(tx)) === 0
+        ) {
+          throw createError({
+            status: 409,
+            title: "Conflict",
+            code: SSO_BREAK_GLASS_REQUIRED_CODE,
+            detail:
+              "Requiring single sign-on needs at least one administrator with two-factor authentication",
+          });
+        }
         const result = await ssoRepo
           .saveConfig(tx, parsed.data)
           .catch((err: unknown) => {
@@ -163,6 +179,7 @@ function registerSsoRoutes(router: Hono, context: EeExtensionContext): void {
             provider: parsed.data.provider,
             enabled: parsed.data.enabled,
             enforceSso: parsed.data.enforceSso,
+            previousEnforceSso: previous?.enforceSso ?? false,
             allowedDomains: parsed.data.allowedDomains,
           },
         });

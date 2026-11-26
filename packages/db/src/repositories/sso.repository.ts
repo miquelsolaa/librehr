@@ -100,6 +100,36 @@ export class SsoRepository {
   }
 
   /**
+   * AUTH-004: how many members of the current organization could still sign
+   * in with a password while it requires SSO (break-glass): admins with
+   * two-factor authentication whose access is not terminated. Same rule as
+   * librehr_auth_password_access and librehr_auth_membership (0021, 0041);
+   * memberships and employees are read under the tenant's RLS.
+   */
+  async countBreakGlassAdmins(tx: TenantTx): Promise<number> {
+    const rows = await tx<{ count: number }[]>`
+      SELECT count(*)::int AS count
+      FROM memberships m
+      JOIN users u ON u.id = m.user_id
+      JOIN organizations o ON o.id = m.organization_id
+      WHERE m.role = 'admin'
+        AND u.two_factor_enabled
+        AND NOT EXISTS (
+          SELECT 1
+          FROM employees e
+          WHERE e.organization_id = m.organization_id
+            AND e.user_id = m.user_id
+            AND e.status = 'terminated'
+            AND (
+              e.termination_date IS NULL
+              OR e.termination_date <= (now() AT TIME ZONE o.timezone)::date
+            )
+        )
+    `;
+    return rows[0]?.count ?? 0;
+  }
+
+  /**
    * Switches the stored configuration off and lifts SSO enforcement, keeping
    * everything else. Returns null when the organization has none.
    */

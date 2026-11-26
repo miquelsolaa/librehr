@@ -41,3 +41,4 @@ Welcome to the LibreHR documentation repository.
 - [Adding Holiday Calendars](guides/adding-a-holiday-calendar.md)
 - [Working-Time Exports (TIM-006)](guides/time-exports.md)
 - [Leave Accrual (LEA-002)](guides/leave-accrual.md)
+- [Require Single Sign-On (AUTH-004)](guides/sso-enforcement.md)
