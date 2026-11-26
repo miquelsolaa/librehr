@@ -17,6 +17,7 @@ import {
 } from "@librehr/db";
 import { AppError, UnauthorizedError } from "../errors/index.js";
 import { requireAuth } from "../middleware/auth.js";
+import { requireInteractiveSession } from "../middleware/pat-scopes.js";
 import { can } from "../policies/can.js";
 import type { AuthPort } from "../ports/auth.js";
 import type { MailPort } from "../ports/mail.js";
@@ -77,6 +78,12 @@ export function createInvitationRoutes(
         "Content-Type": "application/problem+json",
       });
     }
+
+    // TIM-008: inviting an auditor grants access, like the /v1/auditors
+    // routes, so it needs an interactive session: never a personal access
+    // token, even an admin one (issue #35). Other invitations still accept
+    // admin-scoped tokens.
+    if (parse.data.role === "auditor") requireInteractiveSession(c);
 
     const created = await withTenant(
       sql,

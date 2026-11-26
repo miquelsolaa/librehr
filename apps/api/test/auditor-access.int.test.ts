@@ -585,6 +585,61 @@ describe("auditor access expiry (TIM-008)", () => {
       expect(JSON.stringify(entry?.metadata)).not.toContain("@");
     });
 
+    // Issue #35: inviting an auditor grants access, so like the /v1/auditors
+    // routes it needs an interactive session, never a token.
+    it("refuses an auditor invitation made with an admin personal access token", async () => {
+      const pat = await patFor(a.admin.id, a.orgId, ["admin"]);
+      const email = "pat-inspector@example.invalid";
+      const res = await app.request("/v1/invitations", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${pat}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          role: "auditor",
+          accessUntil: await localDay(10),
+        }),
+      });
+      expect(res.status).toBe(403);
+      expect(res.headers.get("content-type")).toContain(
+        "application/problem+json",
+      );
+      // The same problem the /v1/auditors routes return to a token.
+      expect(((await res.json()) as ProblemDetails).code).toBe(
+        "TOKEN_SCOPE_INSUFFICIENT",
+      );
+      const [row] = await db.adminSql<{ n: number }[]>`
+        SELECT count(*)::int AS n FROM invitations WHERE email = ${email}`;
+      expect(row?.n).toBe(0);
+
+      // The same admin, in an interactive session, can invite the auditor.
+      const viaSession = await invite(await session(a.admin), {
+        email,
+        role: "auditor",
+        accessUntil: await localDay(10),
+      });
+      expect(viaSession.status).toBe(201);
+    });
+
+    it("still accepts other invitations made with an admin personal access token", async () => {
+      const pat = await patFor(a.admin.id, a.orgId, ["admin"]);
+      const res = await app.request("/v1/invitations", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${pat}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: "pat-new-hire@example.invalid",
+          role: "employee",
+        }),
+      });
+      expect(res.status).toBe(201);
+      expect(((await res.json()) as { role: string }).role).toBe("employee");
+    });
+
     it("copies the end date to the membership on acceptance", async () => {
       const at = new Date(Date.now() + 20 * 24 * 3600 * 1000);
       const fresh = await createInvite(
