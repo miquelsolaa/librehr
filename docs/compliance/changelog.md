@@ -2,6 +2,13 @@
 
 All legal and regulatory revisions affecting LibreHR are tracked here.
 
+## [2026-11-26] - Retention categories and the time-records floor (`ADM-005`, #32)
+
+- **Retention configuration per organization:** `retention_policies` (migration 0042, RLS) holds an optional period per data category (`time_records`, `leave_records`, `audit_log`, `deleted_documents`, `statutory_documents`, `notifications`, `invitations`); a missing row means the default in `packages/core/src/retention`. The defaults are listed in `COMPLIANCE.md` section 5.
+- **Defaults pending counsel:** the default periods are the maintainers' recommendation and are **not yet confirmed by counsel**. Counsel's sign-off will be recorded here as its own dated entry before any period is used as a basis for deletion.
+- **Time-records floor (Estatuto de los Trabajadores art. 34.9):** working-time records must be kept four years, so `time_records` cannot be configured below 1461 days. The floor is a database CHECK, not only an application rule.
+- **Nothing is deleted:** this change stores configuration and counts eligible records only. No tenant-scoped record is deleted or anonymised.
+
 ## [2026-11-02] - Milestone M5: Integrations, Token Security & Hash Chain Verification
 
 - **Token Security & Scoping (`ADM-006`):** Personal Access Tokens (PATs) use high-entropy prefixing (`lhr_`), one-way SHA-256 storage, and strict scope verification, preventing credential leakage in compliance with ISO/IEC 27001 access control requirements.

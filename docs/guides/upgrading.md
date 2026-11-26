@@ -53,21 +53,25 @@ lost whenever the container is recreated. The API now writes to
 and the image creates that directory owned by the API user.
 
 A volume created by an earlier release is owned by `root`, so the API cannot
-write to it. Before you recreate the `api` container, save any files the old
-container holds; after the upgrade, copy them back and fix the ownership:
+write to it. The API checks this at start and exits with "Storage directory is
+not writable by the API user" (it logs only the path and the error code)
+instead of failing later on the first upload. Before you recreate the `api`
+container, save any files the old container holds; then fix the ownership
+with a one-off container of the new image and start it:
 
 ```bash
-# Before upgrading (prints an error if there is nothing to save):
+# Before upgrading, with the old container still running
+# (prints an error if there is nothing to save):
 docker compose --env-file .env -f infra/compose/docker-compose.yml \
   cp api:/app/data/storage ./librehr-storage-copy
-# After `up -d` with the new image:
+# Pull the new image, then fix the volume ownership (and restore the saved
+# files, if the first command saved any) before starting the API:
+docker compose --env-file .env -f infra/compose/docker-compose.yml pull api
 docker compose --env-file .env -f infra/compose/docker-compose.yml \
-  exec --user root api chown librehr:nodejs /data/storage
-# Only if the first command saved files:
-docker compose --env-file .env -f infra/compose/docker-compose.yml \
-  cp ./librehr-storage-copy/. api:/data/storage/
-docker compose --env-file .env -f infra/compose/docker-compose.yml \
-  exec --user root api chown -R librehr:nodejs /data/storage
+  run --rm --no-deps --user root -v "$PWD/librehr-storage-copy:/restore:ro" \
+  --entrypoint sh api -c \
+  'cp -a /restore/. /data/storage/ 2>/dev/null; chown -R librehr:nodejs /data/storage'
+docker compose --env-file .env -f infra/compose/docker-compose.yml up -d
 ```
 
 The copy holds employee documents: delete it once the files are back in the

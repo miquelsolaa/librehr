@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   createRoleSeparatedDatabase,
@@ -10,10 +10,19 @@ import { runMigrations } from "../src/migrate.js";
 import { withTenant } from "../src/with-tenant.js";
 import { LeaveRepository } from "../src/repositories/leave.repository.js";
 import {
+  TimeRepository,
+  type TimeChainSigner,
+} from "../src/repositories/time.repository.js";
+import {
   RetentionRepository,
   sweepPasswordResetTokens,
   type RetentionCountCutoffs,
 } from "../src/repositories/retention.repository.js";
+
+// The real HMAC lives in @librehr/core; the repository only needs a signer
+// that is a pure function of the link it is given.
+const sign: TimeChainSigner = (link) =>
+  createHash("sha256").update(JSON.stringify(link)).digest("hex");
 
 // ADM-005 (issue #32): retention_policies (migration 0042) and the
 // report-only eligibility counts, used by the runtime role under RLS.
@@ -22,6 +31,7 @@ describe("retention policies and eligibility counts (0042)", () => {
   let db: RoleSeparatedDatabase;
   const repo = new RetentionRepository();
   const leave = new LeaveRepository();
+  const time = new TimeRepository();
   const orgA = randomUUID();
   const orgB = randomUUID();
   const userId = randomUUID();
@@ -57,6 +67,34 @@ describe("retention policies and eligibility counts (0042)", () => {
           startDate: "2019-06-03",
           endDate: "2019-06-03",
           workingDays: 1,
+        });
+        // Two ledger rows each: only the leaver's count (termination basis).
+        for (const entryType of ["accrual", "usage"]) {
+          await leave.appendLedgerEntry(tx, {
+            employeeId,
+            leaveTypeId: type.id,
+            entryType,
+            amount: entryType === "usage" ? -1 : 22,
+            effectiveDate: "2019-06-03",
+          });
+        }
+      }
+
+      // Through the repository so the hash chain stays valid. Only the event
+      // before the timeRecords cutoff (2022-01-01) is eligible, whoever it
+      // belongs to: the basis is occurred_at, not the employee's status.
+      for (const occurredAt of [
+        "2021-12-31T23:59:59Z",
+        "2022-01-01T00:00:00Z",
+        "2026-11-02T08:00:00Z",
+      ]) {
+        await time.appendEvent(tx, sign, {
+          organizationId: org,
+          employeeId: stayer,
+          eventType: "clock_in",
+          occurredAt: new Date(occurredAt),
+          source: "web",
+          actorId: stayer,
         });
       }
 
@@ -165,8 +203,9 @@ describe("retention policies and eligibility counts (0042)", () => {
       );
       // Both tenants hold the same rows; a leak would double the counts.
       expect(counts).toEqual({
-        timeRecords: 0,
-        leaveRecords: 1,
+        timeRecords: 1,
+        // The leaver's request plus their two ledger rows.
+        leaveRecords: 3,
         auditLog: 1,
         deletedDocuments: 2,
         statutoryDocumentsHeld: 1,
