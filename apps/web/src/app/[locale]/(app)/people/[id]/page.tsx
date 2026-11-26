@@ -697,6 +697,19 @@ export default function EmployeeDetailPage() {
 
             <div>
               <span className="text-xs text-muted-foreground block">
+                {tProfile("weeklyHours")}
+              </span>
+              <span className="text-foreground">
+                {typeof employee.workingHoursPerWeek !== "number"
+                  ? "—"
+                  : tProfile("historyHoursValue", {
+                      hours: employee.workingHoursPerWeek,
+                    })}
+              </span>
+            </div>
+
+            <div>
+              <span className="text-xs text-muted-foreground block">
                 {tProfile("startDate")}
               </span>
               <span className="text-foreground">

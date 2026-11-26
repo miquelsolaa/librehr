@@ -32,6 +32,7 @@ test("shows employment history and an error when it cannot be loaded", async ({
                 id: "00000000-0000-0000-0000-000000000099",
                 jobTitle: "Designer",
                 employmentType: "indefinido",
+                workingHoursPerWeek: 40,
                 startDate: "2023-01-01",
                 endDate: "2024-12-31",
               },
@@ -85,12 +86,14 @@ test("an administrator can append a period and sees errors without losing inputs
   );
   let fail = true;
   let saved = false;
+  let posted: unknown = null;
   await mockRoute(
     page,
     "**/v1/employees/person-history/employment-history",
     async (route) => {
       if (route.request().method() === "POST") {
         if (fail) return route.fulfill({ status: 409 });
+        posted = route.request().postDataJSON();
         saved = true;
         return route.fulfill({
           status: 201,
@@ -98,6 +101,7 @@ test("an administrator can append a period and sees errors without losing inputs
             id: "00000000-0000-0000-0000-000000000099",
             jobTitle: "Engineer",
             employmentType: "permanent",
+            workingHoursPerWeek: 20.5,
             startDate: "2025-01-01",
             endDate: null,
           },
@@ -110,6 +114,7 @@ test("an administrator can append a period and sees errors without losing inputs
                 id: "00000000-0000-0000-0000-000000000099",
                 jobTitle: "Engineer",
                 employmentType: "permanent",
+                workingHoursPerWeek: 20.5,
                 startDate: "2025-01-01",
                 endDate: null,
               },
@@ -138,6 +143,14 @@ test("an administrator can append a period and sees errors without losing inputs
   await page.getByLabel("Job title").last().fill("Engineer");
   await page.getByLabel("Employment type").last().fill("permanent");
   await page.getByLabel("Start date").last().fill("2025-01-01");
+  // Above the 40 h maximum (ET art. 34.1): the browser refuses to submit.
+  const hours = page.getByLabel("Weekly hours (optional, 40 if empty)");
+  await hours.fill("41");
+  await page.getByRole("button", { name: "Add period" }).click();
+  expect(
+    await hours.evaluate((el: HTMLInputElement) => el.validity.valid),
+  ).toBe(false);
+  await hours.fill("20.5");
   await page.getByRole("button", { name: "Add period" }).click();
   await expect(
     page
@@ -148,6 +161,8 @@ test("an administrator can append a period and sees errors without losing inputs
   fail = false;
   await page.getByRole("button", { name: "Add period" }).click();
   await expect(page.getByText("Engineer", { exact: true })).toBeVisible();
+  await expect(page.getByText("20.5 h/week")).toBeVisible();
+  expect(posted).toMatchObject({ workingHoursPerWeek: 20.5 });
 });
 
 test("an empty org chart stays empty and uses the signed-in session", async ({

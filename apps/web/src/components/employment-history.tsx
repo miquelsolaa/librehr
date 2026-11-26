@@ -16,6 +16,7 @@ export function EmploymentHistory({ employeeId }: { employeeId: string }) {
   const [canEdit, setCanEdit] = React.useState(false);
   const [jobTitle, setJobTitle] = React.useState("");
   const [employmentType, setEmploymentType] = React.useState("");
+  const [hours, setHours] = React.useState("");
   const [startDate, setStartDate] = React.useState("");
   const [endDate, setEndDate] = React.useState("");
 
@@ -45,16 +46,24 @@ export function EmploymentHistory({ employeeId }: { employeeId: string }) {
       const period = await apiClient.createEmploymentPeriod(employeeId, {
         jobTitle,
         employmentType,
+        ...(hours ? { workingHoursPerWeek: Number(hours) } : {}),
         startDate,
         endDate: endDate || null,
       });
-      setPeriods((current) =>
-        [period, ...(current ?? [])].sort((a, b) =>
-          b.startDate.localeCompare(a.startDate),
-        ),
+      // Re-read: the new period may have closed the current one (#131).
+      const refreshed = await apiClient
+        .listEmploymentHistory(employeeId)
+        .catch(() => null);
+      setPeriods(
+        (current) =>
+          refreshed ??
+          [period, ...(current ?? [])].sort((a, b) =>
+            b.startDate.localeCompare(a.startDate),
+          ),
       );
       setJobTitle("");
       setEmploymentType("");
+      setHours("");
       setStartDate("");
       setEndDate("");
     } catch {
@@ -88,7 +97,8 @@ export function EmploymentHistory({ employeeId }: { employeeId: string }) {
           {periods.map((period) => (
             <li key={period.id}>
               <span className="font-medium">{period.jobTitle}</span> ·{" "}
-              {period.employmentType}
+              {period.employmentType} ·{" "}
+              {t("historyHoursValue", { hours: period.workingHoursPerWeek })}
               <br />
               <span className="text-sm text-muted-foreground">
                 {period.startDate} – {period.endDate ?? t("historyCurrent")}
@@ -117,6 +127,18 @@ export function EmploymentHistory({ employeeId }: { employeeId: string }) {
                 required
                 value={employmentType}
                 onChange={(e) => setEmploymentType(e.target.value)}
+              />
+            </label>
+            <label>
+              {t("historyWeeklyHours")}
+              <Input
+                type="number"
+                inputMode="decimal"
+                min="0.01"
+                max="40"
+                step="0.01"
+                value={hours}
+                onChange={(e) => setHours(e.target.value)}
               />
             </label>
             <label>
