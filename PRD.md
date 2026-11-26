@@ -80,6 +80,7 @@ Priority: **P0** must for the release, **P1** should, **P2** nice. Each requirem
 - **ORG-004 (P1)** Organization chart view (searchable, collapsible).
 - **ORG-005 (P1)** Custom fields on employee profiles (text, number, date, select), with visibility rules.
 - **ORG-006 (P0)** Multi-tenant: multiple organizations per instance fully isolated (RLS); instance super-admin can only manage organizations, never read tenant data.
+- **ORG-007 (P1)** Multiple memberships: besides one primary department, an employee can belong to several secondary departments, projects and areas, each with validity dates and an optional allocation percentage; leads of those groups get configurable read-only visibility (off, calendar, profile). _Accept:_ a person can be linked to N projects/areas/departments with validity dates; exactly one primary department remains required; directory and calendar filters work by any membership; tenant isolation (RLS) is preserved; documented in the API/OpenAPI contracts. Decisions in `docs/adr/0008-employee-memberships.md`.
 
 ### 7.3 EMP - Employees
 
