@@ -72,6 +72,10 @@ import type { LicenseState } from "@librehr/contracts";
 import { createCorsOriginMatcher } from "./lib/cors-origin.js";
 import type { HostResolver } from "./lib/outbound-url.js";
 import type { OutboundSender } from "./lib/outbound-request.js";
+import {
+  createPostgresRateLimitStore,
+  type RateLimitStore,
+} from "./lib/rate-limit-store.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -109,6 +113,12 @@ export interface AppDependencies {
         pickerRateLimit?: { windowMs: number; max: number } | undefined;
       }
     | undefined;
+  /**
+   * Store of rate limits and lockouts. Defaults to the shared Postgres store
+   * on `sql`, keyed with `sessionSecret`; tests inject one with its own key
+   * prefix or clock.
+   */
+  rateLimitStore?: RateLimitStore | undefined;
   /** Overrides of the 2FA defaults (AUTH-003); see lib/two-factor-config.ts. */
   twoFactor?: TwoFactorConfigInput | undefined;
   /** NODE_ENV from the validated env: production always sets Secure cookies. */
@@ -170,6 +180,13 @@ export function createApp(deps: AppDependencies) {
   const signTimeEvent = createTimeChainSigner(timeChainKey);
   const timeTracking = resolveTimeTrackingConfig(deps.timeTracking);
   const config = resolveAppConfig(deps.config, deps.nodeEnv);
+  const rateLimitStore =
+    deps.rateLimitStore ??
+    createPostgresRateLimitStore(deps.sql, {
+      secret: deps.sessionSecret,
+      // Fail at startup rather than hash keys with the public dev key.
+      requireSecret: config.nodeEnv === "production",
+    });
 
   // 1. Global Middleware Pipeline (per ARCHITECTURE.md 3.2)
   app.use(
@@ -243,6 +260,7 @@ export function createApp(deps: AppDependencies) {
   app.route(
     "/v1/auth",
     createAuthRoutes(deps.authPort, deps.sql, {
+      rateLimitStore,
       sessionSecret: deps.sessionSecret,
       nodeEnv: deps.nodeEnv,
       trustProxy: deps.trustProxy,
@@ -267,7 +285,10 @@ export function createApp(deps: AppDependencies) {
   );
   app.route(
     "/v1",
-    createSetupRoutes(deps.sql, { trustProxy: deps.trustProxy }),
+    createSetupRoutes(deps.sql, {
+      rateLimitStore,
+      trustProxy: deps.trustProxy,
+    }),
   );
   app.route("/v1", createAuditRoutes(deps.sql));
   app.route("/v1", createLeaveRoutes(deps.sql, deps.mailPort));
@@ -282,6 +303,7 @@ export function createApp(deps: AppDependencies) {
   app.route(
     "/v1",
     createTimeExportRoutes(deps.sql, {
+      rateLimitStore,
       timeChainKey,
       trustProxy: deps.trustProxy,
       maxEmployeeDays: deps.timeExport?.maxEmployeeDays,
@@ -291,6 +313,7 @@ export function createApp(deps: AppDependencies) {
   app.route(
     "/v1",
     createTimeExportEmployeesRoutes(deps.sql, {
+      rateLimitStore,
       trustProxy: deps.trustProxy,
       rateLimit: deps.timeExport?.pickerRateLimit,
     }),
@@ -298,6 +321,7 @@ export function createApp(deps: AppDependencies) {
   app.route(
     "/v1",
     createTimeKioskRoutes(deps.sql, {
+      rateLimitStore,
       sign: signTimeEvent,
       config: timeTracking,
       trustProxy: deps.trustProxy,

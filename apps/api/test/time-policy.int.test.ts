@@ -3,6 +3,7 @@ import { getTestDatabase, type TestDatabase } from "@librehr/testing";
 import { runMigrations } from "@librehr/db/migrate";
 import { withTenant, EmployeeRepository } from "@librehr/db";
 import { createApp } from "../src/app.js";
+import { isolatedRateLimitStore } from "./support/rate-limit.js";
 import type { AuthPort } from "../src/ports/auth.js";
 import type { AuthUser } from "@librehr/contracts";
 const org = "50000000-0000-0000-0000-000000000091";
@@ -118,7 +119,11 @@ describe("time schedule requirements", () => {
       if (!otherSchedule) throw new Error("Schedule creation failed");
       await tx`INSERT INTO schedule_rules (schedule_id, day_of_week, expected_hours) VALUES (${otherSchedule.id}, 1, 8)`;
     });
-    app = createApp({ sql: await db.appSql(), authPort: auth });
+    app = createApp({
+      sql: await db.appSql(),
+      rateLimitStore: isolatedRateLimitStore(await db.appSql()),
+      authPort: auth,
+    });
   }, 30000);
   afterAll(async () => {
     if (db) await db.close();

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Sql } from "postgres";
 import { createApp } from "../src/app.js";
+import { memoryRateLimitStore } from "./support/rate-limit.js";
 import type { AuthPort, AuthSession } from "../src/ports/auth.js";
 import type { AuthUser, ProblemDetails } from "@librehr/contracts";
 
@@ -54,7 +55,12 @@ describe("Authentication API Flow & Problem Details", () => {
   ]) as unknown as Sql;
 
   const authPort = new FakeAuthPort();
-  const app = createApp({ sql: fakeSql, authPort });
+  // Fake sql: the Postgres rate-limit store has no table here.
+  const app = createApp({
+    sql: fakeSql,
+    authPort,
+    rateLimitStore: memoryRateLimitStore(),
+  });
 
   it("rejects invalid payload with 400 application/problem+json", async () => {
     const res = await app.request("/v1/auth/sign-in", {

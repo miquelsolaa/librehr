@@ -132,6 +132,8 @@ describe("Outbound Webhooks API (ADM-006)", () => {
 
     app = createApp({
       sql: db.appSql,
+      // Production refuses to start without one (rate-limit key hashing).
+      sessionSecret: "test-session-secret-with-at-least-32-chars",
       authPort,
       config: { nodeEnv: "production", resolveHost, sendWebhook },
     });

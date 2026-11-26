@@ -3,6 +3,7 @@ import { getTestDatabase, type TestDatabase } from "@librehr/testing";
 import { hashBearerToken, withTenant } from "@librehr/db";
 import { runMigrations } from "@librehr/db/migrate";
 import { createApp } from "../src/app.js";
+import { isolatedRateLimitStore } from "./support/rate-limit.js";
 import { BetterAuthAdapter } from "../src/adapters/better-auth.js";
 import { hashPassword, verifyPassword } from "../src/lib/password.js";
 
@@ -26,6 +27,7 @@ describe("password creation and invitation acceptance", () => {
     // (ORG-001). The invitation tests create theirs on demand.
     app = createApp({
       sql: await db.appSql(),
+      rateLimitStore: isolatedRateLimitStore(await db.appSql()),
       authPort: new BetterAuthAdapter(await db.appSql()),
     });
   }, 30000);

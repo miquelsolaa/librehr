@@ -75,6 +75,8 @@ async function appFor(licenseKey: string | undefined) {
   const edition = await loadEdition({ licenseKey, publicKeyPem: publicPem });
   return createApp({
     sql: {} as unknown as Sql,
+    // Production refuses to start without one (rate-limit key hashing).
+    sessionSecret: "test-session-secret-with-at-least-32-chars",
     authPort,
     config: { nodeEnv: "production" },
     license: edition.license,
@@ -98,6 +100,8 @@ describe("GET /v1/edition (LIC-001)", () => {
   it("defaults to Community when createApp gets no licence", async () => {
     const app = createApp({
       sql: {} as unknown as Sql,
+      // Production refuses to start without one (rate-limit key hashing).
+      sessionSecret: "test-session-secret-with-at-least-32-chars",
       authPort,
       config: { nodeEnv: "production" },
     });

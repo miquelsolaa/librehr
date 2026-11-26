@@ -6,6 +6,8 @@ import { createApp, resolveAppConfig, type AppConfig } from "../src/app.js";
 function appWith(config: Partial<AppConfig>) {
   return createApp({
     sql: {} as unknown as Sql,
+    // Production refuses to start without one (rate-limit key hashing).
+    sessionSecret: "test-session-secret-with-at-least-32-chars",
     authPort: {} as unknown as AuthPort,
     config,
   });

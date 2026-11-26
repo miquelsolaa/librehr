@@ -8,6 +8,7 @@ import {
 import { runMigrations } from "@librehr/db/migrate";
 import type { AuthUser, ProblemDetails } from "@librehr/contracts";
 import { createApp } from "../src/app.js";
+import { isolatedRateLimitStore } from "./support/rate-limit.js";
 import type { AuthPort, AuthSession } from "../src/ports/auth.js";
 
 class NoSessionsAuthPort implements AuthPort {
@@ -67,6 +68,7 @@ describe("Setup wizard (ORG-001)", () => {
     // One trusted proxy hop, so X-Forwarded-For identifies the client.
     app = createApp({
       sql: db.appSql,
+      rateLimitStore: isolatedRateLimitStore(db.appSql),
       authPort: new NoSessionsAuthPort(),
       trustProxy: 1,
     });

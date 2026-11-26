@@ -10,6 +10,7 @@ import {
 import { runMigrations } from "@librehr/db/migrate";
 import type { OfficialExportResponse } from "@librehr/contracts";
 import { createApp } from "../src/app.js";
+import { isolatedRateLimitStore } from "./support/rate-limit.js";
 import { as, fixtureAuthPort } from "./support/fixture-app.js";
 
 // TIM-006 export limits and refusals: tenant isolation, the employee-days
@@ -30,6 +31,8 @@ describe("GET /v1/time/export limits (TIM-006)", () => {
       sql: await db.appSql(),
       authPort: fixtureAuthPort(people),
       timeExport,
+      // Fresh counters per app, as each app had before issue #35.
+      rateLimitStore: isolatedRateLimitStore(await db.appSql()),
     });
   let app: ReturnType<typeof createApp>;
 
