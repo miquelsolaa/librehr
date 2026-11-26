@@ -349,11 +349,22 @@ export function createInvitationRoutes(
           // Accepting a link that only reached this mailbox proves it
           // (AUTH-001): new accounts are inserted verified, and so an
           // existing account whose email is the invited one becomes verified.
-          await tx`
+          // Audited like a confirmed link (librehr_auth_verify_email), ids
+          // only, in the inviting organization.
+          const newlyVerified = await tx`
             UPDATE users SET email_verified = true, updated_at = now()
             WHERE id = ${account.id} AND email = ${invite.email}
               AND NOT email_verified
           `;
+          if (newlyVerified.count > 0) {
+            await auditRepo.log(tx, {
+              actorId: account.id,
+              action: "auth.email_verified",
+              resourceType: "user",
+              resourceId: account.id,
+              metadata: { via: "invitation" },
+            });
+          }
         }
 
         // 3. TIM-008: an invitation older than the last access change of an

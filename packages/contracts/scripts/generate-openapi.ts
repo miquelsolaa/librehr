@@ -424,7 +424,7 @@ registry.registerPath({
   method: "post",
   path: "/v1/auth/email-verification/confirm",
   summary:
-    "Confirm the account's email with a verification link token (AUTH-001). No sign-in needed and none is granted; the token works once",
+    "Confirm the account's email with a verification link token and the account password (AUTH-001). No sign-in needed and none is granted; the token works once, and a wrong password spends nothing",
   request: {
     body: {
       content: {
@@ -442,6 +442,11 @@ registry.registerPath({
     400: {
       description:
         "Validation failure, or VERIFICATION_TOKEN_INVALID for an unknown, used, expired or outdated token",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    401: {
+      description:
+        "INVALID_CREDENTIALS: the password is not the password of the link's account",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
     429: {

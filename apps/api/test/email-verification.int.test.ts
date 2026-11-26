@@ -17,8 +17,8 @@ import { isolatedRateLimitStore } from "./support/rate-limit.js";
 
 // AUTH-001 email verification endpoints: the setup wizard admin starts
 // unverified and gets a link; a signed-in user can ask for a new one; the
-// link confirms the address once, without a session. Soft gate: unverified
-// users keep full access. Runs against the restricted runtime role.
+// link confirms the address once, with the account password but without a
+// session. Soft gate: unverified users keep full access. Runs against the restricted runtime role.
 describe("email verification (AUTH-001)", () => {
   let base: TestDatabase;
   let db: RoleSeparatedDatabase;
@@ -33,6 +33,7 @@ describe("email verification (AUTH-001)", () => {
   const adminB = "c9450000-0000-0000-0000-000000000004";
   const invitee = "c9450000-0000-0000-0000-000000000005";
   const moved = "c9450000-0000-0000-0000-000000000006";
+  const guessed = "c9450000-0000-0000-0000-000000000007";
   const adminEmail = "setup-admin@example.invalid";
   const appUrl = "https://hr.example.invalid";
   const password = "verify-password-123";
@@ -80,10 +81,14 @@ describe("email verification (AUTH-001)", () => {
     body: unknown = {},
     target: ReturnType<typeof createApp> = app,
   ) => post("/v1/auth/email-verification", body, withCookie(session), target);
-  const confirm = (token: string, ip?: string) =>
+  const confirm = (
+    token: string,
+    ip?: string,
+    accountPassword: string = password,
+  ) =>
     post(
       "/v1/auth/email-verification/confirm",
-      { token },
+      { token, password: accountPassword },
       ip ? { "X-Forwarded-For": ip } : {},
     );
   const me = async (session: string): Promise<MeResponse> => {
@@ -172,9 +177,10 @@ describe("email verification (AUTH-001)", () => {
       (${limited}, ${emailOf(limited)}, 'Limited', ${hash}),
       (${adminB}, ${emailOf(adminB)}, 'Admin B', ${hash}),
       (${invitee}, ${emailOf(invitee)}, 'Invitee', ${hash}),
-      (${moved}, ${emailOf(moved)}, 'Moved', ${hash})`;
+      (${moved}, ${emailOf(moved)}, 'Moved', ${hash}),
+      (${guessed}, ${emailOf(guessed)}, 'Guessed', ${hash})`;
     for (const [org, members] of [
-      [orgA, [multi, solo, limited, moved]],
+      [orgA, [multi, solo, limited, moved, guessed]],
       [orgB, [multi, adminB]],
     ] as const) {
       await withTenant(sql, { organizationId: org }, async (tx) => {
@@ -193,6 +199,31 @@ describe("email verification (AUTH-001)", () => {
   });
 
   describe("setup wizard admin", () => {
+    it("cannot be verified by whoever holds the link without the password", async () => {
+      // A mistyped admin address: the stranger who receives the link must
+      // not verify it, or reset links would let them take the account over.
+      const ip = crypto.randomUUID();
+      const wrong = await confirm(wizardToken, ip, "not-the-admin-password");
+      expect(wrong.status).toBe(401);
+      expect(await codeOf(wrong)).toBe("INVALID_CREDENTIALS");
+      const missing = await post(
+        "/v1/auth/email-verification/confirm",
+        { token: wizardToken },
+        { "X-Forwarded-For": ip },
+      );
+      expect(missing.status).toBe(400);
+      expect(await verified(admin)).toBe(false);
+
+      // No reset link goes to the still unverified address.
+      const before = sent.length;
+      const reset = await post("/v1/auth/password-reset", {
+        email: adminEmail,
+      });
+      expect(reset.status).toBe(202);
+      await freshToken(await signIn(emailOf(multi)), emailOf(multi));
+      expect(sent.slice(before).some((m) => m.to === adminEmail)).toBe(false);
+    });
+
     it("starts unverified with full access, then confirms once without a session", async () => {
       expect(await verified(admin)).toBe(false);
       const session = await signIn(adminEmail);
@@ -328,6 +359,34 @@ describe("email verification (AUTH-001)", () => {
       expect(await codeOf(res)).not.toBe("VERIFICATION_TOKEN_INVALID");
     });
 
+    it("rejects a wrong password with 401 and leaves the link usable", async () => {
+      const token = await freshToken(
+        await signIn(emailOf(guessed)),
+        emailOf(guessed),
+      );
+      const res = await confirm(token, undefined, "wrong-password-123");
+      expect(res.status).toBe(401);
+      expect(await verified(guessed)).toBe(false);
+      const [row] = await db.adminSql<{ used: boolean }[]>`
+        SELECT used_at IS NOT NULL AS used FROM email_verification_tokens
+        WHERE token_hash = ${hashBearerToken(token)}`;
+      expect(row!.used).toBe(false);
+    });
+
+    it("limits password guesses against one link from one IP", async () => {
+      const token = await freshToken(
+        await signIn(emailOf(guessed)),
+        emailOf(guessed),
+      );
+      const ip = crypto.randomUUID();
+      const statuses: number[] = [];
+      for (let i = 0; i < 6; i++) {
+        statuses.push((await confirm(token, ip, `guess-${i}`)).status);
+      }
+      expect(statuses).toEqual([401, 401, 401, 401, 401, 429]);
+      expect(await verified(guessed)).toBe(false);
+    });
+
     it("rejects an unknown token", async () => {
       const res = await confirm(crypto.randomBytes(32).toString("base64url"));
       expect(res.status).toBe(400);
@@ -422,6 +481,19 @@ describe("email verification (AUTH-001)", () => {
       });
       expect(res.status).toBe(200);
       expect(await verified(invitee)).toBe(true);
+
+      // Audited like a confirmed link, in the inviting organization only.
+      const audit = await db.adminSql<
+        { organization_id: string; actor_id: string; metadata: unknown }[]
+      >`SELECT organization_id, actor_id, metadata FROM audit_log
+        WHERE action = 'auth.email_verified' AND resource_id = ${invitee}`;
+      expect(audit).toEqual([
+        {
+          organization_id: orgB,
+          actor_id: invitee,
+          metadata: { via: "invitation" },
+        },
+      ]);
     });
   });
 });

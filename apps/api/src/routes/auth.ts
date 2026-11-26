@@ -467,10 +467,12 @@ export function createAuthRoutes(
   );
 
   // AUTH-001 email verification. Requesting a link needs an interactive
-  // session (personal access tokens are refused); confirming needs only the
-  // 256-bit token, so the link works on another device, and grants no
-  // session. Besides these buckets, createEmailVerificationToken caps links
-  // per account in the database.
+  // session (personal access tokens are refused). Confirming needs the
+  // 256-bit token and the account password, but no session, so the link
+  // works on another device; it grants no session. The password stops a
+  // stranger who got a link sent to a mistyped address from verifying it
+  // and then requesting reset links. Besides these buckets,
+  // createEmailVerificationToken caps links per account in the database.
   const verificationUserLimit = createRateLimiter({
     name: "auth.email-verification.user",
     store,
@@ -485,6 +487,15 @@ export function createAuthRoutes(
     windowMs: minute,
     max: 10,
     trustProxy,
+  });
+  // Password guesses against one link, like the per-account sign-in bucket.
+  const verificationConfirmTokenLimit = createRateLimiter({
+    name: "auth.email-verification-confirm.token",
+    store,
+    windowMs: 15 * minute,
+    max: 5,
+    trustProxy,
+    account: (c) => bodyField(c, "token"),
   });
 
   router.post(
@@ -532,15 +543,26 @@ export function createAuthRoutes(
     "/email-verification/confirm",
     perIp("auth.email-verification-confirm.ip-burst"),
     verificationConfirmLimit,
+    verificationConfirmTokenLimit,
     async (c) => {
       const body = await c.req.json().catch(() => null);
       const parsed = EmailVerificationConfirmSchema.safeParse(body);
       if (!parsed.success) throw ValidationError.fromZod(parsed.error);
-      const userId = await verifyEmailWithToken(sql, parsed.data.token);
-      if (!userId) {
+      const result = await verifyEmailWithToken(
+        sql,
+        parsed.data.token,
+        parsed.data.password,
+      );
+      if (result.status === "invalid_token") {
         throw new ValidationError({
           code: "VERIFICATION_TOKEN_INVALID",
           detail: "The verification link is invalid, used or expired",
+        });
+      }
+      if (result.status === "invalid_password") {
+        throw new UnauthorizedError({
+          code: "INVALID_CREDENTIALS",
+          detail: "Invalid password",
         });
       }
       return c.json({ success: true });

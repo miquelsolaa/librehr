@@ -24,6 +24,17 @@ describe("emailVerificationEmail", () => {
     },
   );
 
+  it("tells a recipient who did not create the account not to confirm", () => {
+    const email = emailVerificationEmail(
+      "https://hr.example.invalid",
+      "en",
+      "t",
+    );
+    expect(email.text).toContain("If you did not, do not confirm it");
+    expect(email.text).toContain("account password");
+    expect(email.text).not.toMatch(/reset/i);
+  });
+
   it("falls back to Catalan for an unsupported or missing locale", () => {
     expect(
       emailVerificationEmail("https://hr.example.invalid", "fr", "t").html,

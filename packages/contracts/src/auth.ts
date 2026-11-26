@@ -42,9 +42,13 @@ export type EmailVerificationRequest = z.infer<
   typeof EmailVerificationRequestSchema
 >;
 
-/** AUTH-001: confirms the account's email with the token from the link. */
+/**
+ * AUTH-001: confirms the account's email with the token from the link and
+ * the account password, so a link that reached the wrong mailbox is useless.
+ */
 export const EmailVerificationConfirmSchema = z.object({
   token: z.string().min(20).max(200),
+  password: z.string().min(1).max(1024),
 });
 export type EmailVerificationConfirm = z.infer<
   typeof EmailVerificationConfirmSchema
