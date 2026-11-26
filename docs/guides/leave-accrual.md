@@ -229,16 +229,28 @@ value; with no full-time week every amount is exactly what it was before.
   `> 0 and <= 40`). Administrators set them when creating an employee or
   adding an employment period (People > profile > Employment history, or
   `POST /v1/employees/{id}/employment-history` with `workingHoursPerWeek`).
-- A change of hours is a new employment period: a period that starts after
-  the start of the open-ended current one closes it the day before, so the
-  hours of earlier periods are kept and each part of the year accrues at its
-  own ratio. Editing hours in place is not offered (issue #131).
+- A change of hours is a new employment period: an open-ended period that
+  starts after the start of the open-ended current one closes it the day
+  before, so the hours of earlier periods are kept and each part of the year
+  accrues at its own ratio. A new period with an end date that overlaps the
+  current one is refused (409), as is any other overlap. Editing hours in
+  place is not offered (issue #131). Each close is audited as
+  `employee.employment_period_closed` with the period id and end date.
+- **Backdated changes.** A new period may start in the past. If it starts in
+  a month that has already accrued, the cumulative target is recomputed with
+  the new hours: a reduction offsets future accrual (the following runs write
+  less, or nothing, until the target catches up; nothing already credited is
+  taken back, see "no true-up" below), and an increase is credited on the
+  next run. The employment history form warns when the start date is before
+  the current month.
 - A legacy employee without employment rows has no recorded hours and
   accrues at 1.
 - Migration 0037 converted the earlier text values (a decimal comma such as
-  `37,5` is read as 37.5). If any value could not be read as a number in
-  (0, 40], the migration stops with the number of such rows and changes
-  nothing; correct those rows from the contracts and run it again.
+  `37,5` is read as 37.5). If any value is not a number in (0, 40], the
+  migration stops, quoting the refused value but no row or person, and
+  changes nothing; its hint gives the query that lists the rows to correct
+  from the contracts before running it again. It does not lift row level
+  security: the conversion and the check run as DDL.
 - The job still refuses (with `InvalidEmploymentDataError`, naming employee
   ids, before anything is written) hours that are not a positive number; the
   column type now rules this out.

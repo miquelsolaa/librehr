@@ -89,6 +89,15 @@ describe("Contracts schemas", () => {
         workingHoursPerWeek: 41,
       }).success,
     ).toBe(false);
+    // Hours without a job title would be silently dropped: refused.
+    const { jobTitle: _jobTitle, ...noJob } = employee;
+    expect(
+      CreateEmployeeRequestSchema.safeParse({
+        ...noJob,
+        workingHoursPerWeek: 30,
+      }).success,
+    ).toBe(false);
+    expect(CreateEmployeeRequestSchema.safeParse(noJob).success).toBe(true);
   });
 
   it("validates setup wizard and invitation schemas", async () => {

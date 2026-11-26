@@ -234,6 +234,16 @@ describe("employment history", () => {
         })
       ).status,
     ).toBe(409);
+    // A later period with an end date does not close the open one: 409.
+    expect(
+      (
+        await post({
+          ...period,
+          endDate: "2025-06-30",
+          workingHoursPerWeek: 20,
+        })
+      ).status,
+    ).toBe(409);
 
     const created = await post({ ...period, workingHoursPerWeek: 20.5 });
     expect(created.status).toBe(201);
@@ -259,14 +269,28 @@ describe("employment history", () => {
 
     const profile = await app.request(`/v1/employees/${hoursId}`, { headers });
     expect(await profile.json()).toMatchObject({ workingHoursPerWeek: 40 });
+    const periodIds = new Map(
+      list.map((p) => [p.startDate, (p as { id?: string }).id]),
+    );
     const closed = await withTenant(
       db.sql,
       { organizationId: org },
       (tx) =>
-        tx`SELECT 1 FROM audit_log WHERE resource_id = ${hoursId}
-         AND action = 'employee.employment_period_closed'`,
+        tx<{ metadata: unknown }[]>`SELECT metadata FROM audit_log
+         WHERE resource_id = ${hoursId}
+           AND action = 'employee.employment_period_closed'
+         ORDER BY created_at, id`,
     );
-    expect(closed).toHaveLength(2);
+    expect(closed.map((row) => row.metadata)).toEqual([
+      {
+        employmentPeriodId: periodIds.get("2024-01-01"),
+        endDate: "2025-02-28",
+      },
+      {
+        employmentPeriodId: periodIds.get("2025-03-01"),
+        endDate: "2025-12-31",
+      },
+    ]);
   });
   it("refuses hours changes without identity, permission or tenant (#131)", async () => {
     const body = JSON.stringify({

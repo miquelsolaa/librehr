@@ -18,8 +18,8 @@ type CreateEmploymentPeriod = Omit<
 
 export interface CreatedEmploymentPeriod {
   period: EmploymentPeriod;
-  /** Id of the open-ended period this one closed, if any. */
-  closedPeriodId: string | null;
+  /** The open-ended period this one closed, with the end date written. */
+  closed: { id: string; endDate: string } | null;
 }
 
 export class EmploymentHistoryRepository {
@@ -33,20 +33,24 @@ export class EmploymentHistoryRepository {
   }
 
   /**
-   * Appends a period (LEA-002, #131). A period that starts after the start of
-   * the open-ended current period closes it the day before, so a change of
-   * contract hours never rewrites the hours of time already worked. Any other
-   * overlap returns null. Callers lock the employee row first.
+   * Appends a period (LEA-002, #131). An open-ended period that starts after
+   * the start of the open-ended current period closes it the day before, so
+   * a change of contract hours never rewrites the hours of time already
+   * worked. Any other overlap (including a new period with an end date)
+   * returns null. Callers lock the employee row first.
    */
   async create(
     tx: TenantTx,
     employeeId: string,
     data: CreateEmploymentPeriod,
   ): Promise<CreatedEmploymentPeriod | null> {
-    const open = await tx<{ id: string }[]>`
-      SELECT id FROM employments
-      WHERE employee_id = ${employeeId} AND end_date IS NULL
-        AND start_date < ${data.startDate}::date`;
+    const open =
+      (data.endDate ?? null) === null
+        ? await tx<{ id: string }[]>`
+            SELECT id FROM employments
+            WHERE employee_id = ${employeeId} AND end_date IS NULL
+              AND start_date < ${data.startDate}::date`
+        : [];
     const closedPeriodId = open[0]?.id ?? null;
     const conflicting = await tx<{ exists: boolean }[]>`
       SELECT EXISTS (SELECT 1 FROM employments WHERE employee_id = ${employeeId}
@@ -54,11 +58,14 @@ export class EmploymentHistoryRepository {
         AND daterange(start_date, COALESCE(end_date, 'infinity'::date), '[]') &&
             daterange(${data.startDate}::date, COALESCE(${data.endDate ?? null}::date, 'infinity'::date), '[]')) AS exists`;
     if (conflicting[0]?.exists) return null;
+    let closed: CreatedEmploymentPeriod["closed"] = null;
     if (closedPeriodId) {
-      await tx`
+      const rows = await tx<{ id: string; endDate: string }[]>`
         UPDATE employments
         SET end_date = ${data.startDate}::date - 1, updated_at = now()
-        WHERE id = ${closedPeriodId}`;
+        WHERE id = ${closedPeriodId}
+        RETURNING id, end_date::text AS "endDate"`;
+      closed = rows[0] ?? null;
     }
     const rows = await tx<EmploymentPeriod[]>`
       INSERT INTO employments (employee_id, job_title, employment_type,
@@ -69,6 +76,6 @@ export class EmploymentHistoryRepository {
                 working_hours_per_week::float AS "workingHoursPerWeek",
                 start_date::text AS "startDate", end_date::text AS "endDate"`;
     const period = rows[0];
-    return period ? { period, closedPeriodId } : null;
+    return period ? { period, closed } : null;
   }
 }

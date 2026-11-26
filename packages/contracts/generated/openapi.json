@@ -993,7 +993,8 @@
           "workingHoursPerWeek": {
             "type": "number",
             "exclusiveMinimum": 0,
-            "maximum": 40
+            "maximum": 40,
+            "description": "Weekly contract hours: greater than 0, at most 40 (ET art. 34.1), max two decimals."
           },
           "startDate": {
             "type": "string",
@@ -1083,7 +1084,8 @@
           "workingHoursPerWeek": {
             "type": "number",
             "exclusiveMinimum": 0,
-            "maximum": 40
+            "maximum": 40,
+            "description": "Weekly contract hours: greater than 0, at most 40 (ET art. 34.1), max two decimals."
           },
           "startDate": {
             "type": "string",
@@ -6911,7 +6913,8 @@
                   "workingHoursPerWeek": {
                     "type": "number",
                     "exclusiveMinimum": 0,
-                    "maximum": 40
+                    "maximum": 40,
+                    "description": "Weekly contract hours: greater than 0, at most 40 (ET art. 34.1), max two decimals."
                   },
                   "startDate": {
                     "type": "string",
@@ -7169,7 +7172,8 @@
                   "workingHoursPerWeek": {
                     "type": "number",
                     "exclusiveMinimum": 0,
-                    "maximum": 40
+                    "maximum": 40,
+                    "description": "Weekly contract hours: greater than 0, at most 40 (ET art. 34.1), max two decimals."
                   },
                   "startDate": {
                     "type": "string",
