@@ -111,7 +111,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:17-alpine
+        image: postgres:18-alpine
         env:
           # Bootstrap superuser, deliberately not librehr_owner: the test helper
           # creates librehr_owner (NOSUPERUSER NOBYPASSRLS) to run migrations, as in production.
