@@ -145,17 +145,32 @@ export function verifyTotpCode(
 }
 
 /**
- * Stored form of a recovery code: hex SHA-256 of the trimmed, lower-cased
- * code (the format {@link generateRecoveryCodes} produces).
+ * Canonical text of a recovery code as typed: spaces and dashes removed and
+ * lower-cased; 8 or 16 hex characters (the old and the current format) get
+ * their dashes back every 4 characters, which is the form stored hashes were
+ * built from. Anything else is only trimmed and lower-cased, as before.
+ */
+function normalizeRecoveryCode(code: string): string {
+  const compact = code.replace(/[\s-]/g, "").toLowerCase();
+  if (/^[0-9a-f]{8}$/.test(compact) || /^[0-9a-f]{16}$/.test(compact)) {
+    return compact.replace(/(.{4})(?=.)/g, "$1-");
+  }
+  return code.trim().toLowerCase();
+}
+
+/**
+ * Stored form of a recovery code: hex SHA-256 of its canonical text, so a
+ * code typed without dashes, with inner spaces or in upper case still
+ * matches. Codes stored by earlier releases (`xxxx-xxxx`) hash the same.
  *
  * @example
- * hashRecoveryCode(" ABCD-1234-5678-9ABC ") ===
+ * hashRecoveryCode(" ABCD 1234 5678 9ABC ") ===
  *   hashRecoveryCode("abcd-1234-5678-9abc"); // true
  */
 export function hashRecoveryCode(code: string): string {
   return crypto
     .createHash("sha256")
-    .update(code.trim().toLowerCase())
+    .update(normalizeRecoveryCode(code))
     .digest("hex");
 }
 
@@ -209,19 +224,16 @@ export function generateRecoveryCodes(count = 8): {
 }
 
 /**
- * Verifies and burns a recovery code against stored hashed recovery codes.
- * Returns the matching hash index if valid, or -1 if invalid.
+ * Checks a recovery code against stored hashes and returns the index of the
+ * matching hash, or -1. It does not burn the code: the caller removes that
+ * hash (the API does it in one conditional UPDATE, `burnRecoveryCode`).
  */
 export function verifyRecoveryCode(
   inputCode: string,
   hashedCodes: string[],
 ): number {
   if (!inputCode) return -1;
-  const normalized = inputCode.trim().toLowerCase();
-  const inputHash = crypto
-    .createHash("sha256")
-    .update(normalized)
-    .digest("hex");
+  const inputHash = hashRecoveryCode(inputCode);
   const inputHashBuf = Buffer.from(inputHash, "hex");
 
   for (let i = 0; i < hashedCodes.length; i++) {
