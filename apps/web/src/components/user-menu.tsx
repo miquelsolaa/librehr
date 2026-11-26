@@ -78,7 +78,7 @@ export function UserMenu({ name, role }: UserMenuProps) {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="inline-flex h-11 w-11 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+      <DropdownMenuTrigger className="inline-flex h-11 w-11 items-center justify-center rounded-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
         {/* Named by its text, not aria-label: the initials are decorative and
             would otherwise be visible text missing from the name (WCAG 2.5.3). */}
         <Avatar

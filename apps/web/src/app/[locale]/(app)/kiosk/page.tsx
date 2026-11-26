@@ -197,7 +197,7 @@ export default function KioskModePage() {
                 onChange={(e) => setIdentifier(e.target.value)}
                 placeholder={t("kioskIdentifierPlaceholder")}
                 disabled={loading}
-                className="w-full rounded-xl border bg-background px-4 py-3 text-center text-lg font-medium shadow-inner outline-none transition focus:border-focus-ring focus:ring-2 focus:ring-focus-ring/30"
+                className="w-full rounded-xl border bg-background px-4 py-3 text-center text-lg font-medium shadow-inner outline-hidden transition focus:border-focus-ring focus:ring-2 focus:ring-focus-ring/30"
                 autoComplete="off"
               />
             </div>
@@ -229,7 +229,7 @@ export default function KioskModePage() {
                   type="button"
                   onClick={() => handleKeypadPress(digit)}
                   disabled={loading}
-                  className="flex h-14 items-center justify-center rounded-xl border bg-background text-2xl font-bold shadow-sm transition active:scale-95 active:bg-surface hover:bg-accent"
+                  className="flex h-14 items-center justify-center rounded-xl border bg-background text-2xl font-bold shadow-xs transition active:scale-95 active:bg-surface hover:bg-accent"
                 >
                   {digit}
                 </button>
@@ -246,7 +246,7 @@ export default function KioskModePage() {
                 type="button"
                 onClick={() => handleKeypadPress("0")}
                 disabled={loading}
-                className="flex h-14 items-center justify-center rounded-xl border bg-background text-2xl font-bold shadow-sm transition active:scale-95 active:bg-surface hover:bg-accent"
+                className="flex h-14 items-center justify-center rounded-xl border bg-background text-2xl font-bold shadow-xs transition active:scale-95 active:bg-surface hover:bg-accent"
               >
                 0
               </button>

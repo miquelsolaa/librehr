@@ -4,7 +4,8 @@ import { AuditorAccessMaxDaysSchema } from "./auditor-access.js";
 export const SignInRequestSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
-  twoFactorCode: z.string().optional(),
+  // 6-digit TOTP or recovery code; bounded like /2fa/verify and /2fa/disable.
+  twoFactorCode: z.string().trim().min(6).max(64).optional(),
 });
 export type SignInRequest = z.infer<typeof SignInRequestSchema>;
 
@@ -95,9 +96,24 @@ export type TwoFactorEnableRequest = z.infer<
   typeof TwoFactorEnableRequestSchema
 >;
 
+/**
+ * Enabling 2FA ends the account's other sessions and revokes its personal
+ * access tokens in every organization (issue #35): a token created by
+ * someone holding only the password must not outlive the second factor.
+ */
+export const TwoFactorEnableResponseSchema = z.object({
+  success: z.literal(true),
+  /** Personal access tokens revoked by this change; the UI tells the user. */
+  revokedTokens: z.number().int().nonnegative(),
+});
+export type TwoFactorEnableResponse = z.infer<
+  typeof TwoFactorEnableResponseSchema
+>;
+
 export const TwoFactorVerifyRequestSchema = z.object({
   challengeToken: z.string().min(1),
-  code: z.string().min(6), // 6-digit TOTP or xxxx-xxxx recovery code
+  // 6-digit TOTP or recovery code (xxxx-xxxx-xxxx-xxxx; older xxxx-xxxx codes still work)
+  code: z.string().trim().min(6).max(64),
 });
 export type TwoFactorVerifyRequest = z.infer<
   typeof TwoFactorVerifyRequestSchema

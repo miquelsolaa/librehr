@@ -179,6 +179,7 @@ export function createEmployeeRoutes(
           locationId: data.locationId ?? null,
           jobTitle: data.jobTitle,
           employmentType: data.employmentType,
+          workingHoursPerWeek: data.workingHoursPerWeek,
           startDate: data.startDate,
           nationalId: data.nationalId,
           iban: data.iban,

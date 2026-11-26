@@ -386,7 +386,7 @@ export default function SetupWizardPage() {
               </label>
               <select
                 id="loc-region"
-                className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
                 value={formData.locationRegion}
                 onChange={(e) => updateField("locationRegion", e.target.value)}
               >

@@ -1,4 +1,4 @@
-import type { MiddlewareHandler } from "hono";
+import type { Context, MiddlewareHandler } from "hono";
 import { ForbiddenError } from "../errors/index.js";
 
 /**
@@ -12,7 +12,9 @@ import { ForbiddenError } from "../errors/index.js";
  *
  * Tokens authenticate without a second factor by design (they are for
  * non-interactive API clients), so credential and account-security
- * endpoints are never reachable with a token, whatever its scopes.
+ * endpoints are never reachable with a token, whatever its scopes. Where
+ * only some requests to an endpoint are interactive-only (an auditor
+ * or admin invitation), the route calls {@link requireInteractiveSession}.
  */
 export const PAT_SCOPES = ["read", "write", "admin"] as const;
 
@@ -62,20 +64,41 @@ export function patScopeAllows(
   return scopes.includes("write") || scopes.includes("admin");
 }
 
+const tokenScopeInsufficient = () =>
+  new ForbiddenError({
+    code: "TOKEN_SCOPE_INSUFFICIENT",
+    detail: "This access token's scopes do not allow this request",
+  });
+
+/** Whether the auth middleware resolved this request from a token. */
+const isTokenRequest = (c: Context): boolean =>
+  Boolean((c.get as (key: string) => unknown)("patId"));
+
+/** The scopes of the token this request was authenticated with. */
+const getPatScopes = (c: Context): string[] =>
+  normalizePatScopes((c.get as (key: string) => unknown)("patScopes"));
+
+/**
+ * Refuses a request authenticated with a personal access token, with the
+ * same 403 as the interactive-only route groups above. For endpoints where
+ * only some requests need an interactive session, decided from the body.
+ *
+ * @example
+ * if (body.role === "auditor") requireInteractiveSession(c);
+ */
+export function requireInteractiveSession(c: Context): void {
+  if (isTokenRequest(c)) throw tokenScopeInsufficient();
+}
+
 /**
  * Enforces token scopes for requests the auth middleware resolved from a
  * personal access token (it sets `patId` and `patScopes`). Session requests
  * pass through untouched.
  */
 export const patScopeMiddleware: MiddlewareHandler = async (c, next) => {
-  const get = c.get as (key: string) => unknown;
-  if (get("patId")) {
-    const scopes = normalizePatScopes(get("patScopes"));
-    if (!patScopeAllows(scopes, c.req.method, c.req.path)) {
-      throw new ForbiddenError({
-        code: "TOKEN_SCOPE_INSUFFICIENT",
-        detail: "This access token's scopes do not allow this request",
-      });
+  if (isTokenRequest(c)) {
+    if (!patScopeAllows(getPatScopes(c), c.req.method, c.req.path)) {
+      throw tokenScopeInsufficient();
     }
   }
   await next();

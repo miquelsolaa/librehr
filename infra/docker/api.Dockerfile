@@ -5,7 +5,7 @@
 # Enterprise License); it only unlocks features with a valid licence key.
 #   docker build -f infra/docker/api.Dockerfile --build-arg EDITION=business .
 ARG EDITION=community
-FROM node:22-alpine AS base
+FROM node:26-alpine AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable && corepack prepare pnpm@12.18.0 --activate

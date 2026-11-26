@@ -27,7 +27,7 @@ export async function createPasswordResetToken(
 ): Promise<{ userId: string; token: string } | null> {
   const token = crypto.randomBytes(32).toString("base64url");
   return sql.begin(async (tx) => {
-    // Retention (migration 0037): links older than 30 days are all spent or
+    // Retention (migration 0040): links older than 30 days are all spent or
     // expired; delete them on every request, account or not.
     await tx`
       DELETE FROM password_reset_tokens
@@ -61,7 +61,7 @@ export async function createPasswordResetToken(
  * Sets a new password with a reset token: spends the token, revokes every
  * session and personal access token, and audits the reset in each of the
  * user's organizations, all in one transaction (librehr_auth_reset_password,
- * migration 0037). Returns the user id, or null for an unknown, used or
+ * migration 0040). Returns the user id, or null for an unknown, used or
  * expired token. Two-factor settings are left as they are.
  */
 export async function resetPasswordWithToken(

@@ -17,22 +17,22 @@
     "./eslint/node": "./eslint/node.js",
     "./eslint/*": "./eslint/*",
     "./prettier": "./prettier/index.js",
-    "./tailwind": "./tailwind/preset.ts"
+    "./tailwind/theme.css": "./tailwind/theme.css"
   },
   "dependencies": {
-    "@eslint/js": "^9.20.0",
+    "@eslint/js": "^10.0.0",
     "eslint-plugin-import-x": "^4.6.1",
     "tailwindcss-animate": "^1.0.7",
     "typescript-eslint": "^8.24.0"
   },
   "peerDependencies": {
-    "tailwindcss": "^3.4.17"
+    "tailwindcss": "^4.3.5"
   },
   "devDependencies": {
-    "eslint": "^9.20.0",
-    "tailwindcss": "^3.4.17",
+    "eslint": "^10.0.0",
+    "tailwindcss": "^4.3.5",
     "typescript": "^6.0.3",
-    "vitest": "^3.0.5"
+    "vitest": "^5.0.0"
   },
   "scripts": {
     "test": "vitest run"

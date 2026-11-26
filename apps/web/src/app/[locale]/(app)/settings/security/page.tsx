@@ -131,11 +131,19 @@ export default function SecuritySettingsPage() {
       const client = getApiClient();
       // AUTH-003: the secret and recovery codes stay on the server; only the
       // code confirming the pending setup is sent.
-      await client.enableTwoFactor({ code: verificationCode.trim() });
+      const { revokedTokens } = await client.enableTwoFactor({
+        code: verificationCode.trim(),
+      });
 
       setTwoFactorEnabled(true);
       setIsSetupOpen(false);
-      setSuccessMessage(t("twoFactorEnabledSuccess"));
+      // Enabling 2FA revokes the account's personal access tokens (issue
+      // #35); say so, or an integration would just stop working.
+      setSuccessMessage(
+        revokedTokens > 0
+          ? t("twoFactorEnabledTokensRevoked", { count: revokedTokens })
+          : t("twoFactorEnabledSuccess"),
+      );
     } catch {
       setErrorMessage(t("invalid2FaCode"));
     } finally {
@@ -201,7 +209,7 @@ export default function SecuritySettingsPage() {
         breadcrumb={
           <Link
             href={`/${locale}/settings`}
-            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             {tNav("settings")}
@@ -327,7 +335,7 @@ export default function SecuritySettingsPage() {
                 checked={requireTwoFactor}
                 onChange={handleToggleOrgRequirement}
                 disabled={actionLoading || isLoading}
-                className="h-5 w-5 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                className="h-5 w-5 rounded-sm border-border text-primary focus:ring-primary cursor-pointer"
               />
             </div>
           </div>
@@ -468,7 +476,7 @@ export default function SecuritySettingsPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-2 rounded-input border border-border bg-surface p-3 font-mono text-xs text-center">
                   {setupData.recoveryCodes.map((code) => (
-                    <span key={code} className="p-1 rounded bg-background">
+                    <span key={code} className="p-1 rounded-sm bg-background">
                       {code}
                     </span>
                   ))}
@@ -490,9 +498,17 @@ export default function SecuritySettingsPage() {
                   autoFocus
                   placeholder="123456"
                   value={verificationCode}
+                  aria-describedby="enableTwoFactorRevokesNotice"
                   onChange={(e) => setVerificationCode(e.target.value)}
                   className="text-center font-mono text-xl tracking-widest"
                 />
+                {/* Issue #35: say before enabling what it revokes. */}
+                <p
+                  id="enableTwoFactorRevokesNotice"
+                  className="text-xs text-muted-foreground"
+                >
+                  {t("enableTwoFactorRevokesNotice")}
+                </p>
 
                 <div className="flex justify-end gap-2 pt-3">
                   <Button

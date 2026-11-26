@@ -14,6 +14,7 @@ import { createApp } from "../src/app.js";
 import { BetterAuthAdapter } from "../src/adapters/better-auth.js";
 import { hashPassword } from "../src/lib/password.js";
 import type { MailMessage, MailPort } from "../src/ports/mail.js";
+import { isolatedRateLimitStore } from "./support/rate-limit.js";
 
 // AUTH-001: password reset. Links expire in 1 h and are single use; the
 // request endpoint never reveals whether an account exists; every auth
@@ -112,6 +113,7 @@ describe("password reset (AUTH-001)", () => {
     app = createApp({
       sql: db.appSql,
       authPort: new BetterAuthAdapter(db.appSql),
+      rateLimitStore: isolatedRateLimitStore(db.appSql),
       mailPort,
       sessionSecret: "a-secure-test-secret-with-at-least-32-characters",
       // Honour X-Forwarded-For, so each request can come from its own IP.
@@ -187,6 +189,7 @@ describe("password reset (AUTH-001)", () => {
       const capped = createApp({
         sql: db.appSql,
         authPort: new BetterAuthAdapter(db.appSql),
+        rateLimitStore: isolatedRateLimitStore(db.appSql),
         mailPort,
         trustProxy: 1,
         config: { appUrl },
@@ -242,6 +245,7 @@ describe("password reset (AUTH-001)", () => {
       const unconfigured = createApp({
         sql: db.appSql,
         authPort: new BetterAuthAdapter(db.appSql),
+        rateLimitStore: isolatedRateLimitStore(db.appSql),
       });
       const [before] = await db.adminSql<{ count: number }[]>`
         SELECT count(*)::int AS count FROM password_reset_tokens`;

@@ -1,8 +1,43 @@
 @import "@librehr/ui/tokens.css";
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/*
+ * Scan only our sources, as the v3 `content` globs did. Automatic detection
+ * would skip packages/ui (it is reached through node_modules) and pick up
+ * e2e fixtures.
+ */
+@import "tailwindcss" source(none);
+@import "@librehr/config/tailwind/theme.css";
+
+@source "../**/*.{ts,tsx}";
+@source "../../../../packages/ui/src/**/*.{ts,tsx}";
+
+/*
+ * Tailwind v3 preflight defaults that v4 changed. Kept so the upgrade is
+ * visually neutral; remove one only after giving every element that relies
+ * on it an explicit utility.
+ */
+@layer base {
+  /* v4 defaults borders to currentcolor; a bare `border` was gray-200. */
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+
+  /* v4 defaults placeholders to 50% of the text colour; v3 used gray-400. */
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-gray-400);
+  }
+
+  /* v4 leaves buttons on the default cursor; v3 showed a pointer. */
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
 
 html,
 body {

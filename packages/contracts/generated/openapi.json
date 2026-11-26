@@ -73,7 +73,9 @@
             "minLength": 8
           },
           "twoFactorCode": {
-            "type": "string"
+            "type": "string",
+            "minLength": 6,
+            "maxLength": 64
           }
         },
         "required": [
@@ -883,6 +885,12 @@
               "null"
             ]
           },
+          "workingHoursPerWeek": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
           "startDate": {
             "type": [
               "string",
@@ -926,6 +934,7 @@
           "managerName",
           "jobTitle",
           "employmentType",
+          "workingHoursPerWeek",
           "startDate",
           "hasNationalId",
           "hasIban",
@@ -946,6 +955,9 @@
           "employmentType": {
             "type": "string"
           },
+          "workingHoursPerWeek": {
+            "type": "number"
+          },
           "startDate": {
             "type": "string",
             "format": "date"
@@ -962,6 +974,7 @@
           "id",
           "jobTitle",
           "employmentType",
+          "workingHoursPerWeek",
           "startDate",
           "endDate"
         ]
@@ -978,6 +991,12 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 100
+          },
+          "workingHoursPerWeek": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 40,
+            "description": "Weekly contract hours: greater than 0, at most 40 (ET art. 34.1), max two decimals."
           },
           "startDate": {
             "type": "string",
@@ -1063,6 +1082,12 @@
           },
           "employmentType": {
             "type": "string"
+          },
+          "workingHoursPerWeek": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 40,
+            "description": "Weekly contract hours: greater than 0, at most 40 (ET art. 34.1), max two decimals."
           },
           "startDate": {
             "type": "string",
@@ -5331,7 +5356,9 @@
                     "minLength": 8
                   },
                   "twoFactorCode": {
-                    "type": "string"
+                    "type": "string",
+                    "minLength": 6,
+                    "maxLength": 64
                   }
                 },
                 "required": [
@@ -7148,6 +7175,9 @@
                       "employmentType": {
                         "type": "string"
                       },
+                      "workingHoursPerWeek": {
+                        "type": "number"
+                      },
                       "startDate": {
                         "type": "string",
                         "format": "date"
@@ -7164,6 +7194,7 @@
                       "id",
                       "jobTitle",
                       "employmentType",
+                      "workingHoursPerWeek",
                       "startDate",
                       "endDate"
                     ]
@@ -7209,6 +7240,12 @@
                     "minLength": 1,
                     "maxLength": 100
                   },
+                  "workingHoursPerWeek": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 40,
+                    "description": "Weekly contract hours: greater than 0, at most 40 (ET art. 34.1), max two decimals."
+                  },
                   "startDate": {
                     "type": "string",
                     "format": "date"
@@ -7248,6 +7285,9 @@
                     "employmentType": {
                       "type": "string"
                     },
+                    "workingHoursPerWeek": {
+                      "type": "number"
+                    },
                     "startDate": {
                       "type": "string",
                       "format": "date"
@@ -7264,6 +7304,7 @@
                     "id",
                     "jobTitle",
                     "employmentType",
+                    "workingHoursPerWeek",
                     "startDate",
                     "endDate"
                   ]
@@ -7458,6 +7499,12 @@
                   "employmentType": {
                     "type": "string"
                   },
+                  "workingHoursPerWeek": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 40,
+                    "description": "Weekly contract hours: greater than 0, at most 40 (ET art. 34.1), max two decimals."
+                  },
                   "startDate": {
                     "type": "string",
                     "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
@@ -7601,6 +7648,12 @@
                         "null"
                       ]
                     },
+                    "workingHoursPerWeek": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
                     "startDate": {
                       "type": [
                         "string",
@@ -7644,6 +7697,7 @@
                     "managerName",
                     "jobTitle",
                     "employmentType",
+                    "workingHoursPerWeek",
                     "startDate",
                     "hasNationalId",
                     "hasIban",
@@ -7783,6 +7837,12 @@
                         "null"
                       ]
                     },
+                    "workingHoursPerWeek": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
                     "startDate": {
                       "type": [
                         "string",
@@ -7826,6 +7886,7 @@
                     "managerName",
                     "jobTitle",
                     "employmentType",
+                    "workingHoursPerWeek",
                     "startDate",
                     "hasNationalId",
                     "hasIban",
@@ -8102,6 +8163,12 @@
                         "null"
                       ]
                     },
+                    "workingHoursPerWeek": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
                     "startDate": {
                       "type": [
                         "string",
@@ -8145,6 +8212,7 @@
                     "managerName",
                     "jobTitle",
                     "employmentType",
+                    "workingHoursPerWeek",
                     "startDate",
                     "hasNationalId",
                     "hasIban",
@@ -8314,6 +8382,12 @@
                         "null"
                       ]
                     },
+                    "workingHoursPerWeek": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
                     "startDate": {
                       "type": [
                         "string",
@@ -8357,6 +8431,7 @@
                     "managerName",
                     "jobTitle",
                     "employmentType",
+                    "workingHoursPerWeek",
                     "startDate",
                     "hasNationalId",
                     "hasIban",
@@ -9445,6 +9520,7 @@
     "/v1/invitations": {
       "post": {
         "summary": "Invite a new member via email",
+        "description": "Admins only. Inviting an `admin` or an `auditor` grants access, so it needs an interactive session: a personal access token, even an admin-scoped one, gets 403 `TOKEN_SCOPE_INSUFFICIENT` and nothing is created (TIM-008, issue #35). `manager` and `employee` invitations accept admin-scoped tokens.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -9534,6 +9610,118 @@
                     "accessExpiresAt",
                     "acceptedAt",
                     "createdAt"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED, AUDITOR_ACCESS_END_IN_PAST or AUDITOR_ACCESS_END_TOO_FAR",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN (not an admin), or TOKEN_SCOPE_INSUFFICIENT: a personal access token inviting an admin or an auditor, or without the admin scope",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
                   ]
                 }
               }
@@ -17921,6 +18109,12 @@
                         "null"
                       ]
                     },
+                    "workingHoursPerWeek": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
                     "startDate": {
                       "type": [
                         "string",
@@ -17964,6 +18158,7 @@
                     "managerName",
                     "jobTitle",
                     "employmentType",
+                    "workingHoursPerWeek",
                     "startDate",
                     "hasNationalId",
                     "hasIban",

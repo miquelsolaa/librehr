@@ -145,16 +145,32 @@ export function verifyTotpCode(
 }
 
 /**
- * Stored form of a recovery code: hex SHA-256 of the trimmed, lower-cased
- * code (the format {@link generateRecoveryCodes} produces).
+ * Canonical text of a recovery code as typed: spaces and dashes removed and
+ * lower-cased; 8 or 16 hex characters (the old and the current format) get
+ * their dashes back every 4 characters, which is the form stored hashes were
+ * built from. Anything else is only trimmed and lower-cased, as before.
+ */
+function normalizeRecoveryCode(code: string): string {
+  const compact = code.replace(/[\s-]/g, "").toLowerCase();
+  if (/^[0-9a-f]{8}$/.test(compact) || /^[0-9a-f]{16}$/.test(compact)) {
+    return compact.replace(/(.{4})(?=.)/g, "$1-");
+  }
+  return code.trim().toLowerCase();
+}
+
+/**
+ * Stored form of a recovery code: hex SHA-256 of its canonical text, so a
+ * code typed without dashes, with inner spaces or in upper case still
+ * matches. Codes stored by earlier releases (`xxxx-xxxx`) hash the same.
  *
  * @example
- * hashRecoveryCode(" ABCD-1234 ") === hashRecoveryCode("abcd-1234"); // true
+ * hashRecoveryCode(" ABCD 1234 5678 9ABC ") ===
+ *   hashRecoveryCode("abcd-1234-5678-9abc"); // true
  */
 export function hashRecoveryCode(code: string): string {
   return crypto
     .createHash("sha256")
-    .update(code.trim().toLowerCase())
+    .update(normalizeRecoveryCode(code))
     .digest("hex");
 }
 
@@ -173,8 +189,20 @@ export function generateTotpUri(params: {
   )}&algorithm=SHA1&digits=6&period=30`;
 }
 
+/** Random bytes per recovery code: 64 bits, shown as 16 hex characters. */
+const RECOVERY_CODE_BYTES = 8;
+
 /**
- * Generates 8 random single-use recovery codes formatted as 'xxxx-xxxx'.
+ * Generates single-use recovery codes from the OS CSPRNG, formatted as
+ * 'xxxx-xxxx-xxxx-xxxx' (16 lower-case hex characters, 64 bits each), and
+ * their stored hashes ({@link hashRecoveryCode}).
+ *
+ * Codes issued before the 64-bit format ('xxxx-xxxx', 32 bits) keep working:
+ * verification only compares hashes and never checks the format.
+ *
+ * @example
+ * const { plainCodes, hashedCodes } = generateRecoveryCodes(8);
+ * // plainCodes[0] === "3f9a-0c12-7be4-d851" (for example)
  */
 export function generateRecoveryCodes(count = 8): {
   plainCodes: string[];
@@ -184,34 +212,28 @@ export function generateRecoveryCodes(count = 8): {
   const hashedCodes: string[] = [];
 
   for (let i = 0; i < count; i++) {
-    const raw = crypto.randomBytes(4).toString("hex"); // 8 hex characters
-    const formatted = `${raw.slice(0, 4)}-${raw.slice(4, 8)}`;
+    const raw = crypto.randomBytes(RECOVERY_CODE_BYTES).toString("hex");
+    const formatted = [0, 4, 8, 12]
+      .map((start) => raw.slice(start, start + 4))
+      .join("-");
     plainCodes.push(formatted);
-
-    const hash = crypto
-      .createHash("sha256")
-      .update(formatted.trim().toLowerCase())
-      .digest("hex");
-    hashedCodes.push(hash);
+    hashedCodes.push(hashRecoveryCode(formatted));
   }
 
   return { plainCodes, hashedCodes };
 }
 
 /**
- * Verifies and burns a recovery code against stored hashed recovery codes.
- * Returns the matching hash index if valid, or -1 if invalid.
+ * Checks a recovery code against stored hashes and returns the index of the
+ * matching hash, or -1. It does not burn the code: the caller removes that
+ * hash (the API does it in one conditional UPDATE, `burnRecoveryCode`).
  */
 export function verifyRecoveryCode(
   inputCode: string,
   hashedCodes: string[],
 ): number {
   if (!inputCode) return -1;
-  const normalized = inputCode.trim().toLowerCase();
-  const inputHash = crypto
-    .createHash("sha256")
-    .update(normalized)
-    .digest("hex");
+  const inputHash = hashRecoveryCode(inputCode);
   const inputHashBuf = Buffer.from(inputHash, "hex");
 
   for (let i = 0; i < hashedCodes.length; i++) {

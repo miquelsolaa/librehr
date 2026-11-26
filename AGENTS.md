@@ -25,7 +25,7 @@ packages/contracts  Zod schemas + inferred types shared by api and web. Source o
 packages/ui     Design system components (shadcn/ui based), tokens, Storybook.
 packages/i18n   Message catalogs (ca, es, en) and helpers.
 packages/emails React Email templates.
-packages/config Shared tsconfig, eslint, prettier, tailwind preset.
+packages/config Shared tsconfig, eslint, prettier, Tailwind v4 theme (CSS).
 packages/testing  Factories, fixtures, Testcontainers helpers.
 infra/          Dockerfiles, compose files, example env, reverse-proxy samples.
 docs/           ADRs, how-tos, user docs.

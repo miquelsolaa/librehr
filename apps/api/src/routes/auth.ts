@@ -10,6 +10,7 @@ import {
   TwoFactorDisableRequestSchema,
   createProblemDetails,
   type AuthUser,
+  type TwoFactorEnableResponse,
 } from "@librehr/contracts";
 import {
   generateTotpSecret,
@@ -20,6 +21,7 @@ import {
 } from "@librehr/core";
 import {
   AuditRepository,
+  TokenRepository,
   UserRepository,
   withTenant,
   type UserRow,
@@ -47,12 +49,15 @@ import {
 } from "../lib/password-reset.js";
 import { parseJsonBody } from "../lib/validate.js";
 import { FailureLockout } from "../lib/failure-lockout.js";
+import type { RateLimitStore } from "../lib/rate-limit-store.js";
 import {
   resolveTwoFactorConfig,
   type TwoFactorConfigInput,
 } from "../lib/two-factor-config.js";
 
 export interface AuthRouteOptions {
+  /** Shared store of the rate limits and the 2FA lockout (issue #35). */
+  rateLimitStore: RateLimitStore;
   /** Overrides of the 2FA defaults (pending setup TTL, recovery codes). */
   twoFactor?: TwoFactorConfigInput | undefined;
   /** Signing key for 2FA challenge tokens; comes from the validated env. */
@@ -148,12 +153,13 @@ const invalidCode = () =>
 export function createAuthRoutes(
   authPort: AuthPort,
   sql: Sql,
-  options: AuthRouteOptions = {},
+  options: AuthRouteOptions,
 ) {
   const router = new Hono();
   const signingSecret = challengeSecret(options.sessionSecret);
   const userRepo = new UserRepository();
   const auditRepo = new AuditRepository();
+  const tokenRepo = new TokenRepository();
   const cookieOptions: SessionCookieOptions = {
     nodeEnv: options.nodeEnv,
     trustProxy: options.trustProxy,
@@ -161,19 +167,26 @@ export function createAuthRoutes(
   const trustProxy = options.trustProxy ?? 0;
   const twoFactor = resolveTwoFactorConfig(options.twoFactor);
   const minute = 60 * 1000;
+  const store = options.rateLimitStore;
 
   // Brute-force limits (AUTH-001). Each endpoint has a per-IP bucket and a
   // tighter per IP+account bucket, so one account cannot be hammered from an
   // IP and one IP cannot spray many accounts beyond the IP budget.
-  const perIp = () =>
-    createRateLimiter({ windowMs: minute, max: 30, trustProxy });
+  const perIp = (name: string) =>
+    createRateLimiter({ name, store, windowMs: minute, max: 30, trustProxy });
+  const signInIpLimit = perIp("auth.sign-in.ip");
+  const verifyIpLimit = perIp("auth.2fa-verify.ip");
   const signInLimit = createRateLimiter({
+    name: "auth.sign-in.account",
+    store,
     windowMs: minute,
     max: 10,
     trustProxy,
     account: (c) => bodyField(c, "email"),
   });
   const verifyLimit = createRateLimiter({
+    name: "auth.2fa-verify.account",
+    store,
     windowMs: minute,
     max: 10,
     trustProxy,
@@ -183,6 +196,8 @@ export function createAuthRoutes(
     },
   });
   const sessionUserLimit = createRateLimiter({
+    name: "auth.2fa-manage.user",
+    store,
     windowMs: minute,
     max: 10,
     trustProxy,
@@ -207,15 +222,20 @@ export function createAuthRoutes(
   // Per-account lockout of second-factor checks (AUTH-003): the IP buckets
   // above do not stop a guesser that rotates IPs against one account.
   const secondFactorLockout = new FailureLockout({
+    name: "auth.2fa",
+    store,
     failureWindowMs: twoFactor.lockout.failureWindowMs,
     lockoutMs: twoFactor.lockout.lockoutMs,
   });
-  const lockoutKey = (userId: string) => `2fa:${userId}`;
+  const lockoutKey = (userId: string) => `user:${userId}`;
 
   /**
    * Checks a TOTP or single-use recovery code for an account.
    *
-   * - "locked": the account had too many recent failures; nothing is checked.
+   * - Every check first reserves an attempt atomically (issue #35): at most
+   *   `maxFailures` codes are checked per window, even when guesses arrive
+   *   concurrently at several replicas. `{ lockedMs }`: the account is
+   *   locked and nothing is checked. A correct code clears the counter.
    * - A TOTP code is accepted only for a time step later than the last one
    *   accepted (no replay, also not by parallel requests).
    * - A recovery code is burned in the same conditional UPDATE that accepts
@@ -226,9 +246,13 @@ export function createAuthRoutes(
   const verifySecondFactor = async (
     userRow: UserRow,
     rawCode: string,
-  ): Promise<"ok" | "invalid" | "locked"> => {
+  ): Promise<"ok" | "invalid" | { lockedMs: number }> => {
     const key = lockoutKey(userRow.id);
-    if (secondFactorLockout.lockedFor([key]) > 0) return "locked";
+    const reservation = await secondFactorLockout.reserve(
+      key,
+      twoFactor.lockout.maxFailures,
+    );
+    if (!reservation.allowed) return { lockedMs: reservation.lockedMs };
 
     const code = rawCode.trim();
     const secret = userRow.twoFactorSecret;
@@ -242,20 +266,16 @@ export function createAuthRoutes(
             hashRecoveryCode(code),
           );
 
-    if (!valid) {
-      secondFactorLockout.recordFailure([
-        { key, limit: twoFactor.lockout.maxFailures },
-      ]);
-      return "invalid";
-    }
-    secondFactorLockout.reset(key);
+    // The reservation already counted this failure.
+    if (!valid) return "invalid";
+    await secondFactorLockout.reset(key);
     if (secret && userRow.twoFactorSecretIsPlaintext) {
       await userRepo.reencryptTwoFactorSecret(sql, userRow.id, secret);
     }
     return "ok";
   };
 
-  const secondFactorLocked = (c: Context, userId: string) =>
+  const secondFactorLocked = (c: Context, lockedMs: number) =>
     c.json(
       createProblemDetails({
         status: 429,
@@ -267,13 +287,11 @@ export function createAuthRoutes(
       429,
       {
         "Content-Type": "application/problem+json",
-        "Retry-After": Math.ceil(
-          secondFactorLockout.lockedFor([lockoutKey(userId)]) / 1000,
-        ).toString(),
+        "Retry-After": Math.ceil(lockedMs / 1000).toString(),
       },
     );
 
-  router.post("/sign-in", perIp(), signInLimit, async (c) => {
+  router.post("/sign-in", signInIpLimit, signInLimit, async (c) => {
     const body = await c.req.json().catch(() => null);
     const parsed = SignInRequestSchema.safeParse(body);
 
@@ -318,7 +336,9 @@ export function createAuthRoutes(
           userRow,
           parsed.data.twoFactorCode,
         );
-        if (result === "locked") return secondFactorLocked(c, userRow.id);
+        if (typeof result === "object") {
+          return secondFactorLocked(c, result.lockedMs);
+        }
         if (result === "invalid") throw invalidCode();
       } else {
         // Return 2FA challenge response
@@ -354,6 +374,8 @@ export function createAuthRoutes(
   // per-IP buckets, createPasswordResetToken caps links per account in the
   // database, so rotating IPs cannot flood one inbox.
   const resetRequestLimit = createRateLimiter({
+    name: "auth.password-reset.account",
+    store,
     windowMs: 15 * minute,
     max: 5,
     trustProxy,
@@ -361,6 +383,8 @@ export function createAuthRoutes(
   });
   // Tokens are 256-bit, so guessing is hopeless; a per-IP bucket is enough.
   const resetConfirmLimit = createRateLimiter({
+    name: "auth.password-reset-confirm.ip",
+    store,
     windowMs: minute,
     max: 10,
     trustProxy,
@@ -374,38 +398,43 @@ export function createAuthRoutes(
     );
   }
 
-  router.post("/password-reset", perIp(), resetRequestLimit, async (c) => {
-    const body = await c.req.json().catch(() => null);
-    const parsed = PasswordResetRequestSchema.safeParse(body);
-    if (!parsed.success) throw ValidationError.fromZod(parsed.error);
-    const { email, locale = "ca" } = parsed.data;
-    if (!mailPort || !appUrl) return c.json({ success: true }, 202);
+  router.post(
+    "/password-reset",
+    perIp("auth.password-reset.ip"),
+    resetRequestLimit,
+    async (c) => {
+      const body = await c.req.json().catch(() => null);
+      const parsed = PasswordResetRequestSchema.safeParse(body);
+      if (!parsed.success) throw ValidationError.fromZod(parsed.error);
+      const { email, locale = "ca" } = parsed.data;
+      if (!mailPort || !appUrl) return c.json({ success: true }, 202);
 
-    void createPasswordResetToken(sql, email, resetLinksPerHour)
-      .then((created) => {
-        if (!created) return;
-        const message = passwordResetEmail(appUrl, locale, created.token);
-        return mailPort.sendMail({ to: email, ...message });
-      })
-      .catch((err: unknown) => {
-        // Only the error class and code: SMTP messages often quote the
-        // recipient address.
-        const code =
-          typeof err === "object" && err !== null && "code" in err
-            ? String(err.code)
-            : undefined;
-        logger.error(
-          { errName: err instanceof Error ? err.name : "unknown", code },
-          "password reset email failed",
-        );
-      });
+      void createPasswordResetToken(sql, email, resetLinksPerHour)
+        .then((created) => {
+          if (!created) return;
+          const message = passwordResetEmail(appUrl, locale, created.token);
+          return mailPort.sendMail({ to: email, ...message });
+        })
+        .catch((err: unknown) => {
+          // Only the error class and code: SMTP messages often quote the
+          // recipient address.
+          const code =
+            typeof err === "object" && err !== null && "code" in err
+              ? String(err.code)
+              : undefined;
+          logger.error(
+            { errName: err instanceof Error ? err.name : "unknown", code },
+            "password reset email failed",
+          );
+        });
 
-    return c.json({ success: true }, 202);
-  });
+      return c.json({ success: true }, 202);
+    },
+  );
 
   router.post(
     "/password-reset/confirm",
-    perIp(),
+    perIp("auth.password-reset-confirm.ip-burst"),
     resetConfirmLimit,
     async (c) => {
       const body = await c.req.json().catch(() => null);
@@ -428,7 +457,7 @@ export function createAuthRoutes(
   );
 
   // Verify 2FA challenge token and issue session
-  router.post("/2fa/verify", perIp(), verifyLimit, async (c) => {
+  router.post("/2fa/verify", verifyIpLimit, verifyLimit, async (c) => {
     const body = await c.req.json().catch(() => null);
     const parsed = TwoFactorVerifyRequestSchema.safeParse(body);
 
@@ -477,7 +506,9 @@ export function createAuthRoutes(
     }
 
     const result = await verifySecondFactor(userRow, parsed.data.code);
-    if (result === "locked") return secondFactorLocked(c, userRow.id);
+    if (typeof result === "object") {
+      return secondFactorLocked(c, result.lockedMs);
+    }
     if (result === "invalid") throw invalidCode();
 
     // Same deterministic default membership as password sign-in, bound
@@ -572,13 +603,17 @@ export function createAuthRoutes(
       );
     }
 
-    // Enabling a second factor ends every other session of the account (a
-    // session opened by someone else with the password alone must not
-    // survive it); the current one is kept.
+    // Enabling a second factor ends every other session of the account and
+    // revokes its personal access tokens in every organization it belongs to
+    // (issue #35): a session or token obtained by someone else with the
+    // password alone must not survive it. The current session is kept.
+    // Promotion, revocation and the audit entries share one transaction: if
+    // any step fails, 2FA stays off and every session and token still works,
+    // and once it commits none of the revoked credentials do.
     const currentToken = (
       (c.get as (key: string) => unknown)("session") as AuthSession | undefined
     )?.token;
-    await withTenant(
+    const revokedTokens = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
@@ -601,17 +636,34 @@ export function createAuthRoutes(
           user.id,
           currentToken,
         );
+        // Cross-organization delete through the SECURITY DEFINER function of
+        // migration 0039; each token is audited in its own organization.
+        const revoked = await tokenRepo.revokeAllForUser(tx, user.id);
+        for (const token of revoked) {
+          await auditRepo.logInOrganization(tx, token.organizationId, {
+            actorId: user.id,
+            action: "token.revoke",
+            resourceType: "personal_access_token",
+            resourceId: token.id,
+            metadata: { reason: "2fa_enabled" },
+          });
+        }
         await auditRepo.log(tx, {
           actorId: user.id,
           action: "auth.2fa.enable",
           resourceType: "user",
           resourceId: user.id,
-          metadata: { revokedSessions },
+          metadata: {
+            revokedSessions,
+            revokedTokens: revoked.length,
+          },
         });
+        return revoked.length;
       },
     );
 
-    return c.json({ success: true });
+    const response: TwoFactorEnableResponse = { success: true, revokedTokens };
+    return c.json(response);
   });
 
   // Disable 2FA: requires a current TOTP code or an unused recovery code, so a
@@ -631,7 +683,9 @@ export function createAuthRoutes(
     }
 
     const result = await verifySecondFactor(userRow, parsed.data.code);
-    if (result === "locked") return secondFactorLocked(c, userRow.id);
+    if (typeof result === "object") {
+      return secondFactorLocked(c, result.lockedMs);
+    }
     if (result === "invalid") throw invalidCode();
 
     await userRepo.disableTwoFactor(sql, user.id);

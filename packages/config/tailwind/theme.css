@@ -1,0 +1,61 @@
+/*
+ * LibreHR Tailwind CSS v4 theme (CSS-first configuration).
+ *
+ * Maps the semantic tokens in `@librehr/ui/tokens.css` (raw HSL channels on
+ * :root and .dark) to Tailwind utilities. Import it right after
+ * `@import "tailwindcss"` in an app stylesheet. DESIGN.md §2 is the source of
+ * truth for the values; packages/config/test/tailwind-tokens.test.ts reads
+ * this file to reject class names that no token backs.
+ */
+
+/* Provides the animate-in / fade-* / zoom-* utilities the UI components use. */
+@plugin "tailwindcss-animate";
+
+/*
+ * Dark mode follows the `.dark` class that next-themes sets on <html>
+ * (attribute="class"), not prefers-color-scheme, so the user's choice wins.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * `inline` makes each utility reference the token variable directly, so a
+ * `.dark` ancestor switches the colour at the element that uses it, and
+ * opacity modifiers (`bg-scrim/60`) keep working through color-mix().
+ */
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-surface: hsl(var(--surface));
+  --color-surface-raised: hsl(var(--surface-raised));
+  --color-foreground: hsl(var(--foreground));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-border: hsl(var(--border));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-brand-accent: hsl(var(--brand-accent));
+  --color-brand-accent-foreground: hsl(var(--brand-accent-foreground));
+  --color-success: hsl(var(--success));
+  --color-warning: hsl(var(--warning));
+  --color-danger: hsl(var(--danger));
+  --color-info: hsl(var(--info));
+  --color-focus-ring: hsl(var(--focus-ring));
+  /* The veil behind dialogs and panels: pine-dark in both themes. */
+  --color-scrim: hsl(var(--scrim));
+}
+
+@theme {
+  --radius-input: 6px;
+  --radius-card: 10px;
+  --radius-dialog: 16px;
+
+  /* Self-hosted via @fontsource-variable/inter (imported by apps/web). */
+  --font-sans:
+    "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, sans-serif;
+  /*
+   * Page titles and large figures only (DESIGN.md §2.3). Self-hosted via
+   * @fontsource-variable/bricolage-grotesque (imported by apps/web).
+   */
+  --font-display:
+    "Bricolage Grotesque Variable", "Inter Variable", Inter, sans-serif;
+}

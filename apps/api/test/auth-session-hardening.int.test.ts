@@ -15,6 +15,7 @@ import {
 } from "@librehr/core";
 import type { ProblemDetails } from "@librehr/contracts";
 import { createApp } from "../src/app.js";
+import { isolatedRateLimitStore } from "./support/rate-limit.js";
 import { BetterAuthAdapter } from "../src/adapters/better-auth.js";
 import { hashPassword } from "../src/lib/password.js";
 
@@ -41,7 +42,10 @@ describe("auth and session hardening", () => {
   const bruteUser = "c9000000-0000-0000-0000-000000000007";
   const bruteSecret = generateTotpSecret();
   const burnUser = "c9000000-0000-0000-0000-000000000008";
+  // A code in the pre-#35 32-bit format: stored codes like it keep working.
   const burnCode = "a1b2-c3d4";
+  const raceUser = "c9000000-0000-0000-0000-000000000009";
+  const raceSecret = generateTotpSecret();
   /** A valid code for the next 30-second step (accepted with +1 drift). */
   const nextStepCode = (secret: string) =>
     generateTotpCode(secret, Date.now() + 30_000);
@@ -110,6 +114,7 @@ describe("auth and session hardening", () => {
       setupUser,
       bruteUser,
       burnUser,
+      raceUser,
     ]) {
       await sql`INSERT INTO users (id, email, name, password_hash)
         VALUES (${id}, ${emailOf(id)}, 'Test User', ${hash})`;
@@ -118,6 +123,8 @@ describe("auth and session hardening", () => {
       two_factor_secret = ${legacySecret} WHERE id = ${legacy}`;
     await sql`UPDATE users SET two_factor_enabled = true,
       two_factor_secret = ${bruteSecret} WHERE id = ${bruteUser}`;
+    await sql`UPDATE users SET two_factor_enabled = true,
+      two_factor_secret = ${raceSecret} WHERE id = ${raceUser}`;
     await sql`UPDATE users SET two_factor_enabled = true,
       two_factor_secret = ${generateTotpSecret()},
       two_factor_recovery_codes = ${sql.json([hashRecoveryCode(burnCode)])}
@@ -132,6 +139,7 @@ describe("auth and session hardening", () => {
         [setupUser, "employee"],
         [bruteUser, "employee"],
         [burnUser, "employee"],
+        [raceUser, "employee"],
       ] as const) {
         await tx`INSERT INTO memberships (organization_id, user_id, role)
           VALUES (${org}, ${id}, ${role})`;
@@ -143,6 +151,7 @@ describe("auth and session hardening", () => {
 
     app = createApp({
       sql: db.appSql,
+      rateLimitStore: isolatedRateLimitStore(db.appSql),
       authPort: new BetterAuthAdapter(db.appSql),
       sessionSecret,
     });
@@ -177,6 +186,7 @@ describe("auth and session hardening", () => {
     it("marks the cookie Secure in production", async () => {
       const prod = createApp({
         sql: db.appSql,
+        rateLimitStore: isolatedRateLimitStore(db.appSql),
         authPort: new BetterAuthAdapter(db.appSql),
         sessionSecret,
         nodeEnv: "production",
@@ -220,6 +230,7 @@ describe("auth and session hardening", () => {
       const sent: string[] = [];
       const mailing = createApp({
         sql: db.appSql,
+        rateLimitStore: isolatedRateLimitStore(db.appSql),
         authPort: new BetterAuthAdapter(db.appSql),
         sessionSecret,
         mailPort: {
@@ -354,7 +365,9 @@ describe("auth and session hardening", () => {
       secret = setup.secret;
       expect(setup.recoveryCodes).toHaveLength(8);
       for (const code of setup.recoveryCodes) {
-        expect(code).toMatch(/^[0-9a-f]{4}-[0-9a-f]{4}$/);
+        expect(code).toMatch(
+          /^[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}$/,
+        );
       }
       const [pendingRow] = await db.adminSql<{ pending: string | null }[]>`
         SELECT two_factor_pending_secret AS pending FROM users WHERE id = ${twoFactor}`;
@@ -498,6 +511,7 @@ describe("auth and session hardening", () => {
       // IP and no IP-based bucket is ever hit.
       const proxied = createApp({
         sql: db.appSql,
+        rateLimitStore: isolatedRateLimitStore(db.appSql),
         authPort: new BetterAuthAdapter(db.appSql),
         sessionSecret,
         trustProxy: 1,
@@ -541,6 +555,48 @@ describe("auth and session hardening", () => {
         twoFactorCode: valid,
       });
       expect(signInLocked.status).toBe(429);
+    });
+
+    it("checks at most maxFailures concurrent guesses across two replicas (#35)", async () => {
+      // Two replicas of one deployment: same store prefix, separate apps.
+      const prefix = crypto.randomUUID();
+      const replica = () =>
+        createApp({
+          sql: db.appSql,
+          rateLimitStore: isolatedRateLimitStore(db.appSql, { prefix }),
+          authPort: new BetterAuthAdapter(db.appSql),
+          sessionSecret,
+          trustProxy: 1,
+        });
+      const replicas = [replica(), replica()];
+      const challenge = (await (
+        await post(
+          "/v1/auth/sign-in",
+          { email: emailOf(raceUser), password },
+          { "X-Forwarded-For": "203.0.113.150" },
+          replicas[0],
+        )
+      ).json()) as { challengeToken: string };
+      const valid = generateTotpCode(raceSecret);
+      const wrong = valid === "000000" ? "111111" : "000000";
+
+      const statuses = await Promise.all(
+        Array.from(
+          { length: 25 },
+          async (_, i) =>
+            (
+              await post(
+                "/v1/auth/2fa/verify",
+                { challengeToken: challenge.challengeToken, code: wrong },
+                { "X-Forwarded-For": `198.51.100.${i}` },
+                replicas[i % 2],
+              )
+            ).status,
+        ),
+      );
+      // The default maxFailures is 10: exactly 10 codes were checked.
+      expect(statuses.filter((s) => s === 401)).toHaveLength(10);
+      expect(statuses.filter((s) => s === 429)).toHaveLength(15);
     });
 
     it("burns a recovery code once under concurrent use", async () => {
@@ -620,6 +676,8 @@ describe("auth and session hardening", () => {
     it("does not reset the sign-in limit when X-Forwarded-For is spoofed (TRUST_PROXY=0)", async () => {
       const limited = createApp({
         sql: db.appSql,
+        // Fresh counters: earlier tests signed in from the same address.
+        rateLimitStore: isolatedRateLimitStore(db.appSql),
         authPort: new BetterAuthAdapter(db.appSql),
         sessionSecret,
       });

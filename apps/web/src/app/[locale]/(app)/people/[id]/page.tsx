@@ -223,6 +223,21 @@ export default function EmployeeDetailPage() {
     };
   }, [id, loadExtraData]);
 
+  // A new employment period changes the job data shown here (#131).
+  const refreshEmployee = React.useCallback(() => {
+    const target = activeEmployeeId.current;
+    const generation = profileGeneration.current;
+    if (!target) return;
+    void apiClient
+      .getEmployee(target)
+      .then((emp) => {
+        if (profileGeneration.current === generation) setEmployee(emp);
+      })
+      .catch(() => {
+        // Keep the profile shown; the history list itself is up to date.
+      });
+  }, []);
+
   const handleRevealDni = async () => {
     if (!employee || revealedDni) return;
     try {
@@ -374,7 +389,7 @@ export default function EmployeeDetailPage() {
         breadcrumb={
           <Link
             href={`/${locale}/people`}
-            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             {t("title")}
@@ -455,7 +470,7 @@ export default function EmployeeDetailPage() {
                       </label>
                       <select
                         id="term-reason"
-                        className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                        className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
                         value={termReason}
                         onChange={(e) =>
                           setTermReason(e.target.value as TerminationReason)
@@ -697,6 +712,19 @@ export default function EmployeeDetailPage() {
 
             <div>
               <span className="text-xs text-muted-foreground block">
+                {tProfile("weeklyHours")}
+              </span>
+              <span className="text-foreground">
+                {typeof employee.workingHoursPerWeek !== "number"
+                  ? "—"
+                  : tProfile("historyHoursValue", {
+                      hours: employee.workingHoursPerWeek,
+                    })}
+              </span>
+            </div>
+
+            <div>
+              <span className="text-xs text-muted-foreground block">
                 {tProfile("startDate")}
               </span>
               <span className="text-foreground">
@@ -720,7 +748,11 @@ export default function EmployeeDetailPage() {
         </div>
       </div>
 
-      <EmploymentHistory key={employee.id} employeeId={employee.id} />
+      <EmploymentHistory
+        key={employee.id}
+        employeeId={employee.id}
+        onPeriodAdded={refreshEmployee}
+      />
 
       {/* Sensitive Statutory Fields (EMP-004) */}
       <div className="rounded-card border border-border bg-surface p-6 space-y-4">
@@ -820,7 +852,7 @@ export default function EmployeeDetailPage() {
                       </label>
                       <select
                         id="ec-rel"
-                        className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                        className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
                         value={contactRelationship}
                         onChange={(e) => setContactRelationship(e.target.value)}
                       >
@@ -880,7 +912,7 @@ export default function EmployeeDetailPage() {
                       type="checkbox"
                       checked={contactIsPrimary}
                       onChange={(e) => setContactIsPrimary(e.target.checked)}
-                      className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                      className="h-4 w-4 rounded-sm border-border text-primary focus:ring-primary"
                     />
                     <label
                       htmlFor="ec-primary"
@@ -1006,7 +1038,7 @@ export default function EmployeeDetailPage() {
                       <select
                         id="cf-select-def"
                         required
-                        className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                        className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
                         value={selectedFieldDefId}
                         onChange={(e) => {
                           setSelectedFieldDefId(e.target.value);

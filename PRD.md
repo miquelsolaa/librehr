@@ -183,7 +183,7 @@ Open-core model decided in `docs/adr/0004-open-core-licensing.md`: Community (AG
 - **Security:** OWASP ASVS L2 target; RLS tenant isolation verified by tests; secrets via env/secret files; CSP, HSTS, secure cookies; dependency scanning; reproducible builds; SBOM per release.
 - **Privacy:** no telemetry by default; no third-party runtime assets; PII-free logs; data export and deletion per RGPD.
 - **Observability:** structured logs, health/readiness endpoints, optional OpenTelemetry export, Prometheus metrics endpoint.
-- **Compatibility:** latest two versions of evergreen browsers; iOS Safari 16+; Android Chrome latest.
+- **Compatibility:** latest two versions of evergreen browsers; iOS Safari 16.4+ (Tailwind CSS v4 needs cascade layers, `@property` and `color-mix()`); Android Chrome latest.
 - **Licensing:** open core. AGPL-3.0-or-later outside `ee/`, LibreHR Enterprise License inside `ee/`; contributions under `CLA.md` + DCO; all dependencies AGPL-compatible; `NOTICE` and SBOM maintained.
 - **Docs:** user guide (ca/es/en), admin/self-hosting guide, API reference (OpenAPI), contributor guide.
 

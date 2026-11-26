@@ -6,6 +6,7 @@ import {
   boolean,
   index,
   integer,
+  numeric,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { primaryId, timestamps, organizationIdCol } from "./common.js";
@@ -92,9 +93,13 @@ export const employments = pgTable(
       .references(() => employees.id, { onDelete: "cascade" }),
     jobTitle: text("job_title").notNull(),
     employmentType: text("employment_type").notNull().default("indefinido"), // indefinido, temporal, practicas, formacion
-    workingHoursPerWeek: text("working_hours_per_week")
+    // LEA-002 (#131): numeric since 0037, CHECK > 0 and <= 40 (ET art. 34.1).
+    workingHoursPerWeek: numeric("working_hours_per_week", {
+      precision: 5,
+      scale: 2,
+    })
       .notNull()
-      .default("40.0"),
+      .default("40.00"),
     salaryEncrypted: text("salary_encrypted"), // AES-256-GCM
     startDate: date("start_date").notNull(),
     endDate: date("end_date"),

@@ -14,6 +14,7 @@ import {
 import { ConflictError, UnauthorizedError } from "../errors/index.js";
 import { hashPassword, verifyPassword } from "../lib/password.js";
 import { createRateLimiter } from "../middleware/rate-limit.js";
+import type { RateLimitStore } from "../lib/rate-limit-store.js";
 
 /**
  * ORG-001 is a first-run wizard: once any organization exists the endpoint is
@@ -37,12 +38,17 @@ function setupCompleted(): ConflictError {
 
 export function createSetupRoutes(
   sql: Sql,
-  options: { trustProxy?: number | undefined } = {},
+  options: {
+    rateLimitStore: RateLimitStore;
+    trustProxy?: number | undefined;
+  },
 ) {
   const router = new Hono();
   const employeeRepo = new EmployeeRepository();
   const auditRepo = new AuditRepository();
   const setupRateLimiter = createRateLimiter({
+    name: "setup.wizard.ip",
+    store: options.rateLimitStore,
     windowMs: 15 * 60 * 1000,
     max: 10,
     trustProxy: options.trustProxy,

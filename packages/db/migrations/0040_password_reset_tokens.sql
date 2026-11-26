@@ -1,4 +1,4 @@
--- 0037_password_reset_tokens.sql
+-- 0040_password_reset_tokens.sql
 -- AUTH-001: self-service password reset.
 --
 -- A reset link carries a random token; only its SHA-256 hex

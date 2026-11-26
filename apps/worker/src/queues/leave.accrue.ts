@@ -212,7 +212,8 @@ async function accruePass(
   );
 
   // Every employment row a prorated policy reads must hold usable hours;
-  // fail before any write, naming ids only.
+  // fail before any write, naming ids only. Since 0037 the column's type and
+  // CHECK already guarantee this; the guard stays as defence in depth.
   const badHours = new Set<string>();
   for (const p of plans) {
     const spans = employment.get(p.employeeId);

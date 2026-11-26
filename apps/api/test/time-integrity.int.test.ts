@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Sql } from "postgres";
 import {
@@ -9,6 +10,7 @@ import {
 import { runMigrations } from "@librehr/db/migrate";
 import { legacyKioskPinHashForTests, hashKioskPin } from "@librehr/core";
 import { createApp } from "../src/app.js";
+import { isolatedRateLimitStore } from "./support/rate-limit.js";
 import { as, fixtureAuthPort } from "./support/fixture-app.js";
 
 const KEY = "api_test_time_chain_key_at_least_32_chars";
@@ -19,9 +21,15 @@ describe("time-record integrity and kiosk (TIM-002, TIM-003, TIM-010)", () => {
   let org: ScopedOrgFixture;
   let app: ReturnType<typeof createApp>;
 
-  const build = (kiosk?: { maxFailuresPerIdentifier: number }) =>
+  // `prefix`: apps built with the same one act as replicas of one deployment.
+  const build = (
+    kiosk?: { maxFailuresPerIdentifier: number },
+    prefix?: string,
+  ) =>
     createApp({
       sql: appSql,
+      // Fresh counters and lockouts per app, as each app had before issue #35.
+      rateLimitStore: isolatedRateLimitStore(appSql, prefix ? { prefix } : {}),
       authPort: fixtureAuthPort([
         org.admin,
         org.manager,
@@ -288,6 +296,72 @@ describe("time-record integrity and kiosk (TIM-002, TIM-003, TIM-010)", () => {
       "10.0.2.1",
     );
     expect(other.status).toBe(200);
+  });
+
+  it("checks at most N concurrent PINs for an identifier across two replicas (#35)", async () => {
+    await db.sql`UPDATE employees SET pin_hash = ${await hashKioskPin("8642")}, pin_salt = NULL WHERE id = ${org.report.employeeId}`;
+    const prefix = crypto.randomUUID();
+    const replicas = [
+      build({ maxFailuresPerIdentifier: 3 }, prefix),
+      build({ maxFailuresPerIdentifier: 3 }, prefix),
+    ];
+    const statuses = await Promise.all(
+      Array.from(
+        { length: 10 },
+        async (_, i) =>
+          (
+            await kioskClock(
+              replicas[i % 2]!,
+              org.admin,
+              org.report.email,
+              "0000",
+              `10.0.4.${i}`,
+            )
+          ).status,
+      ),
+    );
+    expect(statuses.filter((s) => s === 401)).toHaveLength(3);
+    expect(statuses.filter((s) => s === 429)).toHaveLength(7);
+    // The lockout holds on the other replica, even for the right PIN.
+    const locked = await kioskClock(
+      replicas[1]!,
+      org.admin,
+      org.report.email,
+      "8642",
+      "10.0.4.99",
+    );
+    expect(locked.status).toBe(429);
+    expect(((await locked.json()) as { code: string }).code).toBe(
+      "KIOSK_LOCKED",
+    );
+  });
+
+  it("clears an identifier's failures after a correct PIN", async () => {
+    await db.sql`UPDATE employees SET pin_hash = ${await hashKioskPin("2468")}, pin_salt = NULL WHERE id = ${org.manager.employeeId}`;
+    const prefix = crypto.randomUUID();
+    const [a, b] = [
+      build({ maxFailuresPerIdentifier: 3 }, prefix),
+      build({ maxFailuresPerIdentifier: 3 }, prefix),
+    ];
+    const attempt = async (target: typeof a, pin: string, i: number) =>
+      (
+        await kioskClock(
+          target,
+          org.admin,
+          org.manager.email,
+          pin,
+          `10.0.5.${i}`,
+        )
+      ).status;
+    expect([await attempt(a, "0000", 1), await attempt(b, "0000", 2)]).toEqual([
+      401, 401,
+    ]);
+    // Accepted (the clock event itself may conflict): never a PIN refusal.
+    expect([401, 429]).not.toContain(await attempt(b, "2468", 3));
+    // Without the reset the second of these would be the 4th failure.
+    expect([await attempt(a, "0000", 4), await attempt(b, "0000", 5)]).toEqual([
+      401, 401,
+    ]);
   });
 
   it("accepts a legacy SHA-256 PIN once and re-stores it as scrypt", async () => {

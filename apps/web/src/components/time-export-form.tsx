@@ -11,7 +11,7 @@ export type ExportAction = "json" | "csv" | "pdf";
 
 const LABEL = "mb-1.5 block text-sm font-medium text-foreground";
 const SELECT =
-  "h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-50";
+  "h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-50";
 
 export interface TimeExportFormProps {
   startDate: string;

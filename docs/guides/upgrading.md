@@ -4,6 +4,12 @@ All LibreHR database migrations are designed to be forward-only and safe to run 
 
 ## Standard Upgrade Workflow
 
+> [!WARNING]
+> **Upgrading from a release that ran Postgres 16?** That upgrade needs a manual
+> dump and restore before anything else. Follow
+> [Upgrading from Postgres 16 to Postgres 18](self-hosting.md#4-upgrading-from-postgres-16-to-postgres-18)
+> first; the steps below assume the database already runs Postgres 18.
+
 1. **Create a fresh pre-upgrade backup:**
 
    ```bash
@@ -36,6 +42,23 @@ All LibreHR database migrations are designed to be forward-only and safe to run 
    ```bash
    curl -f http://localhost:3001/readyz
    ```
+
+## Enabling 2FA revokes personal access tokens (migration 0039)
+
+From this release, enabling two-factor authentication ends the account's
+other sessions (as before) **and revokes all of its personal access tokens,
+in every organization it belongs to**. Integrations that use those tokens
+stop working until the user creates new ones; the setup dialog says so before
+the user confirms. Each revoked token is in the audit log of its own
+organization as `token.revoke` with `reason: "2fa_enabled"`.
+
+Migration 0039 only adds the function `librehr_revoke_user_tokens(uuid)`
+(`SECURITY DEFINER`, pinned `search_path`, `EXECUTE` for `librehr_app` only).
+It changes no table, policy or existing grant, takes no lock on tenant data,
+and is safe on a populated database. Like the functions of migration 0019,
+run it as `librehr_owner` (see "Upgrading existing installs to the restricted
+database roles" below). Rollback: `DROP FUNCTION
+librehr_revoke_user_tokens(uuid);` together with the previous API release.
 
 ## Leave balances per leave type (migration 0033)
 

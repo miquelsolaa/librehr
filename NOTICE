@@ -24,7 +24,7 @@ Third-party software libraries and components:
 - PostgreSQL client libraries (MIT)
 - Radix UI primitives (MIT)
 - React & React Email (MIT)
-- Tailwind CSS (MIT)
+- Tailwind CSS, including @tailwindcss/postcss (MIT)
 - tailwindcss-animate (MIT)
 - temporal-polyfill (MIT)
 - Testcontainers (MIT)

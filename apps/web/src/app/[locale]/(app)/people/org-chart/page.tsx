@@ -42,7 +42,7 @@ function OrgNodeCard({ node, locale, search }: OrgNodeCardProps) {
     <div className="flex flex-col items-center">
       {/* Node Card */}
       <div
-        className={`group relative flex flex-col rounded-card border bg-surface p-4 shadow-sm transition-all hover:border-primary/60 hover:shadow-md w-72 ${
+        className={`group relative flex flex-col rounded-card border bg-surface p-4 shadow-xs transition-all hover:border-primary/60 hover:shadow-md w-72 ${
           matchesSearch
             ? "border-primary ring-2 ring-primary/20 bg-primary/5"
             : "border-border"
@@ -71,7 +71,7 @@ function OrgNodeCard({ node, locale, search }: OrgNodeCardProps) {
 
         <div className="mt-3 flex flex-wrap items-center gap-2 pt-2 border-t border-border/50 text-xs text-muted-foreground">
           {node.departmentName && (
-            <span className="flex items-center gap-1 bg-surface-raised px-1.5 py-0.5 rounded">
+            <span className="flex items-center gap-1 bg-surface-raised px-1.5 py-0.5 rounded-sm">
               <Building2 className="h-3 w-3" />
               <span className="truncate max-w-[120px]">
                 {node.departmentName}
@@ -79,7 +79,7 @@ function OrgNodeCard({ node, locale, search }: OrgNodeCardProps) {
             </span>
           )}
           {node.locationName && (
-            <span className="flex items-center gap-1 bg-surface-raised px-1.5 py-0.5 rounded">
+            <span className="flex items-center gap-1 bg-surface-raised px-1.5 py-0.5 rounded-sm">
               <MapPin className="h-3 w-3" />
               <span className="truncate max-w-[100px]">
                 {node.locationName}
@@ -207,7 +207,7 @@ export default function OrgChartPage() {
         breadcrumb={
           <Link
             href={`/${locale}/people`}
-            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+            className="inline-flex items-center gap-1 rounded-input text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             {tPeople("title")}
@@ -232,7 +232,7 @@ export default function OrgChartPage() {
             >
               {tPeople("directory")}
             </Link>
-            <span className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-sm">
+            <span className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-xs">
               {tPeople("orgChart")}
             </span>
           </div>
