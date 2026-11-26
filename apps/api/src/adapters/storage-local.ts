@@ -12,8 +12,24 @@ export class LocalStorageAdapter implements StoragePort {
     }
   }
 
+  /**
+   * Maps a storage key to a file under the base directory. Keys embed
+   * request data (filenames), so a key that is absolute or that climbs out
+   * of the base directory is refused before any file is touched.
+   */
+  private resolveKey(key: string): string {
+    if (key === "" || key.includes("\0") || path.isAbsolute(key)) {
+      throw new Error("Invalid storage key");
+    }
+    const filePath = path.resolve(this.baseDir, key);
+    if (!filePath.startsWith(this.baseDir + path.sep)) {
+      throw new Error("Invalid storage key");
+    }
+    return filePath;
+  }
+
   async put(key: string, data: Buffer, _contentType: string): Promise<string> {
-    const filePath = path.join(this.baseDir, key);
+    const filePath = this.resolveKey(key);
     const parentDir = path.dirname(filePath);
     if (!fs.existsSync(parentDir)) {
       fs.mkdirSync(parentDir, { recursive: true });
@@ -23,7 +39,7 @@ export class LocalStorageAdapter implements StoragePort {
   }
 
   async get(key: string): Promise<Buffer | null> {
-    const filePath = path.join(this.baseDir, key);
+    const filePath = this.resolveKey(key);
     if (!fs.existsSync(filePath)) {
       return null;
     }
@@ -31,9 +47,18 @@ export class LocalStorageAdapter implements StoragePort {
   }
 
   async delete(key: string): Promise<void> {
-    const filePath = path.join(this.baseDir, key);
+    const filePath = this.resolveKey(key);
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }
   }
+}
+
+/**
+ * Throws (with the fs error code) when the API user cannot write to the
+ * storage directory, e.g. a volume still owned by root after an upgrade, so
+ * the API refuses to start instead of failing on the first upload.
+ */
+export function assertStorageWritable(dir: string): void {
+  fs.accessSync(path.resolve(dir), fs.constants.W_OK);
 }

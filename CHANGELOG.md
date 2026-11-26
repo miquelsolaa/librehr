@@ -16,7 +16,8 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ### Fixed
 
-- **Document files are stored on the storage volume (#32, `DOC-001`):** the API ignored `STORAGE_LOCAL_DIR` and wrote uploaded files to `./data/storage` under its working directory, outside the `librehr_storage` volume, where container recreation loses them. The API now reads `STORAGE_LOCAL_DIR` (default `./data/storage`) and refuses a `STORAGE_DRIVER` other than `local`; the API image creates `/data/storage` owned by its non-root user. Existing installs: see `docs/guides/upgrading.md`.
+- **Document files are stored on the storage volume (#32, `DOC-001`):** the API ignored `STORAGE_LOCAL_DIR` and wrote uploaded files to `./data/storage` under its working directory, outside the `librehr_storage` volume, where container recreation loses them. The API now reads `STORAGE_LOCAL_DIR` (default `./data/storage`) and refuses a `STORAGE_DRIVER` other than `local`; the API image creates `/data/storage` owned by its non-root user. The API exits at start when it cannot write to that directory. Existing installs: see `docs/guides/upgrading.md`.
+- **Storage keys cannot leave the storage directory (#32, `DOC-005`):** the bulk payslip upload put the client-supplied filename into the storage key unsanitized, so a name containing `../` could write outside the storage directory. Bulk payslip filenames are now sanitized like single uploads, and the local storage adapter refuses absolute keys and keys that resolve outside `STORAGE_LOCAL_DIR`.
 
 ### Leave balances per leave type
 
