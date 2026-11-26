@@ -59,29 +59,31 @@ Encryption in transit (TLS 1.2+); at rest for sensitive columns and documents; s
 | Backups                                                                                               | <= 35 days rolling                           | Document erasure behavior in backups.                                                                          |
 | After retention: anonymize or delete via `retention.enforce` job with dry-run report and audit entry. |
 
-**Known gap (ADM-005 not yet implemented).** The `retention.enforce` worker job
-is a stub that fails loudly (dead-letters with "not implemented") instead of
-reporting success. Until ADM-005 ships:
+**Known gap (ADM-005 is report-only).** The `retention.enforce` worker job
+runs daily per organization and produces a **dry-run report only**: it counts,
+per category below, the rows past their period and writes one `retention.run`
+audit entry per run (dates and counts only, no names, titles or file names).
+It deletes and anonymises nothing, whatever the payload says. Until purging is
+enabled, after counsel confirms the periods (issue #32):
 
 - Documents deleted by users are soft-deleted (DOC-001): rows, versions and
   stored files are kept and hidden from the app, but never purged. This
   includes payslips and other sensitive documents.
 - Soft-deleted documents still held are included in data-subject access
   exports (ADM-004), because GDPR art. 15 covers all data held.
-- Nothing is anonymised or deleted when a retention period above ends.
-- The worker's scheduler enqueues `retention.enforce` daily per organization
-  with `dryRun: true` (docs/guides/job-scheduler.md). Scheduling real purges
-  needs a maintainer decision when ADM-005 ships.
+- Nothing is anonymised or deleted when a retention period above ends; the
+  report shows how much would be.
 
-Implementing ADM-005 is the next required feature. Its retention periods are
-compliance defaults, so the maintainers must confirm them (with counsel)
-before it ships.
+The only deletion that runs is instance-wide: `retention.sweep-global` deletes
+password reset links (`password_reset_tokens`) older than their documented
+30 days once per UTC day. Sessions are not swept.
 
-**Retention configuration (ADM-005, in progress).** Periods are configuration
+**Retention configuration (ADM-005, report-only).** Periods are configuration
 per organization: `retention_policies` (migration 0042) holds an optional
 override per category, and a missing row means the default in
-`packages/core/src/retention`. Every category is report-only: nothing is
-deleted or anonymised. The defaults below are the maintainers' recommendation,
+`packages/core/src/retention`. Every category is report-only: the daily
+dry-run report counts eligible rows in the organization's time zone, and
+nothing is deleted or anonymised. The defaults below are the maintainers' recommendation,
 **pending legal confirmation by counsel** (issue #32); only the time-records
 floor is law, and it is enforced by a database CHECK.
 
@@ -99,7 +101,7 @@ A soft-deleted contract or payslip counts as eligible only once both its
 `deleted_documents` grace and its `statutory_documents` period have passed;
 otherwise it is reported as held back. Password reset links
 (`password_reset_tokens`, instance-wide, not per organization) keep their
-30-day retention of migration 0040.
+30-day retention of migration 0040, enforced daily by `retention.sweep-global`.
 
 ## 6. Feature-level compliance requirements
 

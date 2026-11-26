@@ -132,4 +132,7 @@ tests.
   or auditors. Every download is audited with ids only (ADM-002).
 - Document deletion (DOC-001) is soft: the document disappears from lists,
   downloads and acknowledgements, while its rows and stored files are kept
-  until retention enforcement (ADM-005, not yet implemented) purges them.
+  until retention enforcement purges them. ADM-005 is report-only for now:
+  the daily dry-run report counts soft-deleted documents past the 30-day
+  grace (holding back contracts and payslips under 4 years old) and deletes
+  nothing.

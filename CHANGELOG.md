@@ -12,6 +12,7 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ### Added
 
+- **Retention dry-run report (#32, `ADM-005`):** the `retention.enforce` worker job no longer dead-letters. Each daily run counts, per retention category, the rows past their period in the organization's time zone and writes one `retention.run` audit entry with the counts (no names, titles or file names). It deletes nothing, and `dryRun: false` is treated as a dry run. A new instance-wide `retention.sweep-global` job, enqueued once per UTC day when `retention.enforce` is scheduled, deletes password reset links older than their documented 30 days. Retention periods remain pending confirmation by counsel.
 - **Retention policies, report-only (#32, `ADM-005`):** new tenant table `retention_policies` (migration 0042, RLS forced) for per-organization retention periods by data category, with the 4-year time-records floor as a database CHECK. `packages/core` gains the retention categories, their defaults (pending confirmation by counsel, see `COMPLIANCE.md` section 5) and a time-zone-aware cutoff planner; `packages/db` gains the eligibility counts for the dry-run report. Nothing is deleted; the worker job is not wired in this change.
 
 ### Fixed
