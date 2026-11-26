@@ -287,6 +287,7 @@ export function createApp(deps: AppDependencies) {
     createInvitationRoutes(deps.sql, deps.authPort, deps.mailPort, {
       nodeEnv: deps.nodeEnv,
       trustProxy: deps.trustProxy,
+      appUrl: config.appUrl,
     }),
   );
   app.route(
