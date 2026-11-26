@@ -18,7 +18,8 @@ import { permissionScope } from "../policies/can.js";
 import { ForbiddenError } from "../errors/index.js";
 import { parseJsonBody } from "../lib/validate.js";
 import { FailureLockout } from "../lib/failure-lockout.js";
-import { clientIp } from "../lib/client-ip.js";
+import { clientIp, rateLimitAddress } from "../lib/client-ip.js";
+import type { RateLimitStore } from "../lib/rate-limit-store.js";
 import type { TimeChainSigner } from "@librehr/db";
 import type { TimeTrackingConfig } from "../lib/time-tracking-config.js";
 
@@ -44,6 +45,8 @@ export function createTimeKioskRoutes(
   options: {
     sign: TimeChainSigner;
     config: TimeTrackingConfig;
+    /** Shared store of the rate limit and the PIN lockout (issue #35). */
+    rateLimitStore: RateLimitStore;
     /** TRUST_PROXY: reverse-proxy hops whose X-Forwarded-For entries are trusted. */
     trustProxy?: number | undefined;
   },
@@ -55,10 +58,17 @@ export function createTimeKioskRoutes(
   const auditRepo = new AuditRepository();
   const { kiosk } = options.config;
   const lockout = new FailureLockout({
+    name: "kiosk.pin",
+    store: options.rateLimitStore,
     failureWindowMs: kiosk.failureWindowMs,
     lockoutMs: kiosk.lockoutMs,
   });
-  const ipRateLimit = createRateLimiter({ ...kiosk.ipRateLimit, trustProxy });
+  const ipRateLimit = createRateLimiter({
+    ...kiosk.ipRateLimit,
+    name: "kiosk.clock.ip",
+    store: options.rateLimitStore,
+    trustProxy,
+  });
 
   const requireKioskPermission: MiddlewareHandler = async (c, next) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
@@ -96,11 +106,10 @@ export function createTimeKioskRoutes(
       );
 
       const identifierKey = `id:${user.organizationId}:${identifier.trim().toLowerCase()}`;
-      const ipKey = `ip:${user.organizationId}:${clientIp(c, trustProxy)}`;
+      const ipKey = `ip:${user.organizationId}:${rateLimitAddress(clientIp(c, trustProxy))}`;
 
-      const lockedMs = lockout.lockedFor([identifierKey, ipKey]);
-      if (lockedMs > 0) {
-        return c.json(
+      const locked = (lockedMs: number) =>
+        c.json(
           createProblemDetails({
             status: 429,
             title: "Too Many Requests",
@@ -110,10 +119,23 @@ export function createTimeKioskRoutes(
           429,
           {
             "Content-Type": "application/problem+json",
-            "Retry-After": Math.ceil(lockedMs / 1000).toString(),
+            "Retry-After": Math.max(1, Math.ceil(lockedMs / 1000)).toString(),
           },
         );
-      }
+
+      // The per-IP lockout counts failures after the check (it stops one
+      // device spraying many identifiers); checking it first keeps a locked
+      // IP from using up identifiers' attempts.
+      const ipLockedMs = await lockout.lockedFor([ipKey]);
+      if (ipLockedMs > 0) return locked(ipLockedMs);
+      // The per-identifier limit is reserved atomically before the PIN is
+      // checked (issue #35): at most maxFailuresPerIdentifier PINs are ever
+      // checked per window, whatever the concurrency across replicas.
+      const reservation = await lockout.reserve(
+        identifierKey,
+        kiosk.maxFailuresPerIdentifier,
+      );
+      if (!reservation.allowed) return locked(reservation.lockedMs);
 
       const found = await withTenant(
         sql,
@@ -126,15 +148,15 @@ export function createTimeKioskRoutes(
       if (!found?.pinHash) await verifyKioskPin(pin, await decoy(), null);
 
       if (!found || !check.valid) {
-        lockout.recordFailure([
-          { key: identifierKey, limit: kiosk.maxFailuresPerIdentifier },
+        // The identifier's failure was counted by its reservation.
+        await lockout.recordFailure([
           { key: ipKey, limit: kiosk.maxFailuresPerIp },
         ]);
         return c.json(genericInvalid(), 401, {
           "Content-Type": "application/problem+json",
         });
       }
-      lockout.reset(identifierKey);
+      await lockout.reset(identifierKey);
 
       const upgradedHash = check.needsRehash ? await hashKioskPin(pin) : null;
 

@@ -69,6 +69,8 @@ describe("SSO needs a Business licence (LIC-003, AUTH-004)", () => {
     async (method, path) => {
       const app = createApp({
         sql: {} as unknown as Sql,
+        // Production refuses to start without one (rate-limit key hashing).
+        sessionSecret: "test-session-secret-with-at-least-32-chars",
         authPort: new MockAuthPort(),
         config: { nodeEnv: "production", ssoEnabled: true },
       });
@@ -82,6 +84,8 @@ describe("SSO needs a Business licence (LIC-003, AUTH-004)", () => {
     const edition = businessEdition(["something-else"]);
     const app = createApp({
       sql: {} as unknown as Sql,
+      // Production refuses to start without one (rate-limit key hashing).
+      sessionSecret: "test-session-secret-with-at-least-32-chars",
       authPort: new MockAuthPort(),
       config: { nodeEnv: "production", ssoEnabled: true },
       license: edition.license,
@@ -149,6 +153,8 @@ describe("Stored SSO configuration without a licence (LIC-003)", () => {
     // Community: no licence, no extensions.
     app = createApp({
       sql: db.appSql,
+      // Production refuses to start without one (rate-limit key hashing).
+      sessionSecret: "test-session-secret-with-at-least-32-chars",
       authPort,
       config: { nodeEnv: "production", ssoEnabled: true },
     });
@@ -238,6 +244,8 @@ describe.skipIf(!hasBusinessEdition)(
     const edition = businessEdition();
     const app = createApp({
       sql: {} as unknown as Sql,
+      // Production refuses to start without one (rate-limit key hashing).
+      sessionSecret: "test-session-secret-with-at-least-32-chars",
       authPort: new MockAuthPort(),
       config: { nodeEnv: "production" },
       license: edition.license,
@@ -309,6 +317,8 @@ describe.skipIf(!hasBusinessEdition)(
       const edition = businessEdition();
       app = createApp({
         sql: db.appSql,
+        // Production refuses to start without one (rate-limit key hashing).
+        sessionSecret: "test-session-secret-with-at-least-32-chars",
         authPort,
         license: edition.license,
         extensions: edition.extensions,

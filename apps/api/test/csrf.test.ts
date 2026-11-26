@@ -57,6 +57,8 @@ describe("CSRF wiring in createApp", () => {
   const signOutFrom = (config: Partial<AppConfig>, origin: string) =>
     createApp({
       sql: {} as unknown as Sql,
+      // Production refuses to start without one (rate-limit key hashing).
+      sessionSecret: "test-session-secret-with-at-least-32-chars",
       authPort: {} as unknown as AuthPort,
       // No top-level nodeEnv: CSRF must use the resolved config.
       config,
