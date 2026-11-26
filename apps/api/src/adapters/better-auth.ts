@@ -79,6 +79,11 @@ export class BetterAuthAdapter implements AuthPort {
     const token = crypto.randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
     const authMethod = options.authMethod ?? "password";
+    if (authMethod === "sso" && !user.organizationId) {
+      // AUTH-004: enforcement is never checked for an SSO session, so it must
+      // open only in the organization whose identity provider vouched for it.
+      throw new Error("An SSO session must be pinned to an organization");
+    }
 
     await this.sql`
       INSERT INTO sessions (user_id, token, expires_at, organization_id, auth_method)
@@ -93,9 +98,13 @@ export class BetterAuthAdapter implements AuthPort {
       token,
       { enforceSso: this.ssoEnforcement },
     );
-    if (!membership || membership.ssoRequired) {
+    const refusedBreakGlass =
+      membership?.ssoRequired === false &&
+      membership.breakGlass &&
+      options.allowBreakGlass === false;
+    if (!membership || membership.ssoRequired || refusedBreakGlass) {
       await this.revokeSession(token);
-      if (membership?.ssoRequired) {
+      if (membership?.ssoRequired || refusedBreakGlass) {
         // No user id, email or organization (AGENTS.md section 4).
         logger.warn(
           { code: "SSO_REQUIRED" },

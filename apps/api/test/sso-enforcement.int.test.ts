@@ -39,6 +39,8 @@ describe("SSO enforcement for password sessions (AUTH-004)", () => {
   const disabledMember = "c9410000-0000-0000-0000-000000000007";
   const toggled = "c9410000-0000-0000-0000-000000000008";
   const resetUser = "c9410000-0000-0000-0000-000000000009";
+  // A break-glass candidate (admin elsewhere, with TOTP) invited into orgE.
+  const invitedAdmin2fa = "c9410000-0000-0000-0000-000000000010";
 
   const password = "sso-enforcement-password";
   // Every account shares one email domain; orgE lists it in allowed_domains,
@@ -109,12 +111,13 @@ describe("SSO enforcement for password sessions (AUTH-004)", () => {
       disabledMember,
       toggled,
       resetUser,
+      invitedAdmin2fa,
     ];
     for (const id of users) {
       await sql`INSERT INTO users (id, email, name, password_hash)
         VALUES (${id}, ${emailOf(id)}, 'Test User', ${hash})`;
     }
-    for (const id of [employee2fa, admin2fa]) {
+    for (const id of [employee2fa, admin2fa, invitedAdmin2fa]) {
       const secret = generateTotpSecret();
       secrets.set(id, secret);
       await sql`UPDATE users SET two_factor_enabled = true,
@@ -131,6 +134,7 @@ describe("SSO enforcement for password sessions (AUTH-004)", () => {
       [orgE, resetUser, "employee"],
       [orgN, multi, "employee"],
       [orgN, outsider, "employee"],
+      [orgN, invitedAdmin2fa, "admin"],
       [orgD, disabledMember, "employee"],
       [orgT, toggled, "employee"],
     ];
@@ -333,6 +337,27 @@ describe("SSO enforcement for password sessions (AUTH-004)", () => {
       expect(res.status).toBe(200);
     });
 
+    it("refuses an SSO session that is not pinned to an organization", async () => {
+      const adapter = new BetterAuthAdapter(db.appSql, {
+        ssoEnforcement: true,
+      });
+      const before = await sessionCount(employee);
+      await expect(
+        adapter.createSession(
+          { id: employee, email: emailOf(employee), name: "Test User" },
+          { authMethod: "sso" },
+        ),
+      ).rejects.toThrow(/pinned/);
+      expect(await sessionCount(employee)).toBe(before);
+      // The table refuses it too (0041 sessions_sso_pinned_check).
+      await expect(
+        db.adminSql`INSERT INTO sessions
+          (user_id, token, expires_at, organization_id, auth_method)
+          VALUES (${employee}, ${hashBearerToken("unpinned")},
+            now() + interval '1 hour', NULL, 'sso')`,
+      ).rejects.toThrow(/sessions_sso_pinned_check/);
+    });
+
     it("rejects an unauthenticated request with 401", async () => {
       expect((await enforcing.request("/v1/me")).status).toBe(401);
     });
@@ -415,14 +440,14 @@ describe("SSO enforcement for password sessions (AUTH-004)", () => {
   });
 
   describe("invitation accept", () => {
-    const invite = async (org: string, email: string) => {
+    const invite = async (org: string, email: string, role = "employee") => {
       const token = crypto.randomBytes(32).toString("hex");
       await withTenant(
         db.adminSql,
         { organizationId: org },
         (tx) =>
           tx`INSERT INTO invitations (organization_id, email, role, token, expires_at)
-          VALUES (${org}, ${email}, 'employee', ${hashBearerToken(token)},
+          VALUES (${org}, ${email}, ${role}, ${hashBearerToken(token)},
             now() + interval '7 days')`,
       );
       return token;
@@ -450,6 +475,29 @@ describe("SSO enforcement for password sessions (AUTH-004)", () => {
       const [accepted] = await db.adminSql<{ accepted_at: Date | null }[]>`
         SELECT accepted_at FROM invitations WHERE email = ${email}`;
       expect(accepted?.accepted_at).not.toBeNull();
+    });
+
+    it("never opens a break-glass session: an admin with TOTP invited as admin gets 403 SSO_REQUIRED", async () => {
+      const token = await invite(orgE, emailOf(invitedAdmin2fa), "admin");
+      const res = await post(enforcing, "/v1/invitations/accept", {
+        token,
+        name: "Test User",
+        password,
+      });
+      expect(res.status).toBe(403);
+      expect((await problem(res)).code).toBe("SSO_REQUIRED");
+      expect(res.headers.get("set-cookie")).toBeNull();
+      expect(await sessionCount(invitedAdmin2fa)).toBe(0);
+      const audits = await db.adminSql<{ n: number }[]>`
+        SELECT count(*)::int AS n FROM audit_log
+        WHERE action = 'auth.sso.break_glass' AND actor_id = ${invitedAdmin2fa}`;
+      expect(audits[0]!.n).toBe(0);
+
+      // Password sign-in with the second factor still works for this user.
+      const signedIn = await signIn(invitedAdmin2fa, enforcing, {
+        twoFactorCode: totp(invitedAdmin2fa),
+      });
+      expect(signedIn.status).toBe(200);
     });
 
     it("opens a session when accepting into a non-enforcing organization", async () => {
