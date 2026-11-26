@@ -7,19 +7,19 @@ import {
   OFFICIAL_EXPORT_MAX_EMPLOYEE_DAYS,
   OfficialExportQuerySchema,
 } from "@librehr/contracts";
-import {
-  createInspectionExport,
-  datesInRange,
-  inspectionExportLabels,
-  inspectionRowCells,
-  renderInspectionPdf,
-} from "@librehr/core";
+import { inspectionExportLabels, inspectionRowCells } from "@librehr/core";
 import {
   withTenant,
   AuditRepository,
   EmployeeRepository,
   OrganizationRepository,
 } from "@librehr/db";
+import {
+  buildOfficialExport,
+  officialExportAuditMetadata,
+  organizationExportSubjects,
+  type ExportSubject,
+} from "@librehr/time-export";
 import { requireAuth } from "../middleware/auth.js";
 import { createRateLimiter } from "../middleware/rate-limit.js";
 import type { RateLimitStore } from "../lib/rate-limit-store.js";
@@ -31,13 +31,8 @@ import {
   ForbiddenError,
   NotFoundError,
 } from "../errors/index.js";
-import { resolveBusinessTimeZone } from "../lib/business-date.js";
+import { businessZoneResolver } from "../lib/business-date.js";
 import { parseQuery } from "../lib/validate.js";
-import {
-  collectExportEmployee,
-  type CollectedEmployee,
-  type ExportSubject,
-} from "../lib/time-export.js";
 
 /**
  * Response headers that browsers may read on a cross-origin export
@@ -106,9 +101,7 @@ export function createTimeExportRoutes(
         const ctx = await resolvePolicyContext(c, tx);
         const org = await orgRepo.findById(tx, user.organizationId);
         if (!org) throw new NotFoundError({ detail: "Organization not found" });
-        // The header shows the organization's zone; every employee's rows use
-        // their own business zone, in both scopes.
-        const timeZone = await resolveBusinessTimeZone(c, tx, null);
+        const period = { startDate, endDate };
         let subjects: ExportSubject[];
         let subjectEmployeeId: string | undefined;
 
@@ -120,13 +113,8 @@ export function createTimeExportRoutes(
                 "Exporting the whole organization requires organization-wide access to time records",
             });
           }
-          subjects = await employeeRepo.listEmployedDuring(
-            tx,
-            startDate,
-            endDate,
-          );
-          const days = datesInRange(startDate, endDate).length;
-          if (subjects.length * days > maxEmployeeDays) {
+          const listed = await organizationExportSubjects(tx, period);
+          if (listed.employeeDays > maxEmployeeDays) {
             throw new AppError({
               status: 422,
               title: "Export Too Large",
@@ -134,6 +122,7 @@ export function createTimeExportRoutes(
               detail: `An organization export can cover at most ${maxEmployeeDays} employee-days (employees × days of the period). Request a shorter period.`,
             });
           }
+          subjects = listed.subjects;
         } else {
           const employee = query.employeeId
             ? await employeeRepo.findById(tx, query.employeeId)
@@ -154,78 +143,42 @@ export function createTimeExportRoutes(
           subjectEmployeeId = employee.id;
         }
 
-        // One query for every subject: whose days count as employed.
-        const employment = await employeeRepo.employmentPeriods(
-          tx,
-          subjects.map((subject) => subject.id),
-          startDate,
-          endDate,
-        );
-        const collected: CollectedEmployee[] = [];
-        for (const subject of subjects) {
-          // Every subject was just read in this transaction: a missing entry
-          // is a bug, and defaulting to "employed every day" would bring
-          // back fake absences, so fail loudly (a generic 500).
-          const periods = employment.get(subject.id);
-          if (periods === undefined) {
-            throw new Error(
-              "Invariant: employment periods missing for an export subject",
-            );
-          }
-          collected.push(
-            await collectExportEmployee(
-              c,
-              tx,
-              subject,
-              { startDate, endDate },
-              periods,
-              options.timeChainKey,
-            ),
-          );
-        }
-        // Only employed days need a schedule (core skips the others).
-        if (scope === "employee" && collected[0]?.input.days === null) {
+        const request = {
+          exportId,
+          generatedAt,
+          generatedBy: { name: user.name, role: user.role },
+          organizationName: org.name,
+          scope,
+          format,
+          locale,
+          period,
+          subjects,
+          timeChainKey: options.timeChainKey,
+          zones: businessZoneResolver(c, tx),
+        };
+        // The PDF is rendered before the audit entry: a failed render
+        // records nothing.
+        const build = await buildOfficialExport(tx, request);
+        if (!build.ok) {
           throw new ConflictError({
             code: "SCHEDULE_NOT_CONFIGURED",
             detail:
               "Configure a schedule rule for every day of the requested period on which the employee is employed.",
           });
         }
-
-        const input = {
-          exportId,
-          locale,
-          scope,
-          organizationName: org.name,
-          periodStart: startDate,
-          periodEnd: endDate,
-          timeZone,
-          generatedAt,
-          generatedBy: { name: user.name, role: user.role },
-          employees: collected.map((e) => e.input),
-        };
-        const result = createInspectionExport(input);
+        const { input, result, pdf, employees } = build;
         const labels = inspectionExportLabels(locale);
-        // Rendered before the audit entry: a failed render records nothing.
-        const pdf =
-          format === "pdf" ? renderInspectionPdf(result, input) : null;
 
         await auditRepo.log(tx, {
           actorId: user.id,
           action: "time.export",
           resourceType: "time_export",
           resourceId: exportId,
-          // Ids, period and hash only: never names or emails (no PII).
-          metadata: {
-            scope,
-            format,
-            locale,
-            periodStart: startDate,
-            periodEnd: endDate,
-            employeeCount: collected.length,
-            contentHash: result.contentHash,
-            ...(subjectEmployeeId ? { employeeId: subjectEmployeeId } : {}),
-          },
+          metadata: officialExportAuditMetadata(
+            request,
+            build,
+            subjectEmployeeId,
+          ),
         });
 
         const json: OfficialExportResponse = {
@@ -235,7 +188,7 @@ export function createTimeExportRoutes(
           locale,
           periodStart: startDate,
           periodEnd: endDate,
-          timeZone,
+          timeZone: input.timeZone,
           generatedAt,
           organizationName: org.name,
           generatedBy: input.generatedBy,
@@ -243,7 +196,7 @@ export function createTimeExportRoutes(
           columns: result.columns,
           rows: result.rows.map((row) => inspectionRowCells(row, labels)),
           rowsEmployed: result.rows.map((row) => row.employed),
-          employees: collected.map((e) => ({
+          employees: employees.map((e) => ({
             employeeId: e.input.employeeId,
             name: e.input.name,
             timeZone: e.input.timeZone,

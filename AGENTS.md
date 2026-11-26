@@ -25,6 +25,7 @@ packages/contracts  Zod schemas + inferred types shared by api and web. Source o
 packages/ui     Design system components (shadcn/ui based), tokens, Storybook.
 packages/i18n   Message catalogs (ca, es, en) and helpers.
 packages/emails React Email templates.
+packages/time-export  TIM-006 official time export builder shared by api and worker (core + db, no HTTP).
 packages/config Shared tsconfig, eslint, prettier, Tailwind v4 theme (CSS).
 packages/testing  Factories, fixtures, Testcontainers helpers.
 infra/          Dockerfiles, compose files, example env, reverse-proxy samples.
@@ -32,7 +33,7 @@ docs/           ADRs, how-tos, user docs.
 ee/             Business edition (LibreHR Enterprise License, NOT AGPL). See ee/README.md and docs/adr/0004-open-core-licensing.md.
 ```
 
-Dependency direction (enforced by lint): `web -> contracts, ui, i18n` · `api -> core, db, contracts` · `worker -> core, db, emails` · `core -> (nothing internal)` · `ee -> core, db, contracts`.
+Dependency direction (enforced by lint): `web -> contracts, ui, i18n` · `api -> core, db, contracts, time-export` · `worker -> core, db, emails, time-export` · `time-export -> core, db` · `core -> (nothing internal)` · `ee -> core, db, contracts`.
 `core` must never import `db`, `api`, `web`, or any I/O library.
 Nothing outside `ee/` imports `ee/`, except `apps/api/src/extensions/load.ts` and API tests. A build with `ee/` deleted must still work as the Community edition.
 
