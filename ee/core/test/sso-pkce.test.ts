@@ -33,7 +33,6 @@ describe("PKCE and login secrets (AUTH-004)", () => {
   it("puts the discovered endpoint, nonce and S256 challenge in the URL", () => {
     const url = new URL(
       buildOidcAuthorizationUrl({
-        issuerUrl: "https://idp.example.invalid/realms/acme",
         authorizationEndpoint: "https://idp.example.invalid/authorize",
         clientId: "client",
         redirectUri: "https://api.example.invalid/v1/sso/callback",

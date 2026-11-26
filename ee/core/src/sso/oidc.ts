@@ -4,17 +4,6 @@ import type { OidcHttp, OidcProviderMetadata } from "./discovery.js";
 import { OidcError } from "./errors.js";
 
 /**
- * Removes trailing `char`s with a loop: `replace(/x+$/, "")` backtracks
- * quadratically on long runs (CodeQL js/polynomial-redos). Kept local because
- * ee/core does not depend on @librehr/core.
- */
-function trimTrailing(value: string, char: string): string {
-  let end = value.length;
-  while (end > 0 && value[end - 1] === char) end -= 1;
-  return value.slice(0, end);
-}
-
-/**
  * Validates whether an email domain is in the organization's allowed SSO domains.
  */
 export function isAllowedEmailDomain(
@@ -37,46 +26,32 @@ export function isAllowedEmailDomain(
 }
 
 /**
- * Builds an OIDC authorization redirect URL for an identity provider.
+ * Builds the authorization-code request (with PKCE and nonce) for the
+ * provider's discovered authorization endpoint.
  */
 export function buildOidcAuthorizationUrl(params: {
-  issuerUrl: string;
+  /** From the provider's discovery document (see discovery.ts). */
+  authorizationEndpoint: string;
   clientId: string;
   redirectUri: string;
   state: string;
-  scopes?: string[];
-  /** From discovery; the host-based guess below is only a fallback. */
-  authorizationEndpoint?: string | undefined;
-  nonce?: string | undefined;
+  nonce: string;
   /** S256 PKCE challenge (see createLoginSecrets). */
-  codeChallenge?: string | undefined;
+  codeChallenge: string;
+  scopes?: string[];
 }): string {
-  const cleanIssuer = trimTrailing(params.issuerUrl, "/");
-  // Match the exact host: a substring test would accept look-alikes such as
-  // accounts.google.com.example.invalid.
-  const host = new URL(cleanIssuer).hostname;
-  const authEndpoint = params.authorizationEndpoint
-    ? params.authorizationEndpoint
-    : host === "accounts.google.com"
-      ? "https://accounts.google.com/o/oauth2/v2/auth"
-      : host === "login.microsoftonline.com"
-        ? `${cleanIssuer}/oauth2/v2.0/authorize`
-        : `${cleanIssuer}/protocol/openid-connect/auth`;
-
   const scopes = params.scopes ?? ["openid", "profile", "email"];
 
-  const url = new URL(authEndpoint);
+  const url = new URL(params.authorizationEndpoint);
   url.searchParams.set("client_id", params.clientId);
   url.searchParams.set("response_type", "code");
   url.searchParams.set("redirect_uri", params.redirectUri);
   url.searchParams.set("scope", scopes.join(" "));
   url.searchParams.set("state", params.state);
   url.searchParams.set("prompt", "select_account");
-  if (params.nonce) url.searchParams.set("nonce", params.nonce);
-  if (params.codeChallenge) {
-    url.searchParams.set("code_challenge", params.codeChallenge);
-    url.searchParams.set("code_challenge_method", "S256");
-  }
+  url.searchParams.set("nonce", params.nonce);
+  url.searchParams.set("code_challenge", params.codeChallenge);
+  url.searchParams.set("code_challenge_method", "S256");
 
   return url.toString();
 }
