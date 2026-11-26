@@ -38,9 +38,11 @@ describe("email_verification_tokens and librehr_auth_verify_email (0043)", () =>
         now() + ${opts.expiresIn ?? "1 day"}::interval)`;
     return token;
   };
-  const verify = async (token: string) => {
+  /** Calls the function as the API does, with the token's user by default. */
+  const verify = async (token: string, userId: string = user) => {
     const [row] = await db.appSql<{ userId: string | null }[]>`
-      SELECT librehr_auth_verify_email(${hashBearerToken(token)}) AS "userId"`;
+      SELECT librehr_auth_verify_email(${hashBearerToken(token)}, ${userId}::uuid)
+        AS "userId"`;
     return row!.userId;
   };
   const verified = async (userId: string) => {
@@ -165,6 +167,16 @@ describe("email_verification_tokens and librehr_auth_verify_email (0043)", () =>
     expect(await visibleIn(orgC, other)).toEqual([]);
   });
 
+  it("refuses a link of another user and leaves it usable", async () => {
+    await reset(user);
+    await reset(other);
+    const token = await issue(user);
+    expect(await verify(token, other)).toBeNull();
+    expect(await verified(user)).toBe(false);
+    expect(await verified(other)).toBe(false);
+    expect(await verify(token, user)).toBe(user);
+  });
+
   it("refuses an expired link", async () => {
     await reset(user);
     expect(
@@ -183,14 +195,15 @@ describe("email_verification_tokens and librehr_auth_verify_email (0043)", () =>
   it("refuses an unknown token or NULL, and restores the caller's settings", async () => {
     expect(await verify("guessed")).toBeNull();
     const [nul] = await db.appSql<{ userId: string | null }[]>`
-      SELECT librehr_auth_verify_email(NULL) AS "userId"`;
+      SELECT librehr_auth_verify_email(NULL, NULL) AS "userId"`;
     expect(nul!.userId).toBeNull();
 
     await reset(other);
     const token = await issue(other);
     const settings = await db.appSql.begin(async (tx) => {
       await tx`SELECT set_config('app.current_org', ${orgC}, true)`;
-      await tx`SELECT librehr_auth_verify_email(${hashBearerToken(token)})`;
+      await tx`SELECT librehr_auth_verify_email(${hashBearerToken(token)},
+        ${other}::uuid)`;
       const [row] = await tx<{ org: string; lookup: string | null }[]>`
         SELECT current_setting('app.current_org', true) AS org,
                current_setting('librehr.identity_lookup', true) AS lookup`;

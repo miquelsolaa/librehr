@@ -21,10 +21,16 @@
 -- (0040). ADM-005 retention enforcement is not implemented yet; once it is,
 -- it should purge this table too. The email column is personal data.
 --
+-- Holding a link is not enough to confirm it: the API also checks the
+-- account password before it calls librehr_auth_verify_email with the
+-- token's user id. Reset links go only to verified addresses, so a stranger
+-- who receives a link sent to a mistyped address must not be able to verify
+-- that address and then take the account over with a reset link.
+--
 -- Existing users.email_verified values are not changed.
 --
 -- Rollback: purely additive. To revert, drop the function
--- librehr_auth_verify_email(text) and the table email_verification_tokens;
+-- librehr_auth_verify_email(text, uuid) and the table email_verification_tokens;
 -- no existing data changes.
 
 CREATE TABLE IF NOT EXISTS "email_verification_tokens" (
@@ -71,7 +77,9 @@ END $$;
 -- It is keyed on the secret the caller holds (the token hash), like the
 -- functions of 0019 and 0040, never on a bare user id: 0021 withdrew such
 -- lookups from the runtime role because they map users to organizations
--- across tenants. memberships are read through the owner-only
+-- across tenants. p_user_id is the token's user as the API read it before
+-- checking that user's password; a token of any other user is refused, so
+-- the password check and the spend always concern the same account. memberships are read through the owner-only
 -- identity_lookup policy (0019); audit_log rows are written under their
 -- tenant policy by setting app.current_org to each organization in turn.
 -- The previous settings are restored before returning.
@@ -80,7 +88,10 @@ END $$;
 -- request, so a request and a confirmation for one user cannot deadlock. A
 -- second confirmation with the same token waits for the first and then no
 -- longer matches `used_at IS NULL`.
-CREATE OR REPLACE FUNCTION librehr_auth_verify_email(p_token_hash text)
+CREATE OR REPLACE FUNCTION librehr_auth_verify_email(
+  p_token_hash text,
+  p_user_id uuid
+)
 RETURNS uuid
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, public
@@ -93,13 +104,13 @@ DECLARE
   previous_org text := current_setting('app.current_org', true);
   previous_user text := current_setting('app.current_user', true);
 BEGIN
-  IF p_token_hash IS NULL THEN
+  IF p_token_hash IS NULL OR p_user_id IS NULL THEN
     RETURN NULL;
   END IF;
 
   SELECT t.user_id INTO v_user
   FROM public.email_verification_tokens t
-  WHERE t.token_hash = p_token_hash;
+  WHERE t.token_hash = p_token_hash AND t.user_id = p_user_id;
   IF v_user IS NULL THEN
     RETURN NULL;
   END IF;
@@ -149,12 +160,12 @@ END
 $$;
 
 -- Granted to librehr_app only, like the identity functions of 0019.
-REVOKE ALL ON FUNCTION librehr_auth_verify_email(text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION librehr_auth_verify_email(text, uuid) FROM PUBLIC;
 
 DO $$
 BEGIN
   IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'librehr_app') THEN
-    GRANT EXECUTE ON FUNCTION librehr_auth_verify_email(text)
+    GRANT EXECUTE ON FUNCTION librehr_auth_verify_email(text, uuid)
       TO librehr_app;
   END IF;
 END $$;

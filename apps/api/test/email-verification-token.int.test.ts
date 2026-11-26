@@ -7,6 +7,7 @@ import {
 } from "@librehr/testing";
 import { hashBearerToken } from "@librehr/db";
 import { runMigrations } from "@librehr/db/migrate";
+import { hashPassword } from "../src/lib/password.js";
 import {
   createEmailVerificationToken,
   verifyEmailWithToken,
@@ -21,7 +22,14 @@ describe("email verification tokens (AUTH-001)", () => {
   const user = "c9440000-0000-0000-0000-000000000001";
   const capped = "c9440000-0000-0000-0000-000000000002";
   const done = "c9440000-0000-0000-0000-000000000003";
+  const sso = "c9440000-0000-0000-0000-000000000004";
   const emailOf = (id: string) => `${id.slice(-1)}-token@example.invalid`;
+  const password = "token-password-123";
+  const verified = async (id: string) => {
+    const [row] = await db.adminSql<{ v: boolean }[]>`
+      SELECT email_verified AS v FROM users WHERE id = ${id}`;
+    return row!.v;
+  };
 
   const tokens = (userId: string) =>
     db.adminSql<{ email: string; used: boolean; ttl_hours: number }[]>`
@@ -37,10 +45,13 @@ describe("email verification tokens (AUTH-001)", () => {
     base = database;
     db = await createRoleSeparatedDatabase(base);
     await runMigrations(db.ownerConnectionString);
-    await db.adminSql`INSERT INTO users (id, email, name, email_verified)
-      VALUES (${user}, ${emailOf(user)}, 'Token User', false),
-        (${capped}, ${emailOf(capped)}, 'Capped User', false),
-        (${done}, ${emailOf(done)}, 'Verified User', true)`;
+    const hash = await hashPassword(password);
+    await db.adminSql`
+      INSERT INTO users (id, email, name, email_verified, password_hash)
+      VALUES (${user}, ${emailOf(user)}, 'Token User', false, ${hash}),
+        (${capped}, ${emailOf(capped)}, 'Capped User', false, ${hash}),
+        (${done}, ${emailOf(done)}, 'Verified User', true, ${hash}),
+        (${sso}, ${emailOf(sso)}, 'SSO User', false, NULL)`;
   }, 60000);
 
   afterAll(async () => {
@@ -66,9 +77,37 @@ describe("email verification tokens (AUTH-001)", () => {
       WHERE token_hash = ${hashBearerToken(second!.token)}`;
     expect(stored!.count).toBe(1);
 
-    expect(await verifyEmailWithToken(db.appSql, first!.token)).toBeNull();
-    expect(await verifyEmailWithToken(db.appSql, second!.token)).toBe(user);
-    expect(await verifyEmailWithToken(db.appSql, second!.token)).toBeNull();
+    expect(
+      await verifyEmailWithToken(db.appSql, first!.token, password),
+    ).toEqual({ status: "invalid_token" });
+    expect(
+      await verifyEmailWithToken(db.appSql, second!.token, password),
+    ).toEqual({ status: "verified", userId: user });
+    expect(
+      await verifyEmailWithToken(db.appSql, second!.token, password),
+    ).toEqual({ status: "invalid_token" });
+  });
+
+  it("needs the account password, and a wrong one spends nothing", async () => {
+    await db.adminSql`UPDATE users SET email_verified = false
+      WHERE id = ${user}`;
+    const link = await createEmailVerificationToken(db.appSql, user);
+    expect(
+      await verifyEmailWithToken(db.appSql, link!.token, "not-the-password"),
+    ).toEqual({ status: "invalid_password" });
+    expect(await verified(user)).toBe(false);
+    expect(
+      await verifyEmailWithToken(db.appSql, link!.token, password),
+    ).toEqual({ status: "verified", userId: user });
+    expect(await verified(user)).toBe(true);
+  });
+
+  it("refuses an account without a password", async () => {
+    const link = await createEmailVerificationToken(db.appSql, sso);
+    expect(
+      await verifyEmailWithToken(db.appSql, link!.token, password),
+    ).toEqual({ status: "invalid_password" });
+    expect(await verified(sso)).toBe(false);
   });
 
   it("creates nothing for a verified or unknown account", async () => {

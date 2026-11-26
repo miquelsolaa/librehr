@@ -44,7 +44,9 @@ email is sent.
 
 Email verification (AUTH-001). The administrator created by the setup wizard
 starts with an unverified address and is emailed a confirmation link (valid
-24 hours, works once, no sign-in needed to open it). Unverified users keep
+24 hours, works once, no sign-in needed to open it, but confirming asks for
+the account password, so a link that reached a mistyped address is useless to
+whoever received it). Unverified users keep
 full access and see a banner in the app with a button that asks for a new
 link. People who join through
 an invitation are verified by accepting it. Password reset links go only to

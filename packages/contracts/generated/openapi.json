@@ -6194,7 +6194,7 @@
     },
     "/v1/auth/email-verification/confirm": {
       "post": {
-        "summary": "Confirm the account's email with a verification link token (AUTH-001). No sign-in needed and none is granted; the token works once",
+        "summary": "Confirm the account's email with a verification link token and the account password (AUTH-001). No sign-in needed and none is granted; the token works once, and a wrong password spends nothing",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6205,10 +6205,16 @@
                     "type": "string",
                     "minLength": 20,
                     "maxLength": 200
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024
                   }
                 },
                 "required": [
-                  "token"
+                  "token",
+                  "password"
                 ]
               }
             }
@@ -6235,6 +6241,62 @@
           },
           "400": {
             "description": "Validation failure, or VERIFICATION_TOKEN_INVALID for an unknown, used, expired or outdated token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "INVALID_CREDENTIALS: the password is not the password of the link's account",
             "content": {
               "application/problem+json": {
                 "schema": {
