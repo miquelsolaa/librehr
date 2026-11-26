@@ -33,6 +33,20 @@ describe("loadEnv (DOC-004, AUTH-001)", () => {
     expect(env.DATABASE_URL).toContain("librehr");
   });
 
+  it("reads STORAGE_LOCAL_DIR, shared with the worker (TIM-006)", () => {
+    expect(loadEnv({ NODE_ENV: "development" }).STORAGE_LOCAL_DIR).toBe(
+      undefined,
+    );
+    expect(
+      loadEnv({ NODE_ENV: "development", STORAGE_LOCAL_DIR: "" })
+        .STORAGE_LOCAL_DIR,
+    ).toBe(undefined);
+    expect(
+      loadEnv({ NODE_ENV: "development", STORAGE_LOCAL_DIR: "/data/storage" })
+        .STORAGE_LOCAL_DIR,
+    ).toBe("/data/storage");
+  });
+
   it("defaults TRUST_PROXY to 0 and validates it as a small hop count", () => {
     expect(loadEnv({ NODE_ENV: "development" }).TRUST_PROXY).toBe(0);
     expect(

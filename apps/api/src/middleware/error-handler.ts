@@ -17,6 +17,7 @@ export const errorHandler: ErrorHandler = (err, c) => {
   // 1. Expected, typed application errors: every field is safe to expose.
   if (err instanceof AppError) {
     return problemResponse({
+      ...err.extensions,
       ...createProblemDetails({
         status: err.status,
         title: err.title,

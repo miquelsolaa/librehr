@@ -37,6 +37,11 @@ import {
   TIME_EXPORT_EXPOSED_HEADERS,
 } from "./routes/time-export.js";
 import { createTimeExportEmployeesRoutes } from "./routes/time-export-employees.js";
+import { createTimeExportJobRoutes } from "./routes/time-export-jobs.js";
+import {
+  createLocalExportFileReader,
+  type ExportFileReader,
+} from "./lib/export-files.js";
 import { createTimeCorrectionRoutes } from "./routes/time-corrections.js";
 import { createTimeClosureRoutes } from "./routes/time-closures.js";
 import { createApprovalRoutes } from "./routes/approvals.js";
@@ -91,6 +96,13 @@ export interface AppDependencies {
   extensions?: readonly ApiExtension[] | undefined;
   mailPort?: MailPort | undefined;
   storagePort?: StoragePort | undefined;
+  /**
+   * STORAGE_LOCAL_DIR: where the worker writes background time exports
+   * (TIM-006); downloads are read from here. Defaults to ./data/storage.
+   */
+  storageDir?: string | undefined;
+  /** Reader of the background export files (tests); defaults to `storageDir`. */
+  timeExportFiles?: ExportFileReader | undefined;
   /** From the validated env; 2FA challenges are refused without it. */
   sessionSecret?: string | undefined;
   /**
@@ -111,6 +123,10 @@ export interface AppDependencies {
         maxEmployeeDays?: number | undefined;
         rateLimit?: { windowMs: number; max: number } | undefined;
         pickerRateLimit?: { windowMs: number; max: number } | undefined;
+        /** Background export cap (default OFFICIAL_EXPORT_ASYNC_MAX_EMPLOYEE_DAYS). */
+        asyncMaxEmployeeDays?: number | undefined;
+        /** Rate limit of /v1/time/exports (default 30 per minute per user). */
+        jobsRateLimit?: { windowMs: number; max: number } | undefined;
       }
     | undefined;
   /** Overrides of the password reset limits (AUTH-001, tests). */
@@ -314,7 +330,20 @@ export function createApp(deps: AppDependencies) {
       timeChainKey,
       trustProxy: deps.trustProxy,
       maxEmployeeDays: deps.timeExport?.maxEmployeeDays,
+      asyncMaxEmployeeDays: deps.timeExport?.asyncMaxEmployeeDays,
       rateLimit: deps.timeExport?.rateLimit,
+    }),
+  );
+  app.route(
+    "/v1",
+    createTimeExportJobRoutes(deps.sql, {
+      rateLimitStore,
+      files:
+        deps.timeExportFiles ??
+        createLocalExportFileReader(deps.storageDir ?? "./data/storage"),
+      trustProxy: deps.trustProxy,
+      asyncMaxEmployeeDays: deps.timeExport?.asyncMaxEmployeeDays,
+      rateLimit: deps.timeExport?.jobsRateLimit,
     }),
   );
   app.route(

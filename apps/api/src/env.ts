@@ -174,6 +174,9 @@ const RawEnvSchema = z
     SMTP_PASS: optionalString,
     SMTP_FROM: z.string().default("LibreHR <noreply@librehr.local>"),
     LOG_LEVEL: z.string().default("info"),
+    // Shared with the worker, which writes background time exports here
+    // (TIM-006); the API serves their downloads from it.
+    STORAGE_LOCAL_DIR: optionalString,
     /** Further allowed CORS origins, comma-separated. */
     CORS_ORIGINS: originList,
     /** AUTH-004 has no callback yet, so SSO is off unless enabled. */
@@ -285,6 +288,7 @@ export interface ApiEnv {
   SMTP_PASS?: string | undefined;
   SMTP_FROM: string;
   LOG_LEVEL: string;
+  STORAGE_LOCAL_DIR?: string | undefined;
   CORS_ORIGINS: string[];
   SSO_ENABLED: boolean;
   WEBHOOKS_ALLOW_PRIVATE: boolean;
@@ -348,6 +352,9 @@ export function loadEnv(envInput?: Record<string, string | undefined>): ApiEnv {
     ...(parsed.SMTP_PASS ? { SMTP_PASS: parsed.SMTP_PASS } : {}),
     SMTP_FROM: parsed.SMTP_FROM,
     LOG_LEVEL: parsed.LOG_LEVEL,
+    ...(parsed.STORAGE_LOCAL_DIR
+      ? { STORAGE_LOCAL_DIR: parsed.STORAGE_LOCAL_DIR }
+      : {}),
     CORS_ORIGINS: parsed.CORS_ORIGINS,
     SSO_ENABLED: parsed.SSO_ENABLED,
     WEBHOOKS_ALLOW_PRIVATE: parsed.WEBHOOKS_ALLOW_PRIVATE,

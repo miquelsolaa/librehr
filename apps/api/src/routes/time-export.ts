@@ -4,6 +4,7 @@ import type { Sql } from "postgres";
 import {
   type AuthUser,
   type OfficialExportResponse,
+  OFFICIAL_EXPORT_ASYNC_MAX_EMPLOYEE_DAYS,
   OFFICIAL_EXPORT_MAX_EMPLOYEE_DAYS,
   OfficialExportQuerySchema,
 } from "@librehr/contracts";
@@ -55,6 +56,8 @@ export interface TimeExportRouteOptions {
   trustProxy?: number | undefined;
   /** Overrides OFFICIAL_EXPORT_MAX_EMPLOYEE_DAYS (tests). */
   maxEmployeeDays?: number | undefined;
+  /** Overrides OFFICIAL_EXPORT_ASYNC_MAX_EMPLOYEE_DAYS (tests). */
+  asyncMaxEmployeeDays?: number | undefined;
   /** Overrides the default of 10 exports per minute (tests). */
   rateLimit?: { windowMs: number; max: number } | undefined;
 }
@@ -74,6 +77,8 @@ export function createTimeExportRoutes(
   const router = new Hono();
   const maxEmployeeDays =
     options.maxEmployeeDays ?? OFFICIAL_EXPORT_MAX_EMPLOYEE_DAYS;
+  const asyncMaxEmployeeDays =
+    options.asyncMaxEmployeeDays ?? OFFICIAL_EXPORT_ASYNC_MAX_EMPLOYEE_DAYS;
   // Each export reads and verifies whole chains: cap how often one user can
   // ask, so a loop of requests cannot monopolize the database.
   const exportLimit = createRateLimiter({
@@ -120,6 +125,16 @@ export function createTimeExportRoutes(
               title: "Export Too Large",
               code: "EXPORT_TOO_LARGE",
               detail: `An organization export can cover at most ${maxEmployeeDays} employee-days (employees × days of the period). Request a shorter period.`,
+              // Issue #38: a larger export can still run in the background
+              // (POST /v1/time/exports) up to the async cap.
+              ...(listed.employeeDays <= asyncMaxEmployeeDays
+                ? {
+                    extensions: {
+                      asyncAvailable: true,
+                      employeeDays: listed.employeeDays,
+                    },
+                  }
+                : {}),
             });
           }
           subjects = listed.subjects;

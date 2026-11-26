@@ -3398,6 +3398,274 @@
           "items"
         ]
       },
+      "TimeExportJobRequest": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": "string",
+            "enum": [
+              "csv",
+              "pdf"
+            ]
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "locale": {
+            "type": "string",
+            "enum": [
+              "ca",
+              "es",
+              "en"
+            ],
+            "default": "es"
+          }
+        },
+        "required": [
+          "format",
+          "startDate",
+          "endDate"
+        ],
+        "additionalProperties": false
+      },
+      "TimeExportJob": {
+        "type": "object",
+        "properties": {
+          "exportId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "ready",
+              "failed",
+              "expired"
+            ]
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "organization"
+            ]
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "csv",
+              "pdf"
+            ]
+          },
+          "locale": {
+            "type": "string",
+            "enum": [
+              "ca",
+              "es",
+              "en"
+            ]
+          },
+          "periodStart": {
+            "type": "string",
+            "format": "date"
+          },
+          "periodEnd": {
+            "type": "string",
+            "format": "date"
+          },
+          "employeeDays": {
+            "type": "integer"
+          },
+          "contentHash": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "employeeCount": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "byteSize": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "errorCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "exportId",
+          "status",
+          "scope",
+          "format",
+          "locale",
+          "periodStart",
+          "periodEnd",
+          "employeeDays",
+          "contentHash",
+          "employeeCount",
+          "byteSize",
+          "errorCode",
+          "createdAt",
+          "completedAt",
+          "expiresAt"
+        ]
+      },
+      "TimeExportJobListResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "exportId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "queued",
+                    "running",
+                    "ready",
+                    "failed",
+                    "expired"
+                  ]
+                },
+                "scope": {
+                  "type": "string",
+                  "enum": [
+                    "organization"
+                  ]
+                },
+                "format": {
+                  "type": "string",
+                  "enum": [
+                    "csv",
+                    "pdf"
+                  ]
+                },
+                "locale": {
+                  "type": "string",
+                  "enum": [
+                    "ca",
+                    "es",
+                    "en"
+                  ]
+                },
+                "periodStart": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "periodEnd": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "employeeDays": {
+                  "type": "integer"
+                },
+                "contentHash": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "employeeCount": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "byteSize": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "errorCode": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "completedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "expiresAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "exportId",
+                "status",
+                "scope",
+                "format",
+                "locale",
+                "periodStart",
+                "periodEnd",
+                "employeeDays",
+                "contentHash",
+                "employeeCount",
+                "byteSize",
+                "errorCode",
+                "createdAt",
+                "completedAt",
+                "expiresAt"
+              ]
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
       "KioskClockRequest": {
         "type": "object",
         "properties": {
@@ -14628,7 +14896,7 @@
             }
           },
           "422": {
-            "description": "EXPORT_TOO_LARGE: organization export over OFFICIAL_EXPORT_MAX_EMPLOYEE_DAYS (employees × days); request a shorter period",
+            "description": "EXPORT_TOO_LARGE: organization export over OFFICIAL_EXPORT_MAX_EMPLOYEE_DAYS (employees × days); request a shorter period. When the export fits OFFICIAL_EXPORT_ASYNC_MAX_EMPLOYEE_DAYS the problem also carries `asyncAvailable: true` and `employeeDays`: queue it with POST /v1/time/exports.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -15970,6 +16238,1431 @@
           },
           "403": {
             "description": "No time.record.read permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMIT_EXCEEDED, with a Retry-After header",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/time/exports": {
+      "post": {
+        "summary": "Queue a background organization export (TIM-006, issue #38) as CSV or PDF",
+        "description": "For organization exports larger than the synchronous cap (GET /v1/time/export answers 422 with asyncAvailable). Requires organization-wide time.record.read (admin, auditor). The worker builds the document with the same builder as the synchronous export (same content hash rule, generation time = when it runs) and stores the file; the requester is notified in-app and downloads it until it expires (7 days by default). At most one queued or running export per user and 3 per organization. Limited to 30 requests per minute per user and client address (shared by every /v1/time/exports route).",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "format": {
+                    "type": "string",
+                    "enum": [
+                      "csv",
+                      "pdf"
+                    ]
+                  },
+                  "startDate": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "endDate": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "locale": {
+                    "type": "string",
+                    "enum": [
+                      "ca",
+                      "es",
+                      "en"
+                    ],
+                    "default": "es"
+                  }
+                },
+                "required": [
+                  "format",
+                  "startDate",
+                  "endDate"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Queued. Location: the export's status URL.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "exportId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "queued",
+                        "running",
+                        "ready",
+                        "failed",
+                        "expired"
+                      ]
+                    },
+                    "scope": {
+                      "type": "string",
+                      "enum": [
+                        "organization"
+                      ]
+                    },
+                    "format": {
+                      "type": "string",
+                      "enum": [
+                        "csv",
+                        "pdf"
+                      ]
+                    },
+                    "locale": {
+                      "type": "string",
+                      "enum": [
+                        "ca",
+                        "es",
+                        "en"
+                      ]
+                    },
+                    "periodStart": {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    "periodEnd": {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    "employeeDays": {
+                      "type": "integer"
+                    },
+                    "contentHash": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "employeeCount": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "byteSize": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "errorCode": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "completedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "expiresAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "exportId",
+                    "status",
+                    "scope",
+                    "format",
+                    "locale",
+                    "periodStart",
+                    "periodEnd",
+                    "employeeDays",
+                    "contentHash",
+                    "employeeCount",
+                    "byteSize",
+                    "errorCode",
+                    "createdAt",
+                    "completedAt",
+                    "expiresAt"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid body (dates, period over 366 days, format other than csv or pdf, locale, unknown fields)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No organization-wide time.record.read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "EXPORT_IN_PROGRESS: the caller already has an export queued or running, or the organization has 3",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "EXPORT_TOO_LARGE over OFFICIAL_EXPORT_ASYNC_MAX_EMPLOYEE_DAYS, or EXPORT_EMPTY when nobody is employed during the period",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMIT_EXCEEDED, with a Retry-After header",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "The caller's background exports (TIM-006), newest first",
+        "description": "Only exports the caller requested, the 20 newest. Requires organization-wide time.record.read.",
+        "responses": {
+          "200": {
+            "description": "The caller's exports",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "exportId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "queued",
+                              "running",
+                              "ready",
+                              "failed",
+                              "expired"
+                            ]
+                          },
+                          "scope": {
+                            "type": "string",
+                            "enum": [
+                              "organization"
+                            ]
+                          },
+                          "format": {
+                            "type": "string",
+                            "enum": [
+                              "csv",
+                              "pdf"
+                            ]
+                          },
+                          "locale": {
+                            "type": "string",
+                            "enum": [
+                              "ca",
+                              "es",
+                              "en"
+                            ]
+                          },
+                          "periodStart": {
+                            "type": "string",
+                            "format": "date"
+                          },
+                          "periodEnd": {
+                            "type": "string",
+                            "format": "date"
+                          },
+                          "employeeDays": {
+                            "type": "integer"
+                          },
+                          "contentHash": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "pattern": "^[0-9a-f]{64}$"
+                          },
+                          "employeeCount": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "byteSize": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "errorCode": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "completedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          },
+                          "expiresAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "exportId",
+                          "status",
+                          "scope",
+                          "format",
+                          "locale",
+                          "periodStart",
+                          "periodEnd",
+                          "employeeDays",
+                          "contentHash",
+                          "employeeCount",
+                          "byteSize",
+                          "errorCode",
+                          "createdAt",
+                          "completedAt",
+                          "expiresAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "No organization-wide time.record.read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMIT_EXCEEDED, with a Retry-After header",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/time/exports/{id}": {
+      "get": {
+        "summary": "Status of one background export (TIM-006)",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The export",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "exportId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "queued",
+                        "running",
+                        "ready",
+                        "failed",
+                        "expired"
+                      ]
+                    },
+                    "scope": {
+                      "type": "string",
+                      "enum": [
+                        "organization"
+                      ]
+                    },
+                    "format": {
+                      "type": "string",
+                      "enum": [
+                        "csv",
+                        "pdf"
+                      ]
+                    },
+                    "locale": {
+                      "type": "string",
+                      "enum": [
+                        "ca",
+                        "es",
+                        "en"
+                      ]
+                    },
+                    "periodStart": {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    "periodEnd": {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    "employeeDays": {
+                      "type": "integer"
+                    },
+                    "contentHash": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "employeeCount": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "byteSize": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "errorCode": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "completedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "expiresAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "exportId",
+                    "status",
+                    "scope",
+                    "format",
+                    "locale",
+                    "periodStart",
+                    "periodEnd",
+                    "employeeDays",
+                    "contentHash",
+                    "employeeCount",
+                    "byteSize",
+                    "errorCode",
+                    "createdAt",
+                    "completedAt",
+                    "expiresAt"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "EXPORT_NOT_FOUND: no such export, not the caller's, another tenant's, or the caller no longer holds organization-wide time access",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMIT_EXCEEDED, with a Retry-After header",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/time/exports/{id}/download": {
+      "get": {
+        "summary": "Download a finished background export (TIM-006)",
+        "description": "Only the requester, while they still hold organization-wide time.record.read. Same body and headers as GET /v1/time/export in that format (X-Export-Id, X-Content-SHA256, Content-Disposition, Cache-Control: no-store; CSV with a UTF-8 BOM that is not hashed). Every download writes a time.export.download audit entry (TIM-008 access logging, ids only).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The stored file",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "EXPORT_NOT_FOUND: no such export, not the caller's, another tenant's, or the caller no longer holds organization-wide time access",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "EXPORT_NOT_READY: queued, running or failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "EXPORT_EXPIRED: the file was deleted at expiry; request a new export",
             "content": {
               "application/problem+json": {
                 "schema": {
