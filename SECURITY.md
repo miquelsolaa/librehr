@@ -18,6 +18,9 @@ If you believe you have found a security vulnerability:
    - Type of vulnerability
    - Step-by-step instructions or proof-of-concept to reproduce
    - Potential impact on tenant isolation or personal data
+
+   If you cannot use GitHub, email the same details to `security@librehr.dev` instead.
+
 3. You should receive an initial acknowledgment within 48 hours.
 4. We coordinate public disclosure with a patch release and CVE identifier where applicable.
 
