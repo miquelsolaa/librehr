@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
+import { expect, test, type Page } from "@playwright/test";
 import { mockRoute } from "./support/mock-api";
 
 test.beforeEach(async ({ page }) => {
@@ -69,9 +70,11 @@ test("shows employment history and an error when it cannot be loaded", async ({
   ).toBeVisible();
 });
 
-test("an administrator can append a period and sees errors without losing inputs", async ({
-  page,
-}) => {
+/** Signs in as an admin and mocks a profile whose history POSTs succeed. */
+async function adminHistory(
+  page: Page,
+  options: { fail?: () => boolean } = {},
+): Promise<{ posted: () => unknown }> {
   await page.addInitScript(() =>
     localStorage.setItem(
       "librehr_auth_session",
@@ -84,43 +87,26 @@ test("an administrator can append a period and sees errors without losing inputs
       }),
     ),
   );
-  let fail = true;
-  let saved = false;
-  let posted: unknown = null;
+  let saved: Record<string, unknown> | null = null;
+  const period = () => ({
+    id: "00000000-0000-0000-0000-000000000099",
+    jobTitle: "Engineer",
+    employmentType: "permanent",
+    workingHoursPerWeek: 40,
+    startDate: "2025-01-01",
+    endDate: null,
+    ...saved,
+  });
   await mockRoute(
     page,
     "**/v1/employees/person-history/employment-history",
     async (route) => {
       if (route.request().method() === "POST") {
-        if (fail) return route.fulfill({ status: 409 });
-        posted = route.request().postDataJSON();
-        saved = true;
-        return route.fulfill({
-          status: 201,
-          json: {
-            id: "00000000-0000-0000-0000-000000000099",
-            jobTitle: "Engineer",
-            employmentType: "permanent",
-            workingHoursPerWeek: 20.5,
-            startDate: "2025-01-01",
-            endDate: null,
-          },
-        });
+        if (options.fail?.()) return route.fulfill({ status: 409 });
+        saved = route.request().postDataJSON() as Record<string, unknown>;
+        return route.fulfill({ status: 201, json: period() });
       }
-      return route.fulfill({
-        json: saved
-          ? [
-              {
-                id: "00000000-0000-0000-0000-000000000099",
-                jobTitle: "Engineer",
-                employmentType: "permanent",
-                workingHoursPerWeek: 20.5,
-                startDate: "2025-01-01",
-                endDate: null,
-              },
-            ]
-          : [],
-      });
+      return route.fulfill({ json: saved ? [period()] : [] });
     },
   );
   await mockRoute(page, "**/v1/employees/person-history", (route) =>
@@ -139,18 +125,29 @@ test("an administrator can append a period and sees errors without losing inputs
     "**/v1/people/person-history/emergency-contacts",
     (route) => route.fulfill({ json: [] }),
   );
+  return { posted: () => saved };
+}
+
+test("an administrator can append a period and sees errors without losing inputs", async ({
+  page,
+}) => {
+  let fail = true;
+  const { posted } = await adminHistory(page, { fail: () => fail });
   await page.goto("/en/people/person-history");
   await page.getByLabel("Job title").last().fill("Engineer");
   await page.getByLabel("Employment type").last().fill("permanent");
   await page.getByLabel("Start date").last().fill("2025-01-01");
-  // Above the 40 h maximum (ET art. 34.1): the browser refuses to submit.
-  const hours = page.getByLabel("Weekly hours (optional, 40 if empty)");
+  // Above the 40 h maximum (ET art. 34.1): refused in the page, not sent.
+  const hours = page.getByLabel("Weekly hours (optional)");
   await hours.fill("41");
   await page.getByRole("button", { name: "Add period" }).click();
-  expect(
-    await hours.evaluate((el: HTMLInputElement) => el.validity.valid),
-  ).toBe(false);
+  await expect(
+    page.getByRole("alert").filter({ hasText: "at most 40" }),
+  ).toBeVisible();
+  await expect(hours).toHaveAttribute("aria-invalid", "true");
+  expect(posted()).toBeNull();
   await hours.fill("20.5");
+  await expect(hours).not.toHaveAttribute("aria-invalid", "true");
   await page.getByRole("button", { name: "Add period" }).click();
   await expect(
     page
@@ -162,7 +159,51 @@ test("an administrator can append a period and sees errors without losing inputs
   await page.getByRole("button", { name: "Add period" }).click();
   await expect(page.getByText("Engineer", { exact: true })).toBeVisible();
   await expect(page.getByText("20.5 h/week")).toBeVisible();
-  expect(posted).toMatchObject({ workingHoursPerWeek: 20.5 });
+  expect(posted()).toMatchObject({ workingHoursPerWeek: 20.5 });
+});
+
+test("weekly hours accept a decimal comma in Catalan", async ({ page }) => {
+  const { posted } = await adminHistory(page);
+  await page.goto("/ca/people/person-history");
+  await page.getByLabel("Lloc de treball").last().fill("Enginyera");
+  await page.getByLabel("Tipus de contracte").last().fill("indefinit");
+  await page.getByLabel("Data d'inici").last().fill("2025-01-01");
+  await page.getByLabel("Hores setmanals (opcional)").fill("37,5");
+  await page.getByRole("button", { name: "Afegeix període" }).click();
+  await expect(page.getByText("37,5 h/setmana")).toBeVisible();
+  expect(posted()).toMatchObject({ workingHoursPerWeek: 37.5 });
+});
+
+test("warns about a backdated start and stays accessible with errors shown", async ({
+  page,
+}) => {
+  await page.clock.setFixedTime(new Date("2026-03-10T12:00:00Z"));
+  await adminHistory(page);
+  await page.goto("/en/people/person-history");
+  const start = page.getByLabel("Start date").last();
+  await start.fill("2026-03-02");
+  await expect(page.getByText(/before the current month/)).toHaveCount(0);
+  await start.fill("2026-02-27");
+  const warning = page.getByText(/before the current month/);
+  await expect(warning).toBeVisible();
+  const warningId = await warning.getAttribute("id");
+  await expect(start).toHaveAttribute("aria-describedby", warningId!);
+  // Non-blocking, but shown next to an hours error for the axe scan.
+  await page.getByLabel("Job title").last().fill("Engineer");
+  await page.getByLabel("Employment type").last().fill("permanent");
+  const hours = page.getByLabel("Weekly hours (optional)");
+  await hours.fill("12.345");
+  await page.getByRole("button", { name: "Add period" }).click();
+  const error = page.getByRole("alert").filter({ hasText: "at most 40" });
+  await expect(error).toBeVisible();
+  await expect(hours).toHaveAttribute(
+    "aria-describedby",
+    new RegExp(`${await error.getAttribute("id")}$`),
+  );
+  const results = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  expect(results.violations).toEqual([]);
 });
 
 test("an empty org chart stays empty and uses the signed-in session", async ({
