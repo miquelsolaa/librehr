@@ -223,6 +223,21 @@ export default function EmployeeDetailPage() {
     };
   }, [id, loadExtraData]);
 
+  // A new employment period changes the job data shown here (#131).
+  const refreshEmployee = React.useCallback(() => {
+    const target = activeEmployeeId.current;
+    const generation = profileGeneration.current;
+    if (!target) return;
+    void apiClient
+      .getEmployee(target)
+      .then((emp) => {
+        if (profileGeneration.current === generation) setEmployee(emp);
+      })
+      .catch(() => {
+        // Keep the profile shown; the history list itself is up to date.
+      });
+  }, []);
+
   const handleRevealDni = async () => {
     if (!employee || revealedDni) return;
     try {
@@ -697,6 +712,19 @@ export default function EmployeeDetailPage() {
 
             <div>
               <span className="text-xs text-muted-foreground block">
+                {tProfile("weeklyHours")}
+              </span>
+              <span className="text-foreground">
+                {typeof employee.workingHoursPerWeek !== "number"
+                  ? "—"
+                  : tProfile("historyHoursValue", {
+                      hours: employee.workingHoursPerWeek,
+                    })}
+              </span>
+            </div>
+
+            <div>
+              <span className="text-xs text-muted-foreground block">
                 {tProfile("startDate")}
               </span>
               <span className="text-foreground">
@@ -720,7 +748,11 @@ export default function EmployeeDetailPage() {
         </div>
       </div>
 
-      <EmploymentHistory key={employee.id} employeeId={employee.id} />
+      <EmploymentHistory
+        key={employee.id}
+        employeeId={employee.id}
+        onPeriodAdded={refreshEmployee}
+      />
 
       {/* Sensitive Statutory Fields (EMP-004) */}
       <div className="rounded-card border border-border bg-surface p-6 space-y-4">

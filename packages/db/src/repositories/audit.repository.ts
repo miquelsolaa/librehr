@@ -73,6 +73,37 @@ export class AuditRepository {
     };
   }
 
+  /**
+   * Writes an entry in another organization than the transaction's tenant,
+   * for actions that span organizations (revoking a user's tokens in all of
+   * them, issue #35). app.current_org is switched to `organizationId` for
+   * this insert only, as migration 0025 does, and set back to the
+   * transaction's own organization afterwards; the row also names the
+   * organization explicitly, so RLS WITH CHECK must agree with it.
+   */
+  async logInOrganization(
+    tx: TenantTx,
+    organizationId: string,
+    data: LogAuditEntryData,
+  ): Promise<void> {
+    await tx`SELECT set_config('app.current_org', ${organizationId}, true)`;
+    await tx`
+      INSERT INTO audit_log (
+        organization_id, actor_id, action, resource_type, resource_id, metadata
+      ) VALUES (
+        ${organizationId},
+        ${data.actorId ?? null},
+        ${data.action},
+        ${data.resourceType},
+        ${data.resourceId ?? null},
+        ${data.metadata ? tx.json(data.metadata as never) : null}
+      )
+    `;
+    // No try/finally: a failed insert aborts the whole transaction, so there
+    // is nothing left to restore and a query here would hide the error.
+    await tx`SELECT set_config('app.current_org', ${tx.__tenantContext.organizationId}, true)`;
+  }
+
   /** Newest entry of the current tenant with this action, if any. */
   async latestByAction(
     tx: TenantTx,
