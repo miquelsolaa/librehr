@@ -68,8 +68,17 @@ describe("max-lines ratchet", () => {
     }
   });
 
-  // The allowlist only shrinks: an entry whose file was deleted or split
-  // under the limit must be removed in the same PR.
+  // The allowlist only shrinks. Lower this ceiling in the same PR that
+  // removes an entry; never raise it.
+  const ALLOWLIST_CEILING = 35;
+
+  it("never grows", () => {
+    expect(MAX_LINES_ALLOWLIST.length).toBeLessThanOrEqual(ALLOWLIST_CEILING);
+    expect(new Set(MAX_LINES_ALLOWLIST).size).toBe(MAX_LINES_ALLOWLIST.length);
+  });
+
+  // An entry whose file was deleted or split under the limit must be removed
+  // in the same PR.
   it.each(MAX_LINES_ALLOWLIST)(
     "allowlisted %s still exists and is still over the limit",
     async (entry) => {

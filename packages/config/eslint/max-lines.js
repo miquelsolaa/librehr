@@ -4,7 +4,8 @@
 // files. Files that were already over the limit when the rule landed are
 // listed in `MAX_LINES_ALLOWLIST` and exempt. The list is a ratchet: it only
 // shrinks. When you split a listed file below the limit, delete its entry in
-// the same PR. Never add a new entry; split the file instead (issue #37).
+// the same PR and lower the ceiling in test/max-lines.test.ts. Never add a
+// new entry; split the file instead (issue #37).
 //
 // Tests, e2e specs, seeds, generated code and migrations are out of scope:
 // their length follows the data or the cases they cover.
