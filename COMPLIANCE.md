@@ -47,15 +47,16 @@ Encryption in transit (TLS 1.2+); at rest for sensitive columns and documents; s
 
 ## 5. Default retention schedule (configurable; confirm with counsel)
 
-| Data                                                                                                  | Default retention                            | Notes                                                      |
-| ----------------------------------------------------------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------- |
-| Time records (`time_events`) and exports                                                              | >= 4 years                                   | Legal minimum; block deletion earlier.                     |
-| Employment contract and core HR record                                                                | Duration of employment + statutory periods   | Check labour, tax, and Social Security limitation periods. |
-| Payslips / payroll documents                                                                          | Per tax and Social Security rules            | Often several years; make configurable.                    |
-| Leave requests and ledger                                                                             | Duration of employment + 4 years (suggested) | Supports disputes and audits.                              |
-| Audit log                                                                                             | >= 3 years (suggested)                       | Security and accountability.                               |
-| Recruitment data (future)                                                                             | 6-12 months unless consent                   | Out of v1.0.                                               |
-| Backups                                                                                               | <= 35 days rolling                           | Document erasure behavior in backups.                      |
+| Data                                                                                                  | Default retention                            | Notes                                                                                                          |
+| ----------------------------------------------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Time records (`time_events`) and exports                                                              | >= 4 years                                   | Legal minimum; block deletion earlier.                                                                         |
+| Employment contract and core HR record                                                                | Duration of employment + statutory periods   | Check labour, tax, and Social Security limitation periods.                                                     |
+| Payslips / payroll documents                                                                          | Per tax and Social Security rules            | Often several years; make configurable.                                                                        |
+| Leave requests and ledger                                                                             | Duration of employment + 4 years (suggested) | Supports disputes and audits.                                                                                  |
+| Audit log                                                                                             | >= 3 years (suggested)                       | Security and accountability.                                                                                   |
+| Recruitment data (future)                                                                             | 6-12 months unless consent                   | Out of v1.0.                                                                                                   |
+| Rate-limit and lockout counters (`rate_limit_buckets`)                                                | Minutes (until the window or lockout ends)   | HMAC digests of IP/account keys: pseudonymised personal data, never clear values. The API sweeps expired rows. |
+| Backups                                                                                               | <= 35 days rolling                           | Document erasure behavior in backups.                                                                          |
 | After retention: anonymize or delete via `retention.enforce` job with dry-run report and audit entry. |
 
 **Known gap (ADM-005 not yet implemented).** The `retention.enforce` worker job

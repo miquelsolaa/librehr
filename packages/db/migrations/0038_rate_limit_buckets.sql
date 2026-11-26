@@ -8,8 +8,10 @@
 -- a window and sets locked_until once the limit is reached; its expires_at is
 -- the later of the window end and locked_until. Every write is a single
 -- INSERT ... ON CONFLICT DO UPDATE (RateLimitRepository), so concurrent
--- replicas never lose a count. The API deletes expired rows opportunistically
--- through the expires_at index.
+-- replicas never lose a count. Times come from the database clock
+-- (statement_timestamp()), so clock skew between API replicas cannot restart
+-- a window or sweep a live lockout. The API deletes expired rows
+-- opportunistically through the expires_at index.
 --
 -- Tenancy / RLS decision: a global system table, like users and sessions,
 -- not a tenant table. The limits run before authentication (sign-in, 2FA
@@ -35,16 +37,30 @@ CREATE TABLE IF NOT EXISTS "rate_limit_buckets" (
   "expires_at" timestamptz NOT NULL,
   CONSTRAINT "rate_limit_buckets_key_digest" CHECK ("key" ~ '^[0-9a-f]{64}$'),
   CONSTRAINT "rate_limit_buckets_count_nonnegative" CHECK ("count" >= 0)
-);
+)
+-- Every request updates its row in place: leave room on each page so most
+-- updates stay HOT (no index churn). The table stays LOGGED, so lockouts
+-- survive a crash or failover.
+WITH (fillfactor = 70);
 
 CREATE INDEX IF NOT EXISTS "rate_limit_buckets_expires_at_idx"
   ON "rate_limit_buckets" ("expires_at");
 
 -- Explicit, in case the default privileges of 0015 belong to another role
--- than the one running this migration.
+-- than the one running this migration (same loop as 0025/0031).
 DO $$
+DECLARE
+  runtime_role text;
 BEGIN
-  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'librehr_app') THEN
-    GRANT SELECT, INSERT, UPDATE, DELETE ON "rate_limit_buckets" TO librehr_app;
-  END IF;
+  FOREACH runtime_role IN ARRAY ARRAY['librehr_app', 'openhr_app'] LOOP
+    IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = runtime_role) THEN
+      EXECUTE format(
+        'GRANT SELECT, INSERT, UPDATE, DELETE ON "rate_limit_buckets" TO %I',
+        runtime_role
+      );
+    END IF;
+  END LOOP;
 END $$;
+
+COMMENT ON TABLE "rate_limit_buckets" IS
+  'Issue #35: shared rate-limit and lockout counters. Global (pre-auth, cross-tenant), no RLS; keys are HMAC digests; rows expire within minutes.';
