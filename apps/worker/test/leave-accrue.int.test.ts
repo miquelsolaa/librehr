@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { getTestDatabase, type TestDatabase } from "@librehr/testing";
 import { runMigrations } from "@librehr/db/migrate";
-import type { Sql } from "@librehr/db";
+import { EmploymentHistoryRepository, withTenant, type Sql } from "@librehr/db";
 import { handleLeaveAccrue } from "../src/queues/leave.accrue.js";
 import { MissingPolicyError } from "../src/lib/job-errors.js";
 
@@ -454,6 +454,33 @@ describe("leave.accrue (LEA-002)", () => {
     });
   });
 
+  it("accrues each side of an hours change at its own ratio, no gap or double day (#131)", async () => {
+    const { orgId, leaveTypeId } = await newOrg();
+    const policyId = await newPolicy(orgId, leaveTypeId, 24, "monthly");
+    await db.sql`UPDATE leave_policies SET full_time_hours_per_week = 40 WHERE id = ${policyId}`;
+    const employee = await newEmployee(orgId, "2024-01-01");
+    await assign(orgId, employee, policyId, "2026-01-01");
+    // The change the API makes: 20 h from 15 February closes the 40 h
+    // period on the 14th.
+    const created = await withTenant(db.sql, { organizationId: orgId }, (tx) =>
+      new EmploymentHistoryRepository().create(tx, employee, {
+        jobTitle: "Role",
+        employmentType: "indefinido",
+        workingHoursPerWeek: 20,
+        startDate: "2026-02-15",
+      }),
+    );
+    expect(created?.closed?.endDate).toBe("2026-02-14");
+
+    await run(orgId, "2026-03-10").result;
+
+    // January 2 + February 2 × (14 × 1 + 14 × 0.5) / 28 = 1.5 + March 1.
+    // One missing or doubled day would move the total by at least 0.03.
+    expect(await amounts(orgId, employee)).toEqual({
+      [`accrual:${policyId}:2026-03`]: 4.5,
+    });
+  });
+
   it("cannot meet unusable contract hours: the column refuses them (#131)", async () => {
     const { orgId } = await newOrg();
     const employee = randomUUID();
@@ -463,13 +490,18 @@ describe("leave.accrue (LEA-002)", () => {
     `;
     // Before 0037 these were stored as text and failed the job for the whole
     // organization (InvalidEmploymentDataError).
-    for (const hours of ["unknown", "37,5", "0", "40.01"]) {
+    for (const [hours, error] of [
+      ["unknown", /invalid input syntax for type numeric/],
+      ["37,5", /invalid input syntax for type numeric/],
+      ["0", /employments_working_hours_range/],
+      ["40.01", /employments_working_hours_range/],
+    ] as const) {
       await expect(
         db.sql`
           INSERT INTO employments (organization_id, employee_id, job_title, start_date, working_hours_per_week)
           VALUES (${orgId}, ${employee}, 'Role', '2024-01-01', ${hours})
         `,
-      ).rejects.toThrow();
+      ).rejects.toThrow(error);
     }
   });
 });

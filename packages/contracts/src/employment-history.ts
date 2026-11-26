@@ -9,7 +9,10 @@ export const WeeklyContractHoursSchema = z
   .number()
   .positive("Must be greater than 0")
   .max(40, "Must be at most 40 hours (ET art. 34.1)")
-  .multipleOf(0.01, "At most two decimals");
+  .multipleOf(0.01, "At most two decimals")
+  .describe(
+    "Weekly contract hours: greater than 0, at most 40 (ET art. 34.1), max two decimals.",
+  );
 
 export const EmploymentPeriodSchema = z.object({
   id: z.guid(),

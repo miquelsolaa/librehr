@@ -129,18 +129,25 @@ describe("employments.working_hours_per_week (0037)", () => {
     expect(row?.h).toBe("40.00");
   });
 
-  it.each([["unknown"], ["0"], ["45"], ["1.000,5"], [""]])(
+  it.each([["unknown"], ["0"], ["45"], ["1.000,5"], [""], ["0.004"]])(
     "aborts on %j without changing anything or naming the row",
     async (bad) => {
-      await seed(["38", bad]);
+      const ids = await seed(["38", bad]);
       const error = await owner
         .begin((tx) => tx.unsafe(MIGRATION_0037))
         .then(
           () => null,
-          (e: unknown) => e,
+          (e: unknown) => e as { message: string; hint?: string },
         );
-      expect(String(error)).toMatch(/1 employment row\(s\)/);
-      expect(String(error)).not.toMatch(/Hours|example\.invalid/);
+      expect(error?.message).toMatch(/^0037: weekly contract hours/);
+      // The value may be quoted; no id, name, email or organization.
+      for (const secret of [...ids, orgId, "example.invalid", "Test"])
+        expect(error?.message).not.toContain(secret);
+      // The hint's query lists exactly the bad row.
+      const query = /with: (SELECT .*); then/.exec(error?.hint ?? "")?.[1];
+      expect(query).toBeDefined();
+      const listed = await db.adminSql.unsafe<{ id: string }[]>(query!);
+      expect(listed.map((r) => r.id)).toEqual([ids[1]]);
       expect(await columnType()).toBe("text");
       const [forced] = await db.adminSql<{ forced: boolean }[]>`
         SELECT relforcerowsecurity AS forced FROM pg_class WHERE relname = 'employments'`;
