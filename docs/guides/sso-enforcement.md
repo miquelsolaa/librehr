@@ -35,9 +35,16 @@ affect members of any other organization.
   the licence lapses. Sessions are not deleted.
 - Accepting an invitation into such an organization still creates the
   membership, then answers `403 SSO_REQUIRED` without a session; the page
-  sends the person to sign in with SSO.
+  sends the person to sign in with SSO, with the invitation's email domain
+  prefilled (only the domain is put in the URL). This holds for break-glass
+  admins too: accepting checks no second factor, so they sign in afterwards
+  through the sign-in page with their TOTP code, which is audited.
 - Personal access tokens that already exist keep working. New ones can be
-  created only from an SSO session or by a break-glass admin.
+  created only from an SSO session or by a break-glass admin. The
+  confirmation shown before requiring SSO says how many unexpired tokens the
+  organization has.
+- An SSO session is always opened in the organization whose identity
+  provider signed the user in; it is never bound to a default membership.
 - Password reset still works; the new password cannot open a session in an
   organization that requires SSO.
 
@@ -57,6 +64,19 @@ Because of this, "Require SSO" can be saved only when:
 
 Saving the setting asks for confirmation in the web app, and the audit entry
 `sso_config.updated` records both `enforceSso` and `previousEnforceSso`.
+
+While an organization requires SSO, the last break-glass admin cannot be
+taken away. These answer `409 SSO_BREAK_GLASS_REQUIRED` and change nothing:
+
+- switching off two-factor authentication (`POST /v1/auth/2fa/disable`) when
+  that leaves any organization the user is an admin of with no break-glass
+  admin;
+- terminating that admin's employee record, whatever the termination date;
+- accepting an invitation with a non-admin role, which would demote them.
+
+Give a second admin two-factor authentication first. The rule applies to
+the stored setting even when enforcement is inactive on the instance, so it
+cannot lock members out once the licence or `SSO_ENABLED` comes back.
 
 ## Operator recovery
 

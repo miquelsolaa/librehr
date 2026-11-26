@@ -101,11 +101,15 @@ test.describe("sign-in when the organization requires SSO", () => {
     await page.getByLabel("Create a password").fill("sample-password");
     await page.getByRole("button", { name: /Accept Invitation/ }).click();
 
-    await expect(page).toHaveURL(/\/en\/sign-in\?sso=required$/);
+    await expect(page).toHaveURL(
+      /\/en\/sign-in\?sso=required&domain=example\.invalid$/,
+    );
     await expect(page.locator("main").getByRole("alert")).toContainText(
       "Your organization signs in with single sign-on",
     );
-    await expect(page.getByLabel("Corporate domain or email")).toBeVisible();
+    await expect(page.getByLabel("Corporate domain or email")).toHaveValue(
+      "example.invalid",
+    );
   });
 });
 
@@ -121,6 +125,7 @@ test.describe("Require SSO setting", () => {
     allowedDomains: ["example.invalid"],
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
+    activePersonalAccessTokens: 3,
   };
 
   test.beforeEach(async ({ page }) => {
@@ -175,6 +180,9 @@ test.describe("Require SSO setting", () => {
     const dialog = page.getByRole("dialog");
     await expect(dialog).toContainText(
       "Members without SSO will be signed out",
+    );
+    await expect(dialog).toContainText(
+      "3 active personal access tokens keep working.",
     );
     await expectNoAxeViolations(page);
     expect(saved).toHaveLength(0);

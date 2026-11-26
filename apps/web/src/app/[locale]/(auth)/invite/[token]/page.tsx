@@ -85,7 +85,11 @@ export default function AcceptInvitePage() {
         "code" in err &&
         err.code === SSO_REQUIRED_CODE
       ) {
-        router.push(`/${locale}/sign-in?sso=required`);
+        // Only the domain travels in the URL, never the full address.
+        const domain = invite?.email.split("@")[1]?.trim() ?? "";
+        const query = new URLSearchParams({ sso: "required" });
+        if (domain) query.set("domain", domain);
+        router.push(`/${locale}/sign-in?${query.toString()}`);
         return;
       }
       setError(t("acceptFailed"));

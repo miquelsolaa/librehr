@@ -14,8 +14,13 @@ import {
   EmployeeRepository,
   AuditRepository,
   AuditorAccessRepository,
+  SsoRepository,
 } from "@librehr/db";
-import { AppError, UnauthorizedError } from "../errors/index.js";
+import {
+  AppError,
+  SsoBreakGlassRequiredError,
+  UnauthorizedError,
+} from "../errors/index.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireInteractiveSession } from "../middleware/pat-scopes.js";
 import { can } from "../policies/can.js";
@@ -55,6 +60,7 @@ export function createInvitationRoutes(
   const employeeRepo = new EmployeeRepository();
   const auditRepo = new AuditRepository();
   const auditorRepo = new AuditorAccessRepository();
+  const ssoRepo = new SsoRepository();
 
   router.post("/invitations", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
@@ -367,6 +373,16 @@ export function createInvitationRoutes(
             code: "INVALID_INVITATION",
             detail: "This invitation is invalid, expired, or already used.",
           });
+        }
+
+        // AUTH-004: accepting a non-admin invitation demotes an existing
+        // admin; it must not remove the last break-glass admin of an
+        // organization that requires SSO. Throwing rolls the acceptance back.
+        if (
+          invite.role !== "admin" &&
+          (await ssoRepo.isLastBreakGlassAdmin(tx, user.id))
+        ) {
+          throw new SsoBreakGlassRequiredError();
         }
 
         // 4. Create Membership. The access end date follows the role: set

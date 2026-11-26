@@ -134,6 +134,18 @@ export class IdentityRepository {
     };
   }
 
+  /**
+   * AUTH-004: whether the session's user is the last break-glass admin (an
+   * active admin with TOTP) of any organization that requires SSO, across
+   * all their memberships (migration 0041). Keyed by the session token.
+   */
+  async isLastBreakGlassAdmin(sql: Sql, token: string): Promise<boolean> {
+    const rows = await sql<{ last: boolean }[]>`
+      SELECT librehr_auth_last_break_glass(${hashBearerToken(token)}) AS last
+    `;
+    return rows[0]?.last ?? false;
+  }
+
   async session(sql: Sql, token: string): Promise<SessionLookup | null> {
     const rows = await sql<SessionLookup[]>`
       SELECT user_id AS "userId", email, name,

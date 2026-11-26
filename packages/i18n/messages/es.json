@@ -401,7 +401,7 @@
     "ssoEnforceNeedsEnabled": "Activa el inicio de sesión único antes de hacerlo obligatorio.",
     "ssoEnforceBreakGlassError": "Para hacer obligatorio el SSO, al menos un administrador necesita la verificación en dos pasos, así alguien podrá entrar si el proveedor de identidad falla.",
     "ssoEnforceConfirmTitle": "¿Hacer obligatorio el inicio de sesión único?",
-    "ssoEnforceConfirmBody": "Se cerrará la sesión de las personas que no usen SSO. Los administradores con verificación en dos pasos podrán seguir entrando con contraseña. Los tokens de acceso personal existentes siguen funcionando.",
+    "ssoEnforceConfirmBody": "Se cerrará la sesión de las personas que no usen SSO. Los administradores con verificación en dos pasos podrán seguir entrando con contraseña. {count, plural, =0 {No hay tokens de acceso personal activos en esta organización.} one {# token de acceso personal activo sigue funcionando.} other {# tokens de acceso personal activos siguen funcionando.}}",
     "ssoEnforceConfirm": "Hacer obligatorio el SSO",
     "saveSsoButton": "Guardar Configuración SSO",
     "ssoSavedSuccess": "Configuración SSO guardada correctamente.",
@@ -459,7 +459,8 @@
     "twoFactorDisableInvalidCode": "El código no es válido. Revisa tu aplicación autenticadora e inténtalo de nuevo.",
     "twoFactorDisableSessionExpired": "Tu sesión ha caducado. Vuelve a iniciar sesión para cambiar la configuración de seguridad.",
     "twoFactorDisableForbidden": "No tienes permiso para cambiar la autenticación en dos pasos de esta cuenta.",
-    "twoFactorDisableRateLimited": "Demasiados intentos. Espera unos minutos e inténtalo de nuevo."
+    "twoFactorDisableRateLimited": "Demasiados intentos. Espera unos minutos e inténtalo de nuevo.",
+    "twoFactorDisableBreakGlass": "Eres el único administrador con verificación en dos pasos de una organización que exige inicio de sesión único. Actívala antes para otro administrador."
   },
   "setup": {
     "title": "Bienvenido a LibreHR",

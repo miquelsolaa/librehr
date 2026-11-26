@@ -1,5 +1,8 @@
 import type { ZodError } from "zod";
-import { SSO_REQUIRED_CODE } from "@librehr/contracts";
+import {
+  SSO_BREAK_GLASS_REQUIRED_CODE,
+  SSO_REQUIRED_CODE,
+} from "@librehr/contracts";
 import {
   AppError,
   type AppErrorOptions,
@@ -96,6 +99,21 @@ export class ConflictError extends AppError {
       title: "Conflict",
       code: options.code ?? "CONFLICT",
       detail: options.detail ?? "The request conflicts with the current state",
+    });
+  }
+}
+
+/**
+ * AUTH-004: the change would leave an organization that requires SSO without
+ * a break-glass admin (an active admin with two-factor authentication), so
+ * nobody could sign in with a password if the identity provider fails.
+ */
+export class SsoBreakGlassRequiredError extends ConflictError {
+  constructor() {
+    super({
+      code: SSO_BREAK_GLASS_REQUIRED_CODE,
+      detail:
+        "An organization that requires single sign-on needs at least one administrator with two-factor authentication",
     });
   }
 }

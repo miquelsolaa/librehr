@@ -69,17 +69,24 @@ function registerSsoRoutes(router: Hono, context: EeExtensionContext): void {
       );
     }
 
-    const config = await withTenant(
+    const found = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        return ssoRepo.getConfig(tx);
+        const row = await ssoRepo.getConfig(tx);
+        if (!row) return null;
+        return {
+          config: row,
+          activePersonalAccessTokens:
+            await ssoRepo.countActivePersonalAccessTokens(tx),
+        };
       },
     );
 
-    if (!config) {
+    if (!found) {
       return c.json(null);
     }
+    const { config, activePersonalAccessTokens } = found;
 
     return c.json({
       id: config.id,
@@ -92,6 +99,7 @@ function registerSsoRoutes(router: Hono, context: EeExtensionContext): void {
       allowedDomains: config.allowedDomains,
       createdAt: config.createdAt.toISOString(),
       updatedAt: config.updatedAt.toISOString(),
+      activePersonalAccessTokens,
     });
   });
 
@@ -183,7 +191,11 @@ function registerSsoRoutes(router: Hono, context: EeExtensionContext): void {
             allowedDomains: parsed.data.allowedDomains,
           },
         });
-        return result;
+        return {
+          ...result,
+          activePersonalAccessTokens:
+            await ssoRepo.countActivePersonalAccessTokens(tx),
+        };
       },
     );
 
@@ -198,6 +210,7 @@ function registerSsoRoutes(router: Hono, context: EeExtensionContext): void {
       allowedDomains: saved.allowedDomains,
       createdAt: saved.createdAt.toISOString(),
       updatedAt: saved.updatedAt.toISOString(),
+      activePersonalAccessTokens: saved.activePersonalAccessTokens,
     });
   });
 

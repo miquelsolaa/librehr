@@ -503,6 +503,36 @@ describe.skipIf(!hasBusinessEdition)(
           previousEnforceSso: true,
         });
       });
+
+      it("counts this organization's unexpired personal access tokens for the confirmation", async () => {
+        const pat = (
+          org: string,
+          user: string,
+          name: string,
+          expired: boolean,
+        ) =>
+          withTenant(
+            db.adminSql,
+            { organizationId: org },
+            (tx) => tx`INSERT INTO personal_access_tokens
+              (organization_id, user_id, name, token_hash, prefix, scopes, expires_at)
+              VALUES (${org}, ${user}, ${name}, ${name.padEnd(64, "0")},
+                'lhr_test', '["read"]'::jsonb,
+                ${expired ? new Date(Date.now() - 60_000) : null})`,
+          );
+        await pat(orgId, admin.id, "active", false);
+        await pat(orgId, employee.id, "expired", true);
+        await pat(otherOrg, otherAdmin, "other-org", false);
+
+        const res = await app.request("/v1/sso/config", {
+          headers: { Authorization: `Bearer token_${admin.id}` },
+        });
+        expect(res.status).toBe(200);
+        expect(
+          ((await res.json()) as { activePersonalAccessTokens: number })
+            .activePersonalAccessTokens,
+        ).toBe(1);
+      });
     });
 
     it("builds the redirect URI from configuration, not the Host header", async () => {

@@ -169,6 +169,12 @@ export const SsoConfigSchema = z.object({
   allowedDomains: z.array(z.string()),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
+  /**
+   * AUTH-004: unexpired personal access tokens in the organization. "Require
+   * SSO" leaves them working, so the confirmation shows how many there are.
+   * Returned by the Business edition routes only.
+   */
+  activePersonalAccessTokens: z.number().int().nonnegative().optional(),
 });
 export type SsoConfig = z.infer<typeof SsoConfigSchema>;
 

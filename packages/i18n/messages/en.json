@@ -401,7 +401,7 @@
     "ssoEnforceNeedsEnabled": "Turn on single sign-on before requiring it.",
     "ssoEnforceBreakGlassError": "At least one administrator needs two-factor authentication before SSO can be required, so someone can still sign in if the identity provider fails.",
     "ssoEnforceConfirmTitle": "Require single sign-on?",
-    "ssoEnforceConfirmBody": "Members without SSO will be signed out. Admins with two-factor authentication can still sign in with a password. Existing personal access tokens keep working.",
+    "ssoEnforceConfirmBody": "Members without SSO will be signed out. Admins with two-factor authentication can still sign in with a password. {count, plural, =0 {No personal access tokens are active in this organization.} one {# active personal access token keeps working.} other {# active personal access tokens keep working.}}",
     "ssoEnforceConfirm": "Require SSO",
     "saveSsoButton": "Save SSO Configuration",
     "ssoSavedSuccess": "SSO configuration saved successfully.",
@@ -459,7 +459,8 @@
     "twoFactorDisableInvalidCode": "That code is not valid. Check your authenticator app and try again.",
     "twoFactorDisableSessionExpired": "Your session has expired. Sign in again to change your security settings.",
     "twoFactorDisableForbidden": "You are not allowed to change two-factor authentication for this account.",
-    "twoFactorDisableRateLimited": "Too many attempts. Wait a few minutes and try again."
+    "twoFactorDisableRateLimited": "Too many attempts. Wait a few minutes and try again.",
+    "twoFactorDisableBreakGlass": "You are the only administrator with two-factor authentication in an organization that requires single sign-on. Turn it on for another administrator first."
   },
   "setup": {
     "title": "Welcome to LibreHR",

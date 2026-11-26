@@ -106,7 +106,11 @@ export class SsoRepository {
    * librehr_auth_password_access and librehr_auth_membership (0021, 0041);
    * memberships and employees are read under the tenant's RLS.
    */
-  async countBreakGlassAdmins(tx: TenantTx): Promise<number> {
+  async countBreakGlassAdmins(
+    tx: TenantTx,
+    options: { excludeUserId?: string | undefined } = {},
+  ): Promise<number> {
+    const exclude = options.excludeUserId ?? null;
     const rows = await tx<{ count: number }[]>`
       SELECT count(*)::int AS count
       FROM memberships m
@@ -114,6 +118,7 @@ export class SsoRepository {
       JOIN organizations o ON o.id = m.organization_id
       WHERE m.role = 'admin'
         AND u.two_factor_enabled
+        AND (${exclude}::uuid IS NULL OR m.user_id <> ${exclude}::uuid)
         AND NOT EXISTS (
           SELECT 1
           FROM employees e
@@ -125,6 +130,37 @@ export class SsoRepository {
               OR e.termination_date <= (now() AT TIME ZONE o.timezone)::date
             )
         )
+    `;
+    return rows[0]?.count ?? 0;
+  }
+
+  /**
+   * AUTH-004: whether taking `userId` out of the break-glass admins (demoting
+   * or terminating them) would leave the current organization requiring SSO
+   * with none, so nobody could sign in with a password if the identity
+   * provider fails. False when the organization does not require SSO or
+   * `userId` is not one of its break-glass admins.
+   */
+  async isLastBreakGlassAdmin(tx: TenantTx, userId: string): Promise<boolean> {
+    const config = await this.getConfig(tx);
+    if (!config?.enabled || !config.enforceSso) return false;
+    const all = await this.countBreakGlassAdmins(tx);
+    if (all === 0) return false;
+    return (
+      (await this.countBreakGlassAdmins(tx, { excludeUserId: userId })) === 0
+    );
+  }
+
+  /**
+   * AUTH-004: unexpired personal access tokens of the current organization
+   * (read under its RLS). "Require SSO" does not revoke them, so the admin
+   * sees how many stay usable before turning it on.
+   */
+  async countActivePersonalAccessTokens(tx: TenantTx): Promise<number> {
+    const rows = await tx<{ count: number }[]>`
+      SELECT count(*)::int AS count
+      FROM personal_access_tokens
+      WHERE expires_at IS NULL OR expires_at > now()
     `;
     return rows[0]?.count ?? 0;
   }

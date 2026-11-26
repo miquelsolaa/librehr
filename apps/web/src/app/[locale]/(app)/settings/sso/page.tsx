@@ -105,7 +105,14 @@ export default function SsoSettingsPage() {
     setErrorMessage(null);
     setSuccessMessage(null);
     try {
-      setConfig(await getApiClient().disableSsoConfig());
+      const disabled = await getApiClient().disableSsoConfig();
+      // Keep the token count (AUTH-004) if this response has none.
+      setConfig((prev) => ({
+        ...disabled,
+        activePersonalAccessTokens:
+          disabled.activePersonalAccessTokens ??
+          prev?.activePersonalAccessTokens,
+      }));
       setSuccessMessage(t("ssoDisabledSuccess"));
     } catch {
       setErrorMessage(t("ssoDisableError"));
@@ -492,7 +499,9 @@ export default function SsoSettingsPage() {
               open={confirmEnforce}
               onOpenChange={setConfirmEnforce}
               title={t("ssoEnforceConfirmTitle")}
-              description={t("ssoEnforceConfirmBody")}
+              description={t("ssoEnforceConfirmBody", {
+                count: config?.activePersonalAccessTokens ?? 0,
+              })}
               confirmText={t("ssoEnforceConfirm")}
               cancelText={tCommon("cancel")}
               isLoading={isSaving}

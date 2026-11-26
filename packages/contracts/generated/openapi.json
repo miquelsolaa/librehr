@@ -5975,6 +5975,10 @@
                     "updatedAt": {
                       "type": "string",
                       "format": "date-time"
+                    },
+                    "activePersonalAccessTokens": {
+                      "type": "integer",
+                      "minimum": 0
                     }
                   },
                   "required": [
@@ -6214,6 +6218,10 @@
                     "updatedAt": {
                       "type": "string",
                       "format": "date-time"
+                    },
+                    "activePersonalAccessTokens": {
+                      "type": "integer",
+                      "minimum": 0
                     }
                   },
                   "required": [
@@ -6511,6 +6519,10 @@
                     "updatedAt": {
                       "type": "string",
                       "format": "date-time"
+                    },
+                    "activePersonalAccessTokens": {
+                      "type": "integer",
+                      "minimum": 0
                     }
                   },
                   "required": [
@@ -8553,6 +8565,62 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "SSO_BREAK_GLASS_REQUIRED: the employee is the last admin with two-factor authentication of an organization that requires single sign-on (AUTH-004)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
           }
         }
       }
@@ -10024,6 +10092,62 @@
           },
           "403": {
             "description": "SSO_REQUIRED: the invitation was accepted, but the organization requires single sign-on, so no password session is opened (AUTH-004)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "default": "about:blank"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "traceId": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "message"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "SSO_BREAK_GLASS_REQUIRED: accepting would demote the last admin with two-factor authentication of an organization that requires single sign-on; nothing is accepted (AUTH-004)",
             "content": {
               "application/problem+json": {
                 "schema": {

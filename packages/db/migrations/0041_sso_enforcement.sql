@@ -22,6 +22,7 @@
 -- cleanup migration may drop them.
 --
 -- Rollback (manual, before any 'sso' session exists):
+--   DROP FUNCTION librehr_auth_last_break_glass(text);
 --   DROP FUNCTION librehr_auth_session_v2(text);
 --   DROP FUNCTION librehr_auth_session_bind_org(text, boolean);
 --   DROP FUNCTION librehr_auth_password_access(uuid, uuid);
@@ -229,11 +230,71 @@ BEGIN
 END
 $$;
 
--- 5. Privileges: the secret-keyed functions are callable by the runtime role
+-- 5. Whether the session's user is the last break-glass admin of an
+-- organization that requires SSO: an active admin there with TOTP, and no
+-- other active admin there has TOTP. Turning TOTP off would then leave that
+-- organization with no password way in if its identity provider fails, so
+-- the API refuses it (409 SSO_BREAK_GLASS_REQUIRED). Keyed by the session
+-- token, since a user's memberships in other organizations are not readable
+-- under the tenant's RLS. Same break-glass rule as librehr_auth_password_access
+-- and SsoRepository.countBreakGlassAdmins; terminated or expired memberships
+-- do not count (librehr_auth_membership).
+CREATE OR REPLACE FUNCTION librehr_auth_last_break_glass(p_token text)
+RETURNS boolean
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $$
+DECLARE
+  previous text := current_setting('librehr.identity_lookup', true);
+  v_user uuid;
+  v_last boolean;
+BEGIN
+  SELECT s.user_id INTO v_user
+  FROM public.sessions s
+  WHERE s.token = p_token AND s.expires_at > now();
+  IF v_user IS NULL THEN
+    RETURN false;
+  END IF;
+
+  PERFORM set_config('librehr.identity_lookup', 'on', true);
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.memberships m
+    JOIN public.users u ON u.id = m.user_id
+    JOIN public.sso_configurations c
+      ON c.organization_id = m.organization_id AND c.enabled AND c.enforce_sso
+    WHERE m.user_id = v_user
+      AND u.two_factor_enabled
+      AND EXISTS (
+        SELECT 1 FROM public.librehr_auth_membership(v_user, m.organization_id) a
+        WHERE a.role = 'admin'
+      )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM public.memberships o
+        JOIN public.users ou ON ou.id = o.user_id
+        WHERE o.organization_id = m.organization_id
+          AND o.user_id <> v_user
+          AND o.role = 'admin'
+          AND ou.two_factor_enabled
+          AND EXISTS (
+            SELECT 1
+            FROM public.librehr_auth_membership(o.user_id, o.organization_id) b
+            WHERE b.role = 'admin'
+          )
+      )
+  ) INTO v_last;
+  PERFORM set_config('librehr.identity_lookup', coalesce(previous, ''), true);
+  RETURN v_last;
+END
+$$;
+
+-- 6. Privileges: the secret-keyed functions are callable by the runtime role
 -- only; the bare-id helper by nobody but its owner.
 REVOKE ALL ON FUNCTION librehr_auth_password_access(uuid, uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION librehr_auth_session_bind_org(text, boolean) FROM PUBLIC;
 REVOKE ALL ON FUNCTION librehr_auth_session_v2(text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION librehr_auth_last_break_glass(text) FROM PUBLIC;
 
 DO $$
 BEGIN
@@ -241,7 +302,8 @@ BEGIN
     REVOKE EXECUTE ON FUNCTION librehr_auth_password_access(uuid, uuid) FROM librehr_app;
     GRANT EXECUTE ON FUNCTION
       librehr_auth_session_bind_org(text, boolean),
-      librehr_auth_session_v2(text)
+      librehr_auth_session_v2(text),
+      librehr_auth_last_break_glass(text)
     TO librehr_app;
   END IF;
 END $$;

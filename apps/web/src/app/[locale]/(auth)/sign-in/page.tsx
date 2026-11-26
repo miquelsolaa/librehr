@@ -60,11 +60,14 @@ export default function SignInPage() {
     [tAuth],
   );
 
-  // The invitation page sends here with ?sso=required after accepting into
-  // an organization that requires SSO (no email in the URL).
+  // The invitation page sends here with ?sso=required&domain=<domain> after
+  // accepting into an organization that requires SSO (the domain only, never
+  // the full email address).
   React.useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("sso") === "required")
-      showSsoRequired("");
+    const query = new URLSearchParams(window.location.search);
+    if (query.get("sso") !== "required") return;
+    const domain = query.get("domain")?.trim() ?? "";
+    showSsoRequired(domain ? `@${domain}` : "");
   }, [showSsoRequired]);
 
   const handleSubmit = async (e: React.FormEvent) => {
