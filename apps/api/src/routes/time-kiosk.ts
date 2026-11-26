@@ -123,21 +123,26 @@ export function createTimeKioskRoutes(
           },
         );
 
-      // The per-IP lockout counts failures after the check (it stops one
-      // device spraying many identifiers); checking it first keeps a locked
-      // IP from using up identifiers' attempts. Check-then-record: a
-      // concurrent burst can exceed it (bounded by the per-IP rate limit and
-      // the per-identifier reservation); see issue #178.
-      const ipLockedMs = await lockout.lockedFor([ipKey]);
-      if (ipLockedMs > 0) return locked(ipLockedMs);
-      // The per-identifier limit is reserved atomically before the PIN is
-      // checked (issue #35): at most maxFailuresPerIdentifier PINs are ever
-      // checked per window, whatever the concurrency across replicas.
+      // Both limits are reserved atomically before the PIN is checked
+      // (issues #35, #178), so whatever the concurrency across replicas, at
+      // most maxFailuresPerIdentifier PINs per identifier and
+      // maxFailuresPerIp PINs per IP are checked per window. The IP goes
+      // first so a locked IP cannot use up identifiers' attempts.
+      const ipReservation = await lockout.reserve(
+        ipKey,
+        kiosk.maxFailuresPerIp,
+      );
+      if (!ipReservation.allowed) return locked(ipReservation.lockedMs);
       const reservation = await lockout.reserve(
         identifierKey,
         kiosk.maxFailuresPerIdentifier,
       );
-      if (!reservation.allowed) return locked(reservation.lockedMs);
+      if (!reservation.allowed) {
+        // No PIN was checked: give the IP its attempt back, so one locked
+        // identifier cannot lock the whole kiosk.
+        await lockout.release(ipKey, kiosk.maxFailuresPerIp, ipReservation);
+        return locked(reservation.lockedMs);
+      }
 
       const found = await withTenant(
         sql,
@@ -150,15 +155,17 @@ export function createTimeKioskRoutes(
       if (!found?.pinHash) await verifyKioskPin(pin, await decoy(), null);
 
       if (!found || !check.valid) {
-        // The identifier's failure was counted by its reservation.
-        await lockout.recordFailure([
-          { key: ipKey, limit: kiosk.maxFailuresPerIp },
-        ]);
+        // Both reservations already count this failure.
         return c.json(genericInvalid(), 401, {
           "Content-Type": "application/problem+json",
         });
       }
+      // A correct PIN: clear the identifier's failures, and give back the
+      // IP's attempt without clearing the site's other failures, so a shared
+      // kiosk's clock-ins never use its failure budget. Done before the clock
+      // event, so a later conflict or error does not leave it counted.
       await lockout.reset(identifierKey);
+      await lockout.release(ipKey, kiosk.maxFailuresPerIp, ipReservation);
 
       const upgradedHash = check.needsRehash ? await hashKioskPin(pin) : null;
 

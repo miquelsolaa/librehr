@@ -376,6 +376,42 @@ describe("time-record integrity and kiosk (TIM-002, TIM-003, TIM-010)", () => {
     );
   });
 
+  it("does not count correct PINs against the IP, even the one reaching the limit (#178)", async () => {
+    await db.sql`UPDATE employees SET pin_hash = ${await hashKioskPin("2468")}, pin_salt = NULL WHERE id = ${org.manager.employeeId}`;
+    const kiosk = build({ maxFailuresPerIp: 3 });
+    const attempt = async (identifier: string, pin: string) =>
+      (await kioskClock(kiosk, org.admin, identifier, pin, "10.0.7.1")).status;
+    expect([
+      await attempt("nobody-a@example.test", "0000"),
+      await attempt("nobody-b@example.test", "0000"),
+    ]).toEqual([401, 401]);
+    // The first of these reaches the limit and lifts the lock it set.
+    for (let i = 0; i < 5; i++) {
+      expect([401, 429]).not.toContain(
+        await attempt(org.manager.email, "2468"),
+      );
+    }
+    // Still two failures counted: the third locks the IP.
+    expect(await attempt("nobody-c@example.test", "0000")).toBe(401);
+    expect(await attempt("nobody-d@example.test", "0000")).toBe(429);
+  });
+
+  it("does not count a locked identifier's refusals against the IP (#178)", async () => {
+    await db.sql`UPDATE employees SET pin_hash = ${await hashKioskPin("1357")}, pin_salt = NULL WHERE id = ${org.auditor.employeeId}`;
+    const kiosk = build({ maxFailuresPerIdentifier: 2, maxFailuresPerIp: 3 });
+    const attempt = async (identifier: string, ip: string) =>
+      (await kioskClock(kiosk, org.admin, identifier, "0000", ip)).status;
+    expect([
+      await attempt(org.auditor.email, "10.0.8.1"),
+      await attempt(org.auditor.email, "10.0.8.2"),
+    ]).toEqual([401, 401]);
+    for (let i = 0; i < 10; i++) {
+      expect(await attempt(org.auditor.email, "10.0.8.9")).toBe(429);
+    }
+    // No PIN was checked from 10.0.8.9, so its budget is untouched.
+    expect(await attempt("nobody-e@example.test", "10.0.8.9")).toBe(401);
+  });
+
   it("clears an identifier's failures after a correct PIN", async () => {
     await db.sql`UPDATE employees SET pin_hash = ${await hashKioskPin("2468")}, pin_salt = NULL WHERE id = ${org.manager.employeeId}`;
     const prefix = crypto.randomUUID();

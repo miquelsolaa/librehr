@@ -384,6 +384,21 @@ describe("FailureLockout", () => {
     expect((await lockout.reserve("u1", 3)).allowed).toBe(false);
   });
 
+  it("releases a reservation in its own namespace, lifting the lock it set (#178)", async () => {
+    const store = memoryRateLimitStore();
+    const pins = new FailureLockout({ name: "kiosk.pin", store, ...policy });
+    const tfa = new FailureLockout({ name: "auth.2fa", store, ...policy });
+    const setter = await pins.reserve("ip", 1);
+    expect(setter).toEqual({ allowed: true, lockToken: expect.any(String) });
+    await tfa.release("ip", 1, setter);
+    expect(await pins.lockedFor(["ip"])).toBe(300_000);
+    // A refused reservation carries no token: it cannot lift the lock.
+    await pins.release("ip", 1, { allowed: false, lockedMs: 1 });
+    expect(await pins.lockedFor(["ip"])).toBe(300_000);
+    await pins.release("ip", 1, setter);
+    expect(await pins.lockedFor(["ip"])).toBe(0);
+  });
+
   it("clears failures on reset", async () => {
     const store = memoryRateLimitStore();
     const lockout = new FailureLockout({ name: "auth.2fa", store, ...policy });

@@ -44,8 +44,9 @@ export class FailureLockout {
   /**
    * Counts an attempt atomically before it is verified, refused while the
    * key is locked, so at most `limit` attempts per window are ever checked,
-   * whatever the concurrency and the number of replicas. Call `reset` when
-   * the attempt succeeds; a failed attempt needs nothing more.
+   * whatever the concurrency and the number of replicas. On success call
+   * `reset` (a per-identifier key) or `release` (a shared budget, such as a
+   * kiosk's IP); a failed attempt needs nothing more.
    */
   reserve(key: string, limit: number): Promise<AttemptReservation> {
     return this.options.store.reserveAttempt(this.key(key), {
@@ -53,6 +54,23 @@ export class FailureLockout {
       windowMs: this.options.failureWindowMs,
       lockoutMs: this.options.lockoutMs,
     });
+  }
+
+  /**
+   * Gives back an allowed reservation that was not a failure, without
+   * clearing the failures others recorded on the key. If that reservation
+   * set the key's lock, the lock is lifted; any other lock is kept.
+   */
+  release(
+    key: string,
+    limit: number,
+    reservation: AttemptReservation,
+  ): Promise<void> {
+    const token =
+      reservation.allowed && reservation.lockToken !== undefined
+        ? reservation.lockToken
+        : undefined;
+    return this.options.store.release(this.key(key), { limit }, token);
   }
 
   /** Clears the failures of a key after a successful attempt. */
