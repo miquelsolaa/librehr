@@ -178,3 +178,44 @@ export function allocationOn(
     overAllocated: totalPercent > FULL_ALLOCATION_PERCENT,
   };
 }
+
+export interface AllocationPeak extends AllocationCheck {
+  /** First date of the period on which the total reaches its peak. */
+  date: string;
+}
+
+/**
+ * Highest total allocation on any day of a period, so a write can warn when
+ * a new or changed membership pushes some day above 100%. Totals only rise
+ * on a start date, so the peak is on the period's start or on a start date
+ * inside it.
+ *
+ * @example
+ * peakAllocationDuring(
+ *   [
+ *     { departmentId: "d1", groupId: null, allocationPercent: 60, startDate: "2026-01-01", endDate: null },
+ *     { departmentId: null, groupId: "g1", allocationPercent: 50, startDate: "2026-03-01", endDate: null },
+ *   ],
+ *   { startDate: "2026-01-01", endDate: null },
+ * ); // => { date: "2026-03-01", totalPercent: 110, overAllocated: true }
+ */
+export function peakAllocationDuring(
+  memberships: readonly EmployeeMembership[],
+  period: MembershipPeriod,
+): AllocationPeak {
+  const candidates = [
+    period.startDate,
+    ...memberships
+      .map((m) => m.startDate)
+      .filter((d) => isMembershipActiveOn(period, d)),
+  ].sort(compareDates);
+  let peak: AllocationPeak = {
+    date: period.startDate,
+    ...allocationOn(memberships, period.startDate),
+  };
+  for (const date of candidates) {
+    const check = allocationOn(memberships, date);
+    if (check.totalPercent > peak.totalPercent) peak = { date, ...check };
+  }
+  return peak;
+}

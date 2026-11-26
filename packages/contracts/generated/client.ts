@@ -45,6 +45,19 @@ import type {
 } from '../src/employees.js';
 import type { EmploymentPeriod, CreateEmploymentPeriod } from '../src/employment-history.js';
 import type {
+  OrgGroup,
+  ListOrgGroupsQuery,
+  CreateOrgGroupRequest,
+  UpdateOrgGroupRequest,
+} from '../src/org-groups.js';
+import type {
+  EmployeeMembership,
+  EmployeeMembershipWriteResponse,
+  CreateEmployeeMembershipRequest,
+  UpdateEmployeeMembershipRequest,
+  EndEmployeeMembershipRequest,
+} from '../src/memberships.js';
+import type {
   CreateInvitationRequest,
   InvitationResponse,
   InvitationDetails,
@@ -332,6 +345,42 @@ export class LibreHrApiClient {
 
   async updateDepartmentCoverage(id: string, data: DepartmentCoverage): Promise<DepartmentCoverage> {
     return this.request<DepartmentCoverage>('/v1/org/departments/' + encodeURIComponent(id) + '/coverage', { method: 'PUT', body: JSON.stringify(data) });
+  }
+
+  async listOrgGroups(query: ListOrgGroupsQuery = {}): Promise<OrgGroup[]> {
+    const params = new URLSearchParams();
+    if (query.kind) params.set('kind', query.kind);
+    if (query.includeArchived) params.set('includeArchived', query.includeArchived);
+    const qs = params.toString();
+    return this.request<OrgGroup[]>('/v1/org/groups' + (qs ? '?' + qs : ''));
+  }
+
+  async createOrgGroup(data: CreateOrgGroupRequest): Promise<OrgGroup> {
+    return this.request<OrgGroup>('/v1/org/groups', { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  async updateOrgGroup(id: string, data: UpdateOrgGroupRequest): Promise<OrgGroup> {
+    return this.request<OrgGroup>('/v1/org/groups/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(data) });
+  }
+
+  async archiveOrgGroup(id: string): Promise<OrgGroup> {
+    return this.request<OrgGroup>('/v1/org/groups/' + encodeURIComponent(id) + '/archive', { method: 'POST' });
+  }
+
+  async listEmployeeMemberships(employeeId: string): Promise<EmployeeMembership[]> {
+    return this.request<EmployeeMembership[]>('/v1/employees/' + encodeURIComponent(employeeId) + '/memberships');
+  }
+
+  async createEmployeeMembership(employeeId: string, data: CreateEmployeeMembershipRequest): Promise<EmployeeMembershipWriteResponse> {
+    return this.request<EmployeeMembershipWriteResponse>('/v1/employees/' + encodeURIComponent(employeeId) + '/memberships', { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  async updateEmployeeMembership(employeeId: string, membershipId: string, data: UpdateEmployeeMembershipRequest): Promise<EmployeeMembershipWriteResponse> {
+    return this.request<EmployeeMembershipWriteResponse>('/v1/employees/' + encodeURIComponent(employeeId) + '/memberships/' + encodeURIComponent(membershipId), { method: 'PATCH', body: JSON.stringify(data) });
+  }
+
+  async endEmployeeMembership(employeeId: string, membershipId: string, data: EndEmployeeMembershipRequest): Promise<EmployeeMembership> {
+    return this.request<EmployeeMembership>('/v1/employees/' + encodeURIComponent(employeeId) + '/memberships/' + encodeURIComponent(membershipId) + '/end', { method: 'POST', body: JSON.stringify(data) });
   }
 
   async listLegalEntities(): Promise<LegalEntityOption[]> {

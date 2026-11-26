@@ -8,6 +8,7 @@ import {
   isMembershipActiveOn,
   isSameMembershipTarget,
   membershipPeriodsOverlap,
+  peakAllocationDuring,
   type EmployeeMembership,
   type MembershipPeriod,
 } from "../src/org/memberships.js";
@@ -305,5 +306,59 @@ describe("memberships (ORG-007)", () => {
         { numRuns: 200 },
       );
     });
+  });
+});
+
+describe("peakAllocationDuring", () => {
+  it("finds the day a later start pushes the total above 100%", () => {
+    const rows = [
+      dept("d1", "2026-01-01", null, 60),
+      group("g1", "2026-03-01", "2026-03-31", 50),
+    ];
+    expect(
+      peakAllocationDuring(rows, { startDate: "2026-01-01", endDate: null }),
+    ).toEqual({ date: "2026-03-01", totalPercent: 110, overAllocated: true });
+  });
+
+  it("ignores starts outside the period and reports its first day otherwise", () => {
+    const rows = [
+      dept("d1", "2026-01-01", null, 40),
+      group("g1", "2027-01-01", null, 80),
+    ];
+    expect(
+      peakAllocationDuring(rows, {
+        startDate: "2026-06-01",
+        endDate: "2026-12-31",
+      }),
+    ).toEqual({ date: "2026-06-01", totalPercent: 40, overAllocated: false });
+  });
+
+  it("is at least the total of every day in the period", () => {
+    const day = fc
+      .integer({ min: 0, max: 400 })
+      .map((n) => addDays("2026-01-01", n));
+    const row = fc
+      .tuple(
+        day,
+        fc.integer({ min: 0, max: 60 }),
+        fc.integer({ min: 1, max: 100 }),
+      )
+      .map(([start, length, pct]) =>
+        dept("d", start, addDays(start, length), pct),
+      );
+    fc.assert(
+      fc.property(fc.array(row, { maxLength: 6 }), day, (rows, start) => {
+        const end = addDays(start, 30);
+        const peak = peakAllocationDuring(rows, {
+          startDate: start,
+          endDate: end,
+        });
+        for (const date of datesInRange(start, end)) {
+          expect(peak.totalPercent).toBeGreaterThanOrEqual(
+            allocationOn(rows, date).totalPercent,
+          );
+        }
+      }),
+    );
   });
 });

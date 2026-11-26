@@ -23,6 +23,8 @@ import { createOrgRoutes } from "./routes/org.js";
 import { createEmployeeRoutes } from "./routes/employees.js";
 import { createEmploymentHistoryRoutes } from "./routes/employment-history.js";
 import { createDepartmentRoutes } from "./routes/departments.js";
+import { createOrgGroupRoutes } from "./routes/org-groups.js";
+import { createMembershipRoutes } from "./routes/memberships.js";
 import { createLocationRoutes } from "./routes/locations.js";
 import { createInvitationRoutes } from "./routes/invitations.js";
 import { createSetupRoutes } from "./routes/setup.js";
@@ -281,6 +283,8 @@ export function createApp(deps: AppDependencies) {
   );
   app.route("/v1", createEmploymentHistoryRoutes(deps.sql));
   app.route("/v1", createDepartmentRoutes(deps.sql));
+  app.route("/v1", createOrgGroupRoutes(deps.sql));
+  app.route("/v1", createMembershipRoutes(deps.sql));
   app.route("/v1", createLocationRoutes(deps.sql));
   app.route(
     "/v1",

@@ -30,7 +30,10 @@ export interface CreateOrgGroupData {
 }
 
 /** Fields left undefined are kept; null clears an optional field. */
-export type UpdateOrgGroupData = Partial<Omit<CreateOrgGroupData, "kind">>;
+export type UpdateOrgGroupData = {
+  [K in keyof Omit<CreateOrgGroupData, "kind">]?:
+    CreateOrgGroupData[K] | undefined;
+};
 
 const columns = (tx: TenantTx) => tx`
   id, organization_id as "organizationId", kind, name, description,
