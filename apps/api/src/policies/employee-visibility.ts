@@ -95,6 +95,12 @@ export function toDirectoryEntry(row: EmployeeListRow): EmployeeListItem {
     locationName: row.locationName,
     jobTitle: row.jobTitle,
     managerName: row.managerName,
+    secondaryMemberships: row.secondaryMemberships.map((m) => ({
+      type: m.type,
+      id: m.id,
+      name: m.name,
+      allocationPercent: m.allocationPercent,
+    })),
   };
 }
 

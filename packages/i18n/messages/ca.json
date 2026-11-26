@@ -255,7 +255,14 @@
       "pinActive": "El PIN de quiosc està configurat i actiu per fitxar des de tauleta.",
       "pinHint": "Permet que aquesta persona empleada fitxi l'entrada i la sortida a les tauletes compartides del centre amb un PIN numèric segur.",
       "homeAddress": "Domicili"
-    }
+    },
+    "allGroups": "Tots els projectes i àrees",
+    "projects": "Projectes",
+    "areas": "Àrees",
+    "primaryOnly": "Només departament principal",
+    "secondaryMemberships": "Altres pertinences",
+    "membershipWithAllocation": "{name} ({percent} %)",
+    "groupsError": "No s’han pogut carregar els filtres de projectes i àrees."
   },
   "scheduleSettings": {
     "title": "Horaris de treball",
@@ -604,7 +611,14 @@
     "unassignedBalance": "Sense assignar",
     "unassignedHelp": "Moviments registrats abans que els saldos es portessin per tipus d'absència. Poden cobrir una sol·licitud d'un tipus amb política fins que RH els assigni a un.",
     "unknownLeaveType": "Tipus d'absència",
-    "daysTaken": "dies gaudits"
+    "daysTaken": "dies gaudits",
+    "calendarFilterLabel": "Mostra les absències de",
+    "calendarFilterEveryone": "Tothom",
+    "calendarFilterDepartments": "Departaments",
+    "calendarFilterProjects": "Projectes",
+    "calendarFilterAreas": "Àrees",
+    "calendarFiltersError": "No s’han pogut carregar els filtres.",
+    "calendarFiltersRetry": "Torna-ho a provar"
   },
   "approvals": {
     "title": "Aprovacions",

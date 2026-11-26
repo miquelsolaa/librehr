@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
-import type { TeamAbsence } from "@librehr/contracts";
+import type { Department, OrgGroup, TeamAbsence } from "@librehr/contracts";
 
 export default function TeamCalendarPage() {
   const params = useParams();
@@ -25,6 +25,26 @@ export default function TeamCalendarPage() {
   const [absences, setAbsences] = React.useState<TeamAbsence[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [currentMonth, setCurrentMonth] = React.useState(new Date());
+  // ORG-007: "department:<id>" or "group:<id>"; empty shows everyone.
+  const [filter, setFilter] = React.useState("");
+  const [departments, setDepartments] = React.useState<Department[]>([]);
+  const [groups, setGroups] = React.useState<OrgGroup[]>([]);
+  const [filtersError, setFiltersError] = React.useState(false);
+
+  const fetchFilters = React.useCallback(() => {
+    if (!getStoredSession()) return;
+    setFiltersError(false);
+    const client = getApiClient();
+    void Promise.all([client.listDepartments(), client.listOrgGroups()])
+      .then(([depts, list]) => {
+        setDepartments(depts);
+        setGroups(list);
+      })
+      .catch(() => setFiltersError(true));
+  }, []);
+  React.useEffect(() => {
+    fetchFilters();
+  }, [fetchFilters]);
 
   const fetchAbsences = React.useCallback(async () => {
     const session = getStoredSession();
@@ -51,9 +71,12 @@ export default function TeamCalendarPage() {
         .slice(0, 10);
 
       const client = getApiClient();
+      const [kind, id] = filter.split(":");
       const res = await client.listTeamAbsences({
         startDate: startOfMonth,
         endDate: endOfMonth,
+        ...(kind === "department" && id ? { departmentId: id } : {}),
+        ...(kind === "group" && id ? { groupId: id } : {}),
       });
 
       setAbsences(res);
@@ -62,7 +85,7 @@ export default function TeamCalendarPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentMonth]);
+  }, [currentMonth, filter]);
 
   React.useEffect(() => {
     void fetchAbsences();
@@ -126,6 +149,63 @@ export default function TeamCalendarPage() {
           </div>
         }
       />
+
+      <div className="flex flex-wrap items-center gap-3">
+        <label
+          htmlFor="calendar-filter"
+          className="text-sm font-medium text-foreground"
+        >
+          {t("calendarFilterLabel")}
+        </label>
+        <select
+          id="calendar-filter"
+          className="h-10 rounded-input border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        >
+          <option value="">{t("calendarFilterEveryone")}</option>
+          {departments.length > 0 && (
+            <optgroup label={t("calendarFilterDepartments")}>
+              {departments.map((d) => (
+                <option key={d.id} value={`department:${d.id}`}>
+                  {d.name}
+                </option>
+              ))}
+            </optgroup>
+          )}
+          {(["project", "area"] as const).map((kind) => {
+            const ofKind = groups.filter((g) => g.kind === kind);
+            return ofKind.length === 0 ? null : (
+              <optgroup
+                key={kind}
+                label={
+                  kind === "project"
+                    ? t("calendarFilterProjects")
+                    : t("calendarFilterAreas")
+                }
+              >
+                {ofKind.map((g) => (
+                  <option key={g.id} value={`group:${g.id}`}>
+                    {g.name}
+                  </option>
+                ))}
+              </optgroup>
+            );
+          })}
+        </select>
+        {filtersError && (
+          <span role="status" className="text-sm text-muted-foreground">
+            {t("calendarFiltersError")}{" "}
+            <button
+              type="button"
+              className="text-primary underline"
+              onClick={fetchFilters}
+            >
+              {t("calendarFiltersRetry")}
+            </button>
+          </span>
+        )}
+      </div>
 
       <div className="rounded-card border border-border bg-surface p-6 space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-border">

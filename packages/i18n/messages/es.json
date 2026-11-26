@@ -255,7 +255,14 @@
       "pinActive": "El PIN de quiosco está configurado y activo para fichar desde tablet.",
       "pinHint": "Permite que esta persona empleada fiche la entrada y la salida en las tablets compartidas del centro con un PIN numérico seguro.",
       "homeAddress": "Domicilio"
-    }
+    },
+    "allGroups": "Todos los proyectos y áreas",
+    "projects": "Proyectos",
+    "areas": "Áreas",
+    "primaryOnly": "Solo departamento principal",
+    "secondaryMemberships": "Otras pertenencias",
+    "membershipWithAllocation": "{name} ({percent} %)",
+    "groupsError": "No se han podido cargar los filtros de proyectos y áreas."
   },
   "scheduleSettings": {
     "title": "Horarios de trabajo",
@@ -604,7 +611,14 @@
     "unassignedBalance": "Sin asignar",
     "unassignedHelp": "Movimientos registrados antes de que los saldos se llevaran por tipo de ausencia. Pueden cubrir una solicitud de un tipo con política hasta que RR. HH. los asigne a uno.",
     "unknownLeaveType": "Tipo de ausencia",
-    "daysTaken": "días disfrutados"
+    "daysTaken": "días disfrutados",
+    "calendarFilterLabel": "Mostrar ausencias de",
+    "calendarFilterEveryone": "Todo el mundo",
+    "calendarFilterDepartments": "Departamentos",
+    "calendarFilterProjects": "Proyectos",
+    "calendarFilterAreas": "Áreas",
+    "calendarFiltersError": "No se han podido cargar los filtros.",
+    "calendarFiltersRetry": "Reintentar"
   },
   "approvals": {
     "title": "Aprobaciones",

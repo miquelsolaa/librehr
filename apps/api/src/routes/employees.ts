@@ -29,6 +29,7 @@ import {
 import { z } from "zod";
 import { ForbiddenError, NotFoundError } from "../errors/index.js";
 import { IdParamSchema, parseParams } from "../lib/validate.js";
+import { businessToday } from "../lib/business-date.js";
 import { clientIp } from "../lib/client-ip.js";
 import { requireAuth } from "../middleware/auth.js";
 import { can, permissionScope } from "../policies/can.js";
@@ -85,7 +86,13 @@ export function createEmployeeRoutes(
             detail: "You do not have permission to view employees",
           });
         }
-        return employeeRepo.list(tx, filters);
+        // ORG-007: memberships are read on today's business date, and the
+        // department filter matches secondary memberships unless asked not to.
+        return employeeRepo.list(tx, {
+          ...filters,
+          membership: filters.membership ?? "any",
+          asOf: await businessToday(c, tx),
+        });
       },
     );
 

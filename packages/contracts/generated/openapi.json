@@ -665,6 +665,41 @@
               "string",
               "null"
             ]
+          },
+          "secondaryMemberships": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "department",
+                    "project",
+                    "area"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "allocationPercent": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "type",
+                "id",
+                "name",
+                "allocationPercent"
+              ]
+            }
           }
         },
         "required": [
@@ -677,7 +712,8 @@
           "departmentName",
           "locationName",
           "jobTitle",
-          "managerName"
+          "managerName",
+          "secondaryMemberships"
         ]
       },
       "ListEmployeesResponse": {
@@ -734,6 +770,41 @@
                     "string",
                     "null"
                   ]
+                },
+                "secondaryMemberships": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "department",
+                          "project",
+                          "area"
+                        ]
+                      },
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "allocationPercent": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "id",
+                      "name",
+                      "allocationPercent"
+                    ]
+                  }
                 }
               },
               "required": [
@@ -746,7 +817,8 @@
                 "departmentName",
                 "locationName",
                 "jobTitle",
-                "managerName"
+                "managerName",
+                "secondaryMemberships"
               ]
             }
           },
@@ -7816,7 +7888,88 @@
     },
     "/v1/employees": {
       "get": {
-        "summary": "List employees with search, filter, and pagination",
+        "summary": "List employees with search, filter, and pagination. The department filter matches the primary department or, unless membership=primary, a secondary membership active today (ORG-007)",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "search",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": false,
+            "name": "departmentId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": false,
+            "name": "groupId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "primary",
+                "any"
+              ]
+            },
+            "required": false,
+            "name": "membership",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": false,
+            "name": "locationId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "on_leave",
+                "terminated"
+              ]
+            },
+            "required": false,
+            "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "required": false,
+            "name": "pageSize",
+            "in": "query"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Paginated list of employees",
@@ -7876,6 +8029,41 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "secondaryMemberships": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "type": {
+                                  "type": "string",
+                                  "enum": [
+                                    "department",
+                                    "project",
+                                    "area"
+                                  ]
+                                },
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "allocationPercent": {
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "type",
+                                "id",
+                                "name",
+                                "allocationPercent"
+                              ]
+                            }
                           }
                         },
                         "required": [
@@ -7888,7 +8076,8 @@
                           "departmentName",
                           "locationName",
                           "jobTitle",
-                          "managerName"
+                          "managerName",
+                          "secondaryMemberships"
                         ]
                       }
                     },
@@ -15919,7 +16108,45 @@
     },
     "/v1/calendar/team-absences": {
       "get": {
-        "summary": "Get team absence schedule respecting GDPR privacy rules",
+        "summary": "Get team absence schedule respecting GDPR privacy rules. departmentId and groupId also match secondary memberships that overlap the absence (ORG-007)",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": false,
+            "name": "startDate",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": false,
+            "name": "endDate",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": false,
+            "name": "departmentId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": false,
+            "name": "groupId",
+            "in": "query"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Team absence schedule",

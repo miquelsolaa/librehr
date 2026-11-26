@@ -255,7 +255,14 @@
       "pinActive": "The kiosk PIN is configured and active for tablet clocking.",
       "pinHint": "Allow this employee to clock in and out on shared on-site tablets with a secure numeric PIN.",
       "homeAddress": "Home address"
-    }
+    },
+    "allGroups": "All projects and areas",
+    "projects": "Projects",
+    "areas": "Areas",
+    "primaryOnly": "Primary department only",
+    "secondaryMemberships": "Other memberships",
+    "membershipWithAllocation": "{name} ({percent}%)",
+    "groupsError": "Project and area filters could not be loaded."
   },
   "scheduleSettings": {
     "title": "Work schedules",
@@ -604,7 +611,14 @@
     "unassignedBalance": "Unassigned",
     "unassignedHelp": "Entries recorded before balances were kept per leave type. They can still cover a request for a leave type with a policy until HR assigns them to one.",
     "unknownLeaveType": "Leave type",
-    "daysTaken": "days taken"
+    "daysTaken": "days taken",
+    "calendarFilterLabel": "Show absences for",
+    "calendarFilterEveryone": "Everyone",
+    "calendarFilterDepartments": "Departments",
+    "calendarFilterProjects": "Projects",
+    "calendarFilterAreas": "Areas",
+    "calendarFiltersError": "Filters could not be loaded.",
+    "calendarFiltersRetry": "Try again"
   },
   "approvals": {
     "title": "Approvals",
