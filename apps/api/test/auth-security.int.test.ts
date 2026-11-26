@@ -144,6 +144,30 @@ describe("Enterprise Auth & Security Hardening API (AUTH-003, AUTH-004, DOC-007)
     }
   });
 
+  // Issue #35: second-factor codes are bounded at the boundary.
+  it("rejects an oversized second-factor code with 400 on sign-in and /2fa/verify", async () => {
+    const oversized = "a".repeat(65);
+    const post = (path: string, body: unknown) =>
+      app.request(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+    const signIn = await post("/v1/auth/sign-in", {
+      email: "admin@librehr.local",
+      password: "Password123!",
+      twoFactorCode: oversized,
+    });
+    expect(signIn.status).toBe(400);
+
+    const verify = await post("/v1/auth/2fa/verify", {
+      challengeToken: "any-challenge",
+      code: oversized,
+    });
+    expect(verify.status).toBe(400);
+  });
+
   it("POST /v1/auth/2fa/setup requires authentication", async () => {
     const res = await app.request("/v1/auth/2fa/setup", {
       method: "POST",
@@ -177,6 +201,10 @@ describe("Enterprise Auth & Security Hardening API (AUTH-003, AUTH-004, DOC-007)
     expect(body.secret).toBeDefined();
     expect(body.qrUri).toContain("otpauth://totp/");
     expect(body.recoveryCodes).toHaveLength(8);
+    // Issue #35: 64 bits per code.
+    for (const code of body.recoveryCodes) {
+      expect(code).toMatch(/^[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}$/);
+    }
   });
 
   it("POST /v1/auth/2fa/enable rejects a client-supplied secret with 400", async () => {

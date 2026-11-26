@@ -41,6 +41,7 @@ describe("auth and session hardening", () => {
   const bruteUser = "c9000000-0000-0000-0000-000000000007";
   const bruteSecret = generateTotpSecret();
   const burnUser = "c9000000-0000-0000-0000-000000000008";
+  // A code in the pre-#35 32-bit format: stored codes like it keep working.
   const burnCode = "a1b2-c3d4";
   /** A valid code for the next 30-second step (accepted with +1 drift). */
   const nextStepCode = (secret: string) =>
@@ -354,7 +355,9 @@ describe("auth and session hardening", () => {
       secret = setup.secret;
       expect(setup.recoveryCodes).toHaveLength(8);
       for (const code of setup.recoveryCodes) {
-        expect(code).toMatch(/^[0-9a-f]{4}-[0-9a-f]{4}$/);
+        expect(code).toMatch(
+          /^[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}$/,
+        );
       }
       const [pendingRow] = await db.adminSql<{ pending: string | null }[]>`
         SELECT two_factor_pending_secret AS pending FROM users WHERE id = ${twoFactor}`;
