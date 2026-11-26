@@ -408,10 +408,12 @@ Follow these steps to set up a local development environment.
    Neither role is a superuser or has `BYPASSRLS`. Existing installs: see
    [docs/guides/upgrading.md](docs/guides/upgrading.md).
 
-4. **Start local infrastructure (Postgres 17, Mailpit, MinIO):**
+4. **Start local infrastructure (Postgres 18, Mailpit, MinIO):**
 
-   Ports are bound to `127.0.0.1` only. If you have an existing Postgres 16
-   dev volume, remove it first (`docker compose -f infra/compose/docker-compose.dev.yml down -v`).
+   Ports are bound to `127.0.0.1` only. Postgres 18 uses a new dev volume
+   (`librehr_dev_pgdata18`), so an older dev database is not carried over:
+   run `pnpm db:migrate` and `pnpm db:seed` again. You can delete the old
+   volume with `docker volume ls` and `docker volume rm <name>`.
 
    ```sh
    pnpm infra:up

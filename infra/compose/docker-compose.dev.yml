@@ -2,7 +2,7 @@
 # these well-known dev credentials are not reachable from the network.
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     restart: unless-stopped
     ports:
       - "127.0.0.1:5432:5432"
@@ -13,8 +13,11 @@ services:
       POSTGRES_PASSWORD: librehr_dev_password
       LIBREHR_OWNER_PASSWORD: librehr_dev_password
       LIBREHR_APP_PASSWORD: librehr_dev_password
+    # Postgres 18 keeps its data in /var/lib/postgresql/18/docker and declares
+    # the volume at /var/lib/postgresql: mount there, not at .../data. A new
+    # volume name, so an old Postgres 16 dev volume is never mounted here.
     volumes:
-      - librehr_dev_pgdata:/var/lib/postgresql/data
+      - librehr_dev_pgdata18:/var/lib/postgresql
       - ../postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U librehr -d librehr"]
@@ -46,5 +49,5 @@ services:
       - librehr_dev_miniodata:/data
 
 volumes:
-  librehr_dev_pgdata:
+  librehr_dev_pgdata18:
   librehr_dev_miniodata:
