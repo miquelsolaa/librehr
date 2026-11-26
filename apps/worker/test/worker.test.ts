@@ -6,6 +6,7 @@ import {
   type MailSender,
 } from "../src/queues/email.send.js";
 import { handleTimeCloseDay } from "../src/queues/time.close-day.js";
+import { handleTimeExport } from "../src/queues/time.export.js";
 import { handleRetentionEnforce } from "../src/queues/retention.enforce.js";
 import { handleAuditVerifyChain } from "../src/queues/audit.verify-chain.js";
 
@@ -64,6 +65,31 @@ describe("Worker Queue Handlers", () => {
     expect(mailer.sentMessages[0]?.html).toContain(
       "Reset your LibreHR password",
     );
+  });
+
+  it("rejects a time.export payload with anything but two ids (no PII in jobs)", async () => {
+    const logger = { info: vi.fn(), error: vi.fn() };
+    const deps = { sql: {} as never, logger } as never;
+    await expect(
+      handleTimeExport(
+        { id: "j-export", data: { organizationId: "org-1", exportId: "x" } },
+        deps,
+      ),
+    ).rejects.toThrow(/invalid time.export payload/);
+    await expect(
+      handleTimeExport(
+        {
+          id: "j-export",
+          data: {
+            organizationId: "a4500000-0000-4000-8000-00000000000a",
+            exportId: "b4500000-0000-4000-8000-00000000000b",
+            email: "someone@example.invalid",
+          },
+        },
+        deps,
+      ),
+    ).rejects.toThrow(/invalid time.export payload/);
+    expect(logger.info).not.toHaveBeenCalled();
   });
 
   it("rejects an invalid time.close-day payload before touching the database", async () => {

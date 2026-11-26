@@ -99,6 +99,13 @@ services:
       SCHEDULER_TICK_CRON: ${SCHEDULER_TICK_CRON:-*/15 * * * *}
       SCHEDULER_GRACE_MINUTES: ${SCHEDULER_GRACE_MINUTES:-30}
       SCHEDULER_JOBS: ${SCHEDULER_JOBS:-}
+      # Background time exports (TIM-006): the worker writes the files into
+      # the api's storage volume, and the api serves the downloads from it.
+      STORAGE_LOCAL_DIR: /data/storage
+      TIME_EXPORT_FILE_TTL_HOURS: ${TIME_EXPORT_FILE_TTL_HOURS:-168}
+      TIME_EXPORT_MAX_FILE_MB: ${TIME_EXPORT_MAX_FILE_MB:-100}
+    volumes:
+      - librehr_storage:/data/storage
     # Healthcheck is defined in infra/docker/worker.Dockerfile.
 
   web:

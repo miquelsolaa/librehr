@@ -23,6 +23,18 @@ import {
   SchedulerTickPayloadSchema,
   schedulerTickSingletonKey,
 } from "../queues/scheduler.tick.js";
+import {
+  TimeExportPayloadSchema,
+  timeExportSingletonKey,
+} from "../queues/time.export.js";
+import {
+  TimeExportDispatchPayloadSchema,
+  timeExportDispatchSingletonKey,
+} from "../queues/time.export-dispatch.js";
+import {
+  TimeExportCleanupPayloadSchema,
+  timeExportCleanupSingletonKey,
+} from "../queues/time.export-cleanup.js";
 import { parsePayload } from "./payload.js";
 
 export { AuditVerifyChainPayloadSchema };
@@ -57,6 +69,18 @@ export const QUEUES = {
   "scheduler.tick": {
     schema: SchedulerTickPayloadSchema,
     key: schedulerTickSingletonKey,
+  },
+  "time.export": {
+    schema: TimeExportPayloadSchema,
+    key: timeExportSingletonKey,
+  },
+  "time.export.dispatch": {
+    schema: TimeExportDispatchPayloadSchema,
+    key: timeExportDispatchSingletonKey,
+  },
+  "time.export.cleanup": {
+    schema: TimeExportCleanupPayloadSchema,
+    key: timeExportCleanupSingletonKey,
   },
 } as const;
 

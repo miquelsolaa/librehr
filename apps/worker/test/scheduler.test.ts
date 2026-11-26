@@ -8,7 +8,10 @@ const orgs: Array<{ organizationId: string; timeZone: string }> = [];
 const locationZones = new Map<string, string[]>();
 const tenantCalls: string[] = [];
 
-vi.mock("@librehr/db", () => ({
+// Partial: the queue registry also loads the time-export queue, whose
+// modules need the real repositories at import time.
+vi.mock("@librehr/db", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
   SchedulerRepository: class {
     async listOrganizations() {
       return orgs;

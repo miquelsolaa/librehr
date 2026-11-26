@@ -386,6 +386,9 @@ importers:
       '@librehr/emails':
         specifier: workspace:*
         version: link:../../packages/emails
+      '@librehr/time-export':
+        specifier: workspace:*
+        version: link:../../packages/time-export
       '@react-email/render':
         specifier: ^2.0.0
         version: 2.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
