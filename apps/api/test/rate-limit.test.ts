@@ -1,7 +1,10 @@
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { createRateLimiter } from "../src/middleware/rate-limit.js";
-import { FailureLockout } from "../src/lib/failure-lockout.js";
+import {
+  FailureLockout,
+  PROVISIONAL_LOCK_MS,
+} from "../src/lib/failure-lockout.js";
 import {
   createPostgresRateLimitStore,
   rateLimitKeyHasher,
@@ -397,6 +400,30 @@ describe("FailureLockout", () => {
     expect(await pins.lockedFor(["ip"])).toBe(300_000);
     await pins.release("ip", 1, setter);
     expect(await pins.lockedFor(["ip"])).toBe(0);
+  });
+
+  it("keeps the Retry-After of a fresh, maybe provisional, lock short (#178)", () => {
+    const lockout = new FailureLockout({
+      name: "kiosk.pin",
+      store: memoryRateLimitStore(),
+      ...policy,
+    });
+    // Just set: at most PROVISIONAL_LOCK_MS.
+    expect(lockout.retryAfterMs(300_000)).toBe(PROVISIONAL_LOCK_MS);
+    expect(lockout.retryAfterMs(299_000)).toBe(PROVISIONAL_LOCK_MS - 1_000);
+    // Older than PROVISIONAL_LOCK_MS: the full remaining time.
+    expect(lockout.retryAfterMs(300_000 - PROVISIONAL_LOCK_MS)).toBe(
+      300_000 - PROVISIONAL_LOCK_MS,
+    );
+    expect(lockout.retryAfterMs(60_000)).toBe(60_000);
+    // A lock shorter than the grace is never lengthened.
+    const brief = new FailureLockout({
+      name: "kiosk.pin",
+      store: memoryRateLimitStore(),
+      failureWindowMs: 60_000,
+      lockoutMs: 1_000,
+    });
+    expect(brief.retryAfterMs(800)).toBe(800);
   });
 
   it("clears failures on reset", async () => {

@@ -412,6 +412,20 @@ describe("time-record integrity and kiosk (TIM-002, TIM-003, TIM-010)", () => {
     expect(await attempt("nobody-e@example.test", "10.0.8.9")).toBe(401);
   });
 
+  it("sends a short Retry-After while an IP lock is fresh (#178)", async () => {
+    const kiosk = build({ maxFailuresPerIp: 1 });
+    const attempt = (identifier: string) =>
+      kioskClock(kiosk, org.admin, identifier, "0000", "10.0.9.1");
+    expect((await attempt("nobody-f@example.test")).status).toBe(401);
+    // The lock was set milliseconds ago: it may be a correct PIN's, about to
+    // be lifted, so a client is not told to wait the whole 15 minutes.
+    const refused = await attempt("nobody-g@example.test");
+    expect(refused.status).toBe(429);
+    const retryAfter = Number(refused.headers.get("Retry-After"));
+    expect(retryAfter).toBeGreaterThanOrEqual(1);
+    expect(retryAfter).toBeLessThanOrEqual(3);
+  });
+
   it("clears an identifier's failures after a correct PIN", async () => {
     await db.sql`UPDATE employees SET pin_hash = ${await hashKioskPin("2468")}, pin_salt = NULL WHERE id = ${org.manager.employeeId}`;
     const prefix = crypto.randomUUID();

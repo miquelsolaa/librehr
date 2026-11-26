@@ -108,6 +108,8 @@ export function createTimeKioskRoutes(
       const identifierKey = `id:${user.organizationId}:${identifier.trim().toLowerCase()}`;
       const ipKey = `ip:${user.organizationId}:${rateLimitAddress(clientIp(c, trustProxy))}`;
 
+      // A fresh lock may be one a correct PIN in flight set and is about to
+      // lift (release below), so its refusals get a short Retry-After.
       const locked = (lockedMs: number) =>
         c.json(
           createProblemDetails({
@@ -119,7 +121,10 @@ export function createTimeKioskRoutes(
           429,
           {
             "Content-Type": "application/problem+json",
-            "Retry-After": Math.max(1, Math.ceil(lockedMs / 1000)).toString(),
+            "Retry-After": Math.max(
+              1,
+              Math.ceil(lockout.retryAfterMs(lockedMs) / 1000),
+            ).toString(),
           },
         );
 
