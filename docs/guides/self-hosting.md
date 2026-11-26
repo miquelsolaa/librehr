@@ -173,7 +173,7 @@ There is no `/api` prefix: the proxy forwards `/v1/*` to the API unchanged.
 ## 2. Production Security Checklist
 
 - [ ] Enforce HTTPS using Caddy or your reverse proxy (`infra/compose/Caddyfile.example`). Session cookies are `Secure` when `NODE_ENV=production`, so the web app and API must be served over HTTPS from the same site (the bundled Caddyfile serves both from one origin).
-- [ ] Run a single API instance. Rate limits for sign-in and two-factor are kept in memory per process; several replicas would each keep their own counters and multiply the limit.
+- [ ] If you run several API replicas, give them all the same `SESSION_SECRET`. Rate limits and lockouts (sign-in, two-factor, kiosk PINs, setup, exports) are kept in Postgres (`rate_limit_buckets`) and shared by every replica; their keys are HMACs under a key derived from `SESSION_SECRET`, so replicas with different secrets would count separately, and rotating the secret resets every counter and lockout. Keep the replicas' clocks synchronised (NTP): windows use each replica's clock. If Postgres is unreachable, rate-limited routes such as sign-in fail closed with a 500 rather than skip the limit.
 - [ ] Set `TRUST_PROXY` to the exact number of reverse proxies in front of the API (`1` with the bundled Caddy).
 - [ ] Ensure database port 5432 is not exposed to the public internet (bind to internal Docker network only).
 - [ ] Run `pnpm doctor` or verify RLS is forced on all tenant tables.

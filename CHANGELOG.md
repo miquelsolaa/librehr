@@ -5,6 +5,10 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ## [Unreleased]
 
+### Security
+
+- **Shared rate limits and lockouts (#35):** the request rate limits (sign-in, two-factor, setup wizard, kiosk, time exports) and the failure lockouts (two-factor codes, kiosk PINs) move from per-process memory to Postgres (`rate_limit_buckets`, migration 0038), so several API replicas share one budget per client. Limits and windows are unchanged. Bucket keys are HMAC-SHA256 digests under a key derived from `SESSION_SECRET`; no IP, email or identifier is stored. Replicas must share the same `SESSION_SECRET`.
+
 ### Leave balances per leave type
 
 - **Per-type balances (`LEA-005`, #117):** `leave_ledger` records the leave type of every entry (migration 0033, with a backfill of usage, reversal and accrual entries). `GET /v1/leave/balance` returns `byType`, and the time-off and home pages show one balance per leave type. Untyped legacy entries form an "Unassigned" balance. Only leave types with a policy limit requests.

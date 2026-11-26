@@ -15,6 +15,7 @@ import {
 } from "@librehr/core";
 import type { ProblemDetails } from "@librehr/contracts";
 import { createApp } from "../src/app.js";
+import { isolatedRateLimitStore } from "./support/rate-limit.js";
 import { BetterAuthAdapter } from "../src/adapters/better-auth.js";
 import { hashPassword } from "../src/lib/password.js";
 
@@ -498,6 +499,7 @@ describe("auth and session hardening", () => {
       // IP and no IP-based bucket is ever hit.
       const proxied = createApp({
         sql: db.appSql,
+        rateLimitStore: isolatedRateLimitStore(db.appSql),
         authPort: new BetterAuthAdapter(db.appSql),
         sessionSecret,
         trustProxy: 1,
@@ -620,6 +622,8 @@ describe("auth and session hardening", () => {
     it("does not reset the sign-in limit when X-Forwarded-For is spoofed (TRUST_PROXY=0)", async () => {
       const limited = createApp({
         sql: db.appSql,
+        // Fresh counters: earlier tests signed in from the same address.
+        rateLimitStore: isolatedRateLimitStore(db.appSql),
         authPort: new BetterAuthAdapter(db.appSql),
         sessionSecret,
       });

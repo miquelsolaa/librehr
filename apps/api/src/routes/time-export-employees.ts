@@ -8,6 +8,7 @@ import {
 import { withTenant, AuditRepository, EmployeeRepository } from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
 import { createRateLimiter } from "../middleware/rate-limit.js";
+import type { RateLimitStore } from "../lib/rate-limit-store.js";
 import { employeeIdsInScope, permissionScope } from "../policies/can.js";
 import { resolvePolicyContext } from "../policies/context.js";
 import { ForbiddenError } from "../errors/index.js";
@@ -26,6 +27,8 @@ export const EXPORT_EMPLOYEE_COLLATOR = new Intl.Collator("es", {
 });
 
 export interface TimeExportEmployeesRouteOptions {
+  /** Shared store of the rate limit (issue #35). */
+  rateLimitStore: RateLimitStore;
   /** TRUST_PROXY: reverse-proxy hops whose X-Forwarded-For entries are trusted. */
   trustProxy?: number | undefined;
   /** Overrides the default of 60 requests per minute (tests). */
@@ -42,10 +45,12 @@ const currentUser = (c: { get: unknown }) =>
  */
 export function createTimeExportEmployeesRoutes(
   sql: Sql,
-  options: TimeExportEmployeesRouteOptions = {},
+  options: TimeExportEmployeesRouteOptions,
 ) {
   const router = new Hono();
   const pickerLimit = createRateLimiter({
+    name: "time.export-employees.user",
+    store: options.rateLimitStore,
     ...(options.rateLimit ?? DEFAULT_RATE_LIMIT),
     trustProxy: options.trustProxy,
     account: (c) => currentUser(c).id,

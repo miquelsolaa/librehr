@@ -3,6 +3,7 @@ import type { Sql } from "postgres";
 import { getTestDatabase, type TestDatabase } from "@librehr/testing";
 import { runMigrations } from "@librehr/db/migrate";
 import { createApp } from "../src/app.js";
+import { memoryRateLimitStore } from "./support/rate-limit.js";
 import type { AuthPort, AuthSession } from "../src/ports/auth.js";
 import type { AuthUser, ProblemDetails } from "@librehr/contracts";
 
@@ -66,6 +67,14 @@ describe("Time Tracking API Integration Tests (TIM-001 - TIM-006)", () => {
     organizationId: orgId,
   };
 
+  // Without Docker: a fake sql, so the rate-limit store is the memory double.
+  const offlineApp = () =>
+    createApp({
+      sql: {} as unknown as Sql,
+      authPort,
+      rateLimitStore: memoryRateLimitStore(),
+    });
+
   beforeAll(async () => {
     authPort = new MockAuthPort();
     const adminSession = await authPort.createSession(adminUser);
@@ -89,9 +98,7 @@ describe("Time Tracking API Integration Tests (TIM-001 - TIM-006)", () => {
   });
 
   it("validates clocking parameters and rejects invalid event types", async () => {
-    const dummyApp = db
-      ? app
-      : createApp({ sql: {} as unknown as Sql, authPort });
+    const dummyApp = db ? app : offlineApp();
 
     const res = await dummyApp.request("/v1/time/clock", {
       method: "POST",
@@ -110,9 +117,7 @@ describe("Time Tracking API Integration Tests (TIM-001 - TIM-006)", () => {
   });
 
   it("forbids an auditor from recording clock events (TIM-008, #107)", async () => {
-    const dummyApp = db
-      ? app
-      : createApp({ sql: {} as unknown as Sql, authPort });
+    const dummyApp = db ? app : offlineApp();
 
     const res = await dummyApp.request("/v1/time/clock", {
       method: "POST",
@@ -129,9 +134,7 @@ describe("Time Tracking API Integration Tests (TIM-001 - TIM-006)", () => {
   });
 
   it("still lets roles holding time.clock reach the clock route (#107)", async () => {
-    const dummyApp = db
-      ? app
-      : createApp({ sql: {} as unknown as Sql, authPort });
+    const dummyApp = db ? app : offlineApp();
 
     for (const token of [staffToken, adminToken]) {
       // An invalid body proves the permission check passed without writing.
@@ -148,9 +151,7 @@ describe("Time Tracking API Integration Tests (TIM-001 - TIM-006)", () => {
   });
 
   it("validates timesheet query parameters", async () => {
-    const dummyApp = db
-      ? app
-      : createApp({ sql: {} as unknown as Sql, authPort });
+    const dummyApp = db ? app : offlineApp();
 
     const res = await dummyApp.request(
       "/v1/time/timesheet?startDate=invalid&endDate=2026-11-30",
@@ -167,9 +168,7 @@ describe("Time Tracking API Integration Tests (TIM-001 - TIM-006)", () => {
   });
 
   it("enforces permission check when employee attempts to view another employee's timesheet", async () => {
-    const dummyApp = db
-      ? app
-      : createApp({ sql: {} as unknown as Sql, authPort });
+    const dummyApp = db ? app : offlineApp();
 
     const res = await dummyApp.request(
       "/v1/time/timesheet?startDate=2026-11-01&endDate=2026-11-30&employeeId=33333333-3333-3333-3333-333333333333",
@@ -185,9 +184,7 @@ describe("Time Tracking API Integration Tests (TIM-001 - TIM-006)", () => {
   });
 
   it("validates and handles kiosk clock request (TIM-010)", async () => {
-    const dummyApp = db
-      ? app
-      : createApp({ sql: {} as unknown as Sql, authPort });
+    const dummyApp = db ? app : offlineApp();
 
     // Missing identifier and PIN
     const invalidRes = await dummyApp.request("/v1/time/kiosk/clock", {
@@ -219,9 +216,7 @@ describe("Time Tracking API Integration Tests (TIM-001 - TIM-006)", () => {
   });
 
   it("handles setting employee kiosk PIN (TIM-010)", async () => {
-    const dummyApp = db
-      ? app
-      : createApp({ sql: {} as unknown as Sql, authPort });
+    const dummyApp = db ? app : offlineApp();
 
     const empId = "22222222-2222-2222-2222-222222222222";
 
@@ -254,9 +249,7 @@ describe("Time Tracking API Integration Tests (TIM-001 - TIM-006)", () => {
   });
 
   it("handles time bank balance and entries (TIM-012)", async () => {
-    const dummyApp = db
-      ? app
-      : createApp({ sql: {} as unknown as Sql, authPort });
+    const dummyApp = db ? app : offlineApp();
 
     // Unauthorized without credentials
     const unauthRes = await dummyApp.request("/v1/time/time-bank", {
@@ -292,9 +285,7 @@ describe("Time Tracking API Integration Tests (TIM-001 - TIM-006)", () => {
   });
 
   it("allows labour inspector / auditor role to view timesheets (TIM-008)", async () => {
-    const dummyApp = db
-      ? app
-      : createApp({ sql: {} as unknown as Sql, authPort });
+    const dummyApp = db ? app : offlineApp();
 
     const res = await dummyApp.request(
       "/v1/time/timesheet?startDate=2026-11-01&endDate=2026-11-30&employeeId=22222222-2222-2222-2222-222222222222",

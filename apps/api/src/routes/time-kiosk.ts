@@ -19,6 +19,7 @@ import { ForbiddenError } from "../errors/index.js";
 import { parseJsonBody } from "../lib/validate.js";
 import { FailureLockout } from "../lib/failure-lockout.js";
 import { clientIp } from "../lib/client-ip.js";
+import type { RateLimitStore } from "../lib/rate-limit-store.js";
 import type { TimeChainSigner } from "@librehr/db";
 import type { TimeTrackingConfig } from "../lib/time-tracking-config.js";
 
@@ -44,6 +45,8 @@ export function createTimeKioskRoutes(
   options: {
     sign: TimeChainSigner;
     config: TimeTrackingConfig;
+    /** Shared store of the rate limit and the PIN lockout (issue #35). */
+    rateLimitStore: RateLimitStore;
     /** TRUST_PROXY: reverse-proxy hops whose X-Forwarded-For entries are trusted. */
     trustProxy?: number | undefined;
   },
@@ -55,10 +58,17 @@ export function createTimeKioskRoutes(
   const auditRepo = new AuditRepository();
   const { kiosk } = options.config;
   const lockout = new FailureLockout({
+    name: "kiosk.pin",
+    store: options.rateLimitStore,
     failureWindowMs: kiosk.failureWindowMs,
     lockoutMs: kiosk.lockoutMs,
   });
-  const ipRateLimit = createRateLimiter({ ...kiosk.ipRateLimit, trustProxy });
+  const ipRateLimit = createRateLimiter({
+    ...kiosk.ipRateLimit,
+    name: "kiosk.clock.ip",
+    store: options.rateLimitStore,
+    trustProxy,
+  });
 
   const requireKioskPermission: MiddlewareHandler = async (c, next) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
@@ -98,7 +108,7 @@ export function createTimeKioskRoutes(
       const identifierKey = `id:${user.organizationId}:${identifier.trim().toLowerCase()}`;
       const ipKey = `ip:${user.organizationId}:${clientIp(c, trustProxy)}`;
 
-      const lockedMs = lockout.lockedFor([identifierKey, ipKey]);
+      const lockedMs = await lockout.lockedFor([identifierKey, ipKey]);
       if (lockedMs > 0) {
         return c.json(
           createProblemDetails({
@@ -126,7 +136,7 @@ export function createTimeKioskRoutes(
       if (!found?.pinHash) await verifyKioskPin(pin, await decoy(), null);
 
       if (!found || !check.valid) {
-        lockout.recordFailure([
+        await lockout.recordFailure([
           { key: identifierKey, limit: kiosk.maxFailuresPerIdentifier },
           { key: ipKey, limit: kiosk.maxFailuresPerIp },
         ]);
@@ -134,7 +144,7 @@ export function createTimeKioskRoutes(
           "Content-Type": "application/problem+json",
         });
       }
-      lockout.reset(identifierKey);
+      await lockout.reset(identifierKey);
 
       const upgradedHash = check.needsRehash ? await hashKioskPin(pin) : null;
 

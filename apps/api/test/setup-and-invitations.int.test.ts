@@ -3,6 +3,7 @@ import { getTestDatabase, type TestDatabase } from "@librehr/testing";
 import { runMigrations } from "@librehr/db/migrate";
 import type { Sql } from "postgres";
 import { createApp } from "../src/app.js";
+import { memoryRateLimitStore } from "./support/rate-limit.js";
 import type { AuthPort, AuthSession } from "../src/ports/auth.js";
 import type { AuthUser, ProblemDetails } from "@librehr/contracts";
 
@@ -55,7 +56,11 @@ describe("Setup Wizard & Invitations API (ORG-001, AUTH-005)", () => {
   it("validates setup wizard payload constraints", async () => {
     const testApp = db
       ? app
-      : createApp({ sql: {} as unknown as Sql, authPort });
+      : createApp({
+          sql: {} as unknown as Sql,
+          authPort,
+          rateLimitStore: memoryRateLimitStore(),
+        });
 
     const res = await testApp.request("/v1/org/setup-wizard", {
       method: "POST",

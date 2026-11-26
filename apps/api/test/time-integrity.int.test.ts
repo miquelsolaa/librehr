@@ -9,6 +9,7 @@ import {
 import { runMigrations } from "@librehr/db/migrate";
 import { legacyKioskPinHashForTests, hashKioskPin } from "@librehr/core";
 import { createApp } from "../src/app.js";
+import { isolatedRateLimitStore } from "./support/rate-limit.js";
 import { as, fixtureAuthPort } from "./support/fixture-app.js";
 
 const KEY = "api_test_time_chain_key_at_least_32_chars";
@@ -22,6 +23,8 @@ describe("time-record integrity and kiosk (TIM-002, TIM-003, TIM-010)", () => {
   const build = (kiosk?: { maxFailuresPerIdentifier: number }) =>
     createApp({
       sql: appSql,
+      // Fresh counters and lockouts per app, as each app had before issue #35.
+      rateLimitStore: isolatedRateLimitStore(appSql),
       authPort: fixtureAuthPort([
         org.admin,
         org.manager,
