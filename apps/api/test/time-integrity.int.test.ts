@@ -23,7 +23,7 @@ describe("time-record integrity and kiosk (TIM-002, TIM-003, TIM-010)", () => {
 
   // `prefix`: apps built with the same one act as replicas of one deployment.
   const build = (
-    kiosk?: { maxFailuresPerIdentifier: number },
+    kiosk?: { maxFailuresPerIdentifier?: number; maxFailuresPerIp?: number },
     prefix?: string,
   ) =>
     createApp({
@@ -329,6 +329,46 @@ describe("time-record integrity and kiosk (TIM-002, TIM-003, TIM-010)", () => {
       org.report.email,
       "8642",
       "10.0.4.99",
+    );
+    expect(locked.status).toBe(429);
+    expect(((await locked.json()) as { code: string }).code).toBe(
+      "KIOSK_LOCKED",
+    );
+  });
+
+  it("checks at most maxFailuresPerIp concurrent PINs from one IP across two replicas (#178)", async () => {
+    await db.sql`UPDATE employees SET pin_hash = ${await hashKioskPin("8642")}, pin_salt = NULL WHERE id = ${org.report.employeeId}`;
+    const prefix = crypto.randomUUID();
+    const replicas = [
+      build({ maxFailuresPerIp: 5 }, prefix),
+      build({ maxFailuresPerIp: 5 }, prefix),
+    ];
+    // Distinct unknown identifiers: the per-identifier limit never applies,
+    // and each one still checks a PIN (against the decoy hash).
+    const statuses = await Promise.all(
+      Array.from(
+        { length: 40 },
+        async (_, i) =>
+          (
+            await kioskClock(
+              replicas[i % 2]!,
+              org.admin,
+              `nobody-${i}@example.test`,
+              "0000",
+              "10.0.6.1",
+            )
+          ).status,
+      ),
+    );
+    expect(statuses.filter((s) => s === 401)).toHaveLength(5);
+    expect(statuses.filter((s) => s === 429)).toHaveLength(35);
+    // The IP lockout holds on both replicas, even for a correct PIN.
+    const locked = await kioskClock(
+      replicas[0]!,
+      org.admin,
+      org.report.email,
+      "8642",
+      "10.0.6.1",
     );
     expect(locked.status).toBe(429);
     expect(((await locked.json()) as { code: string }).code).toBe(
