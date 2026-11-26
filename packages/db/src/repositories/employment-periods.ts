@@ -26,8 +26,9 @@ END`;
 /** An employment span with its contract's weekly hours (LEA-002). */
 export interface EmploymentSpanWithHours extends EmploymentSpan {
   /**
-   * `employments.working_hours_per_week` as stored (text), or null for a
-   * legacy employee without employment rows (hours unknown).
+   * `employments.working_hours_per_week` (numeric(5,2) since 0037, which the
+   * driver returns as a decimal string such as "37.50"), or null for a legacy
+   * employee without employment rows (hours unknown).
    */
   hoursPerWeek: string | null;
 }

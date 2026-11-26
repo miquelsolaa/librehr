@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { WeeklyContractHoursSchema } from "./employment-history.js";
 
 export const EmployeeStatusSchema = z.enum([
   "active",
@@ -71,6 +72,8 @@ export const EmployeeProfileSchema = z.object({
   managerName: z.string().nullable(),
   jobTitle: z.string().nullable(),
   employmentType: z.string().nullable(),
+  /** LEA-002 (#131): weekly hours of the latest employment period. */
+  workingHoursPerWeek: z.number().nullable(),
   startDate: z.string().nullable(),
   hasNationalId: z.boolean(),
   hasIban: z.boolean(),
@@ -96,6 +99,8 @@ export const CreateEmployeeRequestSchema = z.object({
   locationId: z.guid().nullable().optional(),
   jobTitle: z.string().optional(),
   employmentType: z.string().optional(),
+  /** Hours of the first employment period (needs jobTitle); default 40. */
+  workingHoursPerWeek: WeeklyContractHoursSchema.optional(),
   startDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Format must be YYYY-MM-DD")

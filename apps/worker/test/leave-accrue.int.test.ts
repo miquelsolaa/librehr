@@ -4,10 +4,7 @@ import { getTestDatabase, type TestDatabase } from "@librehr/testing";
 import { runMigrations } from "@librehr/db/migrate";
 import type { Sql } from "@librehr/db";
 import { handleLeaveAccrue } from "../src/queues/leave.accrue.js";
-import {
-  InvalidEmploymentDataError,
-  MissingPolicyError,
-} from "../src/lib/job-errors.js";
+import { MissingPolicyError } from "../src/lib/job-errors.js";
 
 describe("leave.accrue (LEA-002)", () => {
   let db: TestDatabase;
@@ -457,24 +454,22 @@ describe("leave.accrue (LEA-002)", () => {
     });
   });
 
-  it("fails without writing when a prorated policy meets unusable contract hours", async () => {
-    const { orgId, leaveTypeId } = await newOrg();
-    const policyId = await newPolicy(orgId, leaveTypeId, 24, "monthly");
-    await db.sql`UPDATE leave_policies SET full_time_hours_per_week = 40 WHERE id = ${policyId}`;
+  it("cannot meet unusable contract hours: the column refuses them (#131)", async () => {
+    const { orgId } = await newOrg();
     const employee = randomUUID();
     await db.sql`
       INSERT INTO employees (id, organization_id, first_name, last_name, email)
       VALUES (${employee}, ${orgId}, 'Bad', 'Hours', ${`${employee}@example.invalid`})
     `;
-    await db.sql`
-      INSERT INTO employments (organization_id, employee_id, job_title, start_date, working_hours_per_week)
-      VALUES (${orgId}, ${employee}, 'Role', '2024-01-01', 'unknown')
-    `;
-    await assign(orgId, employee, policyId, "2025-01-01");
-
-    await expect(run(orgId, "2026-01-20").result).rejects.toBeInstanceOf(
-      InvalidEmploymentDataError,
-    );
-    expect(await ledger(orgId)).toEqual([]);
+    // Before 0037 these were stored as text and failed the job for the whole
+    // organization (InvalidEmploymentDataError).
+    for (const hours of ["unknown", "37,5", "0", "40.01"]) {
+      await expect(
+        db.sql`
+          INSERT INTO employments (organization_id, employee_id, job_title, start_date, working_hours_per_week)
+          VALUES (${orgId}, ${employee}, 'Role', '2024-01-01', ${hours})
+        `,
+      ).rejects.toThrow();
+    }
   });
 });

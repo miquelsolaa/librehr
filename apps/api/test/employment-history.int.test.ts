@@ -196,6 +196,114 @@ describe("employment history", () => {
       ).status,
     ).toBe(403);
   });
+  it("records a change of weekly hours as a new period and keeps the old one (#131)", async () => {
+    const hoursId = (
+      await withTenant(db.sql, { organizationId: org }, (tx) =>
+        new EmployeeRepository().create(tx, {
+          firstName: "Part",
+          lastName: "Time",
+          email: "hours@history.invalid",
+          jobTitle: "Clerk",
+          workingHoursPerWeek: 30,
+          startDate: "2024-01-01",
+        }),
+      )
+    ).id;
+    const path = `/v1/employees/${hoursId}/employment-history`;
+    const post = (data: object) =>
+      app.request(path, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(data),
+      });
+    const period = {
+      jobTitle: "Clerk",
+      employmentType: "indefinido",
+      startDate: "2025-03-01",
+    };
+    for (const workingHoursPerWeek of [0, 41, 37.125, -5, "20"]) {
+      expect((await post({ ...period, workingHoursPerWeek })).status).toBe(400);
+    }
+    // Not after the open period's start: an overlap, not a change.
+    expect(
+      (
+        await post({
+          ...period,
+          startDate: "2024-01-01",
+          workingHoursPerWeek: 20,
+        })
+      ).status,
+    ).toBe(409);
+
+    const created = await post({ ...period, workingHoursPerWeek: 20.5 });
+    expect(created.status).toBe(201);
+    expect(await created.json()).toMatchObject({
+      workingHoursPerWeek: 20.5,
+      startDate: "2025-03-01",
+      endDate: null,
+    });
+    const list = (await (await app.request(path, { headers })).json()) as {
+      workingHoursPerWeek: number;
+      startDate: string;
+      endDate: string | null;
+    }[];
+    expect(
+      list.map((p) => [p.workingHoursPerWeek, p.startDate, p.endDate]),
+    ).toEqual([
+      [20.5, "2025-03-01", null],
+      [30, "2024-01-01", "2025-02-28"],
+    ]);
+    // Omitted hours default to full time.
+    const fullTime = await post({ ...period, startDate: "2026-01-01" });
+    expect(await fullTime.json()).toMatchObject({ workingHoursPerWeek: 40 });
+
+    const profile = await app.request(`/v1/employees/${hoursId}`, { headers });
+    expect(await profile.json()).toMatchObject({ workingHoursPerWeek: 40 });
+    const closed = await withTenant(
+      db.sql,
+      { organizationId: org },
+      (tx) =>
+        tx`SELECT 1 FROM audit_log WHERE resource_id = ${hoursId}
+         AND action = 'employee.employment_period_closed'`,
+    );
+    expect(closed).toHaveLength(2);
+  });
+  it("refuses hours changes without identity, permission or tenant (#131)", async () => {
+    const body = JSON.stringify({
+      jobTitle: "Clerk",
+      employmentType: "indefinido",
+      startDate: "2027-01-01",
+      workingHoursPerWeek: 20,
+    });
+    const path = `/v1/employees/${id}/employment-history`;
+    expect((await app.request(path, { method: "POST", body })).status).toBe(
+      401,
+    );
+    expect(
+      (
+        await app.request(path, {
+          method: "POST",
+          headers: { ...headers, Authorization: "Bearer employee" },
+          body,
+        })
+      ).status,
+    ).toBe(403);
+    expect(
+      (
+        await app.request(`/v1/employees/${otherId}/employment-history`, {
+          method: "POST",
+          headers,
+          body,
+        })
+      ).status,
+    ).toBe(404);
+    const otherPeriods = await withTenant(
+      db.sql,
+      { organizationId: otherOrg },
+      (tx) => tx`SELECT 1 FROM employments WHERE employee_id = ${otherId}`,
+    );
+    expect(otherPeriods).toHaveLength(0);
+  });
   it("serializes overlapping concurrent inserts", async () => {
     const create = () =>
       app.request(`/v1/employees/${concurrentId}/employment-history`, {

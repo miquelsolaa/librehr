@@ -51,6 +51,7 @@ export interface EmployeeProfile extends EmployeeRow {
   managerName: string | null;
   jobTitle: string | null;
   employmentType: string | null;
+  workingHoursPerWeek: number | null;
   startDate: string | null;
   hasNationalId: boolean;
   hasIban: boolean;
@@ -82,6 +83,7 @@ export interface CreateEmployeeData {
   iban?: string | null | undefined;
   jobTitle?: string | undefined;
   employmentType?: string | undefined;
+  workingHoursPerWeek?: number | undefined;
   startDate?: string | undefined;
 }
 
@@ -201,6 +203,7 @@ export class EmployeeRepository {
         managerName: string | null;
         jobTitle: string | null;
         employmentType: string | null;
+        workingHoursPerWeek: number | null;
         startDate: string | null;
       })[]
     >`
@@ -217,13 +220,14 @@ export class EmployeeRepository {
              CONCAT(m.first_name, ' ', m.last_name) as "managerName",
              emp.job_title as "jobTitle",
              emp.employment_type as "employmentType",
+             emp.working_hours_per_week::float as "workingHoursPerWeek",
              emp.start_date::text as "startDate"
       FROM employees e
       LEFT JOIN departments d ON d.id = e.department_id AND d.organization_id = ${tx.__tenantContext.organizationId}
       LEFT JOIN locations loc ON loc.id = e.location_id AND loc.organization_id = ${tx.__tenantContext.organizationId}
       LEFT JOIN employees m ON m.id = e.manager_id AND m.organization_id = ${tx.__tenantContext.organizationId}
       LEFT JOIN LATERAL (
-        SELECT job_title, employment_type, start_date
+        SELECT job_title, employment_type, working_hours_per_week, start_date
         FROM employments
         WHERE employee_id = e.id AND organization_id = ${tx.__tenantContext.organizationId}
         ORDER BY start_date DESC
@@ -432,12 +436,14 @@ export class EmployeeRepository {
       // employee's location (else organization) time zone, never the UTC date.
       await tx`
         INSERT INTO employments (
-          employee_id, job_title, employment_type, start_date
+          employee_id, job_title, employment_type, working_hours_per_week,
+          start_date
         )
         SELECT
           ${emp.id},
           ${data.jobTitle},
           ${employmentType},
+          ${data.workingHoursPerWeek ?? 40},
           COALESCE(
             ${data.startDate ?? null}::date,
             (now() AT TIME ZONE COALESCE(l.timezone, o.timezone))::date

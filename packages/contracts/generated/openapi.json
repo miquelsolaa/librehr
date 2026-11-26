@@ -883,6 +883,12 @@
               "null"
             ]
           },
+          "workingHoursPerWeek": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
           "startDate": {
             "type": [
               "string",
@@ -926,6 +932,7 @@
           "managerName",
           "jobTitle",
           "employmentType",
+          "workingHoursPerWeek",
           "startDate",
           "hasNationalId",
           "hasIban",
@@ -946,6 +953,9 @@
           "employmentType": {
             "type": "string"
           },
+          "workingHoursPerWeek": {
+            "type": "number"
+          },
           "startDate": {
             "type": "string",
             "format": "date"
@@ -962,6 +972,7 @@
           "id",
           "jobTitle",
           "employmentType",
+          "workingHoursPerWeek",
           "startDate",
           "endDate"
         ]
@@ -978,6 +989,11 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 100
+          },
+          "workingHoursPerWeek": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 40
           },
           "startDate": {
             "type": "string",
@@ -1063,6 +1079,11 @@
           },
           "employmentType": {
             "type": "string"
+          },
+          "workingHoursPerWeek": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 40
           },
           "startDate": {
             "type": "string",
@@ -6822,6 +6843,9 @@
                       "employmentType": {
                         "type": "string"
                       },
+                      "workingHoursPerWeek": {
+                        "type": "number"
+                      },
                       "startDate": {
                         "type": "string",
                         "format": "date"
@@ -6838,6 +6862,7 @@
                       "id",
                       "jobTitle",
                       "employmentType",
+                      "workingHoursPerWeek",
                       "startDate",
                       "endDate"
                     ]
@@ -6883,6 +6908,11 @@
                     "minLength": 1,
                     "maxLength": 100
                   },
+                  "workingHoursPerWeek": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 40
+                  },
                   "startDate": {
                     "type": "string",
                     "format": "date"
@@ -6922,6 +6952,9 @@
                     "employmentType": {
                       "type": "string"
                     },
+                    "workingHoursPerWeek": {
+                      "type": "number"
+                    },
                     "startDate": {
                       "type": "string",
                       "format": "date"
@@ -6938,6 +6971,7 @@
                     "id",
                     "jobTitle",
                     "employmentType",
+                    "workingHoursPerWeek",
                     "startDate",
                     "endDate"
                   ]
@@ -7132,6 +7166,11 @@
                   "employmentType": {
                     "type": "string"
                   },
+                  "workingHoursPerWeek": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 40
+                  },
                   "startDate": {
                     "type": "string",
                     "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
@@ -7275,6 +7314,12 @@
                         "null"
                       ]
                     },
+                    "workingHoursPerWeek": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
                     "startDate": {
                       "type": [
                         "string",
@@ -7318,6 +7363,7 @@
                     "managerName",
                     "jobTitle",
                     "employmentType",
+                    "workingHoursPerWeek",
                     "startDate",
                     "hasNationalId",
                     "hasIban",
@@ -7457,6 +7503,12 @@
                         "null"
                       ]
                     },
+                    "workingHoursPerWeek": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
                     "startDate": {
                       "type": [
                         "string",
@@ -7500,6 +7552,7 @@
                     "managerName",
                     "jobTitle",
                     "employmentType",
+                    "workingHoursPerWeek",
                     "startDate",
                     "hasNationalId",
                     "hasIban",
@@ -7776,6 +7829,12 @@
                         "null"
                       ]
                     },
+                    "workingHoursPerWeek": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
                     "startDate": {
                       "type": [
                         "string",
@@ -7819,6 +7878,7 @@
                     "managerName",
                     "jobTitle",
                     "employmentType",
+                    "workingHoursPerWeek",
                     "startDate",
                     "hasNationalId",
                     "hasIban",
@@ -7988,6 +8048,12 @@
                         "null"
                       ]
                     },
+                    "workingHoursPerWeek": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
                     "startDate": {
                       "type": [
                         "string",
@@ -8031,6 +8097,7 @@
                     "managerName",
                     "jobTitle",
                     "employmentType",
+                    "workingHoursPerWeek",
                     "startDate",
                     "hasNationalId",
                     "hasIban",
@@ -17595,6 +17662,12 @@
                         "null"
                       ]
                     },
+                    "workingHoursPerWeek": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
                     "startDate": {
                       "type": [
                         "string",
@@ -17638,6 +17711,7 @@
                     "managerName",
                     "jobTitle",
                     "employmentType",
+                    "workingHoursPerWeek",
                     "startDate",
                     "hasNationalId",
                     "hasIban",
