@@ -83,6 +83,16 @@ describe("Worker Queue Handlers", () => {
   it.each([
     { organizationId: "org-1", runDate: "2026-11-01" },
     { organizationId: "a1150000-0000-4000-8000-00000000000a", runDate: "x" },
+    // Matches YYYY-MM-DD but is no calendar day: must be a bad payload
+    // (dead-lettered), not a RangeError retried as a transient failure.
+    {
+      organizationId: "a1150000-0000-4000-8000-00000000000a",
+      runDate: "2027-02-30",
+    },
+    {
+      organizationId: "a1150000-0000-4000-8000-00000000000a",
+      runDate: "2027-02-29",
+    },
   ])(
     "rejects an invalid retention.enforce payload before touching the database",
     async (data) => {
@@ -97,16 +107,19 @@ describe("Worker Queue Handlers", () => {
     },
   );
 
-  it("rejects an invalid retention.sweep-global payload before touching the database", async () => {
-    const logger = { info: vi.fn() };
-    await expect(
-      handleRetentionSweepGlobal(
-        { id: "j-sweep", data: { runDate: "2026-13-01" } },
-        { sql: {} as never, logger },
-      ),
-    ).rejects.toThrow(/invalid retention.sweep-global payload/);
-    expect(logger.info).not.toHaveBeenCalled();
-  });
+  it.each(["2026-13-01", "2027-02-30", "2026-04-31"])(
+    "rejects the retention.sweep-global runDate %s before touching the database",
+    async (runDate) => {
+      const logger = { info: vi.fn() };
+      await expect(
+        handleRetentionSweepGlobal(
+          { id: "j-sweep", data: { runDate } },
+          { sql: {} as never, logger },
+        ),
+      ).rejects.toThrow(/invalid retention.sweep-global payload/);
+      expect(logger.info).not.toHaveBeenCalled();
+    },
+  );
 
   it("rejects an invalid audit.verify-chain payload before touching the database", async () => {
     const logger = { info: vi.fn(), error: vi.fn() };

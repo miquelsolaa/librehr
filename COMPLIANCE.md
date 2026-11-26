@@ -97,9 +97,11 @@ floor is law, and it is enforced by a database CHECK.
 | `notifications`       | 365                          | the notification                    | none                |
 | `invitations`         | 90                           | acceptance or expiry                | none                |
 
-A soft-deleted contract or payslip counts as eligible only once both its
-`deleted_documents` grace and its `statutory_documents` period have passed;
-otherwise it is reported as held back. Password reset links
+A soft-deleted contract or payslip counts as eligible (under
+`deleted_documents`) only once both its `deleted_documents` grace and its
+`statutory_documents` period have passed. `statutory_documents` is a hold,
+never a basis for deletion: the report gives it `eligible: 0` and lists the
+soft-deleted contracts and payslips it still holds back as `heldBack`. Password reset links
 (`password_reset_tokens`, instance-wide, not per organization) keep their
 30-day retention of migration 0040, enforced daily by `retention.sweep-global`.
 

@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { sweepPasswordResetTokens, type Sql } from "@librehr/db";
-import { isoDate, parsePayload } from "../lib/payload.js";
+import { isoDateString, parsePayload } from "../lib/payload.js";
 
 export const RetentionSweepGlobalPayloadSchema = z.object({
   /** UTC day the sweep runs for; one sweep per day across the instance. */
-  runDate: z.string().regex(isoDate),
+  runDate: isoDateString(),
 });
 
 export type RetentionSweepGlobalPayload = z.input<

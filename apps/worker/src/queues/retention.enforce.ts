@@ -14,11 +14,11 @@ import {
   type RetentionEligibleCounts,
   type Sql,
 } from "@librehr/db";
-import { isoDate, parsePayload } from "../lib/payload.js";
+import { isoDateString, parsePayload } from "../lib/payload.js";
 
 export const RetentionEnforcePayloadSchema = z.object({
   organizationId: z.guid(),
-  runDate: z.string().regex(isoDate),
+  runDate: isoDateString(),
   /**
    * Accepted for compatibility with jobs already queued. Every run is a dry
    * run for now: no purge code path exists until counsel confirms the
@@ -50,6 +50,13 @@ export interface RetentionCategoryReport {
   cutoffDate: string;
   /** Rows past the period. Counted, never deleted. */
   eligible: number;
+  /**
+   * Only on `statutory_documents`: soft-deleted contracts and payslips past
+   * the `deleted_documents` grace that this period still holds back. These
+   * are NOT eligible; once both periods pass they count under
+   * `deleted_documents`.
+   */
+  heldBack?: number;
 }
 
 export interface RetentionEnforceReport {
@@ -61,19 +68,40 @@ export interface RetentionEnforceReport {
 }
 
 /**
- * Which count of the repository each category reports. Statutory documents
- * become eligible through `deleted_documents` once both periods passed, so
- * `statutory_documents` reports the soft-deleted ones still held back.
+ * Which count of the repository each category reports as eligible.
+ * `statutory_documents` is a hold, never a basis for deletion: its documents
+ * become eligible through `deleted_documents` once both periods passed, so it
+ * reports 0 eligible and the documents it holds back as `heldBack`.
  */
-const COUNT_OF: Record<RetentionCategory, keyof RetentionEligibleCounts> = {
+const COUNT_OF: Record<
+  RetentionCategory,
+  Exclude<keyof RetentionEligibleCounts, "statutoryDocumentsHeld"> | null
+> = {
   time_records: "timeRecords",
   leave_records: "leaveRecords",
   audit_log: "auditLog",
   deleted_documents: "deletedDocuments",
-  statutory_documents: "statutoryDocumentsHeld",
+  statutory_documents: null,
   notifications: "notifications",
   invitations: "invitations",
 };
+
+function categoryReport(
+  entry: RetentionPlanEntry,
+  counts: RetentionEligibleCounts,
+): RetentionCategoryReport {
+  const key = COUNT_OF[entry.category];
+  return {
+    action: entry.action,
+    retentionDays: entry.retentionDays,
+    source: entry.source,
+    cutoffDate: entry.cutoffDate,
+    eligible: key === null ? 0 : counts[key],
+    ...(entry.category === "statutory_documents"
+      ? { heldBack: counts.statutoryDocumentsHeld }
+      : {}),
+  };
+}
 
 function entryFor(
   plan: readonly RetentionPlanEntry[],
@@ -133,16 +161,7 @@ export async function handleRetentionEnforce(
       });
 
       const categories = Object.fromEntries(
-        plan.map((e) => [
-          e.category,
-          {
-            action: e.action,
-            retentionDays: e.retentionDays,
-            source: e.source,
-            cutoffDate: e.cutoffDate,
-            eligible: counts[COUNT_OF[e.category]],
-          } satisfies RetentionCategoryReport,
-        ]),
+        plan.map((e) => [e.category, categoryReport(e, counts)]),
       ) as Record<RetentionCategory, RetentionCategoryReport>;
 
       await auditRepo.log(tx, {
@@ -174,6 +193,7 @@ export async function handleRetentionEnforce(
     eligible: Object.fromEntries(
       Object.entries(report.categories).map(([c, r]) => [c, r.eligible]),
     ),
+    statutoryDocumentsHeldBack: report.categories.statutory_documents.heldBack,
   });
   return report;
 }

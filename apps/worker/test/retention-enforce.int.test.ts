@@ -7,9 +7,17 @@ import {
   type TestDatabase,
 } from "@librehr/testing";
 import { runMigrations } from "@librehr/db/migrate";
-import { createDatabaseClient, withTenant, type Sql } from "@librehr/db";
+import {
+  createDatabaseClient,
+  TimeRepository,
+  withTenant,
+  type Sql,
+} from "@librehr/db";
+import { computeEventHashV2 } from "@librehr/core";
 import { handleRetentionEnforce } from "../src/queues/retention.enforce.js";
 import { handleRetentionSweepGlobal } from "../src/queues/retention.sweep-global.js";
+
+const CHAIN_KEY = "worker_test_time_chain_key_32_chars_min";
 
 // ADM-005 (issue #32): the dry-run report against a production-like database
 // (the worker's owner role, RLS forced). Nothing may be deleted.
@@ -22,6 +30,7 @@ describe("retention.enforce dry-run report (ADM-005)", () => {
   const userId = randomUUID();
   const RUN_DATE = "2026-11-26";
   const TITLE = "Confidential payroll title";
+  const time = new TimeRepository();
 
   async function seed(org: string): Promise<void> {
     await db.adminSql`INSERT INTO organizations (id, name, slug, timezone)
@@ -45,6 +54,28 @@ describe("retention.enforce dry-run report (ADM-005)", () => {
       await doc("other", "2026-01-01T00:00:00Z", null);
       await tx`INSERT INTO audit_log (action, resource_type, created_at)
         VALUES ('test.old', 'organization', '2020-06-01T00:00:00Z')`;
+      // One clock event past the 4-year period (cutoff 2022-11-27 in Madrid)
+      // and one inside it, through the repository so the chain stays valid.
+      const employeeId = randomUUID();
+      await tx`INSERT INTO employees (id, first_name, last_name, email)
+        VALUES (${employeeId}, 'Clock', 'Worker', ${`${employeeId}@example.invalid`})`;
+      for (const occurredAt of [
+        "2022-11-26T12:00:00Z",
+        "2026-11-02T08:00:00Z",
+      ]) {
+        await time.appendEvent(
+          tx,
+          (link) => computeEventHashV2(CHAIN_KEY, link),
+          {
+            organizationId: org,
+            employeeId,
+            eventType: "clock_in",
+            occurredAt: new Date(occurredAt),
+            source: "web",
+            actorId: employeeId,
+          },
+        );
+      }
     });
   }
 
@@ -64,9 +95,12 @@ describe("retention.enforce dry-run report (ADM-005)", () => {
   };
 
   const countAll = async () => {
-    const rows = await db.adminSql<{ docs: number; audit: number }[]>`
+    const rows = await db.adminSql<
+      { docs: number; audit: number; time: number }[]
+    >`
       SELECT (SELECT count(*) FROM documents)::int AS docs,
-             (SELECT count(*) FROM audit_log WHERE action = 'test.old')::int AS audit`;
+             (SELECT count(*) FROM audit_log WHERE action = 'test.old')::int AS audit,
+             (SELECT count(*) FROM time_events)::int AS time`;
     return rows[0];
   };
 
@@ -112,11 +146,18 @@ describe("retention.enforce dry-run report (ADM-005)", () => {
       cutoffDate: "2026-10-28",
       eligible: 2,
     });
-    expect(report.categories.statutory_documents.eligible).toBe(1);
+    // A hold, never a deletion basis: the held payslip is not eligible; the
+    // contract past both periods is already counted under deleted_documents.
+    expect(report.categories.statutory_documents).toMatchObject({
+      eligible: 0,
+      heldBack: 1,
+    });
+    expect(report.categories.deleted_documents).not.toHaveProperty("heldBack");
     expect(report.categories.audit_log.eligible).toBe(1);
     expect(report.categories.time_records).toMatchObject({
       retentionDays: 1461,
-      eligible: 0,
+      cutoffDate: "2022-11-27",
+      eligible: 1,
     });
     for (const category of Object.values(report.categories)) {
       expect(category.action).toBe("report_only");
@@ -132,7 +173,11 @@ describe("retention.enforce dry-run report (ADM-005)", () => {
         runDate: RUN_DATE,
         dryRun: true,
         enforced: false,
-        categories: { deleted_documents: { eligible: 2 } },
+        categories: {
+          deleted_documents: { eligible: 2 },
+          statutory_documents: { eligible: 0, heldBack: 1 },
+          time_records: { eligible: 1 },
+        },
       },
     });
     const written = JSON.stringify([entries, logger.info.mock.calls]);
