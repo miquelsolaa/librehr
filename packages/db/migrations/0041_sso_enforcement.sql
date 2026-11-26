@@ -32,11 +32,25 @@
 -- rewrite the table.
 ALTER TABLE "sessions"
   ADD COLUMN IF NOT EXISTS "auth_method" text NOT NULL DEFAULT 'password';
+-- The checks are added NOT VALID and validated separately: adding a valid
+-- constraint scans the table under ACCESS EXCLUSIVE, which would block every
+-- session lookup; VALIDATE takes only SHARE UPDATE EXCLUSIVE.
 ALTER TABLE "sessions"
   DROP CONSTRAINT IF EXISTS "sessions_auth_method_check";
 ALTER TABLE "sessions"
   ADD CONSTRAINT "sessions_auth_method_check"
-  CHECK ("auth_method" IN ('password', 'sso'));
+  CHECK ("auth_method" IN ('password', 'sso')) NOT VALID;
+ALTER TABLE "sessions" VALIDATE CONSTRAINT "sessions_auth_method_check";
+
+-- An SSO session is never checked against enforcement, so it must be pinned
+-- to the organization whose identity provider signed the user in, never left
+-- to bind to a default membership that may belong to another organization.
+ALTER TABLE "sessions"
+  DROP CONSTRAINT IF EXISTS "sessions_sso_pinned_check";
+ALTER TABLE "sessions"
+  ADD CONSTRAINT "sessions_sso_pinned_check"
+  CHECK ("auth_method" <> 'sso' OR "organization_id" IS NOT NULL) NOT VALID;
+ALTER TABLE "sessions" VALIDATE CONSTRAINT "sessions_sso_pinned_check";
 
 COMMENT ON COLUMN "sessions"."auth_method" IS
   'AUTH-004: how the session was authenticated (password or sso).';

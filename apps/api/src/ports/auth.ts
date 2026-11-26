@@ -18,8 +18,19 @@ export interface AuthSession {
 }
 
 export interface CreateSessionOptions {
-  /** Defaults to "password". The OIDC callback (#34) passes "sso". */
+  /**
+   * Defaults to "password". The OIDC callback (#34) passes "sso" and must
+   * pin the organization (`user.organizationId`): an SSO session is never
+   * bound to a default membership, which could belong to another
+   * organization than the one whose identity provider signed the user in.
+   */
   authMethod?: AuthMethod | undefined;
+  /**
+   * Defaults to true. False refuses a break-glass password session
+   * (AUTH-004) with SsoRequiredError: only the sign-in routes, which check
+   * the second factor and audit the sign-in, may open one.
+   */
+  allowBreakGlass?: boolean | undefined;
 }
 
 /**
