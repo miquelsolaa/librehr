@@ -72,6 +72,8 @@ export const sessions = pgTable(
 // Shared rate-limit and lockout counters (migration 0038, issue #35). A
 // global system table like sessions: pre-auth and cross-tenant, so no
 // organization_id and no RLS. `key` is an HMAC digest, never a raw value.
+// The table's storage parameter (fillfactor = 70) is set in the migration
+// only; drizzle does not model it.
 export const rateLimitBuckets = pgTable(
   "rate_limit_buckets",
   {

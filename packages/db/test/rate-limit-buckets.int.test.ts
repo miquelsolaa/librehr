@@ -207,6 +207,24 @@ describe("rate_limit_buckets (0038)", () => {
     expect(await repo.lockedForMs(db.appSql, [k], T0 + 120_000)).toBe(180_000);
   });
 
+  it("keeps a live lockout through a new failure window and a sweep", async () => {
+    const k = key();
+    await repo.recordFailure(db.appSql, k, { ...policy, limit: 1 }, T0);
+    // Two minutes later the 60 s failure window is stale but the 5 min lock
+    // is live: a new failure starts a new window without touching the lock.
+    await repo.recordFailure(db.appSql, k, policy, T0 + 120_000);
+    expect(await row(k)).toEqual({ count: 1, locked: true });
+    await repo.deleteExpired(db.appSql, { nowMs: T0 + 200_000 });
+    expect(await repo.lockedForMs(db.appSql, [k], T0 + 200_000)).toBe(100_000);
+    // Refused while locked, allowed again once the lock ends.
+    expect(
+      (await repo.reserveAttempt(db.appSql, k, policy, T0 + 200_000)).allowed,
+    ).toBe(false);
+    expect(
+      (await repo.reserveAttempt(db.appSql, k, policy, T0 + 300_000)).allowed,
+    ).toBe(true);
+  });
+
   it("never loses a window restarted while a sweep runs at the expiry boundary", async () => {
     const t = T0 + 10_000_000;
     const keys = Array.from({ length: 30 }, key);
