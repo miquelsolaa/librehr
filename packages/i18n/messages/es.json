@@ -322,6 +322,7 @@
     "disable2FaConfirm": "¿Seguro que deseas desactivar la autenticación en dos pasos de tu cuenta?",
     "twoFactorSetupError": "No se pudo iniciar la configuración del doble factor.",
     "twoFactorEnabledSuccess": "Autenticación en dos pasos activada con éxito.",
+    "enableTwoFactorRevokesNotice": "Al activar la autenticación en dos pasos se cierran tus otras sesiones y se revocan todos tus tokens de acceso personal, en todas las organizaciones. Las integraciones que los usen dejarán de funcionar hasta que crees otros nuevos.",
     "twoFactorEnabledTokensRevoked": "Autenticación en dos pasos activada con éxito. {count, plural, one {Se ha revocado # token de acceso personal} other {Se han revocado # tokens de acceso personal}}: crea uno nuevo para cada integración que aún lo necesite.",
     "twoFactorDisabledSuccess": "Autenticación en dos pasos desactivada.",
     "twoFactorDisableError": "Error al desactivar el doble factor.",

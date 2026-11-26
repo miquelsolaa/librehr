@@ -498,9 +498,17 @@ export default function SecuritySettingsPage() {
                   autoFocus
                   placeholder="123456"
                   value={verificationCode}
+                  aria-describedby="enableTwoFactorRevokesNotice"
                   onChange={(e) => setVerificationCode(e.target.value)}
                   className="text-center font-mono text-xl tracking-widest"
                 />
+                {/* Issue #35: say before enabling what it revokes. */}
+                <p
+                  id="enableTwoFactorRevokesNotice"
+                  className="text-xs text-muted-foreground"
+                >
+                  {t("enableTwoFactorRevokesNotice")}
+                </p>
 
                 <div className="flex justify-end gap-2 pt-3">
                   <Button

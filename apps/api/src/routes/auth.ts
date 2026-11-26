@@ -477,11 +477,12 @@ export function createAuthRoutes(
     }
 
     // Enabling a second factor ends every other session of the account and
-    // revokes its personal access tokens in this organization (issue #35):
-    // a session or token obtained by someone else with the password alone
-    // must not survive it. The current session is kept. All of it happens in
-    // one transaction with the promotion, so 2FA is never on while those
-    // credentials still work.
+    // revokes its personal access tokens in every organization it belongs to
+    // (issue #35): a session or token obtained by someone else with the
+    // password alone must not survive it. The current session is kept.
+    // Promotion, revocation and the audit entries share one transaction: if
+    // any step fails, 2FA stays off and every session and token still works,
+    // and once it commits none of the revoked credentials do.
     const currentToken = (
       (c.get as (key: string) => unknown)("session") as AuthSession | undefined
     )?.token;
@@ -508,13 +509,15 @@ export function createAuthRoutes(
           user.id,
           currentToken,
         );
-        const revokedTokenIds = await tokenRepo.deleteAllForUser(tx, user.id);
-        for (const tokenId of revokedTokenIds) {
-          await auditRepo.log(tx, {
+        // Cross-organization delete through the SECURITY DEFINER function of
+        // migration 0037; each token is audited in its own organization.
+        const revoked = await tokenRepo.revokeAllForUser(tx, user.id);
+        for (const token of revoked) {
+          await auditRepo.logInOrganization(tx, token.organizationId, {
             actorId: user.id,
             action: "token.revoke",
             resourceType: "personal_access_token",
-            resourceId: tokenId,
+            resourceId: token.id,
             metadata: { reason: "2fa_enabled" },
           });
         }
@@ -525,10 +528,10 @@ export function createAuthRoutes(
           resourceId: user.id,
           metadata: {
             revokedSessions,
-            revokedTokens: revokedTokenIds.length,
+            revokedTokens: revoked.length,
           },
         });
-        return revokedTokenIds.length;
+        return revoked.length;
       },
     );
 

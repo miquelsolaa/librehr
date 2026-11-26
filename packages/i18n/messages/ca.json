@@ -322,6 +322,7 @@
     "disable2FaConfirm": "Segur que vols desactivar l'autenticació en dos passos del teu compte?",
     "twoFactorSetupError": "No s'ha pogut iniciar la configuració del doble factor.",
     "twoFactorEnabledSuccess": "Autenticació en dos passos activada amb èxit.",
+    "enableTwoFactorRevokesNotice": "En activar l'autenticació en dos passos es tanquen les teves altres sessions i es revoquen tots els teus tokens d'accés personal, a totes les organitzacions. Les integracions que els facin servir deixaran de funcionar fins que en creïs de nous.",
     "twoFactorEnabledTokensRevoked": "Autenticació en dos passos activada amb èxit. {count, plural, one {S'ha revocat # token d'accés personal} other {S'han revocat # tokens d'accés personal}}: crea'n un de nou per a cada integració que encara el necessiti.",
     "twoFactorDisabledSuccess": "Autenticació en dos passos desactivada.",
     "twoFactorDisableError": "Error al desactivar el doble factor.",
