@@ -6,14 +6,20 @@ Principle: **legal compliance is never a paid feature.** Everything a Spanish SM
 
 ## Offers
 
-| Offer         | For                                       | What you get                                                                                      | Price |
-| ------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------- | ----- |
-| **Community** | Self-hosters, small teams, public sector  | All core modules, self-hosted, AGPL                                                               | Free  |
-| **Cloud**     | Most SMBs (no IT staff)                   | Hosted Community in the EU, backups, upgrades, email support. Business features as an add-on tier | TBD   |
-| **Business**  | Growing SMBs, self-hosted or Cloud        | Community plus the Business features below, under a licence key                                   | TBD   |
-| **Partners**  | Gestorías, integrators, hosting providers | Resale margin, permission to use the trademark for hosting, partner support                       | TBD   |
+| Offer                    | For                                         | What you get                                                                   | Price (EUR, excl. VAT)                      |
+| ------------------------ | ------------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------- |
+| **Community**            | Self-hosters, small teams, public sector    | All core modules, self-hosted, AGPL                                            | Free                                        |
+| **Cloud**                | SMBs without IT staff                       | Hosted Community in the EU, daily backups, upgrades, best-effort email support | 2 per active employee/month, minimum 20     |
+| **Cloud Business**       | Growing SMBs that want hosting              | Cloud plus the Business features below                                         | 4 per active employee/month, minimum 60     |
+| **Business (self-host)** | Growing SMBs on their own servers           | Community plus the Business features below, under a licence key                | Agreed per customer (contact first)         |
+| **Installation service** | Teams that want to self-host but not set up | We install LibreHR on the customer's server or cloud account                   | From 300 one-off; maintenance from 40/month |
+| **Partners**             | Gestorías, integrators, hosting providers   | Resale margin, permission to use the trademark for hosting, partner support    | TBD                                         |
 
-Prices are a maintainer decision and are left open.
+Prices and the reasons for them are in [ADR 0007](adr/0007-cloud-early-access-and-pricing.md). In short:
+
+- **Billing unit:** active employees, meaning people who have not been terminated. Auditors and inspectors are not billed. With Cloud Business every active employee is billed at the Business rate.
+- **Yearly billing** gets two months free. There is **no free trial**: Community is free to install.
+- **Cloud is early access:** EU hosting, daily backups kept 7 days, a full data copy on request and a DPA with every customer, but no uptime guarantee, best-effort support and features that may change.
 
 ## Feature split
 

@@ -12,7 +12,7 @@ It must be easy to self-host (one `docker compose up`), pleasant for non-technic
 ## 2. Problem
 
 - Small companies manage employees, vacations and clock-ins in Excel, WhatsApp and email. This is error-prone and a compliance risk (working-time records are legally required in Spain).
-- Commercial SaaS HRIS products solve this but are closed, per-seat priced, and hold sensitive data in third-party clouds. Some companies, public bodies and gestorias want control, self-hosting, or a transparent codebase.
+- Commercial SaaS HRIS products solve this but are closed and only available as a hosted subscription, so sensitive data must live in the vendor's cloud and cannot be moved or inspected. Some companies, public bodies and gestorias want control, self-hosting, or a transparent codebase.
 - Existing open-source HR tools are either ERP-heavy, hard to deploy, poorly localized for Spain/Catalonia, or have dated UX.
 
 ## 3. Goals and non-goals

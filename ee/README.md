@@ -7,7 +7,7 @@ Code in this directory is **not** AGPL. It is source-available under the [LibreH
 - Read, run and change this code for development, testing and contributing.
 - Evaluate it outside production for up to 30 days.
 
-Production use (real employee data) needs a licence key or a LibreHR Cloud subscription.
+Production use (real employee data) needs a licence key or a LibreHR Cloud Business subscription.
 
 ## How it plugs in
 
