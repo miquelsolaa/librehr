@@ -322,6 +322,7 @@
     "disable2FaConfirm": "Segur que vols desactivar l'autenticació en dos passos del teu compte?",
     "twoFactorSetupError": "No s'ha pogut iniciar la configuració del doble factor.",
     "twoFactorEnabledSuccess": "Autenticació en dos passos activada amb èxit.",
+    "twoFactorEnabledTokensRevoked": "Autenticació en dos passos activada amb èxit. {count, plural, one {S'ha revocat # token d'accés personal} other {S'han revocat # tokens d'accés personal}}: crea'n un de nou per a cada integració que encara el necessiti.",
     "twoFactorDisabledSuccess": "Autenticació en dos passos desactivada.",
     "twoFactorDisableError": "Error al desactivar el doble factor.",
     "invalid2FaCode": "El codi de 6 dígits no és vàlid.",

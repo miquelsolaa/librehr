@@ -131,11 +131,19 @@ export default function SecuritySettingsPage() {
       const client = getApiClient();
       // AUTH-003: the secret and recovery codes stay on the server; only the
       // code confirming the pending setup is sent.
-      await client.enableTwoFactor({ code: verificationCode.trim() });
+      const { revokedTokens } = await client.enableTwoFactor({
+        code: verificationCode.trim(),
+      });
 
       setTwoFactorEnabled(true);
       setIsSetupOpen(false);
-      setSuccessMessage(t("twoFactorEnabledSuccess"));
+      // Enabling 2FA revokes the account's personal access tokens (issue
+      // #35); say so, or an integration would just stop working.
+      setSuccessMessage(
+        revokedTokens > 0
+          ? t("twoFactorEnabledTokensRevoked", { count: revokedTokens })
+          : t("twoFactorEnabledSuccess"),
+      );
     } catch {
       setErrorMessage(t("invalid2FaCode"));
     } finally {

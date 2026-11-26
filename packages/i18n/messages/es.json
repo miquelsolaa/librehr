@@ -322,6 +322,7 @@
     "disable2FaConfirm": "¿Seguro que deseas desactivar la autenticación en dos pasos de tu cuenta?",
     "twoFactorSetupError": "No se pudo iniciar la configuración del doble factor.",
     "twoFactorEnabledSuccess": "Autenticación en dos pasos activada con éxito.",
+    "twoFactorEnabledTokensRevoked": "Autenticación en dos pasos activada con éxito. {count, plural, one {Se ha revocado # token de acceso personal} other {Se han revocado # tokens de acceso personal}}: crea uno nuevo para cada integración que aún lo necesite.",
     "twoFactorDisabledSuccess": "Autenticación en dos pasos desactivada.",
     "twoFactorDisableError": "Error al desactivar el doble factor.",
     "invalid2FaCode": "El código de 6 dígitos no es válido.",

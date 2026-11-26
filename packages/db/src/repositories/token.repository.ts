@@ -125,6 +125,20 @@ export class TokenRepository {
     `;
   }
 
+  /**
+   * Revokes every personal access token of a user in the current
+   * organization (RLS scopes the delete to `app.current_org`). Returns the
+   * revoked token ids so the caller can audit them.
+   */
+  async deleteAllForUser(tx: TenantTx, userId: string): Promise<string[]> {
+    const rows = await tx<{ id: string }[]>`
+      DELETE FROM personal_access_tokens
+      WHERE user_id = ${userId}
+      RETURNING id
+    `;
+    return rows.map((r) => r.id);
+  }
+
   async delete(tx: TenantTx, id: string, userId: string): Promise<boolean> {
     const res = await tx`
       DELETE FROM personal_access_tokens

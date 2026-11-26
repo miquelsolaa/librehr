@@ -322,6 +322,7 @@
     "disable2FaConfirm": "Are you sure you want to disable two-factor authentication on your account?",
     "twoFactorSetupError": "Could not initiate two-factor setup.",
     "twoFactorEnabledSuccess": "Two-factor authentication successfully enabled.",
+    "twoFactorEnabledTokensRevoked": "Two-factor authentication successfully enabled. {count, plural, one {# personal access token was revoked} other {# personal access tokens were revoked}}: create a new one for any integration that still needs it.",
     "twoFactorDisabledSuccess": "Two-factor authentication disabled.",
     "twoFactorDisableError": "Failed to disable two-factor authentication.",
     "invalid2FaCode": "The 6-digit code entered is not valid.",

@@ -74,6 +74,20 @@ export type TwoFactorEnableRequest = z.infer<
   typeof TwoFactorEnableRequestSchema
 >;
 
+/**
+ * Enabling 2FA ends the account's other sessions and revokes its personal
+ * access tokens in this organization (issue #35): a token created by someone
+ * holding only the password must not outlive the second factor.
+ */
+export const TwoFactorEnableResponseSchema = z.object({
+  success: z.literal(true),
+  /** Personal access tokens revoked by this change; the UI tells the user. */
+  revokedTokens: z.number().int().nonnegative(),
+});
+export type TwoFactorEnableResponse = z.infer<
+  typeof TwoFactorEnableResponseSchema
+>;
+
 export const TwoFactorVerifyRequestSchema = z.object({
   challengeToken: z.string().min(1),
   code: z.string().min(6), // 6-digit TOTP or xxxx-xxxx recovery code

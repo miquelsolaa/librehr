@@ -8,6 +8,7 @@ import {
   TwoFactorDisableRequestSchema,
   createProblemDetails,
   type AuthUser,
+  type TwoFactorEnableResponse,
 } from "@librehr/contracts";
 import {
   generateTotpSecret,
@@ -18,6 +19,7 @@ import {
 } from "@librehr/core";
 import {
   AuditRepository,
+  TokenRepository,
   UserRepository,
   withTenant,
   type UserRow,
@@ -134,6 +136,7 @@ export function createAuthRoutes(
   const signingSecret = challengeSecret(options.sessionSecret);
   const userRepo = new UserRepository();
   const auditRepo = new AuditRepository();
+  const tokenRepo = new TokenRepository();
   const cookieOptions: SessionCookieOptions = {
     nodeEnv: options.nodeEnv,
     trustProxy: options.trustProxy,
@@ -473,13 +476,16 @@ export function createAuthRoutes(
       );
     }
 
-    // Enabling a second factor ends every other session of the account (a
-    // session opened by someone else with the password alone must not
-    // survive it); the current one is kept.
+    // Enabling a second factor ends every other session of the account and
+    // revokes its personal access tokens in this organization (issue #35):
+    // a session or token obtained by someone else with the password alone
+    // must not survive it. The current session is kept. All of it happens in
+    // one transaction with the promotion, so 2FA is never on while those
+    // credentials still work.
     const currentToken = (
       (c.get as (key: string) => unknown)("session") as AuthSession | undefined
     )?.token;
-    await withTenant(
+    const revokedTokens = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
@@ -502,17 +508,32 @@ export function createAuthRoutes(
           user.id,
           currentToken,
         );
+        const revokedTokenIds = await tokenRepo.deleteAllForUser(tx, user.id);
+        for (const tokenId of revokedTokenIds) {
+          await auditRepo.log(tx, {
+            actorId: user.id,
+            action: "token.revoke",
+            resourceType: "personal_access_token",
+            resourceId: tokenId,
+            metadata: { reason: "2fa_enabled" },
+          });
+        }
         await auditRepo.log(tx, {
           actorId: user.id,
           action: "auth.2fa.enable",
           resourceType: "user",
           resourceId: user.id,
-          metadata: { revokedSessions },
+          metadata: {
+            revokedSessions,
+            revokedTokens: revokedTokenIds.length,
+          },
         });
+        return revokedTokenIds.length;
       },
     );
 
-    return c.json({ success: true });
+    const response: TwoFactorEnableResponse = { success: true, revokedTokens };
+    return c.json(response);
   });
 
   // Disable 2FA: requires a current TOTP code or an unused recovery code, so a
