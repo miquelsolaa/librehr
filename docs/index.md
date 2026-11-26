@@ -21,6 +21,7 @@ Welcome to the LibreHR documentation repository.
 - [Data Protection Impact Assessment (DPIA)](compliance/dpia-template.md)
 - [Data Breach Response Runbook](compliance/breach-runbook.md)
 - [Compliance Changelog](compliance/changelog.md)
+- [ET art. 38.3 and vacation carry-over: questions for counsel](compliance/et-38-3-carryover-questions.md)
 - [Compliance Policy](../COMPLIANCE.md)
 - [Clean-Room Policy](../CLEANROOM.md)
 

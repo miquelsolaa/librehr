@@ -3,6 +3,7 @@ import { test, expect } from "@playwright/test";
 import { mockRoute } from "./support/mock-api";
 
 // LEA-002 (#118): opt-in part-time proration of a leave policy.
+// LEA-002 (#132, #133): opt-in carry-over cap, confirmed before it is turned on.
 
 const TYPE_ID = "00000000-0000-4000-8000-000000000051";
 const POLICY = {
@@ -87,7 +88,11 @@ test("an admin sets a policy's full-time week, with the statutory warning", asyn
   expect(results.violations).toEqual([]);
 });
 
-test("an admin opts a policy in to the carry-over cap, with the ET 38.3 note (#132)", async ({
+const TOGGLE = "Cap carry-over, forfeit the excess and expire carried days";
+const ACK =
+  "I have checked our collective agreement and understand that employees may lose days.";
+
+test("an admin opts a policy in to the carry-over cap after confirming (#132, #133)", async ({
   page,
 }) => {
   let sent: unknown = null;
@@ -102,22 +107,100 @@ test("an admin opts a policy in to the carry-over cap, with the ET 38.3 note (#1
   await expect(
     page.getByText("Off: the whole balance is carried over"),
   ).toBeVisible();
-  const toggle = page.getByLabel(
-    "Cap carry-over, forfeit the excess and expire carried days",
-  );
+  await expect(page.getByText("Pending legal review.")).toHaveCount(0);
+  const toggle = page.getByLabel(TOGGLE);
   await expect(toggle).not.toBeChecked();
   await expect(toggle).toHaveAccessibleDescription(/ET art\. 38\.3/);
 
   await toggle.check();
   await page.getByRole("button", { name: "Save carry-over rule" }).click();
-  await expect(page.getByRole("status")).toContainText("Saved.");
-  expect(sent).toEqual({ carryoverEnforced: true });
-  await expect(page.getByText(/^On: up to 0 days carried over/)).toBeVisible();
+  const dialog = page.getByRole("dialog", {
+    name: "Turn on the carry-over cap?",
+  });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText("Agreement days");
+  await expect(dialog).toContainText("at most 0 days are carried over");
+  await expect(dialog).toContainText("end of month 3 of the next year");
+  await expect(dialog).toContainText("Pending legal review.");
+  const confirm = dialog.getByRole("button", { name: "Turn on the cap" });
+  await expect(confirm).toBeDisabled();
+  expect(sent).toBeNull();
 
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();
   expect(results.violations).toEqual([]);
+
+  await dialog.getByLabel(ACK).check();
+  await confirm.click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole("status")).toContainText("Saved.");
+  expect(sent).toEqual({ carryoverEnforced: true });
+  await expect(page.getByText(/^On: up to 0 days carried over/)).toBeVisible();
+  await expect(page.getByText("Pending legal review.")).toBeVisible();
+  await expect(toggle).toBeFocused();
+});
+
+test("cancelling the confirmation with Escape leaves the cap off (#133)", async ({
+  page,
+}) => {
+  let patches = 0;
+  await mockRoute(page, "**/v1/leave/policies**", async (route) => {
+    if (route.request().method() === "PATCH") {
+      patches++;
+      return route.fulfill({ json: { ...POLICY, carryoverEnforced: true } });
+    }
+    return route.fulfill({ json: [POLICY] });
+  });
+  await page.goto("/en/settings/leave-policies");
+  const toggle = page.getByLabel(TOGGLE);
+  await toggle.check();
+  await page.getByRole("button", { name: "Save carry-over rule" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel(ACK).check();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(toggle).not.toBeChecked();
+  await expect(toggle).toBeFocused();
+  await expect(
+    page.getByText("Off: the whole balance is carried over"),
+  ).toBeVisible();
+
+  // Reopening starts unacknowledged; Cancel also leaves it off.
+  await toggle.check();
+  await page.getByRole("button", { name: "Save carry-over rule" }).click();
+  await expect(dialog.getByLabel(ACK)).not.toBeChecked();
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(toggle).not.toBeChecked();
+  expect(patches).toBe(0);
+});
+
+test("turning the cap off needs no confirmation (#133)", async ({ page }) => {
+  let sent: unknown = null;
+  await mockRoute(page, "**/v1/leave/policies**", async (route) => {
+    if (route.request().method() === "PATCH") {
+      sent = route.request().postDataJSON();
+      return route.fulfill({ json: POLICY });
+    }
+    return route.fulfill({ json: [{ ...POLICY, carryoverEnforced: true }] });
+  });
+  await page.goto("/en/settings/leave-policies");
+  await expect(page.getByText("Pending legal review.")).toBeVisible();
+  const results = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  expect(results.violations).toEqual([]);
+
+  await page.getByLabel(TOGGLE).uncheck();
+  await page.getByRole("button", { name: "Save carry-over rule" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("status")).toContainText("Saved.");
+  expect(sent).toEqual({ carryoverEnforced: false });
+  await expect(
+    page.getByText("Off: the whole balance is carried over"),
+  ).toBeVisible();
+  await expect(page.getByText("Pending legal review.")).toHaveCount(0);
 });
 
 test("a failed carry-over save is reported and nothing changes", async ({
@@ -130,10 +213,11 @@ test("a failed carry-over save is reported and nothing changes", async ({
     return route.fulfill({ json: [POLICY] });
   });
   await page.goto("/en/settings/leave-policies");
-  await page
-    .getByLabel("Cap carry-over, forfeit the excess and expire carried days")
-    .check();
+  await page.getByLabel(TOGGLE).check();
   await page.getByRole("button", { name: "Save carry-over rule" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel(ACK).check();
+  await dialog.getByRole("button", { name: "Turn on the cap" }).click();
   await expect(page.locator("main").getByRole("alert")).toContainText(
     "could not be saved",
   );

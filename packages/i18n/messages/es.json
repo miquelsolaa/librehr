@@ -1206,6 +1206,17 @@
     "carryoverOn": "Activado: se arrastran hasta {days, plural, one {# día} other {# días}}, disfrutables durante {months, plural, one {# mes} other {# meses}} del año siguiente.",
     "carryoverOff": "Desactivado: se arrastra todo el saldo y nunca caduca.",
     "carryoverSave": "Guardar regla de arrastre",
+    "carryoverLegalPendingTitle": "Pendiente de revisión legal.",
+    "carryoverLegalPending": "La forma en que LibreHR aplica el art. 38.3 del ET (qué permisos protegen las vacaciones y durante cuánto tiempo) aún no la ha confirmado un abogado laboralista. Revisa tu convenio colectivo y pide asesoramiento jurídico antes de confiar en las pérdidas y caducidades.",
+    "carryoverConfirmTitle": "¿Activar el límite de arrastre?",
+    "carryoverConfirmIntro": "Las personas con la política «{policy}» pueden perder días de vacaciones al cierre del año. Lee qué pasará antes de activarlo.",
+    "carryoverConfirmCap": "En cada cierre de año se arrastra como máximo {days, plural, one {# día} other {# días}}; el resto del saldo se pierde.",
+    "carryoverConfirmExpiry": "Los días arrastrados no disfrutados al final del mes {months} del año siguiente caducan.",
+    "carryoverConfirmProtected": "Las personas con incapacidad temporal, embarazo, parto, adopción o lactancia el año cerrado o el anterior conservan todo su saldo (art. 38.3 del ET).",
+    "carryoverConfirmLateLeave": "Los permisos aprobados después de un cierre no se tienen en cuenta: tendrás que restituir esos días con un ajuste.",
+    "carryoverConfirmAck": "He revisado nuestro convenio colectivo y entiendo que las personas pueden perder días.",
+    "carryoverConfirmCancel": "Cancelar",
+    "carryoverConfirmSubmit": "Activar el límite",
     "save": "Guardar",
     "saved": "Guardado."
   }
