@@ -179,6 +179,15 @@ There is no `/api` prefix: the proxy forwards `/v1/*` to the API unchanged.
 - [ ] Run `pnpm doctor` or verify RLS is forced on all tenant tables.
 - [ ] Setup daily automated backups using `infra/scripts/backup.sh`.
 - [ ] Configure outbound SMTP settings to deliver transactional invites and password resets.
+- [ ] If the API host may only reach the internet through a forward proxy, allow direct outbound HTTPS for webhook deliveries (see [Outbound webhooks](#outbound-webhooks-and-proxies)).
+
+### Outbound webhooks and proxies
+
+Webhook deliveries only go to public `https://` addresses. The API resolves the webhook host once, checks every address it resolves to (no loopback, private, link-local or cloud metadata ranges, including their IPv6 and IPv4-mapped forms), and then connects straight to one of those checked addresses. The `Host` header, TLS SNI and certificate check still use the hostname, certificate verification cannot be turned off (`NODE_TLS_REJECT_UNAUTHORIZED` is ignored for webhooks), and redirects are never followed.
+
+By design, webhook delivery **does not use `HTTP_PROXY` / `HTTPS_PROXY`**: a proxy would resolve the hostname again and could reach an address that was never checked. If your network only allows egress through a proxy, open direct outbound HTTPS (port 443) from the API container to your webhook receivers, or webhook deliveries will fail.
+
+`WEBHOOKS_ALLOW_PRIVATE=true` (development only, refused in production) also allows `http://` and private addresses; the connection is still pinned to the address resolved before sending.
 
 ## 2a. Editions and licence key
 
