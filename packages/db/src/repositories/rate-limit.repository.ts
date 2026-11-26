@@ -78,8 +78,8 @@ export class RateLimitRepository {
   /**
    * Records one failure. Failures restart from zero once the window that
    * began with the first of them is over (now - window_start > windowMs);
-   * reaching `limit` locks the key until now + lockoutMs and starts a new
-   * window.
+   * reaching `limit` locks the key until now + lockoutMs (never earlier than
+   * a lock it already has) and starts a new window.
    */
   async recordFailure(
     sql: Sql,
@@ -208,7 +208,10 @@ function failureUpsert(
     Math.max(policy.windowMs, policy.lockoutMs),
   );
   const lockNow = policy.limit <= 1;
-  // Failures in the current window including this one.
+  // Failures in the current window including this one. A new window never
+  // clears or shortens a live lock (a lockout may outlast the window), and
+  // expires_at never falls before locked_until, so the sweep cannot delete a
+  // live lockout. GREATEST ignores a NULL locked_until.
   const n = sql`(CASE WHEN b.window_start < ${stale} THEN 0 ELSE b.count END) + 1`;
   const reached = sql`${n} >= ${policy.limit}::int`;
   const fresh = sql`b.window_start < ${stale}`;
@@ -222,9 +225,10 @@ function failureUpsert(
   const set = sql`
     count = CASE WHEN ${reached} THEN 0 ELSE ${n} END,
     window_start = CASE WHEN ${reached} OR ${fresh} THEN ${now} ELSE b.window_start END,
-    locked_until = CASE WHEN ${reached} THEN ${lockEnd}
-                        WHEN ${fresh} THEN NULL ELSE b.locked_until END,
-    expires_at = CASE WHEN ${reached} THEN ${lockExpiry}
-                      WHEN ${fresh} THEN ${windowEnd} ELSE b.expires_at END`;
+    locked_until = CASE WHEN ${reached} THEN GREATEST(b.locked_until, ${lockEnd})
+                        ELSE b.locked_until END,
+    expires_at = CASE WHEN ${reached} THEN GREATEST(b.locked_until, ${lockExpiry})
+                      WHEN ${fresh} THEN GREATEST(b.locked_until, ${windowEnd})
+                      ELSE b.expires_at END`;
   return { now, insert, set };
 }
