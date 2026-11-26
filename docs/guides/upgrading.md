@@ -4,6 +4,12 @@ All LibreHR database migrations are designed to be forward-only and safe to run 
 
 ## Standard Upgrade Workflow
 
+> [!WARNING]
+> **Upgrading from a release that ran Postgres 16?** That upgrade needs a manual
+> dump and restore before anything else. Follow
+> [Upgrading from Postgres 16 to Postgres 18](self-hosting.md#4-upgrading-from-postgres-16-to-postgres-18)
+> first; the steps below assume the database already runs Postgres 18.
+
 1. **Create a fresh pre-upgrade backup:**
 
    ```bash
