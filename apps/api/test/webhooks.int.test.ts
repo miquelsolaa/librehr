@@ -13,6 +13,9 @@ import {
   type RoleSeparatedDatabase,
   type TestDatabase,
 } from "@librehr/testing";
+import { once } from "node:events";
+import * as http from "node:http";
+import type { AddressInfo } from "node:net";
 import { runMigrations } from "@librehr/db/migrate";
 import type { AuthUser, ProblemDetails, WebhookItem } from "@librehr/contracts";
 import { createApp } from "../src/app.js";
@@ -196,6 +199,7 @@ describe("Outbound Webhooks API (ADM-006)", () => {
       otherAdmin,
     );
     expect(test.status).toBe(404);
+    expect(sendWebhook).not.toHaveBeenCalled();
   });
 
   it("POST /v1/webhooks/:id/test sends ping and records delivery", async () => {
@@ -325,6 +329,72 @@ describe("Outbound Webhooks API (ADM-006)", () => {
     expect(list.find((w) => w.id === createdId)?.events).toEqual([
       "employee.created",
     ]);
+  });
+
+  it("delivers through the default pinned sender with the real Host header", async () => {
+    // A local receiver; `hooks.invalid` never resolves through system DNS
+    // (RFC 6761), so only the pinned address can reach it.
+    const received: { host: string | undefined; event: unknown }[] = [];
+    const receiver = http.createServer((req, res) => {
+      req.resume();
+      req.on("end", () => {
+        received.push({
+          host: req.headers.host,
+          event: req.headers["x-librehr-event"],
+        });
+        res.end("ok");
+      });
+    });
+    receiver.listen(0, "127.0.0.1");
+    await once(receiver, "listening");
+    const { port } = receiver.address() as AddressInfo;
+
+    // No `sendWebhook`: the real node:http sender. Development settings
+    // allow the loopback receiver; DNS still goes through the seam.
+    const devApp = createApp({
+      sql: db.appSql,
+      authPort,
+      config: {
+        nodeEnv: "test",
+        webhooksAllowPrivate: true,
+        resolveHost: async (hostname) => {
+          if (hostname !== "hooks.invalid") throw new Error("ENOTFOUND");
+          return ["127.0.0.1"];
+        },
+      },
+    });
+    const devCall = (method: string, path: string, body?: unknown) =>
+      devApp.request(path, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer token_${admin.id}`,
+        },
+        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      });
+
+    try {
+      const created = await devCall("POST", "/v1/webhooks", {
+        name: "Local receiver",
+        url: `http://hooks.invalid:${port}/hook`,
+        events: ["employee.created"],
+      });
+      expect(created.status).toBe(201);
+      const { id } = (await created.json()) as WebhookItem;
+
+      const res = await devCall("POST", `/v1/webhooks/${id}/test`);
+      expect(res.status).toBe(200);
+      expect(((await res.json()) as { success: boolean }).success).toBe(true);
+      expect(received).toEqual([
+        { host: `hooks.invalid:${port}`, event: "test.ping" },
+      ]);
+      expect(sendWebhook).not.toHaveBeenCalled();
+
+      await db.adminSql`DELETE FROM webhooks WHERE id = ${id}`;
+    } finally {
+      receiver.closeAllConnections();
+      receiver.close();
+    }
   });
 
   it("DELETE /v1/webhooks/:id removes webhook subscription", async () => {

@@ -28,6 +28,13 @@ type RequestFn = (
   callback: (res: http.IncomingMessage) => void,
 ) => http.ClientRequest;
 
+/** dns.LookupOptions.family may be 0, 4, 6, "IPv4" or "IPv6". */
+function familyNumber(family: LookupOptions["family"]): 4 | 6 | undefined {
+  if (family === 4 || family === "IPv4") return 4;
+  if (family === 6 || family === "IPv6") return 6;
+  return undefined;
+}
+
 /**
  * A `lookup` that never touches DNS: it answers with the addresses the SSRF
  * guard already validated, so a rebinding answer (say 127.0.0.1) between the
@@ -39,19 +46,24 @@ export function pinnedLookup(addresses: readonly string[]): LookupFunction {
     family: ipVersion(address) === 6 ? 6 : 4,
   }));
   return (_hostname: string, options: LookupOptions, callback) => {
-    const wanted =
-      options.family === 4 || options.family === 6
-        ? entries.filter((e) => e.family === options.family)
-        : entries;
+    const family = familyNumber(options.family);
+    const wanted = family
+      ? entries.filter((e) => e.family === family)
+      : entries;
     const first = wanted[0];
-    if (!first) {
-      const err: NodeJS.ErrnoException = new Error("No pinned address");
-      err.code = "ENOTFOUND";
-      callback(err, "", undefined);
-      return;
-    }
-    if (options.all) callback(null, wanted);
-    else callback(null, first.address, first.family);
+    // Asynchronous like dns.lookup: callers may not expect a synchronous
+    // callback before they finish wiring their socket.
+    process.nextTick(() => {
+      if (!first) {
+        const err: NodeJS.ErrnoException = new Error("No pinned address");
+        err.code = "ENOTFOUND";
+        callback(err, "", undefined);
+      } else if (options.all) {
+        callback(null, wanted);
+      } else {
+        callback(null, first.address, first.family);
+      }
+    });
   };
 }
 
@@ -77,6 +89,9 @@ export function pinnedRequestOptions(
     lookup: pinnedLookup(target.addresses),
     // SNI must not carry an IP literal (RFC 6066).
     ...(isIp ? {} : { servername: hostname }),
+    // Explicit, so NODE_TLS_REJECT_UNAUTHORIZED=0 in the environment cannot
+    // turn off certificate verification for webhook deliveries.
+    rejectUnauthorized: true,
     // No pooled keep-alive socket: each delivery connects to the addresses
     // validated for it, never to a socket opened after an earlier check.
     agent: false,
@@ -90,6 +105,9 @@ export function pinnedRequestOptions(
  * the socket pinned to its validated addresses. Uses node:http(s), which
  * never follows redirects; a 3xx is reported to the caller, so no hop can
  * reach an address the guard did not check. The response body is discarded.
+ *
+ * HTTP_PROXY / HTTPS_PROXY are deliberately not honoured: a proxy would
+ * resolve the hostname itself and undo the pinning.
  */
 export function sendPinnedRequest(
   target: OutboundTarget,
