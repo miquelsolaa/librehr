@@ -291,6 +291,58 @@ export const timesheetClosures = pgTable(
   ],
 );
 
+// TIM-006 (#38): background organization exports (migration 0045). Outbox
+// for the worker and record of what was issued; the stored file expires,
+// the row is kept. RLS, CHECKs and the dispatch function live in the SQL.
+export const timeExports = pgTable(
+  "time_exports",
+  {
+    id: primaryId(), // also the exportId of the document and audit entry
+    organizationId: organizationIdCol().references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    requestedBy: uuid("requested_by").notNull(), // users.id, no FK
+    scope: text("scope").notNull().default("organization"),
+    format: text("format").notNull(), // csv, pdf
+    locale: text("locale").notNull(), // ca, es, en
+    periodStart: date("period_start").notNull(),
+    periodEnd: date("period_end").notNull(),
+    employeeDays: integer("employee_days").notNull(),
+    status: text("status").notNull().default("queued"), // queued, running, ready, failed, expired
+    attempts: integer("attempts").notNull().default(0),
+    contentHash: text("content_hash"),
+    employeeCount: integer("employee_count"),
+    byteSize: bigint("byte_size", { mode: "number" }),
+    storageKey: text("storage_key"), // relative key in local storage; null once deleted
+    errorCode: text("error_code"),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true, mode: "date" }),
+    completedAt: timestamp("completed_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }),
+  },
+  (table) => [
+    index("time_exports_requester_idx").on(
+      table.organizationId,
+      table.requestedBy,
+      table.createdAt,
+    ),
+    uniqueIndex("time_exports_one_active_per_requester_idx")
+      .on(table.organizationId, table.requestedBy)
+      .where(sql`${table.status} IN ('queued', 'running')`),
+    index("time_exports_active_idx")
+      .on(table.createdAt, table.organizationId)
+      .where(sql`${table.status} IN ('queued', 'running')`),
+    index("time_exports_ready_expiry_idx")
+      .on(table.organizationId, table.expiresAt)
+      .where(sql`${table.status} = 'ready'`),
+  ],
+);
+
 // TIM-004 & TIM-005: Shift rotation templates
 export const shiftTemplates = pgTable(
   "shift_templates",
