@@ -22,6 +22,7 @@ import {
 } from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
 import { createRateLimiter } from "../middleware/rate-limit.js";
+import type { RateLimitStore } from "../lib/rate-limit-store.js";
 import { can } from "../policies/can.js";
 import { canOnEmployee, resolvePolicyContext } from "../policies/context.js";
 import {
@@ -52,6 +53,8 @@ export const TIME_EXPORT_EXPOSED_HEADERS = [
 const DEFAULT_RATE_LIMIT = { windowMs: 60_000, max: 10 };
 
 export interface TimeExportRouteOptions {
+  /** Shared store of the rate limit (issue #35). */
+  rateLimitStore: RateLimitStore;
   timeChainKey: string;
   /** TRUST_PROXY: reverse-proxy hops whose X-Forwarded-For entries are trusted. */
   trustProxy?: number | undefined;
@@ -79,6 +82,8 @@ export function createTimeExportRoutes(
   // Each export reads and verifies whole chains: cap how often one user can
   // ask, so a loop of requests cannot monopolize the database.
   const exportLimit = createRateLimiter({
+    name: "time.export.user",
+    store: options.rateLimitStore,
     ...(options.rateLimit ?? DEFAULT_RATE_LIMIT),
     trustProxy: options.trustProxy,
     account: (c) => currentUser(c).id,

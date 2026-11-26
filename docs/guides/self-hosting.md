@@ -173,12 +173,21 @@ There is no `/api` prefix: the proxy forwards `/v1/*` to the API unchanged.
 ## 2. Production Security Checklist
 
 - [ ] Enforce HTTPS using Caddy or your reverse proxy (`infra/compose/Caddyfile.example`). Session cookies are `Secure` when `NODE_ENV=production`, so the web app and API must be served over HTTPS from the same site (the bundled Caddyfile serves both from one origin).
-- [ ] Run a single API instance. Rate limits for sign-in and two-factor are kept in memory per process; several replicas would each keep their own counters and multiply the limit.
+- [ ] If you run several API replicas, give them all the same `SESSION_SECRET`. Rate limits and lockouts (sign-in, two-factor, kiosk PINs, setup, exports) are kept in Postgres (`rate_limit_buckets`) and shared by every replica, timed by the database clock. Their keys are HMACs under a key derived from `SESSION_SECRET`, so replicas with different secrets count separately: rotating the secret resets every counter and lockout, and during a rolling rotation (old and new secret both serving) each client briefly gets up to twice its budget. The API refuses to start in production without `SESSION_SECRET`. IPv6 clients are counted per /64 network, IPv4 clients per address. A large site whose users all reach the API from one IPv6 /64 therefore shares one per-IP budget, as users behind one IPv4 NAT address already do; the per-account limits are unaffected. If Postgres is unreachable, rate-limited routes such as sign-in fail closed with a 500 rather than skip the limit.
 - [ ] Set `TRUST_PROXY` to the exact number of reverse proxies in front of the API (`1` with the bundled Caddy).
 - [ ] Ensure database port 5432 is not exposed to the public internet (bind to internal Docker network only).
 - [ ] Run `pnpm doctor` or verify RLS is forced on all tenant tables.
 - [ ] Setup daily automated backups using `infra/scripts/backup.sh`.
 - [ ] Configure outbound SMTP settings to deliver transactional invites and password resets.
+- [ ] If the API host may only reach the internet through a forward proxy, allow direct outbound HTTPS for webhook deliveries (see [Outbound webhooks](#outbound-webhooks-and-proxies)).
+
+### Outbound webhooks and proxies
+
+Webhook deliveries only go to public `https://` addresses. The API resolves the webhook host once, checks every address it resolves to (no loopback, private, link-local or cloud metadata ranges, including their IPv6 and IPv4-mapped forms), and then connects straight to one of those checked addresses. The `Host` header, TLS SNI and certificate check still use the hostname, certificate verification cannot be turned off (`NODE_TLS_REJECT_UNAUTHORIZED` is ignored for webhooks), and redirects are never followed.
+
+By design, webhook delivery **does not use `HTTP_PROXY` / `HTTPS_PROXY`**: a proxy would resolve the hostname again and could reach an address that was never checked. If your network only allows egress through a proxy, open direct outbound HTTPS (port 443) from the API container to your webhook receivers, or webhook deliveries will fail.
+
+`WEBHOOKS_ALLOW_PRIVATE=true` (development only, refused in production) also allows `http://` and private addresses; the connection is still pinned to the address resolved before sending.
 
 ## 2a. Editions and licence key
 
@@ -212,3 +221,112 @@ The worker applies these values at startup, including to queues created by
 earlier versions (`QUEUE_RETENTION` in `apps/worker/src/lib/queue-setup.ts`).
 Database backups contain whatever job rows existed when they were taken, so
 expire backups under your retention policy as well.
+
+## 4. Upgrading from Postgres 16 to Postgres 18
+
+> [!WARNING]
+> Releases before this one ran Postgres 16. This release runs Postgres 18 and
+> stores its data in a **new volume** (`postgres18_data`). Postgres does not
+> read the data of an older major version, so your data does not move by
+> itself. If you only pull and run `up -d`, LibreHR starts on an **empty
+> database** and the API creates a new, empty schema in it. Your old data
+> stays in the old volume (`postgres_data`), untouched, but it is not used.
+> Follow the steps below instead.
+
+The upgrade is a dump and restore. It needs downtime: plan a few minutes per
+gigabyte of data. The commands below run from the repository root and use the
+production compose file:
+
+```bash
+COMPOSE="docker compose --env-file .env -f infra/compose/docker-compose.yml"
+```
+
+1. **Dump everything from the Postgres 16 container.** Do this **before** you
+   pull the new release, while the old stack still runs. Stop the
+   application first, so nothing writes during the dump:
+
+   ```bash
+   $COMPOSE stop web api worker
+   umask 077
+   $COMPOSE exec -T postgres sh -c 'pg_dumpall -U "$POSTGRES_USER"' > librehr-pg16.sql
+   ```
+
+   `pg_dumpall` saves every database and the roles with their password
+   hashes. The file holds personal data: keep it readable only by the
+   operator, and delete it once the upgrade is done.
+
+   Write down a few row counts to compare later:
+
+   ```bash
+   $COMPOSE exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT (SELECT count(*) FROM organizations) AS orgs, (SELECT count(*) FROM employees) AS employees, (SELECT count(*) FROM time_events) AS time_events, (SELECT count(*) FROM leave_ledger) AS leave_ledger;"'
+   ```
+
+2. **Stop the old stack.** Do **not** pass `-v`: that deletes the volumes.
+
+   ```bash
+   $COMPOSE down
+   ```
+
+3. **Switch to the new release.** Pull the code (or release tag) that runs
+   Postgres 18. It changes the image to `postgres:18-alpine` and mounts the
+   new volume at `/var/lib/postgresql`.
+
+   ```bash
+   git pull origin main
+   ```
+
+4. **Start only Postgres.** On the empty volume, the init script creates the
+   LibreHR roles and the database again, from the same `.env` passwords.
+
+   ```bash
+   $COMPOSE up -d postgres
+   $COMPOSE ps postgres   # wait until it reports "healthy"
+   ```
+
+5. **Restore the dump.**
+
+   ```bash
+   $COMPOSE exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d postgres' < librehr-pg16.sql
+   ```
+
+   A few `already exists` errors are expected: for the bootstrap role,
+   `librehr_owner`, `librehr_app` and the `librehr` database, which the init
+   script created in step 4. Any other error means the restore is not
+   complete. Stop and investigate before you start the application.
+
+6. **Verify.** Run the row counts from step 1 again and compare them. Check
+   the server version:
+
+   ```bash
+   $COMPOSE exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tc "SELECT version();"'
+   ```
+
+   Then start the stack and check health:
+
+   ```bash
+   $COMPOSE up -d
+   curl -f https://hr.example.com/readyz
+   pnpm doctor
+   ```
+
+   Sign in and open a few employees, time records and leave balances.
+
+7. **Clean up.** Keep the old volume until you are sure. To roll back, check
+   out the previous release and start it: it still uses the old volume. When
+   you no longer need it, find it with `docker volume ls` (the name ends in
+   `postgres_data`) and remove it with `docker volume rm`. Delete
+   `librehr-pg16.sql` as well.
+
+**Backups after the upgrade.** `infra/scripts/backup.sh` runs `pg_dump` on
+the host. `pg_dump` must be at least as new as the server, so install the
+Postgres 18 client tools on the host, or run the dump inside the container
+as in step 1.
+
+**Alternative: `pg_upgrade`.** For large databases, `pg_upgrade` is faster
+than a dump and restore. It needs the binaries of both versions in one
+place, which the official images do not ship, and it is easier to get
+wrong. Postgres 18 also turns on data checksums by default for new
+clusters, and `pg_upgrade` needs both clusters to match: initialise the new
+cluster with `--no-data-checksums`, or turn checksums on in the old cluster
+first with `pg_checksums`. Follow the Postgres documentation for
+`pg_upgrade` and take a dump first either way.

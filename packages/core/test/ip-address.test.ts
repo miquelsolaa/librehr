@@ -10,6 +10,7 @@ describe("isPublicIpAddress (ADM-006 SSRF guard)", () => {
     "2a00:1450:4003:80e::200e",
     "::ffff:8.8.8.8",
     "64:ff9b::808:808",
+    "3fff:1000::1", // just outside the 3fff::/20 documentation block
   ])("accepts public address %s", (address) => {
     expect(isPublicIpAddress(address)).toBe(true);
   });
@@ -57,6 +58,11 @@ describe("isPublicIpAddress (ADM-006 SSRF guard)", () => {
     "::ffff:a9fe:a9fe",
     "::ffff:10.0.0.1",
     "::127.0.0.1",
+    "::ffff:0:127.0.0.1",
+    "::ffff:0:a9fe:a9fe",
+    "::ffff:0:8.8.8.8",
+    "3fff::1",
+    "3fff:fff:ffff::1",
     "64:ff9b::a00:1",
     "64:ff9b:1::1",
     "2002:a00:1::1",

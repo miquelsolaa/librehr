@@ -17,6 +17,7 @@ import {
 } from "@librehr/db";
 import { AppError, UnauthorizedError } from "../errors/index.js";
 import { requireAuth } from "../middleware/auth.js";
+import { requireInteractiveSession } from "../middleware/pat-scopes.js";
 import { can } from "../policies/can.js";
 import type { AuthPort } from "../ports/auth.js";
 import type { MailPort } from "../ports/mail.js";
@@ -28,6 +29,12 @@ import {
   setSessionCookie,
   type SessionCookieOptions,
 } from "../lib/session-cookie.js";
+
+/** Roles whose invitation grants access control: interactive sessions only. */
+const INTERACTIVE_ONLY_INVITE_ROLES: ReadonlySet<string> = new Set([
+  "admin",
+  "auditor",
+]);
 
 export function createInvitationRoutes(
   sql: Sql,
@@ -85,6 +92,14 @@ export function createInvitationRoutes(
       return c.json(problem, 400, {
         "Content-Type": "application/problem+json",
       });
+    }
+
+    // Inviting an admin or an auditor grants access, like the /v1/auditors
+    // routes (TIM-008), so it needs an interactive session: never a personal
+    // access token, even an admin one (issue #35). Manager and employee
+    // invitations still accept admin-scoped tokens.
+    if (INTERACTIVE_ONLY_INVITE_ROLES.has(parse.data.role)) {
+      requireInteractiveSession(c);
     }
 
     const created = await withTenant(

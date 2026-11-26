@@ -9,6 +9,7 @@ import {
 import { runMigrations } from "@librehr/db/migrate";
 import type { ExportEmployeesResponse } from "@librehr/contracts";
 import { createApp } from "../src/app.js";
+import { isolatedRateLimitStore } from "./support/rate-limit.js";
 import { EXPORT_EMPLOYEE_COLLATOR } from "../src/routes/time-export-employees.js";
 import { as, fixtureAuthPort } from "./support/fixture-app.js";
 
@@ -104,6 +105,7 @@ describe("GET /v1/time/export/employees (TIM-006, TIM-008)", () => {
     ];
     app = createApp({
       sql: await db.appSql(),
+      rateLimitStore: isolatedRateLimitStore(await db.appSql()),
       authPort: fixtureAuthPort(people),
     });
   }, 90000);
@@ -221,6 +223,8 @@ describe("GET /v1/time/export/employees (TIM-006, TIM-008)", () => {
   it("rate-limits per user with a 429 problem, apart from the export", async () => {
     const limited = createApp({
       sql: await db.appSql(),
+      // Fresh counters: the shared store already holds this user's requests.
+      rateLimitStore: isolatedRateLimitStore(await db.appSql()),
       authPort: fixtureAuthPort(people),
       timeExport: {
         rateLimit: { windowMs: 60_000, max: 1 },

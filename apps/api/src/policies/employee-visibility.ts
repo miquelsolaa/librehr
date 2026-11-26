@@ -72,6 +72,8 @@ export function toEmployeeProfile(
     managerName: row.managerName,
     jobTitle: row.jobTitle,
     employmentType: row.employmentType,
+    // Job data, like the employment history a manager can already read.
+    workingHoursPerWeek: row.workingHoursPerWeek,
     startDate: row.startDate,
     hasNationalId: Boolean(row.nationalIdEncrypted),
     hasIban: Boolean(row.ibanEncrypted),

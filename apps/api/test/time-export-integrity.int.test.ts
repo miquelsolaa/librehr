@@ -11,6 +11,7 @@ import { runMigrations } from "@librehr/db/migrate";
 import { TimeRepository, withTenant } from "@librehr/db";
 import type { OfficialExportResponse } from "@librehr/contracts";
 import { createApp } from "../src/app.js";
+import { isolatedRateLimitStore } from "./support/rate-limit.js";
 import {
   createTimeChainSigner,
   resolveTimeChainKey,
@@ -111,6 +112,7 @@ describe("GET /v1/time/export integrity (TIM-006)", () => {
     fixer = await addEmployee("fixer");
     app = createApp({
       sql: await db.appSql(),
+      rateLimitStore: isolatedRateLimitStore(await db.appSql()),
       authPort: fixtureAuthPort([a.admin, a.manager, a.report, a.auditor]),
       timeExport: { rateLimit: { windowMs: 60_000, max: 1000 } },
     });

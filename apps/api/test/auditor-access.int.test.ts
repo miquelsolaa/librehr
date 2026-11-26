@@ -22,6 +22,7 @@ import type {
   ProblemDetails,
 } from "@librehr/contracts";
 import { createApp } from "../src/app.js";
+import { isolatedRateLimitStore } from "./support/rate-limit.js";
 import { BetterAuthAdapter } from "../src/adapters/better-auth.js";
 import { hashPassword } from "../src/lib/password.js";
 
@@ -154,6 +155,7 @@ describe("auditor access expiry (TIM-008)", () => {
     await db.adminSql`UPDATE users SET password_hash = ${hash}`;
     app = createApp({
       sql: db.appSql,
+      rateLimitStore: isolatedRateLimitStore(db.appSql),
       authPort: new BetterAuthAdapter(db.appSql),
       sessionSecret: "a-secure-test-secret-with-at-least-32-characters",
     });
@@ -583,6 +585,80 @@ describe("auditor access expiry (TIM-008)", () => {
         accessExpiresAt: created.accessExpiresAt,
       });
       expect(JSON.stringify(entry?.metadata)).not.toContain("@");
+    });
+
+    // Issue #35: inviting an admin or an auditor grants access, so like the
+    // /v1/auditors routes it needs an interactive session, never a token.
+    const inviteWithPat = async (body: Record<string, unknown>) =>
+      app.request("/v1/invitations", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${await patFor(a.admin.id, a.orgId, ["admin"])}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+    const invitationsTo = async (email: string) => {
+      const [row] = await db.adminSql<{ n: number }[]>`
+        SELECT count(*)::int AS n FROM invitations WHERE email = ${email}`;
+      return row?.n;
+    };
+
+    it("refuses admin and auditor invitations made with an admin personal access token", async () => {
+      const cases = [
+        {
+          email: "pat-inspector@example.invalid",
+          role: "auditor",
+          accessUntil: await localDay(10),
+        },
+        { email: "pat-admin@example.invalid", role: "admin" },
+      ];
+      for (const body of cases) {
+        const auditedBefore = (await auditLog(a.orgId, "invitation.create"))
+          .length;
+        const res = await inviteWithPat(body);
+        expect(res.status).toBe(403);
+        expect(res.headers.get("content-type")).toContain(
+          "application/problem+json",
+        );
+        // The same problem the /v1/auditors routes return to a token.
+        expect(((await res.json()) as ProblemDetails).code).toBe(
+          "TOKEN_SCOPE_INSUFFICIENT",
+        );
+        // Nothing is created and nothing is audited on the 403 path.
+        expect(await invitationsTo(body.email)).toBe(0);
+        expect((await auditLog(a.orgId, "invitation.create")).length).toBe(
+          auditedBefore,
+        );
+
+        // The same admin, in an interactive session, can send the invitation.
+        const viaSession = await invite(await session(a.admin), body);
+        expect(viaSession.status).toBe(201);
+        expect(await invitationsTo(body.email)).toBe(1);
+      }
+    });
+
+    it("validates the role before the session check (no case-folding)", async () => {
+      for (const role of ["Auditor", "ADMIN"]) {
+        const res = await inviteWithPat({
+          email: "pat-case@example.invalid",
+          role,
+          accessUntil: role === "Auditor" ? await localDay(10) : undefined,
+        });
+        expect(res.status).toBe(400);
+      }
+      expect(await invitationsTo("pat-case@example.invalid")).toBe(0);
+    });
+
+    it("still accepts manager and employee invitations made with an admin personal access token", async () => {
+      for (const role of ["employee", "manager"]) {
+        const res = await inviteWithPat({
+          email: `pat-${role}@example.invalid`,
+          role,
+        });
+        expect(res.status).toBe(201);
+        expect(((await res.json()) as { role: string }).role).toBe(role);
+      }
     });
 
     it("copies the end date to the membership on acceptance", async () => {

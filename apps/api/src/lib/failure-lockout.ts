@@ -1,83 +1,62 @@
-interface FailureRecord {
-  failures: number;
-  windowStartedAt: number;
-  lockedUntil: number;
-}
+import type { AttemptReservation, RateLimitStore } from "./rate-limit-store.js";
 
 export interface FailureLockoutOptions {
+  /** Bucket namespace, unique per lockout ("auth.2fa"). */
+  name: string;
+  store: RateLimitStore;
   failureWindowMs: number;
   lockoutMs: number;
 }
-
-/** Keep the in-memory map bounded; expired entries are pruned past this size. */
-const PRUNE_THRESHOLD = 10_000;
 
 /**
  * Counts failed attempts per key (a kiosk identifier, a client IP, an account) and
  * locks a key out for `lockoutMs` once it reaches its limit within
  * `failureWindowMs` (kiosk PINs: TIM-010; second factors: AUTH-003).
  *
- * State is per process, like the request rate limiter: with several API
- * instances each one counts separately, so the effective limit is N per
- * instance.
+ * State lives in the shared rate-limit store, so a lockout holds on every
+ * API replica.
  */
 export class FailureLockout {
-  private readonly records = new Map<string, FailureRecord>();
+  constructor(private readonly options: FailureLockoutOptions) {}
 
-  constructor(
-    private readonly options: FailureLockoutOptions,
-    private readonly now: () => number = Date.now,
-  ) {}
+  private key(key: string): string {
+    return `${this.options.name}:${key}`;
+  }
 
-  /** Milliseconds until the first of `keys` is unlocked, or 0 when none is locked. */
-  lockedFor(keys: readonly string[]): number {
-    const now = this.now();
-    let remaining = 0;
-    for (const key of keys) {
-      const record = this.records.get(key);
-      if (record && record.lockedUntil > now) {
-        remaining = Math.max(remaining, record.lockedUntil - now);
-      }
-    }
-    return remaining;
+  /** Milliseconds until every one of `keys` is unlocked; 0 when none is locked. */
+  lockedFor(keys: readonly string[]): Promise<number> {
+    return this.options.store.lockedFor(keys.map((k) => this.key(k)));
   }
 
   /** Records one failure against each key with its own limit. */
-  recordFailure(keys: ReadonlyArray<{ key: string; limit: number }>): void {
-    const now = this.now();
-    this.prune(now);
-    for (const { key, limit } of keys) {
-      let record = this.records.get(key);
-      if (
-        !record ||
-        now - record.windowStartedAt > this.options.failureWindowMs
-      ) {
-        record = { failures: 0, windowStartedAt: now, lockedUntil: 0 };
-        this.records.set(key, record);
-      }
-      record.failures++;
-      if (record.failures >= limit) {
-        record.lockedUntil = now + this.options.lockoutMs;
-        record.failures = 0;
-        record.windowStartedAt = now;
-      }
-    }
+  recordFailure(
+    keys: ReadonlyArray<{ key: string; limit: number }>,
+  ): Promise<void> {
+    return this.options.store.recordFailure(
+      keys.map(({ key, limit }) => ({ key: this.key(key), limit })),
+      {
+        windowMs: this.options.failureWindowMs,
+        lockoutMs: this.options.lockoutMs,
+      },
+    );
+  }
+
+  /**
+   * Counts an attempt atomically before it is verified, refused while the
+   * key is locked, so at most `limit` attempts per window are ever checked,
+   * whatever the concurrency and the number of replicas. Call `reset` when
+   * the attempt succeeds; a failed attempt needs nothing more.
+   */
+  reserve(key: string, limit: number): Promise<AttemptReservation> {
+    return this.options.store.reserveAttempt(this.key(key), {
+      limit,
+      windowMs: this.options.failureWindowMs,
+      lockoutMs: this.options.lockoutMs,
+    });
   }
 
   /** Clears the failures of a key after a successful attempt. */
-  reset(key: string): void {
-    this.records.delete(key);
-  }
-
-  private prune(now: number): void {
-    if (this.records.size < PRUNE_THRESHOLD) return;
-    for (const [key, record] of this.records) {
-      if (
-        record.lockedUntil <= now &&
-        now - record.windowStartedAt > this.options.failureWindowMs
-      ) {
-        this.records.delete(key);
-      }
-    }
+  reset(key: string): Promise<void> {
+    return this.options.store.reset(this.key(key));
   }
 }

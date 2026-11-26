@@ -9,6 +9,7 @@ import {
 import { runMigrations } from "@librehr/db/migrate";
 import { TimeRepository, withTenant } from "@librehr/db";
 import { createApp } from "../../src/app.js";
+import { isolatedRateLimitStore } from "./rate-limit.js";
 import {
   createTimeChainSigner,
   resolveTimeChainKey,
@@ -54,6 +55,7 @@ export async function setupTimeExportFixture(
     VALUES (${a.orgId}, 'Former', 'Leaver', 'former@fixture.invalid', 'terminated', '2026-01-31')`;
   const app = createApp({
     sql: await db.appSql(),
+    rateLimitStore: isolatedRateLimitStore(await db.appSql()),
     authPort: fixtureAuthPort([
       a.admin,
       a.manager,

@@ -18,8 +18,13 @@ import { requireAuth } from "../middleware/auth.js";
 import { can } from "../policies/can.js";
 import {
   assertPublicHttpsUrl,
+  resolveOutboundTarget,
   type OutboundUrlPolicy,
 } from "../lib/outbound-url.js";
+import {
+  sendPinnedRequest,
+  type OutboundSender,
+} from "../lib/outbound-request.js";
 
 /**
  * Response shape: the signing secret is included only when it was just
@@ -41,7 +46,11 @@ function toWebhookResponse(row: WebhookListRow, secret?: string) {
   };
 }
 
-export function createWebhookRoutes(sql: Sql, urlPolicy: OutboundUrlPolicy) {
+export function createWebhookRoutes(
+  sql: Sql,
+  urlPolicy: OutboundUrlPolicy,
+  send: OutboundSender = sendPinnedRequest,
+) {
   const router = new Hono();
   const webhookRepo = new WebhookRepository();
   const auditRepo = new AuditRepository();
@@ -390,8 +399,9 @@ export function createWebhookRoutes(sql: Sql, urlPolicy: OutboundUrlPolicy) {
     }
 
     // Checked again at send time: the stored URL may predate this guard, and
-    // its DNS answer may have changed since it was saved.
-    const target = await assertPublicHttpsUrl(webhook.url, urlPolicy);
+    // its DNS answer may have changed since it was saved. The request below
+    // connects only to the addresses validated here (no second lookup).
+    const target = await resolveOutboundTarget(webhook.url, urlPolicy);
 
     const timestamp = Math.floor(Date.now() / 1000);
     const testPayload = JSON.stringify({
@@ -419,7 +429,9 @@ export function createWebhookRoutes(sql: Sql, urlPolicy: OutboundUrlPolicy) {
     let success: boolean;
 
     try {
-      const response = await fetch(target, {
+      // node:http(s) never follows redirects: a 3xx could bounce the request
+      // to an internal address that was never checked, so it is reported.
+      const response = await send(target, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -429,23 +441,18 @@ export function createWebhookRoutes(sql: Sql, urlPolicy: OutboundUrlPolicy) {
           "X-LibreHR-Event": "test.ping",
         },
         body: testPayload,
-        // A redirect could bounce the request to an internal address that
-        // was never checked, so redirects are reported, not followed.
-        redirect: "manual",
-        signal: AbortSignal.timeout(5000),
+        timeoutMs: 5000,
       });
 
       durationMs = Math.round(performance.now() - startTime);
       statusCode = response.status;
-      success = response.ok;
-      if (response.status >= 300 && response.status < 400) {
+      success = statusCode >= 200 && statusCode < 300;
+      if (statusCode >= 300 && statusCode < 400) {
         errorMessage =
           "The endpoint answered with a redirect, which is not followed";
-      } else if (!response.ok) {
-        errorMessage = `The endpoint answered with HTTP ${response.status}`;
+      } else if (!success) {
+        errorMessage = `The endpoint answered with HTTP ${statusCode}`;
       }
-      // Never echo the response body or low-level error text to the client.
-      await response.body?.cancel().catch(() => undefined);
     } catch {
       durationMs = Math.round(performance.now() - startTime);
       statusCode = 0;

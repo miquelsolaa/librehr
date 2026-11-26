@@ -13,10 +13,14 @@ import {
   type RoleSeparatedDatabase,
   type TestDatabase,
 } from "@librehr/testing";
+import { once } from "node:events";
+import * as http from "node:http";
+import type { AddressInfo } from "node:net";
 import { runMigrations } from "@librehr/db/migrate";
 import type { AuthUser, ProblemDetails, WebhookItem } from "@librehr/contracts";
 import { createApp } from "../src/app.js";
 import type { AuthPort, AuthSession } from "../src/ports/auth.js";
+import type { OutboundSender } from "../src/lib/outbound-request.js";
 
 class MockAuthPort implements AuthPort {
   private sessions = new Map<string, AuthSession>();
@@ -89,6 +93,9 @@ describe("Outbound Webhooks API (ADM-006)", () => {
     return addresses;
   };
 
+  // No real network either: the outbound sender is a per-test fake.
+  const sendWebhook = vi.fn<OutboundSender>();
+
   const call = (
     method: string,
     path: string,
@@ -125,13 +132,15 @@ describe("Outbound Webhooks API (ADM-006)", () => {
 
     app = createApp({
       sql: db.appSql,
+      // Production refuses to start without one (rate-limit key hashing).
+      sessionSecret: "test-session-secret-with-at-least-32-chars",
       authPort,
-      config: { nodeEnv: "production", resolveHost },
+      config: { nodeEnv: "production", resolveHost, sendWebhook },
     });
   }, 60000);
 
   afterEach(() => {
-    vi.unstubAllGlobals();
+    sendWebhook.mockReset();
   });
 
   afterAll(async () => {
@@ -192,16 +201,19 @@ describe("Outbound Webhooks API (ADM-006)", () => {
       otherAdmin,
     );
     expect(test.status).toBe(404);
+    expect(sendWebhook).not.toHaveBeenCalled();
   });
 
   it("POST /v1/webhooks/:id/test sends ping and records delivery", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response("ok", { status: 200 })),
-    );
+    sendWebhook.mockResolvedValue({ status: 200 });
 
     const res = await call("POST", `/v1/webhooks/${createdId}/test`, admin);
     expect(res.status).toBe(200);
+    // Pinned to the address the guard validated, keeping the hostname.
+    expect(sendWebhook.mock.calls[0]?.[0]).toMatchObject({
+      hostname: "hooks.slack.com",
+      addresses: ["93.184.216.34"],
+    });
     const result = (await res.json()) as {
       success: boolean;
       statusCode: number;
@@ -275,46 +287,35 @@ describe("Outbound Webhooks API (ADM-006)", () => {
     expect(row?.url).toBe("https://hooks.slack.com/services/test");
   });
 
-  it("re-checks the URL before sending and never fetches a private target", async () => {
+  it("re-checks the URL before sending and never sends to a private target", async () => {
     // A row stored before the guard existed (or whose DNS changed since).
     const [legacy] = await db.adminSql<{ id: string }[]>`
       INSERT INTO webhooks (organization_id, name, url, secret, events)
       VALUES (${orgId}, 'Legacy', 'http://169.254.169.254/latest', 'whsec_legacy',
               '["employee.created"]'::jsonb)
       RETURNING id`;
-    const fetchSpy = vi.fn();
-    vi.stubGlobal("fetch", fetchSpy);
-
     const res = await call("POST", `/v1/webhooks/${legacy!.id}/test`, admin);
     expect(res.status).toBe(400);
     expect(((await res.json()) as ProblemDetails).code).toBe(
       "OUTBOUND_URL_NOT_ALLOWED",
     );
-    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(sendWebhook).not.toHaveBeenCalled();
 
     await db.adminSql`DELETE FROM webhooks WHERE id = ${legacy!.id}`;
   });
 
   it("does not follow redirects and keeps errors generic", async () => {
-    const fetchSpy = vi.fn().mockResolvedValue(
-      new Response(null, {
-        status: 302,
-        headers: { Location: "http://169.254.169.254/" },
-      }),
-    );
-    vi.stubGlobal("fetch", fetchSpy);
+    sendWebhook.mockResolvedValue({ status: 302 });
 
     const res = await call("POST", `/v1/webhooks/${createdId}/test`, admin);
     expect(res.status).toBe(200);
     const result = (await res.json()) as { success: boolean; error: string };
     expect(result.success).toBe(false);
     expect(result.error).not.toContain("169.254");
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect(fetchSpy.mock.calls[0]?.[1]).toMatchObject({ redirect: "manual" });
+    expect(sendWebhook).toHaveBeenCalledTimes(1);
 
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockRejectedValue(new Error("connect ECONNREFUSED 10.1.2.3:443")),
+    sendWebhook.mockRejectedValue(
+      new Error("connect ECONNREFUSED 10.1.2.3:443"),
     );
     const failed = await call("POST", `/v1/webhooks/${createdId}/test`, admin);
     const failure = (await failed.json()) as { error: string };
@@ -330,6 +331,72 @@ describe("Outbound Webhooks API (ADM-006)", () => {
     expect(list.find((w) => w.id === createdId)?.events).toEqual([
       "employee.created",
     ]);
+  });
+
+  it("delivers through the default pinned sender with the real Host header", async () => {
+    // A local receiver; `hooks.invalid` never resolves through system DNS
+    // (RFC 6761), so only the pinned address can reach it.
+    const received: { host: string | undefined; event: unknown }[] = [];
+    const receiver = http.createServer((req, res) => {
+      req.resume();
+      req.on("end", () => {
+        received.push({
+          host: req.headers.host,
+          event: req.headers["x-librehr-event"],
+        });
+        res.end("ok");
+      });
+    });
+    receiver.listen(0, "127.0.0.1");
+    await once(receiver, "listening");
+    const { port } = receiver.address() as AddressInfo;
+
+    // No `sendWebhook`: the real node:http sender. Development settings
+    // allow the loopback receiver; DNS still goes through the seam.
+    const devApp = createApp({
+      sql: db.appSql,
+      authPort,
+      config: {
+        nodeEnv: "test",
+        webhooksAllowPrivate: true,
+        resolveHost: async (hostname) => {
+          if (hostname !== "hooks.invalid") throw new Error("ENOTFOUND");
+          return ["127.0.0.1"];
+        },
+      },
+    });
+    const devCall = (method: string, path: string, body?: unknown) =>
+      devApp.request(path, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer token_${admin.id}`,
+        },
+        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      });
+
+    try {
+      const created = await devCall("POST", "/v1/webhooks", {
+        name: "Local receiver",
+        url: `http://hooks.invalid:${port}/hook`,
+        events: ["employee.created"],
+      });
+      expect(created.status).toBe(201);
+      const { id } = (await created.json()) as WebhookItem;
+
+      const res = await devCall("POST", `/v1/webhooks/${id}/test`);
+      expect(res.status).toBe(200);
+      expect(((await res.json()) as { success: boolean }).success).toBe(true);
+      expect(received).toEqual([
+        { host: `hooks.invalid:${port}`, event: "test.ping" },
+      ]);
+      expect(sendWebhook).not.toHaveBeenCalled();
+
+      await db.adminSql`DELETE FROM webhooks WHERE id = ${id}`;
+    } finally {
+      receiver.closeAllConnections();
+      receiver.close();
+    }
   });
 
   it("DELETE /v1/webhooks/:id removes webhook subscription", async () => {

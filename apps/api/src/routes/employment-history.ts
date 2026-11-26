@@ -108,8 +108,20 @@ export function createEmploymentHistoryRoutes(sql: Sql) {
             kind: "list" as const,
             periods: await repository.list(tx, id),
           };
-        const period = await repository.create(tx, id, input);
-        if (!period) return { kind: "conflict" as const };
+        const created = await repository.create(tx, id, input);
+        if (!created) return { kind: "conflict" as const };
+        const { period, closed } = created;
+        if (closed)
+          await audit.log(tx, {
+            actorId: user.id,
+            action: "employee.employment_period_closed",
+            resourceType: "employee",
+            resourceId: id,
+            metadata: {
+              employmentPeriodId: closed.id,
+              endDate: closed.endDate,
+            },
+          });
         await audit.log(tx, {
           actorId: user.id,
           action: "employee.employment_period_created",

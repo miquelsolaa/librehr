@@ -3,7 +3,7 @@
 # See docs/guides/self-hosting.md for how to generate the values.
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-librehr}
@@ -12,8 +12,12 @@ services:
       # Read by infra/postgres/init/00-roles.sh on first start of the volume.
       LIBREHR_OWNER_PASSWORD: ${LIBREHR_OWNER_PASSWORD:?set LIBREHR_OWNER_PASSWORD (migration/owner role; openssl rand -hex 32)}
       LIBREHR_APP_PASSWORD: ${LIBREHR_APP_PASSWORD:?set LIBREHR_APP_PASSWORD (runtime app role; openssl rand -hex 32)}
+    # Postgres 18 keeps its data in /var/lib/postgresql/18/docker and declares
+    # the volume at /var/lib/postgresql: mount there, not at .../data.
+    # Upgrading from the Postgres 16 volume (postgres_data) is a manual
+    # dump and restore: see docs/guides/self-hosting.md.
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres18_data:/var/lib/postgresql
       - ../postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test:
@@ -133,7 +137,7 @@ services:
       - api
 
 volumes:
-  postgres_data:
+  postgres18_data:
   librehr_storage:
   caddy_data:
   caddy_config:
