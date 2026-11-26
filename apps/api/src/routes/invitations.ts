@@ -21,6 +21,8 @@ import { can } from "../policies/can.js";
 import type { AuthPort } from "../ports/auth.js";
 import type { MailPort } from "../ports/mail.js";
 import { hashPassword, verifyPassword } from "../lib/password.js";
+import { invitationEmail } from "../lib/invitation-email.js";
+import { logger } from "../middleware/logger.js";
 import { resolveAuditorAccessEnd } from "../lib/auditor-access.js";
 import {
   setSessionCookie,
@@ -31,8 +33,15 @@ export function createInvitationRoutes(
   sql: Sql,
   authPort: AuthPort,
   mailPort?: MailPort,
-  cookieOptions: SessionCookieOptions = {},
+  cookieOptions: SessionCookieOptions & {
+    /** Public web app URL (APP_URL), the base of invitation links. */
+    appUrl?: string | undefined;
+  } = {},
 ) {
+  const { appUrl } = cookieOptions;
+  if (mailPort && !appUrl) {
+    logger.warn("invitation emails are off: APP_URL is not configured");
+  }
   const router = new Hono();
   const invitationRepo = new InvitationRepository();
   const identityRepo = new IdentityRepository();
@@ -116,16 +125,27 @@ export function createInvitationRoutes(
       },
     );
 
-    // If MailPort is available, send invitation email
-    if (mailPort) {
+    // A relative link cannot be opened from a mail client, so without
+    // APP_URL no email is sent; the invitation can still be shared by hand.
+    if (mailPort && appUrl) {
+      const [org] = await sql<{ name: string; defaultLocale: string }[]>`
+        SELECT name, default_locale AS "defaultLocale"
+        FROM organizations WHERE id = ${user.organizationId}`;
+      const message = invitationEmail(
+        appUrl,
+        org?.defaultLocale,
+        org?.name,
+        created.token,
+      );
       await mailPort
-        .sendMail({
-          to: created.email,
-          subject: "You have been invited to join LibreHR",
-          html: `<p>Hello,</p><p>You have been invited to LibreHR. Click the link below to accept your invitation:</p><p><a href="/invite/${created.token}">Accept Invitation</a></p>`,
-        })
-        .catch(() => {
-          // Log mail delivery failure without breaking invitation creation
+        .sendMail({ to: created.email, ...message })
+        .catch((err: unknown) => {
+          // Invitation creation must not fail on delivery. Only the error
+          // class: SMTP messages often quote the recipient address.
+          logger.error(
+            { errName: err instanceof Error ? err.name : "unknown" },
+            "invitation email failed",
+          );
         });
     }
 

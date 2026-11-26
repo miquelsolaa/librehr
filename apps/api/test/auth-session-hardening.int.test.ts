@@ -222,6 +222,7 @@ describe("auth and session hardening", () => {
         sql: db.appSql,
         authPort: new BetterAuthAdapter(db.appSql),
         sessionSecret,
+        config: { appUrl: "https://hr.example.invalid" },
         mailPort: {
           async sendMail(message) {
             sent.push(message.html);
@@ -239,8 +240,13 @@ describe("auth and session hardening", () => {
       const body = (await res.json()) as { id: string };
       expect(body).not.toHaveProperty("token");
 
-      const emailed = /\/invite\/([0-9a-f]{64})/.exec(sent[0] ?? "")?.[1];
-      if (!emailed) throw new Error("no invitation link in the email");
+      // An absolute link in the organization's default locale (ca), so it
+      // opens from a mail client.
+      const emailed =
+        /href="https:\/\/hr\.example\.invalid\/ca\/invite\/([0-9a-f]{64})"/.exec(
+          sent[0] ?? "",
+        )?.[1];
+      if (!emailed) throw new Error("no absolute invitation link in the email");
       const stored = await withTenant(
         db.adminSql,
         { organizationId: org },
@@ -253,6 +259,29 @@ describe("auth and session hardening", () => {
         200,
       );
     });
+  });
+
+  it("creates the invitation but sends no email without APP_URL (AUTH-005)", async () => {
+    const sent: string[] = [];
+    const noAppUrl = createApp({
+      sql: db.appSql,
+      authPort: new BetterAuthAdapter(db.appSql),
+      sessionSecret,
+      mailPort: {
+        async sendMail(message) {
+          sent.push(message.html);
+        },
+      },
+    });
+    const session = cookieOf(await signIn(admin));
+    const res = await post(
+      "/v1/invitations",
+      { email: "no-app-url@example.invalid" },
+      { ...withCookie(session), Origin: "http://localhost:3000" },
+      noAppUrl,
+    );
+    expect(res.status).toBe(201);
+    expect(sent).toEqual([]);
   });
 
   describe("CSRF", () => {
