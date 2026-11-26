@@ -2,6 +2,7 @@ export * from "./common.js";
 export * from "./platform.js";
 export * from "./identity.js";
 export * from "./people.js";
+export * from "./org-groups.js";
 export * from "./leave.js";
 export * from "./time.js";
 export * from "./documents.js";

@@ -5,6 +5,7 @@ import {
   date,
   boolean,
   index,
+  uniqueIndex,
   integer,
   numeric,
   type AnyPgColumn,
@@ -31,6 +32,8 @@ export const departments = pgTable(
   (table) => [
     index("departments_org_idx").on(table.organizationId),
     index("departments_parent_idx").on(table.parentId),
+    // Target of same-tenant composite FKs (ORG-007, migration 0046).
+    uniqueIndex("departments_org_id_uidx").on(table.organizationId, table.id),
   ],
 );
 
@@ -78,6 +81,8 @@ export const employees = pgTable(
     index("employees_manager_idx").on(table.managerId),
     index("employees_status_idx").on(table.organizationId, table.status),
     index("employees_badge_idx").on(table.organizationId, table.badgeId),
+    // Target of same-tenant composite FKs (ORG-007, migration 0046).
+    uniqueIndex("employees_org_id_uidx").on(table.organizationId, table.id),
   ],
 );
 

@@ -45,6 +45,8 @@ export const TENANT_TABLES = [
   "shift_assignments",
   "shift_swaps",
   "timesheet_closures",
+  "org_groups",
+  "employee_memberships",
 ] as const;
 
 export type TenantTable = (typeof TENANT_TABLES)[number];

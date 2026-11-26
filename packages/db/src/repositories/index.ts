@@ -7,6 +7,8 @@ export * from "./employee.repository.js";
 export * from "./employment-history.repository.js";
 export * from "./employment-periods.js";
 export * from "./department.repository.js";
+export * from "./org-group.repository.js";
+export * from "./employee-membership.repository.js";
 export * from "./location.repository.js";
 export * from "./invitation.repository.js";
 export * from "./audit.repository.js";
