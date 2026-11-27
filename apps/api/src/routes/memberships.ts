@@ -87,6 +87,7 @@ export function toMembership(row: EmployeeMembershipRow): EmployeeMembership {
     startDate: row.startDate,
     endDate: row.endDate,
     endReason: row.endReason,
+    ended: row.endedBy !== null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

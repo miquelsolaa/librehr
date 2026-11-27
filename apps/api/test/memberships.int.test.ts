@@ -604,6 +604,7 @@ describe("org groups and employee memberships (ORG-007)", () => {
         )[0]!.today,
     );
     expect(ended?.endReason).toBe("primary_changed");
+    expect(ended).toMatchObject({ ended: true });
     expect(ended?.endDate).not.toBeNull();
     expect(ended!.endDate! < today).toBe(true);
     const audits = await withTenant(
@@ -663,7 +664,11 @@ describe("org groups and employee memberships (ORG-007)", () => {
     expect(role.status).toBe(200);
     expect(
       ((await role.json()) as { membership: unknown }).membership,
-    ).toMatchObject({ endDate: "2026-02-01", endReason: "project_ended" });
+    ).toMatchObject({
+      endDate: "2026-02-01",
+      endReason: "project_ended",
+      ended: true,
+    });
     // Free text and the API's own code are not accepted as reasons.
     for (const reason of ["Moved", "primary_changed"])
       expect(

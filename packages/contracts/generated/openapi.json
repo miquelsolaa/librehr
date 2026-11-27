@@ -1342,6 +1342,9 @@
               null
             ]
           },
+          "ended": {
+            "type": "boolean"
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -1363,6 +1366,7 @@
           "startDate",
           "endDate",
           "endReason",
+          "ended",
           "createdAt",
           "updatedAt"
         ]
@@ -1543,6 +1547,9 @@
                   null
                 ]
               },
+              "ended": {
+                "type": "boolean"
+              },
               "createdAt": {
                 "type": "string",
                 "format": "date-time"
@@ -1564,6 +1571,7 @@
               "startDate",
               "endDate",
               "endReason",
+              "ended",
               "createdAt",
               "updatedAt"
             ]
@@ -11192,6 +11200,9 @@
                           null
                         ]
                       },
+                      "ended": {
+                        "type": "boolean"
+                      },
                       "createdAt": {
                         "type": "string",
                         "format": "date-time"
@@ -11213,6 +11224,7 @@
                       "startDate",
                       "endDate",
                       "endReason",
+                      "ended",
                       "createdAt",
                       "updatedAt"
                     ]
@@ -11535,6 +11547,9 @@
                             null
                           ]
                         },
+                        "ended": {
+                          "type": "boolean"
+                        },
                         "createdAt": {
                           "type": "string",
                           "format": "date-time"
@@ -11556,6 +11571,7 @@
                         "startDate",
                         "endDate",
                         "endReason",
+                        "ended",
                         "createdAt",
                         "updatedAt"
                       ]
@@ -12069,6 +12085,9 @@
                             null
                           ]
                         },
+                        "ended": {
+                          "type": "boolean"
+                        },
                         "createdAt": {
                           "type": "string",
                           "format": "date-time"
@@ -12090,6 +12109,7 @@
                         "startDate",
                         "endDate",
                         "endReason",
+                        "ended",
                         "createdAt",
                         "updatedAt"
                       ]
@@ -12591,6 +12611,9 @@
                         null
                       ]
                     },
+                    "ended": {
+                      "type": "boolean"
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time"
@@ -12612,6 +12635,7 @@
                     "startDate",
                     "endDate",
                     "endReason",
+                    "ended",
                     "createdAt",
                     "updatedAt"
                   ]
