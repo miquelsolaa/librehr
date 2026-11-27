@@ -92,7 +92,8 @@ test("an admin changes what leads see and is told when saving fails", async ({
   ]);
 
   await select.selectOption("profile");
-  await expect(page.getByRole("alert")).toBeVisible();
+  // Scoped to main: the header clock widget has its own alert.
+  await expect(page.locator("main").getByRole("alert")).toBeVisible();
   // The stored value is still shown after a failed save.
   await expect(select).toHaveValue("calendar");
   const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
@@ -100,7 +101,7 @@ test("an admin changes what leads see and is told when saving fails", async ({
 
   failing = false;
   await select.selectOption("off");
-  await expect(page.getByRole("status")).toBeVisible();
+  await expect(page.locator("main").getByRole("status")).toBeVisible();
   await expect(select).toHaveValue("off");
   expect(patches).toEqual([
     { secondaryLeadVisibility: "profile" },
