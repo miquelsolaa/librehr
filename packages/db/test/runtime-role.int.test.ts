@@ -21,6 +21,8 @@ const APPEND_ONLY_TABLES = [
 const LOOKUP_FUNCTIONS = [
   "librehr_auth_session",
   "librehr_auth_session_bind_org",
+  "librehr_auth_session_v2",
+  "librehr_auth_last_break_glass",
   "librehr_auth_personal_access_token",
   "librehr_auth_invitation",
   "librehr_auth_sso_config",
@@ -155,7 +157,8 @@ describe("runtime and owner roles", () => {
       JOIN pg_namespace n ON n.oid = p.pronamespace
       WHERE n.nspname = 'public' AND p.proname = ANY(${LOOKUP_FUNCTIONS})
     `;
-    expect(rows.map((r) => r.proname).sort()).toEqual(
+    // librehr_auth_session_bind_org has two overloads (0021, 0041).
+    expect([...new Set(rows.map((r) => r.proname))].sort()).toEqual(
       [...LOOKUP_FUNCTIONS].sort(),
     );
     for (const row of rows) {
@@ -182,6 +185,39 @@ describe("runtime and owner roles", () => {
       WHERE n.nspname = 'public' AND p.proname = 'librehr_auth_membership'
     `;
     expect(row).toEqual({ app_exec: false, prosecdef: true });
+  });
+
+  // AUTH-004 (0041): the helper takes a bare user id, like the membership
+  // lookup, so only the secret-keyed functions may call it.
+  it("refuses the secret-less SSO password check to the runtime role", async () => {
+    await expect(
+      db.appSql`SELECT librehr_auth_password_access(${user}::uuid, ${orgA}::uuid)`,
+    ).rejects.toThrow(/permission denied/i);
+    const [row] = await db.adminSql<
+      { app_exec: boolean; public_exec: boolean; prosecdef: boolean }[]
+    >`
+      SELECT has_function_privilege('librehr_app', p.oid, 'EXECUTE') AS app_exec,
+             has_function_privilege('public', p.oid, 'EXECUTE') AS public_exec,
+             p.prosecdef
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public' AND p.proname = 'librehr_auth_password_access'
+    `;
+    expect(row).toEqual({
+      app_exec: false,
+      public_exec: false,
+      prosecdef: true,
+    });
+  });
+
+  it("reads existing sessions as password sessions (0041 default)", async () => {
+    const token = hashBearerToken("runtime-role-auth-method-token");
+    await db.adminSql`INSERT INTO sessions (user_id, token, expires_at)
+      VALUES (${user}, ${token}, now() + interval '1 hour')`;
+    const [row] = await db.appSql<
+      { auth_method: string; password_allowed: boolean }[]
+    >`SELECT auth_method, password_allowed FROM librehr_auth_session_v2(${token})`;
+    expect(row).toEqual({ auth_method: "password", password_allowed: true });
   });
 
   // 00-roles.sh drops BYPASSRLS from the owner: migrations (above) and the dev

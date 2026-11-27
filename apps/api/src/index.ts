@@ -12,6 +12,7 @@ import { loadEdition } from "./extensions/load.js";
 import { BetterAuthAdapter } from "./adapters/better-auth.js";
 import { SmtpMailAdapter } from "./adapters/mail-smtp.js";
 import { logger } from "./middleware/logger.js";
+import { isSsoEnforcementActive } from "./lib/sso-enforcement.js";
 
 async function bootstrap() {
   const env = loadEnv();
@@ -43,7 +44,6 @@ async function bootstrap() {
   // runtime role (librehr_app, NOBYPASSRLS). The owner role in
   // DATABASE_MIGRATION_URL is only used for migrations above.
   const sql = postgres(env.DATABASE_URL, { max: 20 });
-  const authPort = new BetterAuthAdapter(sql);
   const mailPort = new SmtpMailAdapter({
     host: env.SMTP_HOST,
     port: env.SMTP_PORT,
@@ -78,6 +78,12 @@ async function bootstrap() {
     });
     process.exit(1);
   }
+
+  // AUTH-004: "Require SSO" applies only with a licence granting sso and
+  // SSO_ENABLED on; otherwise it is stored but inert.
+  const authPort = new BetterAuthAdapter(sql, {
+    ssoEnforcement: isSsoEnforcementActive(edition.license, env.SSO_ENABLED),
+  });
 
   // 4. Create Hono application
   const app = createApp({

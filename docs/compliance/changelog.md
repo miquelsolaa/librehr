@@ -11,6 +11,10 @@ All legal and regulatory revisions affecting LibreHR are tracked here.
 - **Daily dry-run report (`retention.run` audit action):** the `retention.enforce` worker job runs daily per organization, counts the records past each period in the organization's time zone and writes one `retention.run` audit entry holding dates and counts only (no names, titles or file names). `statutory_documents` is reported as a hold (`heldBack`), never as eligible.
 - **Instance-wide sweep of password reset links:** the new `retention.sweep-global` job deletes `password_reset_tokens` rows older than 30 days (the retention documented with migration 0040) once per UTC day. This is the only deletion that runs; nothing tenant-scoped is deleted yet.
 
+## [2026-11-26] - Vacation carry-over: pending legal review of ET art. 38.3
+
+- **Carry-over enforcement confirmation (`LEA-002`, #133):** no rule or default changes. Turning `carryover_enforced` on in Settings > Leave policies now needs an explicit acknowledgement, and enforced policies show a "pending legal review" notice. The questions for labour counsel (protected situations, time limits, retroactive recognition, CJEU employer diligence, cap legality, termination, data protection) are in `docs/compliance/et-38-3-carryover-questions.md`.
+
 ## [2026-11-02] - Milestone M5: Integrations, Token Security & Hash Chain Verification
 
 - **Token Security & Scoping (`ADM-006`):** Personal Access Tokens (PATs) use high-entropy prefixing (`lhr_`), one-way SHA-256 storage, and strict scope verification, preventing credential leakage in compliance with ISO/IEC 27001 access control requirements.
