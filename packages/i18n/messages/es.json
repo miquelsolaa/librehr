@@ -507,6 +507,8 @@
     "roleEmployee": "Empleado",
     "roleManager": "Responsable / Mánager",
     "roleAdmin": "Administrador",
+    "departmentLabel": "Departamento principal",
+    "departmentPlaceholder": "Elige un departamento",
     "sendInvite": "Enviar Invitación",
     "inviteSent": "¡Invitación enviada correctamente!",
     "errorTitle": "Error en la invitación",
@@ -1260,7 +1262,13 @@
     "overlapError": "Esta persona ya pertenece a él en ese periodo. Cambia las fechas o edita la pertenencia existente.",
     "primaryError": "Este ya es el departamento principal de la persona.",
     "allocationInvalid": "Introduce un porcentaje mayor que 0 y hasta 100, con dos decimales como máximo.",
-    "overAllocated": "Guardado. A partir del {date} las otras pertenencias suman un {percent} %, más del 100 %."
+    "overAllocated": "Guardado. A partir del {date} las otras pertenencias suman un {percent} %, más del 100 %.",
+    "endReasonNone": "Sin motivo",
+    "endReasonProjectEnded": "Fin del proyecto o asignación",
+    "endReasonReassigned": "Reasignación",
+    "endReasonOther": "Otro",
+    "endReasonPrimaryChanged": "Pasó a ser el departamento principal",
+    "alreadyEndedError": "Esta pertenencia ya se ha finalizado; sus fechas ya no se pueden cambiar."
   },
   "orgGroups": {
     "title": "Proyectos y áreas",

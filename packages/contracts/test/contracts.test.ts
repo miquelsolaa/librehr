@@ -35,8 +35,17 @@ describe("Contracts schemas", () => {
       lastName: "Rovira",
       email: "marta@librehr.cat",
       jobTitle: "Product Designer",
+      departmentId: "00000000-0000-0000-0000-0000000000d1",
     });
     expect(validEmp.success).toBe(true);
+    // ORG-007 (ADR 0008 decision 13): a primary department is required and
+    // cannot be cleared.
+    const { departmentId: _dept, ...noDept } = validEmp.data!;
+    expect(CreateEmployeeRequestSchema.safeParse(noDept).success).toBe(false);
+    const { UpdateEmployeeRequestSchema } = await import("../src/employees.js");
+    expect(
+      UpdateEmployeeRequestSchema.safeParse({ departmentId: null }).success,
+    ).toBe(false);
 
     const invalidDate = TerminateEmployeeRequestSchema.safeParse({
       terminationDate: "invalid-date",
@@ -76,6 +85,7 @@ describe("Contracts schemas", () => {
       lastName: "Rovira",
       email: "marta@librehr.cat",
       jobTitle: "Clerk",
+      departmentId: "00000000-0000-0000-0000-0000000000d1",
     };
     expect(
       CreateEmployeeRequestSchema.safeParse({
@@ -124,8 +134,15 @@ describe("Contracts schemas", () => {
     const validInvite = CreateInvitationRequestSchema.safeParse({
       email: "newhire@acme.test",
       role: "employee",
+      departmentId: "00000000-0000-0000-0000-0000000000d1",
     });
     expect(validInvite.success).toBe(true);
+    expect(
+      CreateInvitationRequestSchema.safeParse({
+        email: "newhire@acme.test",
+        role: "employee",
+      }).success,
+    ).toBe(false);
   });
 
   it("validates leave request and notification contracts (M2)", async () => {

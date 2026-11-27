@@ -28,6 +28,7 @@ describe("auth and session hardening", () => {
   let app: ReturnType<typeof createApp>;
 
   const org = "a9000000-0000-0000-0000-00000000000a";
+  const dept = "a9000000-0000-0000-0000-0000000000d1";
   const admin = "c9000000-0000-0000-0000-000000000001";
   const leaver = "c9000000-0000-0000-0000-000000000002";
   const futureLeaver = "c9000000-0000-0000-0000-000000000003";
@@ -104,6 +105,9 @@ describe("auth and session hardening", () => {
     const sql = db.adminSql;
     await sql`INSERT INTO organizations (id, name, slug, timezone)
       VALUES (${org}, 'Hardening', 'hardening', 'Europe/Madrid')`;
+    // ORG-007: invitations name the invitee's primary department.
+    await sql`INSERT INTO departments (id, organization_id, name)
+      VALUES (${dept}, ${org}, 'Hardening')`;
     const hash = await hashPassword(password);
     for (const id of [
       admin,
@@ -243,7 +247,7 @@ describe("auth and session hardening", () => {
       const session = cookieOf(await signIn(admin));
       const res = await post(
         "/v1/invitations",
-        { email: "hashed-invite@example.invalid" },
+        { email: "hashed-invite@example.invalid", departmentId: dept },
         { ...withCookie(session), Origin: "http://localhost:3000" },
         mailing,
       );
@@ -287,7 +291,7 @@ describe("auth and session hardening", () => {
     const session = cookieOf(await signIn(admin));
     const res = await post(
       "/v1/invitations",
-      { email: "no-app-url@example.invalid" },
+      { email: "no-app-url@example.invalid", departmentId: dept },
       { ...withCookie(session), Origin: "http://localhost:3000" },
       noAppUrl,
     );
