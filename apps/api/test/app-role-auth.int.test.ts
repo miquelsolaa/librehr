@@ -15,6 +15,7 @@ import {
   hasBusinessEdition,
 } from "./support/business-edition.js";
 import { BetterAuthAdapter } from "../src/adapters/better-auth.js";
+import { FakeOidcProvider } from "./support/fake-oidc-provider.js";
 import { hashPassword } from "../src/lib/password.js";
 
 // ORG-006, AUTH-001/002, ADM-006: the API runs as librehr_app (NOBYPASSRLS)
@@ -95,7 +96,15 @@ describe("API on the restricted runtime role", () => {
       // SSO is Business (LIC-003) and off by default (SSO_ENABLED); this
       // suite covers its lookup.
       ...businessEdition(),
-      config: { ssoEnabled: true },
+      config: {
+        ssoEnabled: true,
+        // Authorize reads the issuer's discovery document (AUTH-004).
+        oidcHttp: new FakeOidcProvider(
+          "https://idp.example.invalid",
+          "client-b",
+          "secret",
+        ).http,
+      },
     });
   }, 60000);
 

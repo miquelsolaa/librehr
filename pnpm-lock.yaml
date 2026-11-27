@@ -248,6 +248,9 @@ importers:
       '@librehr/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@librehr/time-export':
+        specifier: workspace:*
+        version: link:../../packages/time-export
       better-auth:
         specifier: ^1.7.20
         version: 1.7.27(@opentelemetry/api@1.10.0)(@vitest/coverage-v8@5.1.2)(drizzle-kit@0.31.11)(drizzle-orm@0.45.4(@opentelemetry/api@1.10.0)(kysely@0.29.8)(pg@8.23.1)(postgres@4.1.1))(next@16.4.6(@babel/core@7.29.7(supports-color@7.2.0))(@opentelemetry/api@1.10.0)(@playwright/test@1.65.1)(@types/node@26.6.6)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.6.1)(tsx@4.23.15)(yaml@2.9.1))(vitest@5.1.2)
@@ -383,6 +386,9 @@ importers:
       '@librehr/emails':
         specifier: workspace:*
         version: link:../../packages/emails
+      '@librehr/time-export':
+        specifier: workspace:*
+        version: link:../../packages/time-export
       '@react-email/render':
         specifier: ^2.0.0
         version: 2.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -441,6 +447,9 @@ importers:
       hono:
         specifier: ^4.13.17
         version: 4.13.21
+      jose:
+        specifier: ^6.2.14
+        version: 6.2.14
       postgres:
         specifier: ^4.0.0
         version: 4.1.1
@@ -645,6 +654,28 @@ importers:
       testcontainers:
         specifier: ^12.0.0
         version: 12.2.2(supports-color@7.2.0)
+    devDependencies:
+      '@librehr/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: ^26.0.0
+        version: 26.6.6
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^5.0.0
+        version: 5.1.2(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/coverage-v8@5.1.2)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/time-export:
+    dependencies:
+      '@librehr/core':
+        specifier: workspace:*
+        version: link:../core
+      '@librehr/db':
+        specifier: workspace:*
+        version: link:../db
     devDependencies:
       '@librehr/config':
         specifier: workspace:*

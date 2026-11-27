@@ -72,6 +72,16 @@ over and never writes a `forfeit` or an `expiry`: `carryover_max_days` and
 the cap, the forfeit and the expiry below. Even then, employees protected by
 ET art. 38.3 keep their days at the closes of the year of the protected leave and of the year after (see [Protected leave](#protected-leave-et-art-383)).
 
+How LibreHR applies ET art. 38.3 is **pending legal review** (issue #133).
+In Settings > Leave policies, turning enforcement on opens a confirmation
+that summarises the cap, the expiry month, the ET 38.3 shield and the
+limits below, and the administrator must tick an acknowledgement before
+saving. Enforced policies then show a "pending legal review" notice.
+Turning it off needs no confirmation. The acknowledgement is not sent to
+the API; the change is audited as `leave.policy.update`. The open questions
+are in
+[`docs/compliance/et-38-3-carryover-questions.md`](../compliance/et-38-3-carryover-questions.md).
+
 The ledger is cumulative: a leave type's balance is the sum of all of its
 entries, so what is left at year end is already in next year's balance. The
 **January run** (`runDate` in January, which runs just after January ends)

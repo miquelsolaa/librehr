@@ -6,15 +6,32 @@ import { ipVersion } from "@librehr/core";
 import type { OutboundTarget } from "./outbound-url.js";
 
 export interface OutboundRequest {
-  method: "POST";
+  method: "GET" | "POST";
   headers: Record<string, string>;
-  body: string;
+  /** Request body; GET requests send none. */
+  body?: string | undefined;
   timeoutMs: number;
+  /**
+   * When set, the response body is read and returned, up to this many
+   * bytes; a longer body rejects with {@link ResponseTooLargeError}. Without
+   * it the body is discarded (webhook deliveries).
+   */
+  maxResponseBytes?: number | undefined;
 }
 
 export interface OutboundResponse {
   /** HTTP status code. 3xx is returned as is: redirects are never followed. */
   status: number;
+  /** UTF-8 body, only when the request set `maxResponseBytes`. */
+  body?: string | undefined;
+}
+
+/** The response body exceeded the request's `maxResponseBytes`. */
+export class ResponseTooLargeError extends Error {
+  constructor() {
+    super("Response body too large");
+    this.name = "ResponseTooLargeError";
+  }
 }
 
 /** Sends a request to a guarded target; tests inject a fake. */
@@ -82,10 +99,13 @@ export function pinnedRequestOptions(
     hostname,
     port: url.port === "" ? undefined : Number(url.port),
     path: `${url.pathname}${url.search}`,
-    headers: {
-      ...request.headers,
-      "Content-Length": String(Buffer.byteLength(request.body)),
-    },
+    headers:
+      request.body === undefined
+        ? request.headers
+        : {
+            ...request.headers,
+            "Content-Length": String(Buffer.byteLength(request.body)),
+          },
     lookup: pinnedLookup(target.addresses),
     // SNI must not carry an IP literal (RFC 6066).
     ...(isIp ? {} : { servername: hostname }),
@@ -104,7 +124,9 @@ export function pinnedRequestOptions(
  * Sends one request to a target returned by `resolveOutboundTarget`, with
  * the socket pinned to its validated addresses. Uses node:http(s), which
  * never follows redirects; a 3xx is reported to the caller, so no hop can
- * reach an address the guard did not check. The response body is discarded.
+ * reach an address the guard did not check. The response body is discarded
+ * unless the request sets `maxResponseBytes`; then it is read up to that cap,
+ * so a hostile server cannot make the API buffer an unbounded answer.
  *
  * HTTP_PROXY / HTTPS_PROXY are deliberately not honoured: a proxy would
  * resolve the hostname itself and undo the pinning.
@@ -117,10 +139,36 @@ export function sendPinnedRequest(
   const send: RequestFn =
     requestFn ??
     (target.url.protocol === "https:" ? https.request : http.request);
+  const limit = request.maxResponseBytes;
   return new Promise((resolve, reject) => {
     const req = send(pinnedRequestOptions(target, request), (res) => {
-      resolve({ status: res.statusCode ?? 0 });
-      res.destroy();
+      const status = res.statusCode ?? 0;
+      if (limit === undefined) {
+        resolve({ status });
+        res.destroy();
+        return;
+      }
+      const declared = Number(res.headers["content-length"]);
+      if (Number.isFinite(declared) && declared > limit) {
+        res.destroy();
+        reject(new ResponseTooLargeError());
+        return;
+      }
+      const chunks: Buffer[] = [];
+      let size = 0;
+      res.on("data", (chunk: Buffer) => {
+        size += chunk.length;
+        if (size > limit) {
+          res.destroy();
+          reject(new ResponseTooLargeError());
+          return;
+        }
+        chunks.push(chunk);
+      });
+      res.on("end", () =>
+        resolve({ status, body: Buffer.concat(chunks).toString("utf8") }),
+      );
+      res.on("error", reject);
     });
     req.on("timeout", () => req.destroy(new Error("Request timed out")));
     req.on("error", reject);

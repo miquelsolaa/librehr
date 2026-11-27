@@ -57,7 +57,7 @@ Only Postgres is stateful besides object storage. No Redis, no message broker, n
 
 ### 3.3 apps/worker (pg-boss)
 
-Queues: `email.send`, `leave.accrue` (monthly per org time zone, opt-in; `scheduler.tick` enqueues the periodic jobs, see `docs/guides/job-scheduler.md`), `leave.expire-carryover`, `time.close-day` (detect missing clock-outs), `reminders.*`, `export.generate`, `retention.enforce`, `documents.scan`, `audit.verify-chain`.
+Queues: `email.send`, `leave.accrue` (monthly per org time zone, opt-in; `scheduler.tick` enqueues the periodic jobs, see `docs/guides/job-scheduler.md`), `leave.expire-carryover`, `time.close-day` (detect missing clock-outs), `reminders.*`, `time.export` (TIM-006 background organization exports; `time.export.dispatch` moves queued `time_exports` rows to it every minute and `time.export.cleanup` deletes expired files hourly), `retention.enforce`, `documents.scan`, `audit.verify-chain`.
 Jobs are idempotent (idempotency key = natural key + date), retried with exponential backoff, and visible via an admin "Jobs" page (read-only).
 
 ### 3.4 packages/core (domain)
@@ -67,6 +67,10 @@ Pure TypeScript, no I/O, injected `Clock`. Modules: `calendar` (working days, ho
 ### 3.5 packages/db
 
 Drizzle schema (`schema/*.ts`), SQL migrations (generated + hand-edited for RLS/triggers), RLS policy definitions, seed scripts, and repositories that **require a transaction-scoped tenant context** (type-level: repository functions take `Tx`, obtained only via `withTenant(ctx, fn)`).
+
+### 3.5a packages/time-export
+
+The TIM-006 official time-export builder (`buildOfficialExport`, the paged chain check, per-employee collection and the period timesheet loader), shared by the API's synchronous export and the worker's background job (issue #38) so both produce the same document and hash. Depends on `core` and `db` only; takes a tenant transaction and a zone resolver, never an HTTP context. Authorization, caps, auditing and delivery stay with the caller.
 
 ### 3.6 packages/contracts
 
@@ -94,10 +98,10 @@ Zod schemas for all requests/responses/events, error codes, and permission names
 Naming: snake_case tables/columns, plural table names, `id uuid` (UUIDv7), `created_at/updated_at timestamptz`, `deleted_at` for soft delete where retention requires.
 
 Platform: `organizations`, `legal_entities`, `locations`.
-Identity: `users` (auth identity), `sessions`, `memberships` (user<->org with role), `invitations`, `api_tokens`, `rate_limit_buckets` (global, HMAC-keyed rate-limit and lockout counters shared by API replicas).
+Identity: `users` (auth identity), `sessions`, `memberships` (user<->org with role), `invitations`, `api_tokens`, `rate_limit_buckets` (global, HMAC-keyed rate-limit and lockout counters shared by API replicas), `sso_login_requests` (global, single-use OIDC sign-in state, Business SSO) and `sso_identities` (tenant, identity provider subject linked to a member).
 People: `employees` (person record; `department_id` is the primary department, `manager_id` the reporting line, plus `location_id`), `employments` (period rows: job title, type, weekly hours, encrypted salary, start/end; no department, manager or location), `departments`, `org_groups` (projects and areas), `employee_memberships` (secondary departments and groups with validity dates, ADR 0008), `teams` (unused, issue #201), `custom_field_defs`, `custom_field_values`, `emergency_contacts`.
 Leave: `leave_types`, `leave_policies`, `leave_policy_assignments`, `holiday_calendars`, `holidays`, `leave_requests` (status machine), `leave_request_days` (materialized per-day rows incl. half days), `leave_ledger` (append-only: accrual/usage/adjustment/carryover/expiry, with `source_ref`).
-Time: `schedules` (+ `schedule_rules`), `time_events` (append-only: `clock_in|clock_out|break_start|break_end|correction`, `employee_id`, `occurred_at`, `recorded_at`, `source`, `actor_id`, `ref_event_id`, `reason`, `prev_hash`, `hash`), `time_correction_requests`, `time_exports`, `timesheet_closures`.
+Time: `schedules` (+ `schedule_rules`), `time_events` (append-only: `clock_in|clock_out|break_start|break_end|correction`, `employee_id`, `occurred_at`, `recorded_at`, `source`, `actor_id`, `ref_event_id`, `reason`, `prev_hash`, `hash`), `time_correction_requests`, `time_exports` (TIM-006 background exports: outbox for the worker and record of what was issued; the stored file expires, the row is kept), `timesheet_closures`.
 Documents: `documents`, `document_versions`, `document_folders`, `document_audiences`, `document_acknowledgements`.
 Lifecycle: `checklist_templates`, `checklist_template_tasks`, `checklist_instances`, `checklist_tasks`.
 Cross-cutting: `audit_log` (append-only, hash-chained per org), `notifications`, `notification_preferences`, `webhooks`, `webhook_deliveries`, `jobs` (pg-boss schema), `settings` (org-level JSONB with Zod-validated schema).
@@ -132,7 +136,7 @@ Client queues events with a client UUID and local timestamp; on reconnect, sends
 
 ### 7.4 Exports
 
-`POST /v1/time/exports` enqueues a job; the worker renders CSV/PDF from events, stores the file with a content hash, writes an audit entry, and notifies the requester. Download links are short-lived and permission-checked.
+`GET /v1/time/export` builds exports up to 50,000 employee-days in the request. Larger organization exports (up to 500,000) go through `POST /v1/time/exports`, which only inserts a queued `time_exports` row (outbox); the worker's `time.export.dispatch` moves it to `time.export`, which builds the same document with `@librehr/time-export`, stores the file in the `time_export_files` table (RLS, deleted at expiry), writes the audit entry and notifies the requester in the app. Only the requester downloads it (`GET /v1/time/exports/:id/download`, permission re-checked, each download audited) until the file expires. See ADR 0009.
 
 ## 8. API conventions
 
@@ -192,6 +196,7 @@ Module boundaries (`leave`, `time`, `documents`...) are folders with explicit pu
 
 - **Community** is everything outside `ee/` (AGPL-3.0-or-later). **Business** is `ee/` (LibreHR Enterprise License), a workspace package `@librehr/ee` that may import `core`, `db` and `contracts`.
 - The API defines an `ApiExtension` interface (`apps/api/src/extensions/types.ts`): a name, the licence feature it needs, and a `register(app, deps)` function that mounts routes under `/v1`. `createApp` mounts extensions after core routes.
+- Because `ee/` cannot import the API, `register` receives an `ExtensionContext` with everything an extension needs from it: the database, the auth guard, `publicApiUrl` and `appUrl`, `createError` (problem+json), `rateLimit(name, limit)` (buckets in the shared store, namespaced `ext.`), `oidcHttp` (the outbound SSRF guard with DNS pinning, no redirects, 10 s and 256 KB caps) and `completeSignIn` (opens a session pinned to the given organization through `createSession`, or returns a local 2FA challenge that keeps that organization). `ee/core/src/extension.ts` mirrors the type and must change with it.
 - `apps/api/src/extensions/load.ts` is the only Community file that imports `@librehr/ee`, through a dynamic `import()`. If the package is missing, the instance runs as Community. Lint enforces the boundary.
 - The licence key (`LIBREHR_LICENSE_KEY`) is an Ed25519-signed token, `base64url(payload).base64url(signature)`, verified offline against the public key in `ee/`. The result is a `LicenseState` (`edition`, `features`, `status`) exposed by `GET /v1/edition`.
 - Business routes not covered by a valid licence answer `403` with `code: LICENSE_REQUIRED`. Database tables, repositories and contracts used by Business features stay in Community (single migration chain); only behaviour lives in `ee/`.
