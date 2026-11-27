@@ -219,6 +219,23 @@ const API_FIXTURES: Record<string, unknown> = {
     },
   ],
   [`/v1/people/${EMPLOYEE_ID}/custom-fields`]: [],
+  [`/v1/employees/${EMPLOYEE_ID}/memberships`]: [
+    {
+      id: "00000000-0000-4000-8000-000000000011",
+      employeeId: EMPLOYEE_ID,
+      departmentId: null,
+      groupId: "00000000-0000-4000-8000-000000000010",
+      targetType: "project",
+      targetName: "Launch",
+      role: null,
+      allocationPercent: 40,
+      startDate: "2026-01-01",
+      endDate: null,
+      endReason: null,
+      createdAt: TIMESTAMP,
+      updatedAt: TIMESTAMP,
+    },
+  ],
   "/v1/people/org-chart": { roots: [], totalEmployees: 0 },
   "/v1/org/groups": [
     {
@@ -413,6 +430,9 @@ const SIGNED_IN_SCREENS: PageCase[] = [
       await expect(
         page.getByRole("button", { name: "Add period" }),
       ).toBeVisible();
+      await expect(
+        page.getByRole("list", { name: "Current memberships" }),
+      ).toContainText("Launch");
     },
   },
   { path: "/en/settings", heading: "Settings" },
@@ -427,6 +447,11 @@ const SIGNED_IN_SCREENS: PageCase[] = [
     path: "/en/settings/departments",
     heading: "Departments",
     ready: visible((page) => page.getByRole("heading", { name: "Operations" })),
+  },
+  {
+    path: "/en/settings/groups",
+    heading: "Projects and areas",
+    ready: visible((page) => page.getByRole("heading", { name: "Launch" })),
   },
   {
     path: "/en/settings/security",
