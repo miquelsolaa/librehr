@@ -234,6 +234,11 @@ test("directory reports an API failure and retries without sample people", async
   await mockRoute(page, "**/v1/org/departments", async (route) =>
     route.fulfill({ json: [] }),
   );
+  // Only the directory fails here; projects and areas load, so their own
+  // retry button stays hidden.
+  await mockRoute(page, "**/v1/org/groups**", async (route) =>
+    route.fulfill({ json: [] }),
+  );
   await page.goto("/en/people");
   await expect(page.locator("main").getByRole("alert")).toContainText(
     "could not be loaded",

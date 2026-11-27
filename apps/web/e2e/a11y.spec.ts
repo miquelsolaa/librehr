@@ -47,6 +47,14 @@ const employeeListItem = {
   locationName: "Head office",
   jobTitle: "Analyst",
   managerName: null,
+  secondaryMemberships: [
+    {
+      type: "project",
+      id: "00000000-0000-4000-8000-000000000010",
+      name: "Launch",
+      allocationPercent: 40,
+    },
+  ],
 };
 
 // Fictional fixtures shaped after the contracts in packages/contracts/src.
@@ -212,6 +220,21 @@ const API_FIXTURES: Record<string, unknown> = {
   ],
   [`/v1/people/${EMPLOYEE_ID}/custom-fields`]: [],
   "/v1/people/org-chart": { roots: [], totalEmployees: 0 },
+  "/v1/org/groups": [
+    {
+      id: "00000000-0000-4000-8000-000000000010",
+      kind: "project",
+      name: "Launch",
+      description: null,
+      parentId: null,
+      leadEmployeeId: null,
+      startsOn: null,
+      endsOn: null,
+      archivedAt: null,
+      createdAt: TIMESTAMP,
+      updatedAt: TIMESTAMP,
+    },
+  ],
   "/v1/org/departments": [
     {
       id: DEPARTMENT_ID,

@@ -39,6 +39,7 @@ import {
 import {
   EmployeeListItemSchema,
   ListEmployeesResponseSchema,
+  ListEmployeesQuerySchema,
   EmployeeProfileSchema,
   CreateEmployeeRequestSchema,
   UpdateEmployeeRequestSchema,
@@ -89,6 +90,7 @@ import {
   AdjustBalanceRequestSchema,
   HolidaySchema,
   TeamAbsenceSchema,
+  TeamAbsencesQuerySchema,
   BlackoutPeriodSchema,
   CreateBlackoutPeriodSchema,
   ApprovalDelegationSchema,
@@ -674,7 +676,9 @@ registry.registerPath({
 registry.registerPath({
   method: "get",
   path: "/v1/employees",
-  summary: "List employees with search, filter, and pagination",
+  summary:
+    "List employees with search, filter, and pagination. The department filter matches the primary department or, unless membership=primary, a secondary membership active today (ORG-007)",
+  request: { query: ListEmployeesQuerySchema },
   responses: {
     200: {
       description: "Paginated list of employees",
@@ -1508,7 +1512,9 @@ registry.registerPath({
 registry.registerPath({
   method: "get",
   path: "/v1/calendar/team-absences",
-  summary: "Get team absence schedule respecting GDPR privacy rules",
+  summary:
+    "Get team absence schedule respecting GDPR privacy rules. departmentId and groupId also match secondary memberships that overlap the absence (ORG-007)",
+  request: { query: TeamAbsencesQuerySchema },
   responses: {
     200: {
       description: "Team absence schedule",
@@ -2833,6 +2839,8 @@ export class LibreHrApiClient {
     const searchParams = new URLSearchParams();
     if (query?.search) searchParams.set('search', query.search);
     if (query?.departmentId) searchParams.set('departmentId', query.departmentId);
+    if (query?.groupId) searchParams.set('groupId', query.groupId);
+    if (query?.membership) searchParams.set('membership', query.membership);
     if (query?.locationId) searchParams.set('locationId', query.locationId);
     if (query?.status) searchParams.set('status', query.status);
     if (query?.page) searchParams.set('page', String(query.page));
@@ -3158,12 +3166,13 @@ export class LibreHrApiClient {
     });
   }
 
-  async listTeamAbsences(params: { startDate: string; endDate: string; departmentId?: string }): Promise<TeamAbsence[]> {
+  async listTeamAbsences(params: { startDate: string; endDate: string; departmentId?: string; groupId?: string }): Promise<TeamAbsence[]> {
     const searchParams = new URLSearchParams({
       startDate: params.startDate,
       endDate: params.endDate,
     });
     if (params.departmentId) searchParams.set('departmentId', params.departmentId);
+    if (params.groupId) searchParams.set('groupId', params.groupId);
     return this.request<TeamAbsence[]>(\`/v1/calendar/team-absences?\${searchParams.toString()}\`);
   }
 
