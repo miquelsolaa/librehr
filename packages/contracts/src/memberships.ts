@@ -51,6 +51,11 @@ export const EmployeeMembershipSchema = z.object({
   startDate: z.string().date(),
   endDate: z.string().date().nullable(),
   endReason: MembershipEndReasonSchema.nullable(),
+  /**
+   * True once the membership was ended through `/end` or by a primary
+   * department change: its dates are then history and cannot change.
+   */
+  ended: z.boolean(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
