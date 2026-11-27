@@ -31,6 +31,8 @@ describe("SSO login requests and identity links (0044)", () => {
   const bea = "a4400000-0000-0000-0000-000000000002"; // member of A
   const leaver = "a4400000-0000-0000-0000-000000000003"; // terminated in A
   const bob = "b4400000-0000-0000-0000-000000000004"; // member of B only
+  const carl = "a4400000-0000-0000-0000-000000000005"; // member of A and B
+  const dan = "a4400000-0000-0000-0000-000000000006"; // member of A, later B
 
   const newState = () => crypto.randomBytes(32).toString("base64url");
 
@@ -88,10 +90,13 @@ describe("SSO login requests and identity links (0044)", () => {
       (${ana}, 'ana@example.com', 'Ana'),
       (${bea}, 'Bea@Example.com', 'Bea'),
       (${leaver}, 'leaver@example.com', 'Leaver'),
-      (${bob}, 'bob@example.com', 'Bob')`;
+      (${bob}, 'bob@example.com', 'Bob'),
+      (${carl}, 'carl@example.com', 'Carl'),
+      (${dan}, 'dan@example.com', 'Dan')`;
     await admin`INSERT INTO memberships (organization_id, user_id) VALUES
       (${orgA}, ${ana}), (${orgA}, ${bea}), (${orgA}, ${leaver}),
-      (${orgB}, ${bob})`;
+      (${orgB}, ${bob}), (${orgA}, ${carl}), (${orgB}, ${carl}),
+      (${orgA}, ${dan})`;
     await admin`INSERT INTO employees
       (organization_id, user_id, first_name, last_name, email, status, termination_date)
       VALUES (${orgA}, ${leaver}, 'Lea', 'Ver', 'leaver@example.com',
@@ -121,6 +126,10 @@ describe("SSO login requests and identity links (0044)", () => {
         has_function_privilege(${APP_ROLE}, 'librehr_auth_sso_consume(text)', 'EXECUTE') AS consume,
         has_function_privilege(${APP_ROLE},
           'librehr_auth_sso_resolve_user(text, text, text, text)', 'EXECUTE') AS resolve,
+        has_function_privilege(${APP_ROLE},
+          'librehr_auth_sso_domains_taken(uuid, jsonb)', 'EXECUTE') AS domains_taken,
+        has_function_privilege(${APP_ROLE},
+          'librehr_auth_sso_other_org_member(uuid, uuid)', 'EXECUTE') AS other_org,
         has_function_privilege('public', 'librehr_auth_sso_consume(text)', 'EXECUTE') AS public_consume`;
     expect(grants).toEqual({
       req_insert: true,
@@ -130,6 +139,8 @@ describe("SSO login requests and identity links (0044)", () => {
       id_update: false,
       consume: true,
       resolve: true,
+      domains_taken: true,
+      other_org: false,
       public_consume: false,
     });
     const [rls] = await db.adminSql<{ rls: boolean; force: boolean }[]>`
@@ -353,5 +364,64 @@ describe("SSO login requests and identity links (0044)", () => {
     expect(await links(orgA)).not.toContainEqual(
       expect.objectContaining({ userId: bea }),
     );
+  });
+  // A person's password and second factors are global: the provider of one
+  // organization must never act for someone who also belongs to another.
+  it("refuses a person who is also an active member of another organization", async () => {
+    expect(await signIn("sub-carl", "carl@example.com")).toEqual({
+      outcome: "multi_org_account",
+      organizationId: orgA,
+    });
+    expect(await links(orgA)).not.toContainEqual(
+      expect.objectContaining({ userId: carl }),
+    );
+  });
+
+  it("refuses a linked member once they join another organization", async () => {
+    expect((await signIn("sub-dan", "dan@example.com")).outcome).toBe("ok");
+    await db.adminSql`
+      INSERT INTO memberships (organization_id, user_id) VALUES (${orgB}, ${dan})`;
+    expect(await signIn("sub-dan", "dan@example.com")).toEqual({
+      outcome: "multi_org_account",
+      organizationId: orgA,
+    });
+
+    // A membership that no longer grants access (EMP-007) does not count.
+    await db.adminSql`INSERT INTO employees
+      (organization_id, user_id, first_name, last_name, email, status, termination_date)
+      VALUES (${orgB}, ${dan}, 'Dan', 'B', 'dan@example.com',
+              'terminated', '2020-01-31')`;
+    expect(await signIn("sub-dan", "dan@example.com")).toMatchObject({
+      outcome: "ok",
+      userId: dan,
+    });
+  });
+
+  it("reports the domains another organization's enabled configuration claims", async () => {
+    // B's configuration also lists example.com (created later, so lookups by
+    // domain keep resolving to A, the oldest).
+    expect(
+      await repo.ssoDomainsTaken(db.appSql, orgB, [
+        " @EXAMPLE.com ",
+        "b-only.example",
+      ]),
+    ).toEqual(["example.com"]);
+    expect(
+      await repo.ssoDomainsTaken(db.appSql, orgA, ["example.com"]),
+    ).toEqual(["example.com"]);
+    expect(await repo.ssoDomainsTaken(db.appSql, orgA, [])).toEqual([]);
+    expect(
+      (await repo.ssoConfigForDomain(db.appSql, "example.com"))?.organizationId,
+    ).toBe(orgA);
+
+    // A disabled configuration claims nothing.
+    await db.adminSql`UPDATE sso_configurations SET enabled = false WHERE id = ${configB}`;
+    try {
+      expect(
+        await repo.ssoDomainsTaken(db.appSql, orgA, ["example.com"]),
+      ).toEqual([]);
+    } finally {
+      await db.adminSql`UPDATE sso_configurations SET enabled = true WHERE id = ${configB}`;
+    }
   });
 });
