@@ -4,10 +4,15 @@ import { runMigrations } from "@librehr/db/migrate";
 import { configureEnvelopeKey } from "@librehr/db";
 import { loadEnv } from "./env.js";
 import { createApp } from "./app.js";
+import {
+  LocalStorageAdapter,
+  assertStorageWritable,
+} from "./adapters/storage-local.js";
 import { loadEdition } from "./extensions/load.js";
 import { BetterAuthAdapter } from "./adapters/better-auth.js";
 import { SmtpMailAdapter } from "./adapters/mail-smtp.js";
 import { logger } from "./middleware/logger.js";
+import { isSsoEnforcementActive } from "./lib/sso-enforcement.js";
 
 async function bootstrap() {
   const env = loadEnv();
@@ -39,7 +44,6 @@ async function bootstrap() {
   // runtime role (librehr_app, NOBYPASSRLS). The owner role in
   // DATABASE_MIGRATION_URL is only used for migrations above.
   const sql = postgres(env.DATABASE_URL, { max: 20 });
-  const authPort = new BetterAuthAdapter(sql);
   const mailPort = new SmtpMailAdapter({
     host: env.SMTP_HOST,
     port: env.SMTP_PORT,
@@ -60,6 +64,27 @@ async function bootstrap() {
     features: edition.license.features,
   });
 
+  // Without STORAGE_LOCAL_DIR the adapter falls back to ./data/storage under
+  // the cwd, which in the container is outside the mounted storage volume.
+  let storagePort: LocalStorageAdapter;
+  try {
+    storagePort = new LocalStorageAdapter(env.STORAGE_LOCAL_DIR);
+    assertStorageWritable(env.STORAGE_LOCAL_DIR);
+  } catch (err) {
+    logger.error({
+      msg: "Storage directory is not writable by the API user; see docs/guides/upgrading.md",
+      storageDir: env.STORAGE_LOCAL_DIR,
+      code: String((err as { code?: unknown } | null)?.code ?? "unknown"),
+    });
+    process.exit(1);
+  }
+
+  // AUTH-004: "Require SSO" applies only with a licence granting sso and
+  // SSO_ENABLED on; otherwise it is stored but inert.
+  const authPort = new BetterAuthAdapter(sql, {
+    ssoEnforcement: isSsoEnforcementActive(edition.license, env.SSO_ENABLED),
+  });
+
   // 4. Create Hono application
   const app = createApp({
     sql,
@@ -67,6 +92,7 @@ async function bootstrap() {
     license: edition.license,
     extensions: edition.extensions,
     mailPort,
+    storagePort,
     sessionSecret: env.SESSION_SECRET,
     timeChainKey: env.TIME_CHAIN_KEY,
     nodeEnv: env.NODE_ENV,

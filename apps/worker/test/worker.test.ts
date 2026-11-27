@@ -1,5 +1,4 @@
 import { describe, it, expect, vi } from "vitest";
-import { NotImplementedError } from "../src/lib/job-errors.js";
 import {
   handleEmailSend,
   type EmailJobPayload,
@@ -8,6 +7,7 @@ import {
 import { handleTimeCloseDay } from "../src/queues/time.close-day.js";
 import { handleTimeExport } from "../src/queues/time.export.js";
 import { handleRetentionEnforce } from "../src/queues/retention.enforce.js";
+import { handleRetentionSweepGlobal } from "../src/queues/retention.sweep-global.js";
 import { handleAuditVerifyChain } from "../src/queues/audit.verify-chain.js";
 
 class MockMailSender implements MailSender {
@@ -106,21 +106,46 @@ describe("Worker Queue Handlers", () => {
     expect(logger.info).not.toHaveBeenCalled();
   });
 
-  it("fails retention.enforce loudly and logs ADM-005", async () => {
-    const warn = vi.fn();
-    const err = await handleRetentionEnforce(
-      {
-        id: "j-retention",
-        data: { organizationId: "org-1", runDate: "2026-11-01" },
-      },
-      { warn },
-    ).catch((e: unknown) => e);
-    expect(err).toBeInstanceOf(NotImplementedError);
-    expect(String(err)).toContain("ADM-005");
-    expect(warn).toHaveBeenCalledWith(
-      expect.objectContaining({ requirement: "ADM-005", jobId: "j-retention" }),
-    );
-  });
+  it.each([
+    { organizationId: "org-1", runDate: "2026-11-01" },
+    { organizationId: "a1150000-0000-4000-8000-00000000000a", runDate: "x" },
+    // Matches YYYY-MM-DD but is no calendar day: must be a bad payload
+    // (dead-lettered), not a RangeError retried as a transient failure.
+    {
+      organizationId: "a1150000-0000-4000-8000-00000000000a",
+      runDate: "2027-02-30",
+    },
+    {
+      organizationId: "a1150000-0000-4000-8000-00000000000a",
+      runDate: "2027-02-29",
+    },
+  ])(
+    "rejects an invalid retention.enforce payload before touching the database",
+    async (data) => {
+      const logger = { info: vi.fn() };
+      await expect(
+        handleRetentionEnforce(
+          { id: "j-retention", data },
+          { sql: {} as never, logger },
+        ),
+      ).rejects.toThrow(/invalid retention.enforce payload/);
+      expect(logger.info).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["2026-13-01", "2027-02-30", "2026-04-31"])(
+    "rejects the retention.sweep-global runDate %s before touching the database",
+    async (runDate) => {
+      const logger = { info: vi.fn() };
+      await expect(
+        handleRetentionSweepGlobal(
+          { id: "j-sweep", data: { runDate } },
+          { sql: {} as never, logger },
+        ),
+      ).rejects.toThrow(/invalid retention.sweep-global payload/);
+      expect(logger.info).not.toHaveBeenCalled();
+    },
+  );
 
   it("rejects an invalid audit.verify-chain payload before touching the database", async () => {
     const logger = { info: vi.fn(), error: vi.fn() };

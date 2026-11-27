@@ -47,36 +47,90 @@ Encryption in transit (TLS 1.2+); at rest for sensitive columns and documents; s
 
 ## 5. Default retention schedule (configurable; confirm with counsel)
 
-| Data                                                                                                  | Default retention                            | Notes                                                                                                            |
-| ----------------------------------------------------------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Time records (`time_events`) and exports                                                              | >= 4 years                                   | Legal minimum; block deletion earlier.                                                                           |
-| Stored background export files (issue #38)                                                            | 7 days (`TIME_EXPORT_FILE_TTL_HOURS`)        | Download copies only; the `time_exports` record and audit entries (id, hash, period, requester) stay >= 4 years. |
-| Employment contract and core HR record                                                                | Duration of employment + statutory periods   | Check labour, tax, and Social Security limitation periods.                                                       |
-| Payslips / payroll documents                                                                          | Per tax and Social Security rules            | Often several years; make configurable.                                                                          |
-| Leave requests and ledger                                                                             | Duration of employment + 4 years (suggested) | Supports disputes and audits.                                                                                    |
-| Audit log                                                                                             | >= 3 years (suggested)                       | Security and accountability.                                                                                     |
-| Recruitment data (future)                                                                             | 6-12 months unless consent                   | Out of v1.0.                                                                                                     |
-| Rate-limit and lockout counters (`rate_limit_buckets`)                                                | Minutes (until the window or lockout ends)   | HMAC digests of IP/account keys: pseudonymised personal data, never clear values. The API sweeps expired rows.   |
-| Backups                                                                                               | <= 35 days rolling                           | Document erasure behavior in backups.                                                                            |
+| Data                                                                                                  | Default retention                            | Notes                                                                                                                                                           |
+| ----------------------------------------------------------------------------------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Time records (`time_events`) and exports                                                              | >= 4 years                                   | Legal minimum; block deletion earlier.                                                                                                                          |
+| Stored background export files (issue #38)                                                            | 7 days (`TIME_EXPORT_FILE_TTL_HOURS`)        | Download copies only; the `time_exports` record and audit entries (id, hash, period, requester) stay >= 4 years.                                                |
+| Employment contract and core HR record                                                                | Duration of employment + statutory periods   | Check labour, tax, and Social Security limitation periods.                                                                                                      |
+| Payslips / payroll documents                                                                          | Per tax and Social Security rules            | Often several years; make configurable.                                                                                                                         |
+| Leave requests and ledger                                                                             | Duration of employment + 4 years (suggested) | Supports disputes and audits.                                                                                                                                   |
+| Audit log                                                                                             | >= 3 years (suggested)                       | Security and accountability.                                                                                                                                    |
+| Recruitment data (future)                                                                             | 6-12 months unless consent                   | Out of v1.0.                                                                                                                                                    |
+| Rate-limit and lockout counters (`rate_limit_buckets`)                                                | Minutes (until the window or lockout ends)   | HMAC digests of IP/account keys: pseudonymised personal data, never clear values. The API sweeps expired rows.                                                  |
+| SSO sign-in requests (`sso_login_requests`, Business, `AUTH-004`)                                     | 1 day                                        | Single-use flow data (state hash, nonce, PKCE verifier) with organization and configuration ids; no person is identified. Purged whenever a new sign-in starts. |
+| SSO identity links (`sso_identities`, Business, `AUTH-004`)                                           | Duration of the membership                   | Identity provider subject (`sub`) per member; deleted with the membership, the user or the organization.                                                        |
+| Backups                                                                                               | <= 35 days rolling                           | Document erasure behavior in backups.                                                                                                                           |
 | After retention: anonymize or delete via `retention.enforce` job with dry-run report and audit entry. |
 
-**Known gap (ADM-005 not yet implemented).** The `retention.enforce` worker job
-is a stub that fails loudly (dead-letters with "not implemented") instead of
-reporting success. Until ADM-005 ships:
+**Known gap (ADM-005 is report-only).** The `retention.enforce` worker job
+runs daily per organization and produces a **dry-run report only**: it counts,
+per category below, the rows past their period and writes one `retention.run`
+audit entry per run (dates and counts only, no names, titles or file names).
+It deletes and anonymises nothing, whatever the payload says. Until purging is
+enabled, after counsel confirms the periods (issue #32):
 
 - Documents deleted by users are soft-deleted (DOC-001): rows, versions and
   stored files are kept and hidden from the app, but never purged. This
   includes payslips and other sensitive documents.
 - Soft-deleted documents still held are included in data-subject access
   exports (ADM-004), because GDPR art. 15 covers all data held.
-- Nothing is anonymised or deleted when a retention period above ends.
-- The worker's scheduler enqueues `retention.enforce` daily per organization
-  with `dryRun: true` (docs/guides/job-scheduler.md). Scheduling real purges
-  needs a maintainer decision when ADM-005 ships.
+- Nothing is anonymised or deleted when a retention period above ends; the
+  report shows how much would be.
 
-Implementing ADM-005 is the next required feature. Its retention periods are
-compliance defaults, so the maintainers must confirm them (with counsel)
-before it ships.
+The only deletion that runs is instance-wide: `retention.sweep-global` deletes
+password reset links (`password_reset_tokens`) older than their documented
+30 days once per UTC day. Sessions are not swept.
+
+**Retention configuration (ADM-005, report-only).** Periods are configuration
+per organization: `retention_policies` (migration 0042) holds an optional
+override per category, and a missing row means the default in
+`packages/core/src/retention`. Every category is report-only: the daily
+dry-run report counts eligible rows in the organization's time zone, and
+nothing is deleted or anonymised. The defaults below are the maintainers' recommendation,
+**pending legal confirmation by counsel** (issue #32); only the time-records
+floor is law, and it is enforced by a database CHECK.
+
+| Category              | Default (days)               | Measured from                       | Legal floor         |
+| --------------------- | ---------------------------- | ----------------------------------- | ------------------- |
+| `time_records`        | 1461 (4 years)               | the clock event                     | 1461 (ET art. 34.9) |
+| `leave_records`       | 1461 (4 years)               | the employee's termination date     | none                |
+| `audit_log`           | 1095 (3 years)               | the entry                           | none                |
+| `deleted_documents`   | 30 (grace after soft delete) | the soft delete                     | none                |
+| `statutory_documents` | 1461 (4 years)               | the upload (contracts and payslips) | none                |
+| `notifications`       | 365                          | the notification                    | none                |
+| `invitations`         | 90                           | acceptance or expiry                | none                |
+
+A soft-deleted contract or payslip counts as eligible (under
+`deleted_documents`) only once both its `deleted_documents` grace and its
+`statutory_documents` period have passed. `statutory_documents` is a hold,
+never a basis for deletion: the report gives it `eligible: 0` and lists the
+soft-deleted contracts and payslips it still holds back as `heldBack`. Password reset links
+(`password_reset_tokens`, instance-wide, not per organization) keep their
+30-day retention of migration 0040, enforced daily by `retention.sweep-global`.
+
+**Retention configuration (ADM-005, in progress).** Periods are configuration
+per organization: `retention_policies` (migration 0042) holds an optional
+override per category, and a missing row means the default in
+`packages/core/src/retention`. Every category is report-only: nothing is
+deleted or anonymised. The defaults below are the maintainers' recommendation,
+**pending legal confirmation by counsel** (issue #32); only the time-records
+floor is law, and it is enforced by a database CHECK.
+
+| Category              | Default (days)               | Measured from                       | Legal floor         |
+| --------------------- | ---------------------------- | ----------------------------------- | ------------------- |
+| `time_records`        | 1461 (4 years)               | the clock event                     | 1461 (ET art. 34.9) |
+| `leave_records`       | 1461 (4 years)               | the employee's termination date     | none                |
+| `audit_log`           | 1095 (3 years)               | the entry                           | none                |
+| `deleted_documents`   | 30 (grace after soft delete) | the soft delete                     | none                |
+| `statutory_documents` | 1461 (4 years)               | the upload (contracts and payslips) | none                |
+| `notifications`       | 365                          | the notification                    | none                |
+| `invitations`         | 90                           | acceptance or expiry                | none                |
+
+A soft-deleted contract or payslip counts as eligible only once both its
+`deleted_documents` grace and its `statutory_documents` period have passed;
+otherwise it is reported as held back. Password reset links
+(`password_reset_tokens`, instance-wide, not per organization) keep their
+30-day retention of migration 0040.
 
 ## 6. Feature-level compliance requirements
 
@@ -85,7 +139,7 @@ before it ships.
 - **Documents:** payslip-type docs restricted to employee/payroll; downloads audited; no third-party previews.
 - **Vacation carry-over and expiry (LEA-002):** losing days is **off by default**. Each leave policy has `carryover_enforced` (default false): while it is off, the year-end close carries the whole remaining balance over and nothing is ever forfeited or expired, so `carryover_max_days` and `carryover_expiry_months` have no effect. An administrator may turn it on per policy (audited) after checking the collective agreement; the close then carries over at most `carryover_max_days`, forfeits the rest, and expires carried days not used by the end of month `carryover_expiry_months` of the next year (the date is fixed at the close). See `docs/guides/leave-accrual.md`.
   - **ET art. 38.3 protection, always on:** vacation that could not be taken because of temporary incapacity, pregnancy (including risk during pregnancy), birth, adoption or breastfeeding may be taken after that leave ends (for incapacity, up to 18 months after the end of the year in which it accrued). Even with enforcement on, an employee with approved leave of such a type in the year being closed or the year before keeps their whole balance (carried over without an expiry date), and an employee with such leave between 1 January and the expiry date keeps their carried days. Protected days are therefore not lost at the two closes after the protected leave (covering the 18 months of incapacity); after that the cap applies again, and leave approved after a close ran is not taken into account (HR restores those days with an adjustment). Leave types expose only a code, so protection uses a cautious rule (`protectsVacation` in `packages/core`): protected codes (`sick_leave`, `birth_childcare`, `prenatal_exams`, `pregnancy_risk`, `maternity`, `paternity`, `adoption`, `breastfeeding`, ...), plus any leave type that is not an entitlement of the employee and whose code is not a known ordinary permit. The worker logs a neutral "statutory exemption" warning with ids only and counts it in the job report; it never records which protected leave applied.
-  - EU case law also limits forfeiture when the employer did not enable the leave to be taken; LibreHR does not track that, which is one more reason enforcement is opt-in. Counsel should review before v1.0 (§7).
+  - EU case law also limits forfeiture when the employer did not enable the leave to be taken; LibreHR does not track that, which is one more reason enforcement is opt-in. Counsel should review before v1.0 (§7). Until then, turning enforcement on in the web app requires an explicit acknowledgement in a confirmation dialog, and enforced policies show a "pending legal review" notice. The questions for counsel are in `docs/compliance/et-38-3-carryover-questions.md` (#133).
 - **Absences:** no diagnoses; attachments (e.g. medical certificate) stored encrypted, visible only to HR roles, retained minimal time.
 - **Exports/reports:** permissioned and audited; include watermark/metadata (who/when).
 - **Notifications:** emails avoid sensitive details (no leave type or reason in subject/body unless the recipient is entitled).

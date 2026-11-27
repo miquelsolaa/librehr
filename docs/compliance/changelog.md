@@ -9,6 +9,19 @@ All legal and regulatory revisions affecting LibreHR are tracked here.
 - **Access logging (`TIM-008`):** only the requester can download an export, and only while they still hold organization-wide `time.record.read` (a lapsed auditor window ends access); every download writes a `time.export.download` audit entry with the export id, format and hash only.
 - **Storage and encryption stance:** the file is stored in the database (`time_export_files`) under row-level security, readable only through the requester's download, and is not encrypted at the application level: it holds names and working times but no special-category data, the same data the database already holds. Operators should encrypt the database disk and backups. Failed or stalled exports notify the requester and store nothing.
 
+## [2026-11-26] - Retention categories and the time-records floor (`ADM-005`, #32)
+
+- **Retention configuration per organization:** `retention_policies` (migration 0042, RLS) holds an optional period per data category (`time_records`, `leave_records`, `audit_log`, `deleted_documents`, `statutory_documents`, `notifications`, `invitations`); a missing row means the default in `packages/core/src/retention`. The defaults are listed in `COMPLIANCE.md` section 5.
+- **Defaults pending counsel:** the default periods are the maintainers' recommendation and are **not yet confirmed by counsel**. Counsel's sign-off will be recorded here as its own dated entry before any period is used as a basis for deletion.
+- **Time-records floor (Estatuto de los Trabajadores art. 34.9):** working-time records must be kept four years, so `time_records` cannot be configured below 1461 days. The floor is a database CHECK, not only an application rule.
+- **Nothing is deleted:** this change stores configuration and counts eligible records only. No tenant-scoped record is deleted or anonymised.
+- **Daily dry-run report (`retention.run` audit action):** the `retention.enforce` worker job runs daily per organization, counts the records past each period in the organization's time zone and writes one `retention.run` audit entry holding dates and counts only (no names, titles or file names). `statutory_documents` is reported as a hold (`heldBack`), never as eligible.
+- **Instance-wide sweep of password reset links:** the new `retention.sweep-global` job deletes `password_reset_tokens` rows older than 30 days (the retention documented with migration 0040) once per UTC day. This is the only deletion that runs; nothing tenant-scoped is deleted yet.
+
+## [2026-11-26] - Vacation carry-over: pending legal review of ET art. 38.3
+
+- **Carry-over enforcement confirmation (`LEA-002`, #133):** no rule or default changes. Turning `carryover_enforced` on in Settings > Leave policies now needs an explicit acknowledgement, and enforced policies show a "pending legal review" notice. The questions for labour counsel (protected situations, time limits, retroactive recognition, CJEU employer diligence, cap legality, termination, data protection) are in `docs/compliance/et-38-3-carryover-questions.md`.
+
 ## [2026-11-02] - Milestone M5: Integrations, Token Security & Hash Chain Verification
 
 - **Token Security & Scoping (`ADM-006`):** Personal Access Tokens (PATs) use high-entropy prefixing (`lhr_`), one-way SHA-256 storage, and strict scope verification, preventing credential leakage in compliance with ISO/IEC 27001 access control requirements.
