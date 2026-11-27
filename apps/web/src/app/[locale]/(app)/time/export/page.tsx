@@ -10,6 +10,7 @@ import type { OfficialExportResponse } from "@librehr/contracts";
 import { getStoredSession } from "@/lib/auth";
 import { downloadTimeExport, getApiClient } from "@/lib/api-client";
 import {
+  asyncExportAvailable,
   canExportOrganization,
   canExportOthers,
   currentMonthRange,
@@ -27,6 +28,10 @@ import {
 } from "@/components/time-export-form";
 import { TimeExportPreview } from "@/components/time-export-preview";
 import { TimeExportReceipt } from "@/components/time-export-receipt";
+import {
+  TimeExportJobs,
+  type BackgroundExportOffer,
+} from "@/components/time-export-jobs";
 
 export default function TimeExportPage() {
   const params = useParams();
@@ -71,6 +76,10 @@ export default function TimeExportPage() {
     contentHash: string;
   } | null>(null);
   const [downloaded, setDownloaded] = React.useState<string | null>(null);
+  // Issue #38: a too-large organization export that can run in the background.
+  const [offer, setOffer] = React.useState<BackgroundExportOffer | null>(null);
+  // The offer is for the period and language it was refused for.
+  React.useEffect(() => setOffer(null), [startDate, endDate, docLocale, scope]);
 
   const run = async (action: ExportAction) => {
     if (!isValidExportPeriod(startDate, endDate)) {
@@ -88,6 +97,7 @@ export default function TimeExportPage() {
     };
 
     setError(null);
+    setOffer(null);
     setDownloaded(null);
     picker.clearSelectionReset();
     setReceipt(null);
@@ -111,7 +121,12 @@ export default function TimeExportPage() {
         }
       }
     } catch (err: unknown) {
-      setError(exportErrorKey(err, selected !== null));
+      if (scope === "organization" && asyncExportAvailable(err)) {
+        setError("exportErrorTooLargeAsync");
+        setOffer({ startDate, endDate, locale: docLocale });
+      } else {
+        setError(exportErrorKey(err, selected !== null));
+      }
     } finally {
       setBusy(null);
     }
@@ -195,6 +210,26 @@ export default function TimeExportPage() {
         {receipt && <TimeExportReceipt {...receipt} />}
 
         {doc && <TimeExportPreview doc={doc} />}
+
+        {allowOrganization && (
+          <TimeExportJobs
+            locale={locale}
+            offer={offer}
+            onQueued={() => {
+              setOffer(null);
+              setError(null);
+            }}
+            onDownloaded={(file) => {
+              setDoc(null);
+              setError(null);
+              setDownloaded(file.filename);
+              setReceipt({
+                exportId: file.exportId,
+                contentHash: file.contentHash,
+              });
+            }}
+          />
+        )}
       </div>
     </div>
   );

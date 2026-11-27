@@ -1,9 +1,36 @@
 import type { AuthUser } from "@librehr/contracts";
 
+/** How a session was authenticated (AUTH-004). */
+export type AuthMethod = "password" | "sso";
+
 export interface AuthSession {
   user: AuthUser;
   token: string;
   expiresAt: Date;
+  /** Absent means "password" (adapters that predate AUTH-004 enforcement). */
+  authMethod?: AuthMethod | undefined;
+  /**
+   * True when a password session opened in an organization that requires
+   * SSO because the user is a break-glass admin there (AUTH-004); the
+   * sign-in route audits it.
+   */
+  breakGlass?: boolean | undefined;
+}
+
+export interface CreateSessionOptions {
+  /**
+   * Defaults to "password". The OIDC callback (#34) passes "sso" and must
+   * pin the organization (`user.organizationId`): an SSO session is never
+   * bound to a default membership, which could belong to another
+   * organization than the one whose identity provider signed the user in.
+   */
+  authMethod?: AuthMethod | undefined;
+  /**
+   * Defaults to true. False refuses a break-glass password session
+   * (AUTH-004) with SsoRequiredError: only the sign-in routes, which check
+   * the second factor and audit the sign-in, may open one.
+   */
+  allowBreakGlass?: boolean | undefined;
 }
 
 /**
@@ -22,9 +49,14 @@ export interface AuthPort {
   /**
    * Opens a session in `user.organizationId` or, when absent, the user's
    * default membership. Returns null when the user has no active membership
-   * there (none at all, or a terminated employee: EMP-007).
+   * there (none at all, or a terminated employee: EMP-007). Throws
+   * SsoRequiredError when a password session is refused only because every
+   * candidate organization requires single sign-on (AUTH-004).
    */
-  createSession(user: SessionSubject): Promise<AuthSession | null>;
+  createSession(
+    user: SessionSubject,
+    options?: CreateSessionOptions,
+  ): Promise<AuthSession | null>;
   getSession(token: string): Promise<AuthSession | null>;
   revokeSession(token: string): Promise<void>;
 }

@@ -25,6 +25,7 @@ packages/contracts  Zod schemas + inferred types shared by api and web. Source o
 packages/ui     Design system components (shadcn/ui based), tokens, Storybook.
 packages/i18n   Message catalogs (ca, es, en) and helpers.
 packages/emails React Email templates.
+packages/time-export  TIM-006 official time export builder shared by api and worker (core + db, no HTTP).
 packages/config Shared tsconfig, eslint, prettier, Tailwind v4 theme (CSS).
 packages/testing  Factories, fixtures, Testcontainers helpers.
 infra/          Dockerfiles, compose files, example env, reverse-proxy samples.
@@ -32,7 +33,7 @@ docs/           ADRs, how-tos, user docs.
 ee/             Business edition (LibreHR Enterprise License, NOT AGPL). See ee/README.md and docs/adr/0004-open-core-licensing.md.
 ```
 
-Dependency direction (enforced by lint): `web -> contracts, ui, i18n` · `api -> core, db, contracts` · `worker -> core, db, emails` · `core -> (nothing internal)` · `ee -> core, db, contracts`.
+Dependency direction (enforced by lint): `web -> contracts, ui, i18n` · `api -> core, db, contracts, time-export` · `worker -> core, db, emails, time-export` · `time-export -> core, db` · `core -> (nothing internal)` · `ee -> core, db, contracts`.
 `core` must never import `db`, `api`, `web`, or any I/O library.
 Nothing outside `ee/` imports `ee/`, except `apps/api/src/extensions/load.ts` and API tests. A build with `ee/` deleted must still work as the Community edition.
 
@@ -67,7 +68,7 @@ Use `pnpm` (via corepack). Never use npm or yarn.
 - Prefer pure functions and explicit data over classes. Domain logic lives in `packages/core` and is unit-tested without a database.
 - Errors: throw typed `AppError` subclasses (`NotFoundError`, `ForbiddenError`, `ValidationError`, `ConflictError`). The API maps them to RFC 9457 `application/problem+json`. Never leak stack traces or internal ids to clients.
 - No default exports except where a framework requires them (Next.js pages/layouts).
-- File names `kebab-case.ts`; React components `PascalCase` exports in kebab-case files. One concept per file; keep files under ~300 lines.
+- File names `kebab-case.ts`; React components `PascalCase` exports in kebab-case files. One concept per file; keep files under ~300 lines. ESLint `max-lines` enforces 300 non-blank, non-comment lines in source files (not tests, seeds or generated code); files over it when the rule landed are allowlisted in `packages/config/eslint/max-lines.js`. That list only shrinks: split a file instead of adding it, and remove its entry when you bring it under the limit.
 - Comments explain _why_, not _what_. Public functions in `core` get TSDoc with an example.
 - Do not add a dependency without checking: license is compatible with AGPL-3.0, actively maintained, no telemetry, and justified in the PR description.
 - No `console.log` in committed code; use the `logger` (pino) with structured fields. Never log PII (names, emails, DNI/NIE, IBAN, health or absence reasons).

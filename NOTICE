@@ -13,6 +13,7 @@ Third-party software libraries and components:
 - fast-check (MIT)
 - Hono & @hono/zod-openapi (MIT)
 - Inter typeface, via @fontsource-variable/inter (SIL OFL-1.1; package MIT)
+- jose (MIT), used by the Business edition (ee/) to verify OIDC id_tokens
 - Lucide React (ISC)
 - Next.js (MIT)
 - next-intl (MIT)

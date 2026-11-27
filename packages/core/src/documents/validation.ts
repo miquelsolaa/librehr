@@ -16,6 +16,33 @@ export interface FileValidationResult {
   error?: string | undefined;
 }
 
+const FALLBACK_FILENAME = "unnamed_document";
+
+// Strips any directory part and every character outside [a-zA-Z0-9._-], so
+// the result is safe to use as the last segment of a storage key. Returns
+// null when nothing usable is left.
+function stripFilename(filename: string): string | null {
+  const sanitized = filename
+    .replace(/^.*[\\/]/, "")
+    .replace(/[^a-zA-Z0-9._-]/g, "_")
+    .slice(0, 150);
+  return !sanitized || sanitized === "." || sanitized === ".."
+    ? null
+    : sanitized;
+}
+
+/**
+ * Makes a client-supplied filename safe to embed in a storage key: no
+ * directory part, no traversal, only `[a-zA-Z0-9._-]`, at most 150 chars.
+ *
+ * @example
+ * sanitizeDocumentFilename("../../etc/2026-05 nómina.pdf"); // "2026-05_n_mina.pdf"
+ * sanitizeDocumentFilename(".."); // "unnamed_document"
+ */
+export function sanitizeDocumentFilename(filename: string): string {
+  return stripFilename(filename) ?? FALLBACK_FILENAME;
+}
+
 /**
  * Validates file MIME type, size limit, and sanitizes filenames to prevent path traversal.
  */
@@ -25,19 +52,12 @@ export function validateDocumentFile(
   sizeBytes: number,
 ): FileValidationResult {
   // 1. Sanitize filename: strip directory traversal and dangerous characters
-  const baseName = filename.replace(/^.*[\\/]/, "");
-  const sanitizedFilename = baseName
-    .replace(/[^a-zA-Z0-9._-]/g, "_")
-    .slice(0, 150);
+  const sanitizedFilename = stripFilename(filename);
 
-  if (
-    !sanitizedFilename ||
-    sanitizedFilename === "." ||
-    sanitizedFilename === ".."
-  ) {
+  if (sanitizedFilename === null) {
     return {
       valid: false,
-      sanitizedFilename: "unnamed_document",
+      sanitizedFilename: FALLBACK_FILENAME,
       error: "Invalid filename",
     };
   }

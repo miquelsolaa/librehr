@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   validateDocumentFile,
+  sanitizeDocumentFilename,
   matchBulkPayslips,
   computeChecklistTaskDueDates,
   validateEmployeeCsv,
@@ -16,6 +17,20 @@ describe("M4 Pure Domain Logic: Documents & Lifecycle", () => {
       );
       expect(res.valid).toBe(true);
       expect(res.sanitizedFilename).toBe("contract_2026.pdf");
+    });
+
+    it("sanitizes a bulk payslip filename into a single safe key segment", () => {
+      expect(sanitizeDocumentFilename("../../app/node_modules/x.js")).toBe(
+        "x.js",
+      );
+      expect(sanitizeDocumentFilename("..\\..\\x 12345678Z.pdf")).toBe(
+        "x_12345678Z.pdf",
+      );
+      expect(sanitizeDocumentFilename("..")).toBe("unnamed_document");
+      expect(sanitizeDocumentFilename("a/")).toBe("unnamed_document");
+      expect(sanitizeDocumentFilename("2026-05 nómina.pdf")).toBe(
+        "2026-05_n_mina.pdf",
+      );
     });
 
     it("rejects disallowed MIME types", () => {
