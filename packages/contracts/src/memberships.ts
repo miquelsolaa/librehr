@@ -13,6 +13,24 @@ export const MembershipTargetTypeSchema = z.enum([
 ]);
 export type MembershipTargetType = z.infer<typeof MembershipTargetTypeSchema>;
 
+/**
+ * Why a membership was ended. A coarse code, never free text: health, union
+ * membership or other special-category reasons must not be recorded
+ * (COMPLIANCE.md). `primary_changed` is set by the API when the membership's
+ * department becomes the primary one (ADR 0008 decision 3).
+ */
+export const MembershipEndReasonSchema = z.enum([
+  "project_ended",
+  "reassigned",
+  "primary_changed",
+  "other",
+]);
+export type MembershipEndReason = z.infer<typeof MembershipEndReasonSchema>;
+
+/** The end reasons a person can pick; `primary_changed` is the API's own. */
+export const SelectableMembershipEndReasonSchema =
+  MembershipEndReasonSchema.exclude(["primary_changed"]);
+
 export const AllocationPercentSchema = z
   .number()
   .positive("Must be greater than 0")
@@ -32,7 +50,12 @@ export const EmployeeMembershipSchema = z.object({
   allocationPercent: z.number().nullable(),
   startDate: z.string().date(),
   endDate: z.string().date().nullable(),
-  endReason: z.string().nullable(),
+  endReason: MembershipEndReasonSchema.nullable(),
+  /**
+   * True once the membership was ended through `/end` or by a primary
+   * department change: its dates are then history and cannot change.
+   */
+  ended: z.boolean(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
@@ -68,7 +91,11 @@ export type CreateEmployeeMembershipRequest = z.infer<
   typeof CreateEmployeeMembershipRequestSchema
 >;
 
-/** Omitted fields are kept; null clears an optional field. */
+/**
+ * Omitted fields are kept; null clears an optional field. Once a membership
+ * was ended through `/end`, only role and allocation can change: its dates
+ * are history (409 MEMBERSHIP_ALREADY_ENDED).
+ */
 export const UpdateEmployeeMembershipRequestSchema = z
   .object({
     role: RoleSchema,
@@ -87,7 +114,7 @@ export type UpdateEmployeeMembershipRequest = z.infer<
 export const EndEmployeeMembershipRequestSchema = z.object({
   /** Last day of the membership (included). */
   endDate: z.string().date(),
-  reason: z.string().trim().min(1).max(500).nullable().optional(),
+  reason: SelectableMembershipEndReasonSchema.nullable().optional(),
 });
 export type EndEmployeeMembershipRequest = z.infer<
   typeof EndEmployeeMembershipRequestSchema

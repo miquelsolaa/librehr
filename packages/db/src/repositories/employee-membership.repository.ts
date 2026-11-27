@@ -2,6 +2,14 @@ import type { TenantTx } from "../with-tenant.js";
 import type { OrgGroupKind } from "./org-group.repository.js";
 
 /**
+ * Why a membership was ended: a coarse code, never free text, so no
+ * special-category reason (health, union membership) is recorded. The API
+ * sets `primary_changed` itself (CHECK in 0046).
+ */
+export type MembershipEndReason =
+  "project_ended" | "reassigned" | "primary_changed" | "other";
+
+/**
  * ORG-007 (ADR 0008): secondary memberships of an employee in a department
  * or an org group (employee_memberships, 0046). The primary department is
  * not a membership row; it stays in employees.department_id.
@@ -22,7 +30,7 @@ export interface EmployeeMembershipRow {
   endDate: string | null;
   createdBy: string;
   endedBy: string | null;
-  endReason: string | null;
+  endReason: MembershipEndReason | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -55,7 +63,7 @@ export interface EndEmployeeMembershipData {
   endDate: string;
   /** User id of the actor. */
   endedBy: string;
-  endReason?: string | null | undefined;
+  endReason?: MembershipEndReason | null | undefined;
 }
 
 /**

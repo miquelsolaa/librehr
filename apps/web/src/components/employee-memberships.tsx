@@ -6,6 +6,7 @@ import type {
   Department,
   EmployeeMembership,
   EmployeeMembershipWriteResponse,
+  MembershipEndReason,
   OrgGroup,
 } from "@librehr/contracts";
 import { Button, Input } from "@librehr/ui";
@@ -23,6 +24,20 @@ const TYPE_LABEL = {
   project: "typeProject",
   area: "typeArea",
 } as const;
+
+/** Coarse end reasons: never free text, so no special-category data. */
+const END_REASON_LABEL = {
+  project_ended: "endReasonProjectEnded",
+  reassigned: "endReasonReassigned",
+  other: "endReasonOther",
+  primary_changed: "endReasonPrimaryChanged",
+} as const satisfies Record<MembershipEndReason, string>;
+const SELECTABLE_END_REASONS = [
+  "project_ended",
+  "reassigned",
+  "other",
+] as const;
+type SelectableEndReason = (typeof SELECTABLE_END_REASONS)[number];
 
 /**
  * ORG-007 (issue #81): the employee's secondary departments, projects and
@@ -54,7 +69,9 @@ export function EmployeeMemberships({
 
   const [endingId, setEndingId] = React.useState<string | null>(null);
   const [endOn, setEndOn] = React.useState(today);
-  const [endReason, setEndReason] = React.useState("");
+  const [endReason, setEndReason] = React.useState<SelectableEndReason | "">(
+    "",
+  );
   const [endError, setEndError] = React.useState<MembershipErrorKey | null>(
     null,
   );
@@ -105,7 +122,7 @@ export function EmployeeMemberships({
     try {
       await apiClient.endEmployeeMembership(employeeId, endingId, {
         endDate: endOn,
-        reason: endReason.trim() || null,
+        reason: endReason || null,
       });
       setEndingId(null);
       setEndReason("");
@@ -132,6 +149,7 @@ export function EmployeeMemberships({
             {m.allocationPercent !== null
               ? ` · ${t("allocationValue", { percent: m.allocationPercent })}`
               : ""}
+            {m.endReason ? ` · ${t(END_REASON_LABEL[m.endReason])}` : ""}
           </span>
           <br />
           <span className="text-sm text-muted-foreground">
@@ -180,11 +198,20 @@ export function EmployeeMemberships({
           </label>
           <label className="text-sm">
             {t("endReason")}
-            <Input
+            <select
+              className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
               value={endReason}
-              maxLength={500}
-              onChange={(e) => setEndReason(e.target.value)}
-            />
+              onChange={(e) =>
+                setEndReason(e.target.value as SelectableEndReason | "")
+              }
+            >
+              <option value="">{t("endReasonNone")}</option>
+              {SELECTABLE_END_REASONS.map((reason) => (
+                <option key={reason} value={reason}>
+                  {t(END_REASON_LABEL[reason])}
+                </option>
+              ))}
+            </select>
           </label>
           <div className="flex items-end gap-2">
             <Button type="submit" disabled={ending}>
@@ -234,7 +261,8 @@ export function EmployeeMemberships({
             <p className="text-sm text-muted-foreground">{t("empty")}</p>
           ) : (
             <ul aria-label={t("currentLabel")} className="space-y-2">
-              {current.map((m) => renderRow(m, canEdit))}
+              {/* An ended row's dates are history (the API refuses edits). */}
+              {current.map((m) => renderRow(m, canEdit && !m.ended))}
             </ul>
           )}
           {past.length > 0 && (

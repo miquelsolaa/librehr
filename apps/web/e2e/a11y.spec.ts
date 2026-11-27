@@ -232,6 +232,7 @@ const API_FIXTURES: Record<string, unknown> = {
       startDate: "2026-01-01",
       endDate: null,
       endReason: null,
+      ended: false,
       createdAt: TIMESTAMP,
       updatedAt: TIMESTAMP,
     },

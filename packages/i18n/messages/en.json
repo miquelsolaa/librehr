@@ -507,6 +507,8 @@
     "roleEmployee": "Employee",
     "roleManager": "Manager",
     "roleAdmin": "Administrator",
+    "departmentLabel": "Primary department",
+    "departmentPlaceholder": "Choose a department",
     "sendInvite": "Send Invitation",
     "inviteSent": "Invitation sent successfully!",
     "errorTitle": "Invitation error",
@@ -1260,7 +1262,13 @@
     "overlapError": "This person already belongs to it in that period. Change the dates or edit the existing membership.",
     "primaryError": "This is already the person's primary department.",
     "allocationInvalid": "Enter a percentage greater than 0 and up to 100, with at most two decimals.",
-    "overAllocated": "Saved. From {date} the other memberships add up to {percent}%, which is more than 100%."
+    "overAllocated": "Saved. From {date} the other memberships add up to {percent}%, which is more than 100%.",
+    "endReasonNone": "No reason given",
+    "endReasonProjectEnded": "Project or assignment ended",
+    "endReasonReassigned": "Reassigned",
+    "endReasonOther": "Other",
+    "endReasonPrimaryChanged": "Became the primary department",
+    "alreadyEndedError": "This membership has already been ended; its dates can no longer change."
   },
   "orgGroups": {
     "title": "Projects and areas",

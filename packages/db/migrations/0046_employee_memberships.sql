@@ -18,7 +18,12 @@
 --    percentage. Overlapping rows for the same employee and target are
 --    rejected by exclusion constraints, like no_overlapping_employments
 --    (0000; btree_gist is installed there). "Removing" a membership sets
---    end_date, ended_by and end_reason; rows are history.
+--    end_date, ended_by and end_reason; rows are history. end_reason is a
+--    coarse code, never free text, so no special-category reason (health,
+--    union membership) can be recorded (COMPLIANCE.md, AGENTS.md section 5).
+-- 4. invitations.department_id: the primary department an invited person
+--    gets on accept (ADR 0008 decision 13). Nullable: auditors have none, and
+--    deleting the department clears only this column.
 --
 -- On delete: memberships go with their employee (CASCADE). A department or
 -- group that any membership references cannot be deleted (ADR decision 6).
@@ -35,7 +40,8 @@
 -- and employees (writes wait, reads continue) for the index build, which is
 -- short at SMB sizes.
 --
--- Rollback note: forward-only. DROP TABLE employee_memberships, org_groups;
+-- Rollback note: forward-only. ALTER TABLE invitations DROP COLUMN
+-- department_id; DROP TABLE employee_memberships, org_groups;
 -- DROP INDEX departments_org_id_uidx, employees_org_id_uidx; loses the
 -- membership history, so do it only on a database that never used it, and
 -- roll the code back first.
@@ -138,6 +144,7 @@ CREATE TABLE IF NOT EXISTS "employee_memberships" (
   -- User ids of the actor who created and who ended the row.
   "created_by" uuid NOT NULL,
   "ended_by" uuid NULL,
+  -- Coarse code only (see header); the API sets primary_changed itself.
   "end_reason" text NULL,
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "updated_at" timestamptz NOT NULL DEFAULT now(),
@@ -146,6 +153,9 @@ CREATE TABLE IF NOT EXISTS "employee_memberships" (
   CONSTRAINT "employee_memberships_allocation_check"
     CHECK ("allocation_percent" IS NULL
            OR ("allocation_percent" > 0 AND "allocation_percent" <= 100)),
+  CONSTRAINT "employee_memberships_end_reason_check"
+    CHECK ("end_reason" IS NULL OR "end_reason" IN
+           ('project_ended', 'reassigned', 'primary_changed', 'other')),
   CONSTRAINT "employee_memberships_dates_check"
     CHECK ("end_date" IS NULL OR "end_date" >= "start_date"),
   CONSTRAINT "employee_memberships_employee_fk"
@@ -192,3 +202,27 @@ CREATE POLICY "employee_memberships_tenant_isolation" ON "employee_memberships"
 
 COMMENT ON TABLE "employee_memberships" IS
   'ORG-007: secondary links of an employee to one department or group with validity dates. The primary department stays in employees.department_id.';
+
+-- 4. Primary department of an invited person (ADR 0008 decision 13).
+ALTER TABLE "invitations" ADD COLUMN IF NOT EXISTS "department_id" uuid NULL;
+
+DO $$
+BEGIN
+  -- Same-tenant key; only department_id is cleared when the department goes.
+  IF NOT EXISTS (
+    SELECT FROM pg_catalog.pg_constraint WHERE conname = 'invitations_department_fk'
+  ) THEN
+    ALTER TABLE "invitations"
+      ADD CONSTRAINT "invitations_department_fk"
+      FOREIGN KEY ("organization_id", "department_id")
+      REFERENCES "departments" ("organization_id", "id")
+      ON DELETE SET NULL ("department_id");
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS "invitations_department_idx"
+  ON "invitations" ("organization_id", "department_id")
+  WHERE "department_id" IS NOT NULL;
+
+COMMENT ON COLUMN "invitations"."department_id" IS
+  'ORG-007: primary department of the employee created when the invitation is accepted.';
