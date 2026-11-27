@@ -170,7 +170,7 @@ describe("SSO enforcement for password sessions (AUTH-004)", () => {
         trustProxy: 1,
       });
     enforcing = appFor(true);
-    // Community licence, or SSO_ENABLED off (lib/sso-enforcement.ts).
+    // No licence granting sso (lib/sso-enforcement.ts).
     inert = appFor(false);
   }, 60000);
 
@@ -266,7 +266,7 @@ describe("SSO enforcement for password sessions (AUTH-004)", () => {
     });
   });
 
-  describe("inert without a licence granting sso or with SSO_ENABLED off", () => {
+  describe("inert without a licence granting sso", () => {
     it("opens password sessions in an enforcing organization and keeps the stored setting", async () => {
       const res = await signIn(employee, inert);
       expect(res.status).toBe(200);

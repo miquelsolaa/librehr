@@ -44,7 +44,7 @@ The key is read once, when the API starts. A key that expires while the API is r
 
 What a Business feature stored is never hidden when its licence lapses (`LIC-003`). For single sign-on, administrators can still read the stored configuration (`GET /v1/sso/config`) and switch it off (`POST /v1/sso/config/disable`) in Community; creating or changing it needs the licence.
 
-"Require SSO" is enforced only while the licence grants `sso` and `SSO_ENABLED` is on; otherwise members sign in with their password and the setting is kept. See [Require single sign-on](guides/sso-enforcement.md).
+"Require SSO" is enforced only while the licence grants `sso` (there is no environment switch); otherwise members sign in with their password and the setting is kept. See [Require single sign-on](guides/sso-enforcement.md).
 
 ## Builds and images
 
