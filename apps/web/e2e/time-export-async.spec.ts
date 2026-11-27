@@ -176,6 +176,36 @@ test("an expired background export opened from its notification says so", async 
   expect(results.violations).toEqual([]);
 });
 
+test("a failed background export says why, so the requester knows what to change", async ({
+  page,
+}) => {
+  await seedProfile(page, { role: "admin" });
+  await mockPicker(page, []);
+  await mockRoute(page, "**/v1/time/exports", (route) =>
+    route.fulfill({
+      json: {
+        items: [
+          job("failed", {
+            errorCode: "EXPORT_TOO_LARGE",
+            completedAt: "2027-01-02T09:05:00.000Z",
+          }),
+        ],
+      },
+    }),
+  );
+
+  await page.goto("/en/time/export");
+  const row = page.getByTestId("export-job");
+  await expect(row).toContainText("Failed");
+  await expect(row.getByTestId("export-job-failure")).toHaveText(
+    "The file is too large. Request a shorter period.",
+  );
+  await expect(row.getByRole("button", { name: "Download" })).toHaveCount(0);
+
+  const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
+  expect(results.violations).toEqual([]);
+});
+
 test("employees are not offered background exports", async ({ page }) => {
   await seedProfile(page, { role: "employee" });
   let jobCalls = 0;

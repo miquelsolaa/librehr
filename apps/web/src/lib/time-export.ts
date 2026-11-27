@@ -122,6 +122,25 @@ export function asyncExportAvailable(err: unknown): boolean {
   return problem.code === "EXPORT_TOO_LARGE" && problem.asyncAvailable === true;
 }
 
+/** Message keys (in `timeTracking`) explaining why a background export failed. */
+export type FailedExportJobKey =
+  | "exportJobsFailedTooLarge"
+  | "exportJobsFailedForbidden"
+  | "exportJobsFailedGeneric";
+
+/**
+ * Issue #38: what a failed background export's `errorCode` means for the
+ * requester, so they know whether requesting the same export again helps.
+ */
+export function failedExportJobKey(
+  errorCode: string | null,
+): FailedExportJobKey {
+  if (errorCode === "EXPORT_TOO_LARGE") return "exportJobsFailedTooLarge";
+  if (errorCode === "FORBIDDEN") return "exportJobsFailedForbidden";
+  // EXPORT_FAILED, EXPORT_STALLED and anything new: a retry may work.
+  return "exportJobsFailedGeneric";
+}
+
 /** A background export the worker has not finished yet. */
 export function isActiveExportJob(job: { status: string }): boolean {
   return job.status === "queued" || job.status === "running";

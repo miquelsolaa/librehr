@@ -10,6 +10,7 @@ import { formatCalendarDate, formatDateTime } from "@/lib/format";
 import {
   exportErrorKey,
   exportPollDelay,
+  failedExportJobKey,
   isActiveExportJob,
   saveBlob,
   type ExportErrorKey,
@@ -232,12 +233,23 @@ export function TimeExportJobs({
                   <StatusPill
                     status={PILL[job.status].pill}
                     label={t(PILL[job.status].label)}
+                    // The tinted danger pill on this surface card falls just
+                    // short of AA contrast (4.35:1); an opaque fill keeps it
+                    // above 4.5:1.
+                    {...(job.status === "failed"
+                      ? { className: "bg-surface-raised" }
+                      : {})}
                   />
                   {job.status === "ready" && job.expiresAt && (
                     <span>
                       {t("exportJobsExpires", {
                         date: formatDateTime(job.expiresAt, locale),
                       })}
+                    </span>
+                  )}
+                  {job.status === "failed" && (
+                    <span data-testid="export-job-failure">
+                      {t(failedExportJobKey(job.errorCode))}
                     </span>
                   )}
                 </div>
