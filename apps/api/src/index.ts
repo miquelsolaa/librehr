@@ -79,10 +79,10 @@ async function bootstrap() {
     process.exit(1);
   }
 
-  // AUTH-004: "Require SSO" applies only with a licence granting sso and
-  // SSO_ENABLED on; otherwise it is stored but inert.
+  // AUTH-004: "Require SSO" applies only with a licence granting sso;
+  // otherwise it is stored but inert.
   const authPort = new BetterAuthAdapter(sql, {
-    ssoEnforcement: isSsoEnforcementActive(edition.license, env.SSO_ENABLED),
+    ssoEnforcement: isSsoEnforcementActive(edition.license),
   });
 
   // 4. Create Hono application
@@ -102,7 +102,6 @@ async function bootstrap() {
       appUrl: env.APP_URL,
       corsOrigins: env.CORS_ORIGINS,
       publicApiUrl: env.BETTER_AUTH_URL,
-      ssoEnabled: env.SSO_ENABLED,
       webhooksAllowPrivate: env.WEBHOOKS_ALLOW_PRIVATE,
     },
   });

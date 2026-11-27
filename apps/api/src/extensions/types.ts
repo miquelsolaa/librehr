@@ -36,8 +36,6 @@ export interface ExtensionContext {
   requireAuth: MiddlewareHandler;
   /** Public API base URL (BETTER_AUTH_URL), never the request Host header. */
   publicApiUrl: string;
-  /** SSO_ENABLED. */
-  ssoEnabled: boolean;
   /** Builds an AppError, so problems thrown by extensions map to problem+json. */
   createError: (init: AppErrorInit) => Error;
   /** Public web app URL (APP_URL) for redirects after sign-in, if set. */

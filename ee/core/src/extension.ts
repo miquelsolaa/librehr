@@ -49,7 +49,6 @@ export interface EeExtensionContext {
   sql: Sql;
   requireAuth: MiddlewareHandler;
   publicApiUrl: string;
-  ssoEnabled: boolean;
   /** Builds the API's AppError, so thrown problems map to problem+json. */
   createError: (init: ProblemInit) => Error;
   /** Public web app URL (APP_URL), if set. */

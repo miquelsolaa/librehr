@@ -529,11 +529,6 @@ registry.registerPath({
       description: "Forbidden",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
-    404: {
-      description:
-        "SSO_DISABLED: licensed, but single sign-on is switched off on this instance",
-      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
-    },
   },
 });
 
@@ -620,7 +615,7 @@ registry.registerPath({
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
     404: {
-      description: "No provider for this email domain, or SSO_DISABLED",
+      description: "No provider for this email domain",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
     429: {
@@ -654,10 +649,6 @@ registry.registerPath({
     403: {
       description:
         "LICENSE_REQUIRED without a Business licence that grants sso (LIC-003)",
-      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
-    },
-    404: {
-      description: "SSO_DISABLED",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
     429: {

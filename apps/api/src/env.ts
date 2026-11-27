@@ -177,8 +177,8 @@ const RawEnvSchema = z
     LOG_LEVEL: z.string().default("info"),
     /** Further allowed CORS origins, comma-separated. */
     CORS_ORIGINS: originList,
-    /** AUTH-004 has no callback yet, so SSO is off unless enabled. */
-    SSO_ENABLED: booleanFlag,
+    // SSO_ENABLED (AUTH-004) is no longer read: the licence alone gates
+    // single sign-on. Left in an env file it is ignored, never refused.
     /** Development only: lets webhooks target http:// and private hosts. */
     WEBHOOKS_ALLOW_PRIVATE: booleanFlag,
     /** LIC-002: LibreHR Business licence key; unset runs as Community. */
@@ -299,7 +299,6 @@ export interface ApiEnv {
   SMTP_FROM: string;
   LOG_LEVEL: string;
   CORS_ORIGINS: string[];
-  SSO_ENABLED: boolean;
   WEBHOOKS_ALLOW_PRIVATE: boolean;
   TRUST_PROXY: number;
   STORAGE_DRIVER: "local";
@@ -364,7 +363,6 @@ export function loadEnv(envInput?: Record<string, string | undefined>): ApiEnv {
     SMTP_FROM: parsed.SMTP_FROM,
     LOG_LEVEL: parsed.LOG_LEVEL,
     CORS_ORIGINS: parsed.CORS_ORIGINS,
-    SSO_ENABLED: parsed.SSO_ENABLED,
     WEBHOOKS_ALLOW_PRIVATE: parsed.WEBHOOKS_ALLOW_PRIVATE,
     TRUST_PROXY: parsed.TRUST_PROXY,
     STORAGE_DRIVER: parsed.STORAGE_DRIVER,

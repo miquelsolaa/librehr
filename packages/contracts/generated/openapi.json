@@ -7511,62 +7511,6 @@
                 }
               }
             }
-          },
-          "404": {
-            "description": "SSO_DISABLED: licensed, but single sign-on is switched off on this instance",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "type": {
-                      "type": "string",
-                      "default": "about:blank"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "code": {
-                      "type": "string"
-                    },
-                    "traceId": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "field": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "field",
-                          "message"
-                        ]
-                      }
-                    }
-                  },
-                  "required": [
-                    "title",
-                    "status"
-                  ]
-                }
-              }
-            }
           }
         }
       },
@@ -8285,7 +8229,7 @@
             }
           },
           "404": {
-            "description": "No provider for this email domain, or SSO_DISABLED",
+            "description": "No provider for this email domain",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -8490,62 +8434,6 @@
           },
           "403": {
             "description": "LICENSE_REQUIRED without a Business licence that grants sso (LIC-003)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "type": {
-                      "type": "string",
-                      "default": "about:blank"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "code": {
-                      "type": "string"
-                    },
-                    "traceId": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "field": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "field",
-                          "message"
-                        ]
-                      }
-                    }
-                  },
-                  "required": [
-                    "title",
-                    "status"
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "SSO_DISABLED",
             "content": {
               "application/problem+json": {
                 "schema": {

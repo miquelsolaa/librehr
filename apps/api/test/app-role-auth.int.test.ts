@@ -10,12 +10,12 @@ import { TokenRepository, hashBearerToken, withTenant } from "@librehr/db";
 import { runMigrations } from "@librehr/db/migrate";
 import { createApp } from "../src/app.js";
 import { isolatedRateLimitStore } from "./support/rate-limit.js";
+import { FakeOidcProvider } from "./support/fake-oidc-provider.js";
 import {
   businessEdition,
   hasBusinessEdition,
 } from "./support/business-edition.js";
 import { BetterAuthAdapter } from "../src/adapters/better-auth.js";
-import { FakeOidcProvider } from "./support/fake-oidc-provider.js";
 import { hashPassword } from "../src/lib/password.js";
 
 // ORG-006, AUTH-001/002, ADM-006: the API runs as librehr_app (NOBYPASSRLS)
@@ -93,12 +93,10 @@ describe("API on the restricted runtime role", () => {
       rateLimitStore: isolatedRateLimitStore(db.appSql),
       authPort: new BetterAuthAdapter(db.appSql),
       sessionSecret,
-      // SSO is Business (LIC-003) and off by default (SSO_ENABLED); this
-      // suite covers its lookup.
+      // SSO is Business (LIC-003); this suite covers its lookup.
       ...businessEdition(),
+      // Authorize reads the provider's discovery document.
       config: {
-        ssoEnabled: true,
-        // Authorize reads the issuer's discovery document (AUTH-004).
         oidcHttp: new FakeOidcProvider(
           "https://idp.example.invalid",
           "client-b",
