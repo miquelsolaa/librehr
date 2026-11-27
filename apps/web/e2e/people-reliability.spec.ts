@@ -234,8 +234,7 @@ test("directory reports an API failure and retries without sample people", async
   await mockRoute(page, "**/v1/org/departments", async (route) =>
     route.fulfill({ json: [] }),
   );
-  // Only the directory fails here; projects and areas load, so their own
-  // retry button stays hidden.
+  // ORG-007: the project and area filter has its own retry; keep it loaded.
   await mockRoute(page, "**/v1/org/groups**", async (route) =>
     route.fulfill({ json: [] }),
   );
@@ -296,6 +295,9 @@ test("contact failure is visible while the actual employee profile remains avail
     "**/v1/employees/person-1/employment-history",
     (route) => route.fulfill({ json: [] }),
   );
+  await mockRoute(page, "**/v1/employees/person-1/memberships", (route) =>
+    route.fulfill({ json: [] }),
+  );
   await mockRoute(page, "**/v1/people/person-1/emergency-contacts", (route) =>
     route.fulfill({ status: 503 }),
   );
@@ -329,7 +331,7 @@ test("late contacts from a previous profile do not appear on another employee", 
   });
   await mockRoute(page, "**/v1/employees**", (route) => {
     const path = new URL(route.request().url()).pathname;
-    if (path.endsWith("/employment-history"))
+    if (path.endsWith("/employment-history") || path.endsWith("/memberships"))
       return route.fulfill({ json: [] });
     if (path.endsWith("/person-1"))
       return route.fulfill({ json: person("person-1", "Alex") });

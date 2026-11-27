@@ -36,6 +36,7 @@ import {
 } from "@librehr/ui";
 import { apiClient } from "../../../../../lib/api-client.js";
 import { EmploymentHistory } from "@/components/employment-history";
+import { EmployeeMemberships } from "@/components/employee-memberships";
 import { localIsoDate } from "@/lib/format";
 import type {
   EmployeeProfile,
@@ -752,6 +753,12 @@ export default function EmployeeDetailPage() {
         key={employee.id}
         employeeId={employee.id}
         onPeriodAdded={refreshEmployee}
+      />
+
+      <EmployeeMemberships
+        key={`memberships-${employee.id}`}
+        employeeId={employee.id}
+        primaryDepartmentId={employee.departmentId}
       />
 
       {/* Sensitive Statutory Fields (EMP-004) */}
