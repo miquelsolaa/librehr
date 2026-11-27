@@ -46,6 +46,8 @@ export const TENANT_TABLES = [
   "shift_assignments",
   "shift_swaps",
   "timesheet_closures",
+  "time_exports",
+  "time_export_files",
   "retention_policies",
 ] as const;
 
