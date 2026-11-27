@@ -1118,7 +1118,7 @@ registry.registerPath({
   },
 });
 
-// Organization security settings (AUTH-003, TIM-008)
+// Organization security settings (AUTH-003, TIM-008, ORG-007 lead visibility)
 registry.registerPath({
   method: "get",
   path: "/v1/settings/security",

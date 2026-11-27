@@ -8,17 +8,21 @@ import type {
   EmployeeProfile as EmployeeProfileRow,
 } from "@librehr/db";
 import { can, permissionScope, type PolicyUserContext } from "./can.js";
+import { canReadAsLead } from "./lead-visibility.js";
 
 /**
  * Field-level visibility of an employee profile (EMP-004):
  * - "full": the employee themselves, and organization-scoped readers (HR/admin).
  * - "job": a manager looking at a report: job and contact data, no personal
  *   data (address, birth date) and no termination reason.
+ * - "directory": the lead of one of the employee's departments, projects or
+ *   areas when the organization's lead visibility is `profile` (ORG-007):
+ *   only the fields the directory shows, not even sensitive-field presence.
  * Sensitive fields (national id, IBAN) are never part of a profile response;
  * only their presence is. Values are revealed through the audited
  * `POST /employees/:id/reveal` endpoint.
  */
-export type EmployeeProfileView = "full" | "job";
+export type EmployeeProfileView = "full" | "job" | "directory";
 
 export function employeeProfileView(
   ctx: PolicyUserContext,
@@ -32,7 +36,11 @@ export function employeeProfileView(
     departmentId: employee.departmentId ?? undefined,
     locationId: employee.locationId ?? undefined,
   };
-  if (!can(ctx, "employee.read", resource)) return null;
+  if (!can(ctx, "employee.read", resource)) {
+    return canReadAsLead(ctx, "employee.read", employee.id)
+      ? "directory"
+      : null;
+  }
   const isSelf =
     employee.id === ctx.employeeId ||
     (employee.userId !== null && employee.userId === ctx.userId);
@@ -48,10 +56,12 @@ export function toEmployeeProfile(
   view: EmployeeProfileView,
 ): EmployeeProfile {
   const personal = view === "full";
+  // ORG-007: a lead's view carries directory fields only (ADR 0008 D2).
+  const job = view !== "directory";
   return {
     id: row.id,
     organizationId: row.organizationId,
-    userId: row.userId,
+    userId: job ? row.userId : null,
     departmentId: row.departmentId,
     managerId: row.managerId,
     locationId: row.locationId,
@@ -59,11 +69,11 @@ export function toEmployeeProfile(
     lastName: row.lastName,
     preferredName: row.preferredName,
     email: row.email,
-    phone: row.phone,
+    phone: job ? row.phone : null,
     address: personal ? row.address : null,
     birthDate: personal ? row.birthDate : null,
     status: row.status,
-    terminationDate: row.terminationDate,
+    terminationDate: job ? row.terminationDate : null,
     // EMP-004/EMP-007: the reason a person left is for HR/admin and the
     // person themselves, not for their manager.
     terminationReason: personal ? row.terminationReason : null,
@@ -71,12 +81,12 @@ export function toEmployeeProfile(
     locationName: row.locationName,
     managerName: row.managerName,
     jobTitle: row.jobTitle,
-    employmentType: row.employmentType,
+    employmentType: job ? row.employmentType : null,
     // Job data, like the employment history a manager can already read.
-    workingHoursPerWeek: row.workingHoursPerWeek,
-    startDate: row.startDate,
-    hasNationalId: Boolean(row.nationalIdEncrypted),
-    hasIban: Boolean(row.ibanEncrypted),
+    workingHoursPerWeek: job ? row.workingHoursPerWeek : null,
+    startDate: job ? row.startDate : null,
+    hasNationalId: job && Boolean(row.nationalIdEncrypted),
+    hasIban: job && Boolean(row.ibanEncrypted),
     createdAt: new Date(row.createdAt).toISOString(),
     updatedAt: new Date(row.updatedAt).toISOString(),
   };

@@ -14,6 +14,19 @@ export interface PolicyUserContext {
   locationId?: string | undefined;
   /** Employee ids of the user's direct reports. */
   reports?: string[] | undefined;
+  /**
+   * ORG-007: the primary department plus secondary departments active on
+   * the business date. Only document audiences use it; the `department`
+   * scope stays primary-only (ADR 0008 decision 7).
+   */
+  departmentIds?: string[] | undefined;
+  /** ORG-007: the organization's lead visibility setting. */
+  leadVisibility?: "off" | "calendar" | "profile" | undefined;
+  /**
+   * ORG-007: employees in departments and groups the user leads, loaded only
+   * when `leadVisibility` is `profile`. See `lead-visibility.ts`.
+   */
+  ledMemberIds?: string[] | undefined;
 }
 
 export interface PolicyResource {

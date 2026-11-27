@@ -521,6 +521,7 @@ describe("auditor access expiry (TIM-008)", () => {
       expect(await settings.json()).toEqual({
         requireTwoFactor: false,
         auditorAccessMaxDays: 30,
+        secondaryLeadVisibility: "calendar",
       });
       // Lowering the maximum does not shorten the existing grant.
       const list = (await (
