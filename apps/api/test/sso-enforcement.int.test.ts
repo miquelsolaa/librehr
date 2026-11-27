@@ -648,4 +648,36 @@ describe("SSO enforcement for password sessions (AUTH-004)", () => {
       expect((await soleState())?.two_factor_enabled).toBe(false);
     });
   });
+
+  // The documented operator recovery (docs/guides/sso-enforcement.md): with
+  // SSO_ENABLED retired, the database owner lifts "Require SSO" with SQL.
+  describe("operator recovery SQL", () => {
+    it("lifts enforcement for one organization as librehr_owner and audits it", async () => {
+      expect((await signIn(employee)).status).toBe(403);
+      try {
+        await db.adminSql.begin(async (tx) => {
+          await tx`SET LOCAL ROLE librehr_owner`;
+          await tx`SELECT set_config('app.current_org', ${orgE}, true)`;
+          const updated = await tx`
+            UPDATE sso_configurations
+               SET enforce_sso = false, updated_at = now()
+             WHERE organization_id = ${orgE} AND enforce_sso`;
+          expect(updated.count).toBe(1);
+          await tx`
+            INSERT INTO audit_log (organization_id, action, resource_type, metadata)
+            VALUES (${orgE}, 'sso_config.updated', 'sso_configurations',
+              '{"enforceSso": false, "previousEnforceSso": true, "source": "operator_sql"}')`;
+        });
+        expect((await signIn(employee)).status).toBe(200);
+        const [entry] = await db.adminSql<{ n: number }[]>`
+          SELECT count(*)::int AS n FROM audit_log
+          WHERE organization_id = ${orgE} AND action = 'sso_config.updated'
+            AND metadata->>'source' = 'operator_sql'`;
+        expect(entry?.n).toBe(1);
+      } finally {
+        await db.adminSql`UPDATE sso_configurations SET enforce_sso = true
+          WHERE organization_id = ${orgE}`;
+      }
+    });
+  });
 });
