@@ -232,14 +232,13 @@ expire backups under your retention policy as well.
 ### Background export files
 
 Large organization time exports (TIM-006, issue #38) are built by the worker
-and stored as files under `STORAGE_LOCAL_DIR`. The API serves them from the
-same directory, so both must see it: the bundled compose file mounts the
-`librehr_storage` volume in both containers. Outside Docker, set
-`STORAGE_LOCAL_DIR` to the same absolute path for both processes. A file can
-be downloaded by its requester for `TIME_EXPORT_FILE_TTL_HOURS` (default 168,
+and stored in the database (the `time_export_files` table), so the API and the
+worker need no shared volume and may run on different hosts. A file can be
+downloaded by its requester for `TIME_EXPORT_FILE_TTL_HOURS` (default 168,
 7 days) and is then deleted; files larger than `TIME_EXPORT_MAX_FILE_MB`
-(default 100) fail. The files are not encrypted by LibreHR, so keep the volume
-on encrypted storage and out of world-readable backups.
+(default 100) fail. Ready files count towards the database size and are in
+any backup taken while they exist. They are not encrypted by LibreHR, so keep
+the database and its backups on encrypted storage.
 
 ## 4. Upgrading from Postgres 16 to Postgres 18
 

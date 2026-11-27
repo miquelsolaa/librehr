@@ -136,7 +136,7 @@ Client queues events with a client UUID and local timestamp; on reconnect, sends
 
 ### 7.4 Exports
 
-`GET /v1/time/export` builds exports up to 50,000 employee-days in the request. Larger organization exports (up to 500,000) go through `POST /v1/time/exports`, which only inserts a queued `time_exports` row (outbox); the worker's `time.export.dispatch` moves it to `time.export`, which builds the same document with `@librehr/time-export`, stores the file under `STORAGE_LOCAL_DIR`, writes the audit entry and notifies the requester in the app. Only the requester downloads it (`GET /v1/time/exports/:id/download`, permission re-checked, each download audited) until the file expires. See ADR 0009.
+`GET /v1/time/export` builds exports up to 50,000 employee-days in the request. Larger organization exports (up to 500,000) go through `POST /v1/time/exports`, which only inserts a queued `time_exports` row (outbox); the worker's `time.export.dispatch` moves it to `time.export`, which builds the same document with `@librehr/time-export`, stores the file in the `time_export_files` table (RLS, deleted at expiry), writes the audit entry and notifies the requester in the app. Only the requester downloads it (`GET /v1/time/exports/:id/download`, permission re-checked, each download audited) until the file expires. See ADR 0009.
 
 ## 8. API conventions
 
