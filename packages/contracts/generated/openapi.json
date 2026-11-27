@@ -5090,6 +5090,13 @@
               "type": "object",
               "additionalProperties": {}
             }
+          },
+          "memberships": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {}
+            }
           }
         },
         "required": [
@@ -5097,7 +5104,8 @@
           "employee",
           "leaveSummary",
           "timeRecords",
-          "documents"
+          "documents",
+          "memberships"
         ]
       },
       "ReportsSummaryResponse": {
@@ -17840,6 +17848,13 @@
                         "type": "object",
                         "additionalProperties": {}
                       }
+                    },
+                    "memberships": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                      }
                     }
                   },
                   "required": [
@@ -17847,7 +17862,8 @@
                     "employee",
                     "leaveSummary",
                     "timeRecords",
-                    "documents"
+                    "documents",
+                    "memberships"
                   ]
                 }
               }
@@ -20461,6 +20477,7 @@
     "/v1/reports/headcount": {
       "get": {
         "summary": "Get an administrator-only headcount report",
+        "description": "ORG-007: with `groupBy`, the response carries `breakdown`: headcount and FTE per department (`basis` primary, the default, or membership) or per project and area (membership basis only), on the period end date. On the membership basis one person can count in several rows (`totalsOverlap`).",
         "parameters": [
           {
             "schema": {
@@ -20478,6 +20495,30 @@
             },
             "required": true,
             "name": "endDate",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "department",
+                "group"
+              ]
+            },
+            "required": false,
+            "name": "groupBy",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "primary",
+                "membership"
+              ]
+            },
+            "required": false,
+            "name": "basis",
             "in": "query"
           }
         ],
@@ -20527,6 +20568,75 @@
                         "netChange",
                         "turnoverRatePercent"
                       ]
+                    },
+                    "breakdown": {
+                      "type": "object",
+                      "properties": {
+                        "groupBy": {
+                          "type": "string",
+                          "enum": [
+                            "department",
+                            "group"
+                          ]
+                        },
+                        "basis": {
+                          "type": "string",
+                          "enum": [
+                            "primary",
+                            "membership"
+                          ]
+                        },
+                        "asOf": {
+                          "type": "string",
+                          "format": "date"
+                        },
+                        "totalsOverlap": {
+                          "type": "boolean"
+                        },
+                        "rows": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "department",
+                                  "project",
+                                  "area"
+                                ]
+                              },
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "headcount": {
+                                "type": "integer"
+                              },
+                              "fte": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "id",
+                              "name",
+                              "headcount",
+                              "fte"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "groupBy",
+                        "basis",
+                        "asOf",
+                        "totalsOverlap",
+                        "rows"
+                      ]
                     }
                   },
                   "required": [
@@ -20539,7 +20649,7 @@
             }
           },
           "400": {
-            "description": "Invalid dates",
+            "description": "Invalid dates, groupBy or basis",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -20712,6 +20822,7 @@
     "/v1/reports/headcount/export": {
       "get": {
         "summary": "Download an administrator-only headcount report as CSV",
+        "description": "ORG-007: with `groupBy`, one row per department or group (`as_of,basis,totals_overlap,group_type,group_id,group_name,headcount,fte`) instead of the period summary.",
         "parameters": [
           {
             "schema": {
@@ -20730,6 +20841,30 @@
             "required": true,
             "name": "endDate",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "department",
+                "group"
+              ]
+            },
+            "required": false,
+            "name": "groupBy",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "primary",
+                "membership"
+              ]
+            },
+            "required": false,
+            "name": "basis",
+            "in": "query"
           }
         ],
         "responses": {
@@ -20744,7 +20879,7 @@
             }
           },
           "400": {
-            "description": "Invalid dates",
+            "description": "Invalid dates, groupBy or basis",
             "content": {
               "application/problem+json": {
                 "schema": {

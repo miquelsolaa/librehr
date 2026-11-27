@@ -13,6 +13,26 @@ import {
   type HeadcountReportResponse,
 } from "@librehr/contracts";
 
+// ORG-007: optional headcount breakdown by department or group.
+const BREAKDOWNS = {
+  none: undefined,
+  departmentPrimary: { groupBy: "department", basis: "primary" },
+  departmentMembership: { groupBy: "department", basis: "membership" },
+  group: { groupBy: "group", basis: "membership" },
+} as const;
+type BreakdownChoice = keyof typeof BREAKDOWNS;
+const BREAKDOWN_LABELS = {
+  none: "breakdownNone",
+  departmentPrimary: "breakdownDepartmentPrimary",
+  departmentMembership: "breakdownDepartmentMembership",
+  group: "breakdownGroup",
+} as const;
+const TYPE_LABELS = {
+  department: "typeDepartment",
+  project: "typeProject",
+  area: "typeArea",
+} as const;
+
 export default function ReportsPage() {
   const t = useTranslations("reports");
   const locale = String(useParams()?.["locale"] ?? "ca");
@@ -21,6 +41,7 @@ export default function ReportsPage() {
   );
   const [startDate, setStartDate] = React.useState("");
   const [endDate, setEndDate] = React.useState("");
+  const [breakdown, setBreakdown] = React.useState<BreakdownChoice>("none");
   const [headcount, setHeadcount] =
     React.useState<HeadcountReportResponse | null>(null);
   const [headcountError, setHeadcountError] = React.useState(false);
@@ -40,7 +61,11 @@ export default function ReportsPage() {
     try {
       setHeadcount(
         HeadcountReportResponseSchema.parse(
-          await apiClient.getHeadcountReport(startDate, endDate),
+          await apiClient.getHeadcountReport(
+            startDate,
+            endDate,
+            BREAKDOWNS[breakdown],
+          ),
         ),
       );
     } catch {
@@ -55,16 +80,18 @@ export default function ReportsPage() {
     setExporting(true);
     setExportError(false);
     try {
+      const loaded = headcount.breakdown;
       const csv = await apiClient.exportHeadcountCsv(
         headcount.periodStart,
         headcount.periodEnd,
+        loaded && { groupBy: loaded.groupBy, basis: loaded.basis },
       );
       const url = URL.createObjectURL(
         new Blob([csv], { type: "text/csv;charset=utf-8" }),
       );
       const link = document.createElement("a");
       link.href = url;
-      link.download = `headcount-${headcount.periodStart}-${headcount.periodEnd}.csv`;
+      link.download = `headcount-${loaded ? `${loaded.groupBy}-` : ""}${headcount.periodStart}-${headcount.periodEnd}.csv`;
       link.click();
       URL.revokeObjectURL(url);
     } catch {
@@ -135,6 +162,26 @@ export default function ReportsPage() {
                   required
                 />
               </label>
+              <label className="grid gap-1 text-sm">
+                {t("breakdownLabel")}
+                <select
+                  className="min-h-11 rounded-input border border-border bg-background p-2"
+                  value={breakdown}
+                  onChange={(event) => {
+                    setBreakdown(event.target.value as BreakdownChoice);
+                    setHeadcount(null);
+                    setHeadcountError(false);
+                  }}
+                >
+                  {(Object.keys(BREAKDOWNS) as BreakdownChoice[]).map(
+                    (choice) => (
+                      <option key={choice} value={choice}>
+                        {t(BREAKDOWN_LABELS[choice])}
+                      </option>
+                    ),
+                  )}
+                </select>
+              </label>
               <button
                 className="min-h-11 rounded-input bg-primary px-4 text-primary-foreground"
                 type="submit"
@@ -178,6 +225,67 @@ export default function ReportsPage() {
                     </div>
                   ))}
                 </dl>
+                {headcount.breakdown && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold text-foreground">
+                      {t("breakdownTitle", { date: headcount.breakdown.asOf })}
+                    </h3>
+                    {headcount.breakdown.totalsOverlap && (
+                      <p className="text-sm text-muted-foreground">
+                        {t("breakdownOverlap")}
+                      </p>
+                    )}
+                    {headcount.breakdown.rows.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        {t("breakdownEmpty")}
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-sm">
+                          <thead className="text-muted-foreground">
+                            <tr>
+                              <th scope="col" className="p-2 font-medium">
+                                {t("breakdownName")}
+                              </th>
+                              <th scope="col" className="p-2 font-medium">
+                                {t("breakdownType")}
+                              </th>
+                              <th
+                                scope="col"
+                                className="p-2 text-right font-medium"
+                              >
+                                {t("breakdownHeadcount")}
+                              </th>
+                              <th
+                                scope="col"
+                                className="p-2 text-right font-medium"
+                              >
+                                {t("breakdownFte")}
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {headcount.breakdown.rows.map((row) => (
+                              <tr
+                                key={`${row.type}:${row.id}`}
+                                className="border-t border-border"
+                              >
+                                <td className="p-2">{row.name}</td>
+                                <td className="p-2">
+                                  {t(TYPE_LABELS[row.type])}
+                                </td>
+                                <td className="p-2 text-right">
+                                  {row.headcount}
+                                </td>
+                                <td className="p-2 text-right">{row.fte}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={downloadHeadcount}

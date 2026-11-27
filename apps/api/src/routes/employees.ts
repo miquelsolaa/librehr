@@ -17,6 +17,7 @@ import {
   validateIban,
   buildOrgChart,
   hashKioskPin,
+  type OrgChartMembershipItem,
 } from "@librehr/core";
 import {
   withTenant,
@@ -24,6 +25,7 @@ import {
   AuditRepository,
   EmergencyContactRepository,
   AccessRevocationRepository,
+  EmployeeMembershipRepository,
   type TenantTx,
 } from "@librehr/db";
 import { z } from "zod";
@@ -56,6 +58,7 @@ export function createEmployeeRoutes(
   const auditRepo = new AuditRepository();
   const emergencyRepo = new EmergencyContactRepository();
   const accessRevocationRepo = new AccessRevocationRepository();
+  const membershipRepo = new EmployeeMembershipRepository();
 
   // EMP-001 directory: visible to anyone holding employee.read at any scope,
   // limited to directory fields whatever the caller's scope.
@@ -491,7 +494,23 @@ export function createEmployeeRoutes(
           });
         }
         const flatItems = await employeeRepo.findOrgChartItems(tx);
-        return buildOrgChart(flatItems);
+        // ORG-007: secondary memberships active today, as dotted lines.
+        const memberships = await membershipRepo.listActiveForOrgChart(
+          tx,
+          await businessToday(c, tx),
+        );
+        const byEmployee = new Map<string, OrgChartMembershipItem[]>();
+        for (const { employeeId, ...membership } of memberships) {
+          const list = byEmployee.get(employeeId) ?? [];
+          list.push(membership);
+          byEmployee.set(employeeId, list);
+        }
+        return buildOrgChart(
+          flatItems.map((item) => ({
+            ...item,
+            secondaryMemberships: byEmployee.get(item.id) ?? [],
+          })),
+        );
       },
     );
 

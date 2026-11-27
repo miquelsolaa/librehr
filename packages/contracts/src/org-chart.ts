@@ -3,6 +3,20 @@ import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 
 extendZodWithOpenApi(z);
 
+/**
+ * ORG-007: a secondary membership active today, drawn as a dotted line to
+ * the lead of the department, project or area.
+ */
+export const OrgChartMembershipSchema = z.object({
+  type: z.enum(["department", "project", "area"]),
+  id: z.guid(),
+  name: z.string(),
+  allocationPercent: z.number().nullable(),
+  leadEmployeeId: z.guid().nullable(),
+  leadName: z.string().nullable(),
+});
+export type OrgChartMembership = z.infer<typeof OrgChartMembershipSchema>;
+
 export interface OrgChartNode {
   id: string;
   name: string;
@@ -13,6 +27,7 @@ export interface OrgChartNode {
   departmentName: string | null;
   locationName: string | null;
   managerId: string | null;
+  secondaryMemberships: OrgChartMembership[];
   directReportsCount: number;
   totalTeamCount: number;
   directReports: OrgChartNode[];
@@ -30,6 +45,7 @@ export const OrgChartNodeSchema: z.ZodType<OrgChartNode> = z
       departmentName: z.string().nullable(),
       locationName: z.string().nullable(),
       managerId: z.guid().nullable(),
+      secondaryMemberships: z.array(OrgChartMembershipSchema),
       directReportsCount: z.number().int(),
       totalTeamCount: z.number().int(),
       directReports: z.array(OrgChartNodeSchema),

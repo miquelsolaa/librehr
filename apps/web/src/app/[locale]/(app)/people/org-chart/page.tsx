@@ -88,6 +88,40 @@ function OrgNodeCard({ node, locale, search }: OrgNodeCardProps) {
           )}
         </div>
 
+        {/* ORG-007: secondary memberships as dotted lines to their leads */}
+        {(node.secondaryMemberships ?? []).length > 0 && (
+          <ul
+            aria-label={t("dottedLines")}
+            className="mt-2 space-y-1 text-xs text-muted-foreground"
+          >
+            {node.secondaryMemberships.map((m) => (
+              <li
+                key={`${m.type}:${m.id}`}
+                className="rounded-sm border border-dashed border-border px-1.5 py-0.5"
+              >
+                <span>
+                  {m.allocationPercent === null
+                    ? m.name
+                    : t("membershipWithAllocation", {
+                        name: m.name,
+                        percent: m.allocationPercent,
+                      })}
+                </span>
+                {m.leadEmployeeId &&
+                  m.leadName &&
+                  m.leadEmployeeId !== node.id && (
+                    <Link
+                      href={`/${locale}/people/${m.leadEmployeeId}`}
+                      className="block underline hover:text-primary"
+                    >
+                      {t("dottedLineLead", { name: m.leadName })}
+                    </Link>
+                  )}
+              </li>
+            ))}
+          </ul>
+        )}
+
         {/* Team stats badge & expand toggle */}
         {hasReports && (
           <div className="mt-3 flex items-center justify-between pt-1">
