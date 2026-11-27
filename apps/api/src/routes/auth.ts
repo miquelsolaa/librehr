@@ -21,6 +21,7 @@ import {
 } from "@librehr/core";
 import {
   AuditRepository,
+  IdentityRepository,
   TokenRepository,
   UserRepository,
   withTenant,
@@ -37,6 +38,7 @@ import {
 } from "../lib/session-cookie.js";
 import {
   ConflictError,
+  SsoBreakGlassRequiredError,
   UnauthorizedError,
   ValidationError,
 } from "../errors/index.js";
@@ -160,6 +162,7 @@ export function createAuthRoutes(
   const userRepo = new UserRepository();
   const auditRepo = new AuditRepository();
   const tokenRepo = new TokenRepository();
+  const identityRepo = new IdentityRepository();
   const cookieOptions: SessionCookieOptions = {
     nodeEnv: options.nodeEnv,
     trustProxy: options.trustProxy,
@@ -719,6 +722,18 @@ export function createAuthRoutes(
       return secondFactorLocked(c, result.lockedMs);
     }
     if (result === "invalid") throw invalidCode();
+
+    // AUTH-004: the last break-glass admin of an organization that requires
+    // SSO keeps TOTP, or nobody there could sign in with a password if the
+    // identity provider fails. PATs never reach /auth, so this is a session.
+    const session = (c.get as (key: string) => unknown)("session") as
+      AuthSession | undefined;
+    if (
+      session &&
+      (await identityRepo.isLastBreakGlassAdmin(sql, session.token))
+    ) {
+      throw new SsoBreakGlassRequiredError();
+    }
 
     await userRepo.disableTwoFactor(sql, user.id);
     await withTenant(

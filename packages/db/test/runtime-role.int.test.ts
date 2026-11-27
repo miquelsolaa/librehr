@@ -22,6 +22,7 @@ const LOOKUP_FUNCTIONS = [
   "librehr_auth_session",
   "librehr_auth_session_bind_org",
   "librehr_auth_session_v2",
+  "librehr_auth_last_break_glass",
   "librehr_auth_personal_access_token",
   "librehr_auth_invitation",
   "librehr_auth_sso_config",

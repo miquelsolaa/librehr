@@ -363,6 +363,66 @@ describe("SSO enforcement for password sessions (AUTH-004)", () => {
     });
   });
 
+  // Decision Q4: new tokens need an SSO session or a break-glass admin. A
+  // password session of anyone else is already refused at lookup, and a
+  // token cannot create tokens (interactive-only route).
+  describe("personal access token creation", () => {
+    const session = async (user: string, method: "password" | "sso") => {
+      const token = crypto.randomBytes(32).toString("hex");
+      await db.adminSql`INSERT INTO sessions
+        (user_id, token, expires_at, organization_id, auth_method)
+        VALUES (${user}, ${hashBearerToken(token)},
+          now() + interval '1 hour', ${orgE}, ${method})`;
+      return token;
+    };
+    const createToken = (bearer: string) =>
+      enforcing.request("/v1/tokens", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${bearer}`,
+        },
+        body: JSON.stringify({ name: "CI", scopes: ["read"] }),
+      });
+
+    it("refuses a member's password session in an enforcing organization", async () => {
+      const res = await createToken(await session(employee, "password"));
+      expect(res.status).toBe(401);
+      const [row] = await db.adminSql<{ n: number }[]>`
+        SELECT count(*)::int AS n FROM personal_access_tokens
+        WHERE user_id = ${employee} AND name = 'CI'`;
+      expect(row!.n).toBe(0);
+    });
+
+    it("allows an SSO session", async () => {
+      expect((await createToken(await session(employee, "sso"))).status).toBe(
+        201,
+      );
+    });
+
+    it("allows a break-glass admin's password session", async () => {
+      expect(
+        (await createToken(await session(admin2fa, "password"))).status,
+      ).toBe(201);
+    });
+
+    it("refuses a token creating another token", async () => {
+      const pat = `lhr_${crypto.randomBytes(24).toString("hex")}`;
+      await withTenant(
+        db.adminSql,
+        { organizationId: orgE },
+        (tx) =>
+          tx`INSERT INTO personal_access_tokens
+          (organization_id, user_id, name, token_hash, prefix, scopes)
+          VALUES (${orgE}, ${admin2fa}, 'Admin automation',
+            ${TokenRepository.hashToken(pat)}, 'lhr_adm1', '["admin"]'::jsonb)`,
+      );
+      const res = await createToken(pat);
+      expect(res.status).toBe(403);
+      expect((await problem(res)).code).toBe("TOKEN_SCOPE_INSUFFICIENT");
+    });
+  });
+
   it("allows a password reset that still cannot open a session in an enforcing organization", async () => {
     const created = await createPasswordResetToken(
       db.appSql,
@@ -450,6 +510,142 @@ describe("SSO enforcement for password sessions (AUTH-004)", () => {
       expect(res.status).toBe(200);
       const body = (await res.json()) as { user: { organizationId: string } };
       expect(body.user.organizationId).toBe(orgN);
+    });
+  });
+  // AUTH-004 review: the save-time "at least one break-glass admin" rule also
+  // holds where the count can drop afterwards.
+  describe("keeps a break-glass admin in an enforcing organization", () => {
+    const orgG = "a9410000-0000-0000-0000-000000000011";
+    const sole = "c9410000-0000-0000-0000-000000000020";
+    const acting = "c9410000-0000-0000-0000-000000000021";
+    const backup = "c9410000-0000-0000-0000-000000000022";
+    const soleEmployee = "d9410000-0000-0000-0000-000000000020";
+    let soleSecret = "";
+
+    // SSO sessions, so no password or TOTP step is spent to authenticate.
+    const ssoSession = async (id: string) => {
+      const token = crypto.randomBytes(32).toString("hex");
+      await db.adminSql`INSERT INTO sessions
+        (user_id, token, expires_at, organization_id, auth_method)
+        VALUES (${id}, ${hashBearerToken(token)}, now() + interval '1 hour',
+          ${orgG}, 'sso')`;
+      return token;
+    };
+    const postAs = (token: string, path: string, body: unknown) =>
+      enforcing.request(path, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          "X-Forwarded-For": crypto.randomUUID(),
+        },
+        body: JSON.stringify(body),
+      });
+    const soleState = async () => {
+      const [row] = await db.adminSql<
+        { two_factor_enabled: boolean; role: string; status: string }[]
+      >`SELECT u.two_factor_enabled, m.role, e.status
+        FROM users u
+        JOIN memberships m ON m.user_id = u.id AND m.organization_id = ${orgG}
+        JOIN employees e ON e.user_id = u.id AND e.organization_id = ${orgG}
+        WHERE u.id = ${sole}`;
+      return row;
+    };
+
+    beforeAll(async () => {
+      const sql = db.adminSql;
+      await sql`INSERT INTO organizations (id, name, slug, timezone)
+        VALUES (${orgG}, 'Guarded', 'sso-g', 'Europe/Madrid')`;
+      const hash = await hashPassword(password);
+      for (const id of [sole, acting, backup]) {
+        await sql`INSERT INTO users (id, email, name, password_hash)
+          VALUES (${id}, ${emailOf(id)}, 'Test User', ${hash})`;
+      }
+      soleSecret = generateTotpSecret();
+      await sql`UPDATE users SET two_factor_enabled = true,
+        two_factor_secret = ${soleSecret} WHERE id = ${sole}`;
+      await withTenant(sql, { organizationId: orgG }, async (tx) => {
+        for (const id of [sole, acting, backup]) {
+          await tx`INSERT INTO memberships (organization_id, user_id, role)
+            VALUES (${orgG}, ${id}, 'admin')`;
+        }
+        await tx`INSERT INTO employees
+          (id, organization_id, user_id, first_name, last_name, email)
+          VALUES (${soleEmployee}, ${orgG}, ${sole}, 'Sole', 'Admin',
+            ${emailOf(sole)})`;
+      });
+      await sql`INSERT INTO sso_configurations
+        (organization_id, provider, client_id, client_secret, issuer_url,
+         enabled, enforce_sso, allowed_domains)
+        VALUES (${orgG}, 'generic_oidc', 'client', 'stored-secret-value',
+          'https://idp.example.invalid', true, true,
+          ${sql.json(["guarded.example.invalid"])})`;
+    });
+
+    it("refuses terminating the last break-glass admin (409)", async () => {
+      const token = await ssoSession(acting);
+      const res = await postAs(
+        token,
+        `/v1/employees/${soleEmployee}/terminate`,
+        {
+          terminationDate: "2099-12-31",
+          terminationReason: "voluntary_resignation",
+        },
+      );
+      expect(res.status).toBe(409);
+      expect((await problem(res)).code).toBe("SSO_BREAK_GLASS_REQUIRED");
+      expect((await soleState())?.status).not.toBe("terminated");
+    });
+
+    it("refuses demoting the last break-glass admin through a new invitation (409)", async () => {
+      const token = crypto.randomBytes(32).toString("hex");
+      await withTenant(
+        db.adminSql,
+        { organizationId: orgG },
+        (tx) =>
+          tx`INSERT INTO invitations (organization_id, email, role, token, expires_at)
+          VALUES (${orgG}, ${emailOf(sole)}, 'employee', ${hashBearerToken(token)},
+            now() + interval '7 days')`,
+      );
+      const res = await post(enforcing, "/v1/invitations/accept", {
+        token,
+        name: "Test User",
+        password,
+      });
+      expect(res.status).toBe(409);
+      expect((await problem(res)).code).toBe("SSO_BREAK_GLASS_REQUIRED");
+      expect((await soleState())?.role).toBe("admin");
+      const [invitation] = await db.adminSql<{ accepted_at: Date | null }[]>`
+        SELECT accepted_at FROM invitations WHERE token = ${hashBearerToken(token)}`;
+      expect(invitation?.accepted_at).toBeNull();
+    });
+
+    it("refuses switching off two-factor authentication of the last break-glass admin (409)", async () => {
+      const token = await ssoSession(sole);
+      const res = await postAs(token, "/v1/auth/2fa/disable", {
+        code: generateTotpCode(soleSecret),
+      });
+      expect(res.status).toBe(409);
+      expect((await problem(res)).code).toBe("SSO_BREAK_GLASS_REQUIRED");
+      expect((await soleState())?.two_factor_enabled).toBe(true);
+    });
+
+    it("rejects an unauthenticated 2FA disable with 401", async () => {
+      const res = await post(enforcing, "/v1/auth/2fa/disable", {
+        code: "000000",
+      });
+      expect(res.status).toBe(401);
+    });
+
+    it("allows it once another admin there has two-factor authentication", async () => {
+      await db.adminSql`UPDATE users SET two_factor_enabled = true,
+        two_factor_secret = ${generateTotpSecret()} WHERE id = ${backup}`;
+      const token = await ssoSession(sole);
+      const res = await postAs(token, "/v1/auth/2fa/disable", {
+        code: generateTotpCode(soleSecret, Date.now() + 30_000),
+      });
+      expect(res.status).toBe(200);
+      expect((await soleState())?.two_factor_enabled).toBe(false);
     });
   });
 });
