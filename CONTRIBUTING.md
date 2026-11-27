@@ -42,4 +42,4 @@ Source locale is `en`. Required locales: `ca`, `es`. Missing keys fail CI. Use i
 
 ## Security issues
 
-Do not open public issues for vulnerabilities. Email security@<project-domain> or use GitHub private vulnerability reporting. See `SECURITY.md`.
+Do not open public issues for vulnerabilities. See `SECURITY.md`.

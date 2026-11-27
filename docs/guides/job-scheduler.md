@@ -17,6 +17,11 @@ the jobs that are due in its local time:
 | `retention.enforce`  | each day   | that day has ended                        | `{ organizationId, runDate, dryRun: true }`           |
 | `leave.accrue`       | each month | the month's last day has ended            | `{ organizationId, runDate }` (last day of the month) |
 
+When `retention.enforce` is scheduled, each tick also enqueues the
+instance-wide `retention.sweep-global` (`{ runDate }`, the current UTC day)
+once per UTC day, not per organization. It deletes password reset links older
+than 30 days.
+
 `leave.accrue` is **opt-in**: it runs only when `SCHEDULER_JOBS` lists it.
 Besides the month's accrual it credits `upfront` policies for the month that
 starts and closes the previous leave year in its January run
@@ -105,12 +110,12 @@ per occurrence however many instances run. A tick that reaches a worker with
 
 ## Known limitations
 
-- **`retention.enforce` is not implemented yet (ADM-005).** It is scheduled
-  daily but dead-letters by design until it is, so each organization gets one
-  failed `retention.enforce` job per day, which makes the gap visible (see
-  `COMPLIANCE.md` §5). Leave it out with `SCHEDULER_JOBS` if you prefer. The
-  scheduler always sends `dryRun: true`: turning scheduled purges on is a
-  compliance decision for ADM-005, not a scheduler default.
+- **`retention.enforce` is a dry-run report (ADM-005).** Each run counts
+  the rows past their retention period per category and writes one
+  `retention.run` audit entry with the counts; it deletes nothing, and
+  `dryRun: false` changes nothing (see `COMPLIANCE.md` §5). The scheduler
+  sends `dryRun: true`; enabling purges waits for counsel to confirm the
+  periods (issue #32).
 - **Monthly and daily accrual is credited after the month.** `leave.accrue`
   runs once a month has ended, so `monthly` and `daily` credits arrive just
   after the month they are for. `upfront` policies are credited by the same

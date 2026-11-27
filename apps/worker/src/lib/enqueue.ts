@@ -16,6 +16,10 @@ import {
   retentionEnforceSingletonKey,
 } from "../queues/retention.enforce.js";
 import {
+  RetentionSweepGlobalPayloadSchema,
+  retentionSweepGlobalSingletonKey,
+} from "../queues/retention.sweep-global.js";
+import {
   AuditVerifyChainPayloadSchema,
   auditVerifyChainSingletonKey,
 } from "../queues/audit.verify-chain.js";
@@ -49,6 +53,10 @@ export const QUEUES = {
   "retention.enforce": {
     schema: RetentionEnforcePayloadSchema,
     key: retentionEnforceSingletonKey,
+  },
+  "retention.sweep-global": {
+    schema: RetentionSweepGlobalPayloadSchema,
+    key: retentionSweepGlobalSingletonKey,
   },
   "audit.verify-chain": {
     schema: AuditVerifyChainPayloadSchema,

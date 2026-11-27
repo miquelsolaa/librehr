@@ -2,6 +2,7 @@ import type { Hono } from "hono";
 import {
   type AuthUser,
   SaveSsoConfigRequestSchema,
+  SSO_BREAK_GLASS_REQUIRED_CODE,
   createProblemDetails,
 } from "@librehr/contracts";
 import {
@@ -85,15 +86,26 @@ function registerSsoRoutes(router: Hono, context: EeExtensionContext): void {
       );
     }
 
-    const config = await withTenant(
+    const found = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        return ssoRepo.getConfig(tx);
+        const row = await ssoRepo.getConfig(tx);
+        if (!row) return null;
+        return {
+          config: row,
+          activePersonalAccessTokens:
+            await ssoRepo.countActivePersonalAccessTokens(tx),
+        };
       },
     );
 
-    return c.json(config ? toResponse(config) : null);
+    if (!found) {
+      return c.json(null);
+    }
+    const { config, activePersonalAccessTokens } = found;
+
+    return c.json({ ...toResponse(config), activePersonalAccessTokens });
   });
 
   // 2. POST /v1/sso/config - Configure or update SSO settings (admin only)
@@ -165,6 +177,21 @@ function registerSsoRoutes(router: Hono, context: EeExtensionContext): void {
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
+        const previous = await ssoRepo.getConfig(tx);
+        // AUTH-004: requiring SSO needs a way back in if the identity
+        // provider fails, so at least one admin must keep password sign-in.
+        if (
+          parsed.data.enforceSso &&
+          (await ssoRepo.countBreakGlassAdmins(tx)) === 0
+        ) {
+          throw createError({
+            status: 409,
+            title: "Conflict",
+            code: SSO_BREAK_GLASS_REQUIRED_CODE,
+            detail:
+              "Requiring single sign-on needs at least one administrator with two-factor authentication",
+          });
+        }
         const result = await ssoRepo
           .saveConfig(tx, parsed.data)
           .catch((err: unknown) => {
@@ -193,14 +220,22 @@ function registerSsoRoutes(router: Hono, context: EeExtensionContext): void {
             provider: parsed.data.provider,
             enabled: parsed.data.enabled,
             enforceSso: parsed.data.enforceSso,
+            previousEnforceSso: previous?.enforceSso ?? false,
             allowedDomains: parsed.data.allowedDomains,
           },
         });
-        return result;
+        return {
+          ...result,
+          activePersonalAccessTokens:
+            await ssoRepo.countActivePersonalAccessTokens(tx),
+        };
       },
     );
 
-    return c.json(toResponse(saved));
+    return c.json({
+      ...toResponse(saved),
+      activePersonalAccessTokens: saved.activePersonalAccessTokens,
+    });
   });
 
   registerAuthorizeRoute(router, { context, discovery, redirectUri });
