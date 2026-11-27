@@ -544,7 +544,7 @@ What is in each edition, and how LibreHR Cloud and the partner programme work, i
 
 ## Security & Compliance
 
-- **Security:** For security inquiries or vulnerability reports, see [`SECURITY.md`](SECURITY.md): report them privately through the repository's Security tab (Report a vulnerability), or by email to `security@librehr.dev` if you cannot use GitHub.
+- **Security:** For security inquiries or vulnerability reports, see [`SECURITY.md`](SECURITY.md): report them privately through the repository's Security tab (Report a vulnerability).
 - **Compliance Documentation:** Detailed compliance records, breach response runbooks, DPIA templates, and ROPA templates are documented in [`COMPLIANCE.md`](COMPLIANCE.md) and the [`docs/compliance/`](docs/compliance/) directory.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
