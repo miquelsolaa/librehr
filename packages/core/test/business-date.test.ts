@@ -6,6 +6,7 @@ import {
   dateInZone,
   datesInRange,
   isBeforeDate,
+  isValidIsoDate,
   isoDayOfWeek,
   localDayLengthMinutes,
   localPeriodBounds,
@@ -107,6 +108,44 @@ describe("todayInZone", () => {
     expect(dateInZone(instant, "Atlantic/Canary")).toBe("2026-03-30");
     expect(dateInZone(instant, "Europe/Madrid")).toBe("2026-03-30");
     expect(dateInZone(instant, "UTC")).toBe("2026-03-29");
+  });
+});
+
+describe("isValidIsoDate", () => {
+  it.each(["2026-01-01", "2028-02-29", "2026-12-31", "2027-04-30"])(
+    "accepts the real calendar day %s",
+    (date) => {
+      expect(isValidIsoDate(date)).toBe(true);
+    },
+  );
+
+  it.each([
+    "2027-02-29",
+    "2027-02-30",
+    "2026-04-31",
+    "2026-13-01",
+    "2026-00-10",
+    "2026-01-00",
+    "20260101",
+    "+002026-01-01",
+    "2026-01-01T00:00",
+    "",
+  ])("rejects %j", (date) => {
+    expect(isValidIsoDate(date)).toBe(false);
+  });
+
+  it("agrees with Temporal on every day it formats", () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 1900, max: 2200 }),
+        fc.integer({ min: 1, max: 366 }),
+        (year, dayOfYear) => {
+          const start = Temporal.PlainDate.from({ year, month: 1, day: 1 });
+          const day = start.add({ days: dayOfYear - 1 });
+          expect(isValidIsoDate(day.toString())).toBe(true);
+        },
+      ),
+    );
   });
 });
 

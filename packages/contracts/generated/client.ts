@@ -123,6 +123,11 @@ import type {
   CreateTimeBankEntry,
 } from '../src/time.js';
 import type {
+  TimeExportJobRequest,
+  TimeExportJob,
+  TimeExportJobListResponse,
+} from '../src/time-export-jobs.js';
+import type {
   CloseTimesheetPeriodRequest,
   CloseTimesheetPeriodResponse,
   ReopenTimesheetPeriodRequest,
@@ -713,6 +718,21 @@ export class LibreHrApiClient {
       endDate: params.endDate,
     });
     return this.request<ExportEmployeesResponse>(`/v1/time/export/employees?${searchParams.toString()}`);
+  }
+
+  async createTimeExportJob(data: TimeExportJobRequest): Promise<TimeExportJob> {
+    return this.request<TimeExportJob>('/v1/time/exports', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async listTimeExportJobs(): Promise<TimeExportJobListResponse> {
+    return this.request<TimeExportJobListResponse>('/v1/time/exports');
+  }
+
+  async getTimeExportJob(id: string): Promise<TimeExportJob> {
+    return this.request<TimeExportJob>(`/v1/time/exports/${encodeURIComponent(id)}`);
   }
 
   async listTimesheetClosures(params: { month: string }): Promise<TimesheetClosuresResponse> {

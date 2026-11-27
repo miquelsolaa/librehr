@@ -3,17 +3,11 @@ import type { Sql } from "postgres";
 import { z } from "zod";
 import {
   type AuthUser,
-  type EmployeeMembership,
-  type EmployeeMembershipWriteResponse,
   CreateEmployeeMembershipRequestSchema,
   EndEmployeeMembershipRequestSchema,
   UpdateEmployeeMembershipRequestSchema,
 } from "@librehr/contracts";
-import {
-  findOverlappingMembership,
-  peakAllocationDuring,
-  type EmployeeMembership as CoreMembership,
-} from "@librehr/core";
+import { findOverlappingMembership } from "@librehr/core";
 import {
   withTenant,
   AuditRepository,
@@ -21,7 +15,6 @@ import {
   EmployeeMembershipRepository,
   EmployeeRepository,
   OrgGroupRepository,
-  type EmployeeMembershipRow,
   type TenantTx,
 } from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
@@ -39,6 +32,7 @@ import {
 } from "../errors/index.js";
 import { IdParamSchema, parseJsonBody, parseParams } from "../lib/validate.js";
 import { mapPgErrors, PG_EXCLUSION_VIOLATION } from "../lib/pg-errors.js";
+import { toMembership, writeResponse } from "../lib/membership-response.js";
 
 const memberships = new EmployeeMembershipRepository();
 const employees = new EmployeeRepository();
@@ -76,39 +70,6 @@ const membershipNotFound = () =>
     code: "MEMBERSHIP_NOT_FOUND",
     detail: "Membership not found",
   });
-
-export function toMembership(row: EmployeeMembershipRow): EmployeeMembership {
-  return {
-    id: row.id,
-    employeeId: row.employeeId,
-    departmentId: row.departmentId,
-    groupId: row.groupId,
-    targetType: row.targetType,
-    targetName: row.targetName,
-    role: row.role,
-    allocationPercent: row.allocationPercent,
-    startDate: row.startDate,
-    endDate: row.endDate,
-    endReason: row.endReason,
-    ended: row.endedBy !== null,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  };
-}
-
-/** The write result plus the over-allocation warning (ADR 0008 D3). */
-function writeResponse(
-  row: EmployeeMembershipRow,
-  others: readonly CoreMembership[],
-): EmployeeMembershipWriteResponse {
-  const peak = peakAllocationDuring([...others, row], row);
-  return {
-    membership: toMembership(row),
-    overAllocation: peak.overAllocated
-      ? { date: peak.date, totalPercent: peak.totalPercent }
-      : null,
-  };
-}
 
 /**
  * ORG-007 (ADR 0008): secondary memberships of an employee. Reading needs

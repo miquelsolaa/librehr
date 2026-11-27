@@ -16,7 +16,7 @@ import {
   createTimeChainSigner,
   resolveTimeChainKey,
 } from "../src/lib/time-chain.js";
-import { verifyEmployeeChain } from "../src/lib/time-export-chain.js";
+import { verifyEmployeeChain } from "@librehr/time-export";
 import { as, fixtureAuthPort } from "./support/fixture-app.js";
 
 // TIM-006 export: per-employee time zones, DST and period edges, bounded
