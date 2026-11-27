@@ -127,7 +127,7 @@ describe("SSO login requests and identity links (0044)", () => {
         has_function_privilege(${APP_ROLE},
           'librehr_auth_sso_resolve_user(text, text, text, text)', 'EXECUTE') AS resolve,
         has_function_privilege(${APP_ROLE},
-          'librehr_auth_sso_domains_taken(uuid, jsonb)', 'EXECUTE') AS domains_taken,
+          'librehr_auth_sso_domain_taken(text)', 'EXECUTE') AS domains_taken,
         has_function_privilege(${APP_ROLE},
           'librehr_auth_sso_other_org_member(uuid, uuid)', 'EXECUTE') AS other_org,
         has_function_privilege('public', 'librehr_auth_sso_consume(text)', 'EXECUTE') AS public_consume`;
@@ -398,28 +398,29 @@ describe("SSO login requests and identity links (0044)", () => {
   });
 
   it("reports the domains another organization's enabled configuration claims", async () => {
+    const taken = (org: string, domains: string[]) =>
+      withTenant(db.appSql, { organizationId: org }, (tx) =>
+        repo.ssoDomainsTaken(tx, domains),
+      );
     // B's configuration also lists example.com (created later, so lookups by
     // domain keep resolving to A, the oldest).
-    expect(
-      await repo.ssoDomainsTaken(db.appSql, orgB, [
-        " @EXAMPLE.com ",
-        "b-only.example",
-      ]),
-    ).toEqual(["example.com"]);
-    expect(
-      await repo.ssoDomainsTaken(db.appSql, orgA, ["example.com"]),
-    ).toEqual(["example.com"]);
-    expect(await repo.ssoDomainsTaken(db.appSql, orgA, [])).toEqual([]);
+    expect(await taken(orgB, [" @EXAMPLE.com ", "b-only.example"])).toEqual([
+      "example.com",
+    ]);
+    expect(await taken(orgA, ["example.com"])).toEqual(["example.com"]);
+    expect(await taken(orgA, [])).toEqual([]);
     expect(
       (await repo.ssoConfigForDomain(db.appSql, "example.com"))?.organizationId,
     ).toBe(orgA);
+    // Only for the signed-in tenant: no context, no answer.
+    await expect(
+      db.appSql`SELECT librehr_auth_sso_domain_taken('example.com')`,
+    ).rejects.toThrow(/tenant context/);
 
     // A disabled configuration claims nothing.
     await db.adminSql`UPDATE sso_configurations SET enabled = false WHERE id = ${configB}`;
     try {
-      expect(
-        await repo.ssoDomainsTaken(db.appSql, orgA, ["example.com"]),
-      ).toEqual([]);
+      expect(await taken(orgA, ["example.com"])).toEqual([]);
     } finally {
       await db.adminSql`UPDATE sso_configurations SET enabled = true WHERE id = ${configB}`;
     }

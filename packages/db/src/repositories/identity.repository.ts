@@ -1,6 +1,7 @@
 import type { Sql } from "postgres";
 import { jsonStringArray } from "./json-array.js";
 import { hashBearerToken } from "../crypto/token-hash.js";
+import type { TenantTx } from "../with-tenant.js";
 import { decryptStoredClientSecret } from "./sso.repository.js";
 
 /**
@@ -210,21 +211,27 @@ export class IdentityRepository {
   /**
    * The domains of `domains` (normalized: trimmed, lower case, no leading
    * '@') that an enabled SSO configuration of another organization already
-   * allows (AUTH-004, migration 0044). Never says which organization.
+   * allows (AUTH-004, migration 0044). Call inside `withTenant` for the
+   * organization that wants them. Never says which organization.
    */
   async ssoDomainsTaken(
-    sql: Sql,
-    organizationId: string,
+    tx: TenantTx,
     domains: readonly string[],
   ): Promise<string[]> {
-    if (domains.length === 0) return [];
-    const rows = await sql<{ domain: string }[]>`
-      SELECT domain
-      FROM librehr_auth_sso_domains_taken(
-        ${organizationId}, ${sql.json([...domains])}
-      )
-    `;
-    return rows.map((row) => row.domain);
+    const normalized = [
+      ...new Set(
+        domains
+          .map((d) => d.trim().toLowerCase().replace(/^@/, ""))
+          .filter((d) => d.length > 0),
+      ),
+    ].sort();
+    const taken: string[] = [];
+    for (const domain of normalized) {
+      const [row] = await tx<{ taken: boolean }[]>`
+        SELECT librehr_auth_sso_domain_taken(${domain}) AS taken`;
+      if (row?.taken) taken.push(domain);
+    }
+    return taken;
   }
 
   /**
