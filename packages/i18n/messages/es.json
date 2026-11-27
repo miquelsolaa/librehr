@@ -500,6 +500,8 @@
     "roleEmployee": "Empleado",
     "roleManager": "Responsable / Mánager",
     "roleAdmin": "Administrador",
+    "departmentLabel": "Departamento principal",
+    "departmentPlaceholder": "Elige un departamento",
     "sendInvite": "Enviar Invitación",
     "inviteSent": "¡Invitación enviada correctamente!",
     "errorTitle": "Error en la invitación",

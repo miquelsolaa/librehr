@@ -367,3 +367,66 @@ test("late contacts from a previous profile do not appear on another employee", 
   releaseContacts();
   await expect(page.getByText("Old Contact")).toHaveCount(0);
 });
+
+// ORG-007 (ADR 0008 decision 13): an invited employee gets a primary
+// department, so the invite form requires one.
+test("an invitation names the primary department and reports a failure", async ({
+  page,
+}) => {
+  let failing = true;
+  let posted: Record<string, unknown> | null = null;
+  await mockRoute(page, "**/v1/employees**", (route) =>
+    route.fulfill({ json: { items: [], total: 0 } }),
+  );
+  await mockRoute(page, "**/v1/org/departments", (route) =>
+    route.fulfill({
+      json: [
+        {
+          id: "00000000-0000-0000-0000-0000000000d1",
+          organizationId: "00000000-0000-0000-0000-000000000001",
+          name: "Support",
+          parentId: null,
+          leadEmployeeId: null,
+          minPresencePercent: null,
+        },
+      ],
+    }),
+  );
+  await mockRoute(page, "**/v1/invitations", (route) => {
+    posted = route.request().postDataJSON() as Record<string, unknown>;
+    return failing
+      ? route.fulfill({ status: 503 })
+      : route.fulfill({
+          status: 201,
+          json: {
+            id: "00000000-0000-0000-0000-0000000000a1",
+            email: "new@example.invalid",
+            role: "employee",
+            expiresAt: "2099-01-01T00:00:00.000Z",
+            accessExpiresAt: null,
+            acceptedAt: null,
+            createdAt: "2026-01-01T00:00:00.000Z",
+          },
+        });
+  });
+  await page.goto("/en/people");
+  await page.getByRole("button", { name: "Invite Employee" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Work email address").fill("new@example.invalid");
+  const department = dialog.getByLabel("Primary department");
+  await expect(department).toHaveAttribute("required", "");
+  await department.selectOption({ label: "Support" });
+  await dialog.getByRole("button", { name: "Send Invitation" }).click();
+  await expect(dialog.getByText("could not be sent")).toBeVisible();
+  const axe = await new AxeBuilder({ page }).include("[role=dialog]").analyze();
+  expect(axe.violations).toEqual([]);
+
+  failing = false;
+  await dialog.getByRole("button", { name: "Send Invitation" }).click();
+  await expect(dialog.getByText("Invitation sent successfully!")).toBeVisible();
+  expect(posted).toEqual({
+    email: "new@example.invalid",
+    role: "employee",
+    departmentId: "00000000-0000-0000-0000-0000000000d1",
+  });
+});

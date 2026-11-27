@@ -95,7 +95,8 @@ export const CreateEmployeeRequestSchema = z
       .regex(/^\d{4}-\d{2}-\d{2}$/, "Format must be YYYY-MM-DD")
       .nullable()
       .optional(),
-    departmentId: z.guid().nullable().optional(),
+    /** ORG-007 (ADR 0008 decision 13): the primary department is required. */
+    departmentId: z.guid("A primary department is required"),
     managerId: z.guid().nullable().optional(),
     locationId: z.guid().nullable().optional(),
     jobTitle: z.string().optional(),
@@ -131,7 +132,13 @@ export const UpdateEmployeeRequestSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .nullable()
     .optional(),
-  departmentId: z.guid().nullable().optional(),
+  /**
+   * ORG-007 (ADR 0008 decision 13): the primary department cannot be
+   * cleared. An employee stored without one must get one in the same edit
+   * (422 PRIMARY_DEPARTMENT_REQUIRED). Changing it ends a secondary
+   * membership in the new department the day before.
+   */
+  departmentId: z.guid("A primary department is required").optional(),
   managerId: z.guid().nullable().optional(),
   locationId: z.guid().nullable().optional(),
   status: EmployeeStatusSchema.optional(),

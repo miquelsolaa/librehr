@@ -340,12 +340,12 @@ describe("org groups and employee memberships (ORG-007)", () => {
     ).toBe(422);
     const ended = await call("admin", "POST", `${deptPath}/end`, {
       endDate: "2026-12-31",
-      reason: "Moved",
+      reason: "reassigned",
     });
     expect(ended.status).toBe(200);
     expect(await ended.json()).toMatchObject({
       endDate: "2026-12-31",
-      endReason: "Moved",
+      endReason: "reassigned",
     });
     expect(
       (
@@ -374,7 +374,7 @@ describe("org groups and employee memberships (ORG-007)", () => {
       "employee.membership.update",
     ]);
     const logged = JSON.stringify(auditRows);
-    expect(logged).not.toContain("Moved");
+    expect(logged).not.toContain("reassigned");
     expect(logged).not.toContain("Second");
   });
 
@@ -477,5 +477,202 @@ describe("org groups and employee memberships (ORG-007)", () => {
     expect(
       (await call("admin", "GET", "/employees/not-a-uuid/memberships")).status,
     ).toBe(404);
+  });
+
+  it("requires a primary department on create and edit (ADR 0008 D10)", async () => {
+    const person = {
+      firstName: "Needs",
+      lastName: "Department",
+      email: "needs-dept@memberships.invalid",
+    };
+    expect((await call(null, "POST", "/employees", person)).status).toBe(401);
+    expect(
+      (
+        await call("employee", "POST", "/employees", {
+          ...person,
+          departmentId: primaryDept,
+        })
+      ).status,
+    ).toBe(403);
+    const missing = await call("admin", "POST", "/employees", person);
+    expect(missing.status).toBe(400);
+    expect(((await missing.json()) as { code: string }).code).toBe(
+      "VALIDATION_FAILED",
+    );
+    expect(
+      (
+        await call("admin", "POST", "/employees", {
+          ...person,
+          departmentId: otherTenantDept,
+        })
+      ).status,
+    ).toBe(404);
+    const created = await call("admin", "POST", "/employees", {
+      ...person,
+      departmentId: primaryDept,
+    });
+    expect(created.status).toBe(201);
+    const createdId = ((await created.json()) as { id: string }).id;
+
+    // The primary cannot be cleared, nor moved to another tenant's department.
+    expect(
+      (
+        await call("admin", "PATCH", `/employees/${createdId}`, {
+          departmentId: null,
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await call("admin", "PATCH", `/employees/${createdId}`, {
+          departmentId: otherTenantDept,
+        })
+      ).status,
+    ).toBe(404);
+    expect(
+      (await call("admin", "PATCH", `/employees/${createdId}`, { phone: "1" }))
+        .status,
+    ).toBe(200);
+    expect(
+      (
+        await call("admin", "PATCH", `/employees/${otherTenantEmployeeId}`, {
+          departmentId: primaryDept,
+        })
+      ).status,
+    ).toBe(404);
+
+    // An existing employee stored without one is tolerated until edited.
+    const legacy = await withTenant(db.sql, { organizationId: org }, (tx) =>
+      new EmployeeRepository().create(tx, {
+        firstName: "Legacy",
+        lastName: "NoDept",
+        email: "legacy@memberships.invalid",
+      }),
+    );
+    const legacyEdit = await call("admin", "PATCH", `/employees/${legacy.id}`, {
+      phone: "2",
+    });
+    expect(legacyEdit.status).toBe(422);
+    expect(((await legacyEdit.json()) as { code: string }).code).toBe(
+      "PRIMARY_DEPARTMENT_REQUIRED",
+    );
+    const fixed = await call("admin", "PATCH", `/employees/${legacy.id}`, {
+      phone: "2",
+      departmentId: primaryDept,
+    });
+    expect(fixed.status).toBe(200);
+    expect(
+      ((await fixed.json()) as { departmentId: string | null }).departmentId,
+    ).toBe(primaryDept);
+  });
+
+  it("ends a secondary in the new primary department the day before (ADR 0008 decision 3)", async () => {
+    const created = await call("admin", "POST", "/employees", {
+      firstName: "Moves",
+      lastName: "Primary",
+      email: "moves@memberships.invalid",
+      departmentId: primaryDept,
+    });
+    const movesId = ((await created.json()) as { id: string }).id;
+    const base = `/employees/${movesId}/memberships`;
+    const secondary = await call("admin", "POST", base, {
+      departmentId: secondDept,
+      startDate: "2020-01-01",
+    });
+    const secondaryId = (
+      (await secondary.json()) as { membership: { id: string } }
+    ).membership.id;
+
+    const moved = await call("admin", "PATCH", `/employees/${movesId}`, {
+      departmentId: secondDept,
+    });
+    expect(moved.status).toBe(200);
+    const rows = (await (await call("admin", "GET", base)).json()) as {
+      id: string;
+      endDate: string | null;
+      endReason: string | null;
+    }[];
+    const ended = rows.find((r) => r.id === secondaryId);
+    const today = await withTenant(
+      db.sql,
+      { organizationId: org },
+      async (tx) =>
+        (
+          await tx<{ today: string }[]>`
+            SELECT (now() AT TIME ZONE timezone)::date::text AS today
+            FROM organizations WHERE id = ${org}`
+        )[0]!.today,
+    );
+    expect(ended?.endReason).toBe("primary_changed");
+    expect(ended?.endDate).not.toBeNull();
+    expect(ended!.endDate! < today).toBe(true);
+    const audits = await withTenant(
+      db.sql,
+      { organizationId: org },
+      (tx) => tx<{ metadata: unknown }[]>`
+        SELECT metadata FROM audit_log
+        WHERE resource_id = ${movesId} AND action = 'employee.membership.end'`,
+    );
+    expect(audits).toHaveLength(1);
+
+    // Back to the first department; a future secondary there blocks a move.
+    const future = await call("admin", "POST", base, {
+      departmentId: primaryDept,
+      startDate: "2099-01-01",
+    });
+    expect(future.status).toBe(201);
+    const blocked = await call("admin", "PATCH", `/employees/${movesId}`, {
+      departmentId: primaryDept,
+    });
+    expect(blocked.status).toBe(409);
+    expect(((await blocked.json()) as { code: string }).code).toBe(
+      "PRIMARY_OVERLAPS_SECONDARY",
+    );
+  });
+
+  it("keeps an ended membership's dates: PATCH after /end is 409", async () => {
+    const group = await call("admin", "POST", "/org/groups", {
+      kind: "project",
+      name: "Ended project",
+    });
+    const groupId = ((await group.json()) as { id: string }).id;
+    const base = `/employees/${selfId}/memberships`;
+    const added = await call("admin", "POST", base, {
+      groupId,
+      startDate: "2026-01-01",
+    });
+    const path = `${base}/${
+      ((await added.json()) as { membership: { id: string } }).membership.id
+    }`;
+    expect(
+      (
+        await call("admin", "POST", `${path}/end`, {
+          endDate: "2026-02-01",
+          reason: "project_ended",
+        })
+      ).status,
+    ).toBe(200);
+    for (const body of [{ endDate: null }, { startDate: "2026-01-15" }]) {
+      const res = await call("admin", "PATCH", path, body);
+      expect(res.status).toBe(409);
+      expect(((await res.json()) as { code: string }).code).toBe(
+        "MEMBERSHIP_ALREADY_ENDED",
+      );
+    }
+    const role = await call("admin", "PATCH", path, { role: "reviewer" });
+    expect(role.status).toBe(200);
+    expect(
+      ((await role.json()) as { membership: unknown }).membership,
+    ).toMatchObject({ endDate: "2026-02-01", endReason: "project_ended" });
+    // Free text and the API's own code are not accepted as reasons.
+    for (const reason of ["Moved", "primary_changed"])
+      expect(
+        (
+          await call("admin", "POST", `${path}/end`, {
+            endDate: "2026-02-01",
+            reason,
+          })
+        ).status,
+      ).toBe(400);
   });
 });

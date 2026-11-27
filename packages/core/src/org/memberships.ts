@@ -1,4 +1,5 @@
 import { Temporal } from "temporal-polyfill";
+import { addDays } from "../calendar/business-date.js";
 
 /**
  * ORG-007 (issue #81, ADR 0008): secondary memberships of an employee in
@@ -218,4 +219,45 @@ export function peakAllocationDuring(
     if (check.totalPercent > peak.totalPercent) peak = { date, ...check };
   }
   return peak;
+}
+
+export interface PrimaryChangePlan<T> {
+  /** Secondaries to end on `endDate` (the day before the change). */
+  toEnd: { membership: T; endDate: string }[];
+  /**
+   * Secondaries that start on or after the change day: ending them the day
+   * before would precede their start, so the API refuses the change.
+   */
+  conflicts: T[];
+}
+
+/**
+ * ADR 0008 decision 3: changing the primary department to one the person
+ * holds as a secondary ends that secondary the day before, so the primary
+ * and the secondaries stay disjoint. Rows that ended before `today` are
+ * history and are left alone.
+ *
+ * @example
+ * planPrimaryDepartmentChange(
+ *   [{ id: "m1", departmentId: "d2", groupId: null, startDate: "2026-01-01", endDate: null }],
+ *   "d2",
+ *   "2026-05-10",
+ * ); // => { toEnd: [{ membership: m1, endDate: "2026-05-09" }], conflicts: [] }
+ */
+export function planPrimaryDepartmentChange<
+  T extends MembershipPeriod & MembershipTargetRef,
+>(
+  memberships: readonly T[],
+  newPrimaryDepartmentId: string,
+  today: string,
+): PrimaryChangePlan<T> {
+  const plan: PrimaryChangePlan<T> = { toEnd: [], conflicts: [] };
+  const yesterday = addDays(today, -1);
+  for (const m of memberships) {
+    if (m.departmentId !== newPrimaryDepartmentId) continue;
+    if (endsBefore(m.endDate, today)) continue;
+    if (compareDates(m.startDate, today) >= 0) plan.conflicts.push(m);
+    else plan.toEnd.push({ membership: m, endDate: yesterday });
+  }
+  return plan;
 }
