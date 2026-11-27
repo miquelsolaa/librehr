@@ -1262,7 +1262,13 @@
     "overlapError": "Aquesta persona ja hi pertany en aquest període. Canvia les dates o edita la pertinença existent.",
     "primaryError": "Aquest ja és el departament principal de la persona.",
     "allocationInvalid": "Introdueix un percentatge més gran que 0 i fins a 100, amb dos decimals com a màxim.",
-    "overAllocated": "Desat. A partir del {date} les altres pertinences sumen un {percent} %, més del 100 %."
+    "overAllocated": "Desat. A partir del {date} les altres pertinences sumen un {percent} %, més del 100 %.",
+    "endReasonNone": "Sense motiu",
+    "endReasonProjectEnded": "Fi del projecte o de l'assignació",
+    "endReasonReassigned": "Reassignació",
+    "endReasonOther": "Altres",
+    "endReasonPrimaryChanged": "Ha passat a ser el departament principal",
+    "alreadyEndedError": "Aquesta pertinença ja s'ha finalitzat; les seves dates ja no es poden canviar."
   },
   "orgGroups": {
     "title": "Projectes i àrees",

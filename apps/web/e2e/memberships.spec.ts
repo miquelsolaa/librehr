@@ -34,8 +34,9 @@ const membership = {
   role: null,
   allocationPercent: 60,
   startDate: "2026-12-01",
-  endDate: null,
-  endReason: null,
+  endDate: null as string | null,
+  endReason: null as string | null,
+  ended: false,
   createdAt: TIMESTAMP,
   updatedAt: TIMESTAMP,
 };
@@ -183,6 +184,71 @@ test.describe("profile memberships", () => {
       "already belongs to it in that period",
     );
     await expect(section.getByText("No other memberships.")).toBeVisible();
+  });
+
+  // Coarse reasons only: no free text that could hold special-category data.
+  test("ends a membership with a coarse reason and explains a refusal", async ({
+    page,
+  }) => {
+    rows = [membership];
+    const bodies: unknown[] = [];
+    let refuse = true;
+    await mockApi(page, fixtures, (route) => {
+      bodies.push(route.request().postDataJSON());
+      if (refuse)
+        return route.fulfill({
+          status: 409,
+          json: {
+            title: "Conflict",
+            status: 409,
+            code: "MEMBERSHIP_ALREADY_ENDED",
+            detail: "This membership has already been ended",
+          },
+        });
+      const ended = {
+        ...membership,
+        endDate: "2099-12-31",
+        endReason: "project_ended",
+        ended: true,
+      };
+      rows = [ended];
+      return route.fulfill({ json: ended });
+    });
+
+    await page.goto(`/en/people/${EMPLOYEE_ID}`);
+    const section = page.getByRole("region", { name: "Other memberships" });
+    await section
+      .getByRole("button", { name: "End membership in Launch" })
+      .click();
+    await section.getByLabel("Last day").fill("2099-12-31");
+    const reason = section.getByLabel("Reason (optional)");
+    await expect(reason.locator("option")).toHaveText([
+      "No reason given",
+      "Project or assignment ended",
+      "Reassigned",
+      "Other",
+    ]);
+    await reason.selectOption({ label: "Project or assignment ended" });
+    await section
+      .getByRole("button", { name: "End membership", exact: true })
+      .click();
+    await expect(section.getByRole("alert")).toContainText(
+      "already been ended",
+    );
+    await expectNoAxeViolations(page);
+
+    refuse = false;
+    await section
+      .getByRole("button", { name: "End membership", exact: true })
+      .click();
+    const current = section.getByRole("list", { name: "Current memberships" });
+    await expect(current).toContainText("Project or assignment ended");
+    // An ended row's dates are history: no edit or end offered.
+    await expect(current.getByRole("button")).toHaveCount(0);
+    expect(bodies).toEqual([
+      { endDate: "2099-12-31", reason: "project_ended" },
+      { endDate: "2099-12-31", reason: "project_ended" },
+    ]);
   });
 });
 
