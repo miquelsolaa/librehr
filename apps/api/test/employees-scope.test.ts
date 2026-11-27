@@ -66,6 +66,9 @@ const sql = scriptedSql((text, params) => {
     return target ? [profileRow(target)] : [];
   }
   // ORG-007: the directory resolves today's business date for memberships.
+  // The policy settings query selects the same zone plus the lead setting.
+  if (text.includes("secondary_lead_visibility"))
+    return [{ timeZone: "Europe/Madrid", secondaryLeadVisibility: "calendar" }];
   if (text.includes("COALESCE(l.timezone, o.timezone)"))
     return [{ timezone: "Europe/Madrid" }];
   if (text.includes("COUNT(*)::text as count")) return [{ count: "1" }];
