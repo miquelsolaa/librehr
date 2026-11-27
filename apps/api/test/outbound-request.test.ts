@@ -13,6 +13,7 @@ import {
   pinnedLookup,
   pinnedRequestOptions,
   sendPinnedRequest,
+  ResponseTooLargeError,
   type OutboundRequest,
 } from "../src/lib/outbound-request.js";
 import {
@@ -355,5 +356,73 @@ describe("DNS pinning for outbound webhooks (issue #35)", () => {
       resolveOutboundTarget(url, { allowPrivate: false, resolve }),
     ).rejects.toBeInstanceOf(ValidationError);
     expect(resolve).not.toHaveBeenCalled();
+  });
+});
+
+describe("Reading capped responses for OIDC (AUTH-004)", () => {
+  const get: OutboundRequest = {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    timeoutMs: 2000,
+    maxResponseBytes: 64,
+  };
+  const at = (port: number): OutboundTarget => ({
+    url: new URL(`http://idp.invalid:${port}/.well-known/openid-configuration`),
+    hostname: "idp.invalid",
+    addresses: ["127.0.0.1"],
+  });
+
+  it("sends a GET without a body or Content-Length and returns the body", async () => {
+    const seen: { method?: string | undefined; length?: string | undefined }[] =
+      [];
+    const server = http.createServer((req, res) => {
+      seen.push({
+        method: req.method,
+        length: req.headers["content-length"],
+      });
+      res.setHeader("Content-Type", "application/json");
+      res.end('{"issuer":"https://idp.invalid"}');
+    });
+    const port = await listen(server);
+    await expect(sendPinnedRequest(at(port), get)).resolves.toEqual({
+      status: 200,
+      body: '{"issuer":"https://idp.invalid"}',
+    });
+    expect(seen).toEqual([{ method: "GET", length: undefined }]);
+  });
+
+  it("refuses a body whose declared length is over the cap", async () => {
+    const server = http.createServer((_req, res) => {
+      res.setHeader("Content-Length", "65");
+      res.end("x".repeat(65));
+    });
+    const port = await listen(server);
+    await expect(sendPinnedRequest(at(port), get)).rejects.toBeInstanceOf(
+      ResponseTooLargeError,
+    );
+  });
+
+  it("stops reading a chunked body once it passes the cap", async () => {
+    const server = http.createServer((_req, res) => {
+      // No Content-Length: chunked, so only counting bytes catches it.
+      res.write("x".repeat(40));
+      res.write("y".repeat(40));
+      res.end();
+    });
+    const port = await listen(server);
+    await expect(sendPinnedRequest(at(port), get)).rejects.toBeInstanceOf(
+      ResponseTooLargeError,
+    );
+  });
+
+  it("still discards the body when no cap is asked for (webhooks)", async () => {
+    const server = http.createServer((req, res) => {
+      req.resume();
+      res.end("ignored");
+    });
+    const port = await listen(server);
+    await expect(sendPinnedRequest(at(port), request)).resolves.toEqual({
+      status: 200,
+    });
   });
 });

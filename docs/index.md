@@ -22,6 +22,7 @@ Welcome to the LibreHR documentation repository.
 - [Data Protection Impact Assessment (DPIA)](compliance/dpia-template.md)
 - [Data Breach Response Runbook](compliance/breach-runbook.md)
 - [Compliance Changelog](compliance/changelog.md)
+- [ET art. 38.3 and vacation carry-over: questions for counsel](compliance/et-38-3-carryover-questions.md)
 - [Compliance Policy](../COMPLIANCE.md)
 - [Clean-Room Policy](../CLEANROOM.md)
 
@@ -42,3 +43,4 @@ Welcome to the LibreHR documentation repository.
 - [Adding Holiday Calendars](guides/adding-a-holiday-calendar.md)
 - [Working-Time Exports (TIM-006)](guides/time-exports.md)
 - [Leave Accrual (LEA-002)](guides/leave-accrual.md)
+- [Require Single Sign-On (AUTH-004)](guides/sso-enforcement.md)

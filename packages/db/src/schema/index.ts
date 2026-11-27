@@ -9,3 +9,4 @@ export * from "./documents.js";
 export * from "./lifecycle.js";
 export * from "./audit.js";
 export * from "./notifications.js";
+export * from "./retention.js";

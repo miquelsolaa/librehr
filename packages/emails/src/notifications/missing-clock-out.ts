@@ -17,7 +17,7 @@ function catalog(locale: Locale): unknown {
   return requireJson(`@librehr/i18n/messages/${locale}.json`) as unknown;
 }
 
-function message(locale: Locale, key: string): string {
+export function notificationMessage(locale: Locale, key: string): string {
   let node: unknown = catalog(locale);
   for (const part of key.split(".")) {
     node =
@@ -56,10 +56,10 @@ export function missingClockOutNotification(
   // Plain substitution, not ICU: these entries must stay free of ICU syntax
   // (plural/select, '' escapes), which the tests check for every locale.
   return {
-    title: message(loc, "notifications.missingClockOut.title"),
-    body: message(loc, "notifications.missingClockOut.body").replace(
-      "{date}",
-      date,
-    ),
+    title: notificationMessage(loc, "notifications.missingClockOut.title"),
+    body: notificationMessage(
+      loc,
+      "notifications.missingClockOut.body",
+    ).replace("{date}", date),
   };
 }

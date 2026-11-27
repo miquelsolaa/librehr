@@ -40,6 +40,7 @@
     "ssoDomainLabel": "Corporate domain or email",
     "ssoContinueButton": "Continue with SSO",
     "ssoNotFound": "No active SSO configuration found for this domain.",
+    "ssoRequired": "Your organization signs in with single sign-on. Continue with SSO.",
     "ssoDomainPlaceholder": "company.com",
     "forgotPasswordLink": "Forgot your password?",
     "forgotTitle": "Reset your password",
@@ -396,7 +397,12 @@
     "ssoEnabledLabel": "Enable SSO Sign-In",
     "ssoEnabledHint": "Allows employees to log in using their corporate identity provider.",
     "ssoEnforceLabel": "Enforce Mandatory SSO",
-    "ssoEnforceHint": "Disallows standard password login for all accounts with configured domains.",
+    "ssoEnforceHint": "Members of this organization must sign in with SSO. Admins with two-factor authentication can still use their password.",
+    "ssoEnforceNeedsEnabled": "Turn on single sign-on before requiring it.",
+    "ssoEnforceBreakGlassError": "At least one administrator needs two-factor authentication before SSO can be required, so someone can still sign in if the identity provider fails.",
+    "ssoEnforceConfirmTitle": "Require single sign-on?",
+    "ssoEnforceConfirmBody": "Members without SSO will be signed out. Admins with two-factor authentication can still sign in with a password. {count, plural, =0 {No personal access tokens are active in this organization.} one {# active personal access token keeps working.} other {# active personal access tokens keep working.}}",
+    "ssoEnforceConfirm": "Require SSO",
     "saveSsoButton": "Save SSO Configuration",
     "ssoSavedSuccess": "SSO configuration saved successfully.",
     "ssoSaveError": "Failed to save SSO configuration.",
@@ -453,7 +459,8 @@
     "twoFactorDisableInvalidCode": "That code is not valid. Check your authenticator app and try again.",
     "twoFactorDisableSessionExpired": "Your session has expired. Sign in again to change your security settings.",
     "twoFactorDisableForbidden": "You are not allowed to change two-factor authentication for this account.",
-    "twoFactorDisableRateLimited": "Too many attempts. Wait a few minutes and try again."
+    "twoFactorDisableRateLimited": "Too many attempts. Wait a few minutes and try again.",
+    "twoFactorDisableBreakGlass": "You are the only administrator with two-factor authentication in an organization that requires single sign-on. Turn it on for another administrator first."
   },
   "setup": {
     "title": "Welcome to LibreHR",
@@ -658,6 +665,14 @@
     "missingClockOut": {
       "title": "Missing clock-out",
       "body": "Your time record for {date} is still open. Request a correction with the time you finished."
+    },
+    "timeExportReady": {
+      "title": "Time record export ready",
+      "body": "Your time record export for {start} to {end} can be downloaded until {until}."
+    },
+    "timeExportFailed": {
+      "title": "Time record export failed",
+      "body": "Your time record export for {start} to {end} could not be generated. Try again or request a shorter period."
     }
   },
   "timeTracking": {
@@ -821,6 +836,29 @@
     "kioskBackspace": "Delete last digit",
     "exportErrorTooLarge": "This export is too large. Choose a shorter period or export one employee at a time.",
     "exportErrorRateLimited": "Too many exports in a short time. Wait a minute and try again.",
+    "exportErrorTooLargeAsync": "This export is too large to generate now. You can generate it in the background below.",
+    "exportErrorInProgress": "You already have a background export in progress, or the organization has too many. Wait until it finishes.",
+    "exportErrorNotReady": "This export is not ready yet.",
+    "exportErrorExpired": "This download has expired and the file was deleted. Generate the export again.",
+    "exportErrorEmpty": "Nobody was employed during this period, so there is nothing to export.",
+    "exportJobsTitle": "Background exports",
+    "exportJobsHelp": "Large organization exports are generated in the background. The document reflects the records when it is generated, not when you request it. You get a notification when it is ready, only you can download it, and the file is deleted when it expires. Its ID and hash stay in the audit log.",
+    "exportJobsOffer": "Generate this export in the background:",
+    "exportJobsQueueCsv": "Generate CSV in the background",
+    "exportJobsQueuePdf": "Generate PDF in the background",
+    "exportJobsLoadFailed": "Your background exports could not be loaded.",
+    "exportJobsEmpty": "You have no background exports.",
+    "exportJobsPeriod": "{start} – {end} · {format}",
+    "exportJobsExpires": "Available until {date}",
+    "exportJobsDownload": "Download",
+    "exportJobsStatusQueued": "Queued",
+    "exportJobsStatusRunning": "Generating",
+    "exportJobsStatusReady": "Ready",
+    "exportJobsStatusFailed": "Failed",
+    "exportJobsStatusExpired": "Expired",
+    "exportJobsFailedTooLarge": "The file is too large. Request a shorter period.",
+    "exportJobsFailedForbidden": "You no longer have access to the organization's records.",
+    "exportJobsFailedGeneric": "Something went wrong while generating it. You can request it again.",
     "monthNavigation": "Month",
     "closureBannerTitle": "Month closed on {date}",
     "closureBannerDescription": "These totals were frozen when the month was closed. Corrections are still accepted and are listed below.",
@@ -1206,6 +1244,17 @@
     "carryoverOn": "On: up to {days, plural, one {# day} other {# days}} carried over, usable for {months, plural, one {# month} other {# months}} of the next year.",
     "carryoverOff": "Off: the whole balance is carried over and never expires.",
     "carryoverSave": "Save carry-over rule",
+    "carryoverLegalPendingTitle": "Pending legal review.",
+    "carryoverLegalPending": "How LibreHR applies ET art. 38.3 (which leave protects vacation, and for how long) has not yet been confirmed by labour counsel. Check your collective agreement and get legal advice before relying on forfeits and expiries.",
+    "carryoverConfirmTitle": "Turn on the carry-over cap?",
+    "carryoverConfirmIntro": "Employees on \"{policy}\" may lose vacation days at the year-end close. Read what will happen before you turn this on.",
+    "carryoverConfirmCap": "At each year-end close, at most {days, plural, one {# day is} other {# days are}} carried over; the rest of the balance is forfeited.",
+    "carryoverConfirmExpiry": "Carried days not used by the end of month {months} of the next year expire.",
+    "carryoverConfirmProtected": "Employees with temporary incapacity, pregnancy, birth, adoption or breastfeeding leave in the closed year or the year before keep their whole balance (ET art. 38.3).",
+    "carryoverConfirmLateLeave": "Leave approved after a close has run is not taken into account: you must restore those days with an adjustment.",
+    "carryoverConfirmAck": "I have checked our collective agreement and understand that employees may lose days.",
+    "carryoverConfirmCancel": "Cancel",
+    "carryoverConfirmSubmit": "Turn on the cap",
     "save": "Save",
     "saved": "Saved."
   }
