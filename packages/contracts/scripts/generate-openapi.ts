@@ -107,6 +107,11 @@ import {
   CreateTimeBankEntrySchema,
 } from "../src/time.js";
 import {
+  TimeExportJobRequestSchema,
+  TimeExportJobSchema,
+  TimeExportJobListResponseSchema,
+} from "../src/time-export-jobs.js";
+import {
   CloseTimesheetPeriodRequestSchema,
   CloseTimesheetPeriodResponseSchema,
   ReopenTimesheetPeriodRequestSchema,
@@ -227,6 +232,9 @@ registry.register("TimeCorrectionItem", TimeCorrectionItemSchema);
 registry.register("PendingApprovals", PendingApprovalsSchema);
 registry.register("OfficialExportResponse", OfficialExportResponseSchema);
 registry.register("ExportEmployeesResponse", ExportEmployeesResponseSchema);
+registry.register("TimeExportJobRequest", TimeExportJobRequestSchema);
+registry.register("TimeExportJob", TimeExportJobSchema);
+registry.register("TimeExportJobListResponse", TimeExportJobListResponseSchema);
 registry.register("KioskClockRequest", KioskClockRequestSchema);
 registry.register("KioskClockResponse", KioskClockResponseSchema);
 registry.register("SetEmployeePin", SetEmployeePinSchema);
@@ -1589,7 +1597,7 @@ registry.registerPath({
     },
     422: {
       description:
-        "EXPORT_TOO_LARGE: organization export over OFFICIAL_EXPORT_MAX_EMPLOYEE_DAYS (employees × days); request a shorter period",
+        "EXPORT_TOO_LARGE: organization export over OFFICIAL_EXPORT_MAX_EMPLOYEE_DAYS (employees × days); request a shorter period. When the export fits OFFICIAL_EXPORT_ASYNC_MAX_EMPLOYEE_DAYS the problem also carries `asyncAvailable: true` and `employeeDays`: queue it with POST /v1/time/exports.",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
     429: {
@@ -1739,6 +1747,147 @@ registry.registerPath({
     },
     403: {
       description: "No time.record.read permission",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    429: {
+      description: "RATE_LIMIT_EXCEEDED, with a Retry-After header",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/time/exports",
+  summary:
+    "Queue a background organization export (TIM-006, issue #38) as CSV or PDF",
+  description:
+    "For organization exports larger than the synchronous cap (GET /v1/time/export answers 422 with asyncAvailable). Requires organization-wide time.record.read (admin, auditor). The worker builds the document with the same builder as the synchronous export (same content hash rule, generation time = when it runs) and stores the file; the requester is notified in-app and downloads it until it expires (7 days by default). At most one queued or running export per user and 3 per organization. Limited to 30 requests per minute per user and client address (shared by every /v1/time/exports route).",
+  request: {
+    body: {
+      content: { "application/json": { schema: TimeExportJobRequestSchema } },
+    },
+  },
+  responses: {
+    202: {
+      description: "Queued. Location: the export's status URL.",
+      content: { "application/json": { schema: TimeExportJobSchema } },
+    },
+    400: {
+      description:
+        "Invalid body (dates, period over 366 days, format other than csv or pdf, locale, unknown fields)",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    401: {
+      description: "Not authenticated",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    403: {
+      description: "No organization-wide time.record.read",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    409: {
+      description:
+        "EXPORT_IN_PROGRESS: the caller already has an export queued or running, or the organization has 3",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    422: {
+      description:
+        "EXPORT_TOO_LARGE over OFFICIAL_EXPORT_ASYNC_MAX_EMPLOYEE_DAYS, or EXPORT_EMPTY when nobody is employed during the period",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    429: {
+      description: "RATE_LIMIT_EXCEEDED, with a Retry-After header",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/v1/time/exports",
+  summary: "The caller's background exports (TIM-006), newest first",
+  description:
+    "Only exports the caller requested, the 20 newest. Requires organization-wide time.record.read.",
+  responses: {
+    200: {
+      description: "The caller's exports",
+      content: {
+        "application/json": { schema: TimeExportJobListResponseSchema },
+      },
+    },
+    401: {
+      description: "Not authenticated",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    403: {
+      description: "No organization-wide time.record.read",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    429: {
+      description: "RATE_LIMIT_EXCEEDED, with a Retry-After header",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/v1/time/exports/{id}",
+  summary: "Status of one background export (TIM-006)",
+  request: { params: z.object({ id: z.guid() }) },
+  responses: {
+    200: {
+      description: "The export",
+      content: { "application/json": { schema: TimeExportJobSchema } },
+    },
+    401: {
+      description: "Not authenticated",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    404: {
+      description:
+        "EXPORT_NOT_FOUND: no such export, not the caller's, another tenant's, or the caller no longer holds organization-wide time access",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    429: {
+      description: "RATE_LIMIT_EXCEEDED, with a Retry-After header",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/v1/time/exports/{id}/download",
+  summary: "Download a finished background export (TIM-006)",
+  description:
+    "Only the requester, while they still hold organization-wide time.record.read. Same body and headers as GET /v1/time/export in that format (X-Export-Id, X-Content-SHA256, Content-Disposition, Cache-Control: no-store; CSV with a UTF-8 BOM that is not hashed). Every download writes a time.export.download audit entry (TIM-008 access logging, ids only).",
+  request: { params: z.object({ id: z.guid() }) },
+  responses: {
+    200: {
+      description: "The stored file",
+      content: {
+        "text/csv": { schema: z.string() },
+        "application/pdf": { schema: z.string().openapi({ format: "binary" }) },
+      },
+    },
+    401: {
+      description: "Not authenticated",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    404: {
+      description:
+        "EXPORT_NOT_FOUND: no such export, not the caller's, another tenant's, or the caller no longer holds organization-wide time access",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    409: {
+      description: "EXPORT_NOT_READY: queued, running or failed",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    410: {
+      description:
+        "EXPORT_EXPIRED: the file was deleted at expiry; request a new export",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
     429: {
@@ -2288,6 +2437,11 @@ import type {
   TimeBankSummary,
   CreateTimeBankEntry,
 } from '../src/time.js';
+import type {
+  TimeExportJobRequest,
+  TimeExportJob,
+  TimeExportJobListResponse,
+} from '../src/time-export-jobs.js';
 import type {
   CloseTimesheetPeriodRequest,
   CloseTimesheetPeriodResponse,
@@ -2840,6 +2994,21 @@ export class LibreHrApiClient {
       endDate: params.endDate,
     });
     return this.request<ExportEmployeesResponse>(\`/v1/time/export/employees?\${searchParams.toString()}\`);
+  }
+
+  async createTimeExportJob(data: TimeExportJobRequest): Promise<TimeExportJob> {
+    return this.request<TimeExportJob>('/v1/time/exports', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async listTimeExportJobs(): Promise<TimeExportJobListResponse> {
+    return this.request<TimeExportJobListResponse>('/v1/time/exports');
+  }
+
+  async getTimeExportJob(id: string): Promise<TimeExportJob> {
+    return this.request<TimeExportJob>(\`/v1/time/exports/\${encodeURIComponent(id)}\`);
   }
 
   async listTimesheetClosures(params: { month: string }): Promise<TimesheetClosuresResponse> {
