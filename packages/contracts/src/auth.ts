@@ -199,3 +199,11 @@ export const SsoAuthorizeResponseSchema = z.object({
   state: z.string(),
 });
 export type SsoAuthorizeResponse = z.infer<typeof SsoAuthorizeResponseSchema>;
+
+/**
+ * problem+json `code` (403) when a password session is refused because the
+ * organization requires single sign-on (AUTH-004). Sign-in, 2FA verify and
+ * invitation accept answer it only after the password verified; the body
+ * never names the organization. The client should offer "Continue with SSO".
+ */
+export const SSO_REQUIRED_CODE = "SSO_REQUIRED";

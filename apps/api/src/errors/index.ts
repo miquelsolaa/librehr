@@ -10,6 +10,7 @@ export {
   LicenseRequiredError,
   NotFoundError,
   SelfApprovalForbiddenError,
+  SsoRequiredError,
   UnauthorizedError,
   ValidationError,
   type ValidationErrorOptions,

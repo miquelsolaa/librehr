@@ -426,7 +426,14 @@ export function createInvitationRoutes(
         { "Content-Type": "application/problem+json" },
       );
     }
-    const session = await authPort.createSession(authUser);
+    // AUTH-004: in an organization that requires SSO, the acceptance above
+    // has committed and createSession throws SsoRequiredError (403
+    // SSO_REQUIRED); the client continues with single sign-on. That includes
+    // break-glass admins: accepting checks no second factor and writes no
+    // break-glass audit entry, so they sign in through /auth/sign-in instead.
+    const session = await authPort.createSession(authUser, {
+      allowBreakGlass: false,
+    });
     if (!session) {
       throw new UnauthorizedError({
         code: "INVALID_INVITATION",
