@@ -9,6 +9,10 @@ All legal and regulatory revisions affecting LibreHR are tracked here.
 - **Time-records floor (Estatuto de los Trabajadores art. 34.9):** working-time records must be kept four years, so `time_records` cannot be configured below 1461 days. The floor is a database CHECK, not only an application rule.
 - **Nothing is deleted:** this change stores configuration and counts eligible records only. No tenant-scoped record is deleted or anonymised.
 
+## [2026-11-26] - Vacation carry-over: pending legal review of ET art. 38.3
+
+- **Carry-over enforcement confirmation (`LEA-002`, #133):** no rule or default changes. Turning `carryover_enforced` on in Settings > Leave policies now needs an explicit acknowledgement, and enforced policies show a "pending legal review" notice. The questions for labour counsel (protected situations, time limits, retroactive recognition, CJEU employer diligence, cap legality, termination, data protection) are in `docs/compliance/et-38-3-carryover-questions.md`.
+
 ## [2026-11-02] - Milestone M5: Integrations, Token Security & Hash Chain Verification
 
 - **Token Security & Scoping (`ADM-006`):** Personal Access Tokens (PATs) use high-entropy prefixing (`lhr_`), one-way SHA-256 storage, and strict scope verification, preventing credential leakage in compliance with ISO/IEC 27001 access control requirements.

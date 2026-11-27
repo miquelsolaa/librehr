@@ -14,8 +14,13 @@ import {
   EmployeeRepository,
   AuditRepository,
   AuditorAccessRepository,
+  SsoRepository,
 } from "@librehr/db";
-import { AppError, UnauthorizedError } from "../errors/index.js";
+import {
+  AppError,
+  SsoBreakGlassRequiredError,
+  UnauthorizedError,
+} from "../errors/index.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireInteractiveSession } from "../middleware/pat-scopes.js";
 import { can } from "../policies/can.js";
@@ -55,6 +60,7 @@ export function createInvitationRoutes(
   const employeeRepo = new EmployeeRepository();
   const auditRepo = new AuditRepository();
   const auditorRepo = new AuditorAccessRepository();
+  const ssoRepo = new SsoRepository();
 
   router.post("/invitations", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
@@ -369,6 +375,16 @@ export function createInvitationRoutes(
           });
         }
 
+        // AUTH-004: accepting a non-admin invitation demotes an existing
+        // admin; it must not remove the last break-glass admin of an
+        // organization that requires SSO. Throwing rolls the acceptance back.
+        if (
+          invite.role !== "admin" &&
+          (await ssoRepo.isLastBreakGlassAdmin(tx, user.id))
+        ) {
+          throw new SsoBreakGlassRequiredError();
+        }
+
         // 4. Create Membership. The access end date follows the role: set
         // for auditors, cleared for every other role (migration 0029 CHECK).
         await tx`
@@ -426,7 +442,14 @@ export function createInvitationRoutes(
         { "Content-Type": "application/problem+json" },
       );
     }
-    const session = await authPort.createSession(authUser);
+    // AUTH-004: in an organization that requires SSO, the acceptance above
+    // has committed and createSession throws SsoRequiredError (403
+    // SSO_REQUIRED); the client continues with single sign-on. That includes
+    // break-glass admins: accepting checks no second factor and writes no
+    // break-glass audit entry, so they sign in through /auth/sign-in instead.
+    const session = await authPort.createSession(authUser, {
+      allowBreakGlass: false,
+    });
     if (!session) {
       throw new UnauthorizedError({
         code: "INVALID_INVITATION",

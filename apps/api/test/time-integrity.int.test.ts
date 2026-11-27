@@ -23,7 +23,7 @@ describe("time-record integrity and kiosk (TIM-002, TIM-003, TIM-010)", () => {
 
   // `prefix`: apps built with the same one act as replicas of one deployment.
   const build = (
-    kiosk?: { maxFailuresPerIdentifier: number },
+    kiosk?: { maxFailuresPerIdentifier?: number; maxFailuresPerIp?: number },
     prefix?: string,
   ) =>
     createApp({
@@ -334,6 +334,96 @@ describe("time-record integrity and kiosk (TIM-002, TIM-003, TIM-010)", () => {
     expect(((await locked.json()) as { code: string }).code).toBe(
       "KIOSK_LOCKED",
     );
+  });
+
+  it("checks at most maxFailuresPerIp concurrent PINs from one IP across two replicas (#178)", async () => {
+    await db.sql`UPDATE employees SET pin_hash = ${await hashKioskPin("8642")}, pin_salt = NULL WHERE id = ${org.report.employeeId}`;
+    const prefix = crypto.randomUUID();
+    const replicas = [
+      build({ maxFailuresPerIp: 5 }, prefix),
+      build({ maxFailuresPerIp: 5 }, prefix),
+    ];
+    // Distinct unknown identifiers: the per-identifier limit never applies,
+    // and each one still checks a PIN (against the decoy hash).
+    const statuses = await Promise.all(
+      Array.from(
+        { length: 40 },
+        async (_, i) =>
+          (
+            await kioskClock(
+              replicas[i % 2]!,
+              org.admin,
+              `nobody-${i}@example.test`,
+              "0000",
+              "10.0.6.1",
+            )
+          ).status,
+      ),
+    );
+    expect(statuses.filter((s) => s === 401)).toHaveLength(5);
+    expect(statuses.filter((s) => s === 429)).toHaveLength(35);
+    // The IP lockout holds on both replicas, even for a correct PIN.
+    const locked = await kioskClock(
+      replicas[0]!,
+      org.admin,
+      org.report.email,
+      "8642",
+      "10.0.6.1",
+    );
+    expect(locked.status).toBe(429);
+    expect(((await locked.json()) as { code: string }).code).toBe(
+      "KIOSK_LOCKED",
+    );
+  });
+
+  it("does not count correct PINs against the IP, even the one reaching the limit (#178)", async () => {
+    await db.sql`UPDATE employees SET pin_hash = ${await hashKioskPin("2468")}, pin_salt = NULL WHERE id = ${org.manager.employeeId}`;
+    const kiosk = build({ maxFailuresPerIp: 3 });
+    const attempt = async (identifier: string, pin: string) =>
+      (await kioskClock(kiosk, org.admin, identifier, pin, "10.0.7.1")).status;
+    expect([
+      await attempt("nobody-a@example.test", "0000"),
+      await attempt("nobody-b@example.test", "0000"),
+    ]).toEqual([401, 401]);
+    // The first of these reaches the limit and lifts the lock it set.
+    for (let i = 0; i < 5; i++) {
+      expect([401, 429]).not.toContain(
+        await attempt(org.manager.email, "2468"),
+      );
+    }
+    // Still two failures counted: the third locks the IP.
+    expect(await attempt("nobody-c@example.test", "0000")).toBe(401);
+    expect(await attempt("nobody-d@example.test", "0000")).toBe(429);
+  });
+
+  it("does not count a locked identifier's refusals against the IP (#178)", async () => {
+    await db.sql`UPDATE employees SET pin_hash = ${await hashKioskPin("1357")}, pin_salt = NULL WHERE id = ${org.auditor.employeeId}`;
+    const kiosk = build({ maxFailuresPerIdentifier: 2, maxFailuresPerIp: 3 });
+    const attempt = async (identifier: string, ip: string) =>
+      (await kioskClock(kiosk, org.admin, identifier, "0000", ip)).status;
+    expect([
+      await attempt(org.auditor.email, "10.0.8.1"),
+      await attempt(org.auditor.email, "10.0.8.2"),
+    ]).toEqual([401, 401]);
+    for (let i = 0; i < 10; i++) {
+      expect(await attempt(org.auditor.email, "10.0.8.9")).toBe(429);
+    }
+    // No PIN was checked from 10.0.8.9, so its budget is untouched.
+    expect(await attempt("nobody-e@example.test", "10.0.8.9")).toBe(401);
+  });
+
+  it("sends a short Retry-After while an IP lock is fresh (#178)", async () => {
+    const kiosk = build({ maxFailuresPerIp: 1 });
+    const attempt = (identifier: string) =>
+      kioskClock(kiosk, org.admin, identifier, "0000", "10.0.9.1");
+    expect((await attempt("nobody-f@example.test")).status).toBe(401);
+    // The lock was set milliseconds ago: it may be a correct PIN's, about to
+    // be lifted, so a client is not told to wait the whole 15 minutes.
+    const refused = await attempt("nobody-g@example.test");
+    expect(refused.status).toBe(429);
+    const retryAfter = Number(refused.headers.get("Retry-After"));
+    expect(retryAfter).toBeGreaterThanOrEqual(1);
+    expect(retryAfter).toBeLessThanOrEqual(3);
   });
 
   it("clears an identifier's failures after a correct PIN", async () => {
