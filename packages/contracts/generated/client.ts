@@ -102,9 +102,6 @@ import type {
   TimeCorrectionItem,
   OfficialExportResponse,
   ExportEmployeesResponse,
-  TimeExportJobRequest,
-  TimeExportJob,
-  TimeExportJobListResponse,
   KioskClockRequest,
   KioskClockResponse,
   SetEmployeePin,
@@ -112,6 +109,11 @@ import type {
   TimeBankSummary,
   CreateTimeBankEntry,
 } from '../src/time.js';
+import type {
+  TimeExportJobRequest,
+  TimeExportJob,
+  TimeExportJobListResponse,
+} from '../src/time-export-jobs.js';
 import type {
   CloseTimesheetPeriodRequest,
   CloseTimesheetPeriodResponse,
