@@ -1213,6 +1213,17 @@
     "carryoverOn": "Activat: s'arrosseguen fins a {days, plural, one {# dia} other {# dies}}, que es poden gaudir durant {months, plural, one {# mes} other {# mesos}} de l'any següent.",
     "carryoverOff": "Desactivat: s'arrossega tot el saldo i mai no caduca.",
     "carryoverSave": "Desa la regla de romanent",
+    "carryoverLegalPendingTitle": "Pendent de revisió legal.",
+    "carryoverLegalPending": "La manera com LibreHR aplica l'art. 38.3 de l'ET (quins permisos protegeixen les vacances i durant quant de temps) encara no l'ha confirmada un advocat laboralista. Revisa el teu conveni col·lectiu i demana assessorament jurídic abans de confiar en les pèrdues i caducitats.",
+    "carryoverConfirmTitle": "Activar el límit de romanent?",
+    "carryoverConfirmIntro": "Les persones amb la política «{policy}» poden perdre dies de vacances al tancament de l'any. Llegeix què passarà abans d'activar-ho.",
+    "carryoverConfirmCap": "A cada tancament d'any s'arrossega com a màxim {days, plural, one {# dia} other {# dies}}; la resta del saldo es perd.",
+    "carryoverConfirmExpiry": "Els dies arrossegats no gaudits al final del mes {months} de l'any següent caduquen.",
+    "carryoverConfirmProtected": "Les persones amb incapacitat temporal, embaràs, part, adopció o lactància l'any tancat o l'anterior conserven tot el seu saldo (art. 38.3 de l'ET).",
+    "carryoverConfirmLateLeave": "Els permisos aprovats després d'un tancament no es tenen en compte: hauràs de restituir aquests dies amb un ajust.",
+    "carryoverConfirmAck": "He revisat el nostre conveni col·lectiu i entenc que les persones poden perdre dies.",
+    "carryoverConfirmCancel": "Cancel·la",
+    "carryoverConfirmSubmit": "Activa el límit",
     "save": "Desa",
     "saved": "Desat."
   }

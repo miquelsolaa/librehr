@@ -1213,6 +1213,17 @@
     "carryoverOn": "On: up to {days, plural, one {# day} other {# days}} carried over, usable for {months, plural, one {# month} other {# months}} of the next year.",
     "carryoverOff": "Off: the whole balance is carried over and never expires.",
     "carryoverSave": "Save carry-over rule",
+    "carryoverLegalPendingTitle": "Pending legal review.",
+    "carryoverLegalPending": "How LibreHR applies ET art. 38.3 (which leave protects vacation, and for how long) has not yet been confirmed by labour counsel. Check your collective agreement and get legal advice before relying on forfeits and expiries.",
+    "carryoverConfirmTitle": "Turn on the carry-over cap?",
+    "carryoverConfirmIntro": "Employees on \"{policy}\" may lose vacation days at the year-end close. Read what will happen before you turn this on.",
+    "carryoverConfirmCap": "At each year-end close, at most {days, plural, one {# day is} other {# days are}} carried over; the rest of the balance is forfeited.",
+    "carryoverConfirmExpiry": "Carried days not used by the end of month {months} of the next year expire.",
+    "carryoverConfirmProtected": "Employees with temporary incapacity, pregnancy, birth, adoption or breastfeeding leave in the closed year or the year before keep their whole balance (ET art. 38.3).",
+    "carryoverConfirmLateLeave": "Leave approved after a close has run is not taken into account: you must restore those days with an adjustment.",
+    "carryoverConfirmAck": "I have checked our collective agreement and understand that employees may lose days.",
+    "carryoverConfirmCancel": "Cancel",
+    "carryoverConfirmSubmit": "Turn on the cap",
     "save": "Save",
     "saved": "Saved."
   }
