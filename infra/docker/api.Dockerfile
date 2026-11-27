@@ -29,6 +29,9 @@ FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 librehr
+# Mount point of the storage volume (STORAGE_LOCAL_DIR). A new named volume
+# copies this ownership, so the non-root API user can write documents.
+RUN mkdir -p /data/storage && chown librehr:nodejs /data/storage
 USER librehr
 
 COPY --from=builder --chown=librehr:nodejs /app/node_modules ./node_modules
