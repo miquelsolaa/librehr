@@ -9,6 +9,11 @@ All legal and regulatory revisions affecting LibreHR are tracked here.
 - **Access logging (`TIM-008`):** only the requester can download an export, and only while they still hold organization-wide `time.record.read` (a lapsed auditor window ends access); every download writes a `time.export.download` audit entry with the export id, format and hash only.
 - **Storage and encryption stance:** the file is stored in the database (`time_export_files`) under row-level security, readable only through the requester's download, and is not encrypted at the application level: it holds names and working times but no special-category data, the same data the database already holds. Operators should encrypt the database disk and backups. Failed or stalled exports notify the requester and store nothing.
 
+## [2026-11-26] - Email verification and auth link retention (`AUTH-001`)
+
+- **Email verification (`AUTH-001`):** Accounts confirm their email address with a single-use link (24 h by default) plus the account password, so whoever receives a link sent to a mistyped address cannot confirm it. Password reset links go only to confirmed addresses. Each confirmation writes an `auth.email_verified` audit entry with ids only.
+- **Retention (`ADM-005` pending):** Rows of `email_verification_tokens` (which hold the address a link was sent to) and `password_reset_tokens` are kept 30 days. Until ADM-005 ships, the API deletes older rows whenever a new link is requested. See `COMPLIANCE.md` section 5.
+
 ## [2026-11-26] - Retention categories and the time-records floor (`ADM-005`, #32)
 
 - **Retention configuration per organization:** `retention_policies` (migration 0042, RLS) holds an optional period per data category (`time_records`, `leave_records`, `audit_log`, `deleted_documents`, `statutory_documents`, `notifications`, `invitations`); a missing row means the default in `packages/core/src/retention`. The defaults are listed in `COMPLIANCE.md` section 5.
