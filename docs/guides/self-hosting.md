@@ -190,6 +190,13 @@ your `.env`. When you configure a provider:
   `AUTH-005`); single sign-on does not create accounts. Their email domain
   must be in the allowed domains, and the provider must mark the email as
   verified. Members with two-factor authentication still enter their code.
+- A person who is also an active member of another organization on this
+  instance cannot sign in with single sign-on: their password and second
+  factors are shared across organizations, so one organization's provider
+  must not act for them. They keep signing in with their email and password.
+- An email domain can be enabled for single sign-on by one organization only.
+  Saving an enabled configuration whose allowed domains another
+  organization already uses is refused.
 
 ---
 

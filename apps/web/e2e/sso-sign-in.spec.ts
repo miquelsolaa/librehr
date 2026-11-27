@@ -95,6 +95,16 @@ test.describe("single sign-on (AUTH-004)", () => {
     await expectNoAxeViolations(page);
   });
 
+  test("explains why a person in two organizations cannot use SSO", async ({
+    page,
+  }) => {
+    await page.goto("/en/sign-in?sso_error=SSO_MULTI_ORG_ACCOUNT");
+    await expect(page.locator("main").getByRole("alert")).toContainText(
+      "also belongs to another organization",
+    );
+    await expectNoAxeViolations(page);
+  });
+
   test("keeps state and token failures generic", async ({ page }) => {
     await page.goto("/en/sign-in?sso_error=SSO_TOKEN_INVALID");
     await expect(page.locator("main").getByRole("alert")).toHaveText(
@@ -157,22 +167,33 @@ test.describe("single sign-on (AUTH-004)", () => {
   test("settings show the redirect URI the API sends", async ({ page }) => {
     await seedProfile(page, { role: "admin" });
     await mockRoute(page, "**/v1/sso/config", (route) =>
-      route.fulfill({
-        status: 200,
-        json: {
-          id: "5a000000-0000-4000-8000-000000000001",
-          organizationId: ORG_ID,
-          provider: "generic_oidc",
-          clientId: "sample-client",
-          issuerUrl: "https://idp.example.invalid",
-          enabled: true,
-          enforceSso: false,
-          allowedDomains: ["example.invalid"],
-          redirectUri: "https://api.example.invalid/v1/sso/callback",
-          createdAt: "2026-01-01T00:00:00.000Z",
-          updatedAt: "2026-01-01T00:00:00.000Z",
-        },
-      }),
+      route.request().method() === "POST"
+        ? route.fulfill({
+            status: 400,
+            contentType: "application/problem+json",
+            json: {
+              title: "Validation Error",
+              status: 400,
+              code: "VALIDATION_ERROR",
+              errors: [{ field: "allowedDomains", message: "taken" }],
+            },
+          })
+        : route.fulfill({
+            status: 200,
+            json: {
+              id: "5a000000-0000-4000-8000-000000000001",
+              organizationId: ORG_ID,
+              provider: "generic_oidc",
+              clientId: "sample-client",
+              issuerUrl: "https://idp.example.invalid",
+              enabled: true,
+              enforceSso: false,
+              allowedDomains: ["example.invalid"],
+              redirectUri: "https://api.example.invalid/v1/sso/callback",
+              createdAt: "2026-01-01T00:00:00.000Z",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+            },
+          }),
     );
     await mockRoute(page, "**/v1/edition", (route) =>
       route.fulfill({
@@ -189,5 +210,19 @@ test.describe("single sign-on (AUTH-004)", () => {
     await expect(
       page.getByText("https://api.example.invalid/v1/sso/callback"),
     ).toBeVisible();
+    // The Microsoft hint renders (no ICU tag parse error falling back to the
+    // key) in every locale's form.
+    await expect(
+      page.getByText("https://login.microsoftonline.com/TENANT_ID/v2.0", {
+        exact: false,
+      }),
+    ).toBeVisible();
+    await expectNoAxeViolations(page);
+
+    // A domain another organization already uses is refused by the API.
+    await page.getByRole("button", { name: "Save SSO Configuration" }).click();
+    await expect(page.locator("main").getByRole("alert")).toContainText(
+      "Another organization already uses one of these domains",
+    );
   });
 });

@@ -16,6 +16,7 @@ const SSO_ERROR_MESSAGES: Partial<Record<SsoErrorCode, string>> = {
   SSO_DOMAIN_NOT_ALLOWED: "ssoErrorDomainNotAllowed",
   SSO_IDENTITY_CONFLICT: "ssoErrorIdentityConflict",
   SSO_EMAIL_NOT_VERIFIED: "ssoErrorEmailNotVerified",
+  SSO_MULTI_ORG_ACCOUNT: "ssoErrorMultiOrgAccount",
 };
 
 export default function SignInPage() {

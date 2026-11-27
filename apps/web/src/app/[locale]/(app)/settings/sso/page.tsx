@@ -155,11 +155,14 @@ export default function SsoSettingsPage() {
       setSuccessMessage(t("ssoSavedSuccess"));
     } catch (err) {
       const problem = err as Partial<ProblemDetails> | null;
-      const issuerRejected = problem?.errors?.some(
-        (issue) => issue.field === "issuerUrl",
-      );
+      const rejected = (field: string) =>
+        problem?.errors?.some((issue) => issue.field === field) ?? false;
       setErrorMessage(
-        issuerRejected ? t("ssoIssuerUrlInvalid") : t("ssoSaveError"),
+        rejected("allowedDomains")
+          ? t("ssoDomainsTaken")
+          : rejected("issuerUrl")
+            ? t("ssoIssuerUrlInvalid")
+            : t("ssoSaveError"),
       );
     } finally {
       setIsSaving(false);
