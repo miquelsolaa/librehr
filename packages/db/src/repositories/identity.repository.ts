@@ -104,7 +104,8 @@ export type SsoResolveOutcome =
   | "unavailable"
   | "domain_not_allowed"
   | "no_account"
-  | "identity_conflict";
+  | "identity_conflict"
+  | "multi_org_account";
 
 export type SsoResolveResult =
   | { outcome: "ok"; userId: string; organizationId: string }
@@ -204,6 +205,26 @@ export class IdentityRepository {
     return row
       ? { ...row, allowedDomains: stringArray(row.allowedDomains) }
       : null;
+  }
+
+  /**
+   * The domains of `domains` (normalized: trimmed, lower case, no leading
+   * '@') that an enabled SSO configuration of another organization already
+   * allows (AUTH-004, migration 0044). Never says which organization.
+   */
+  async ssoDomainsTaken(
+    sql: Sql,
+    organizationId: string,
+    domains: readonly string[],
+  ): Promise<string[]> {
+    if (domains.length === 0) return [];
+    const rows = await sql<{ domain: string }[]>`
+      SELECT domain
+      FROM librehr_auth_sso_domains_taken(
+        ${organizationId}, ${sql.json([...domains])}
+      )
+    `;
+    return rows.map((row) => row.domain);
   }
 
   /**

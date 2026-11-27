@@ -37,13 +37,27 @@
 -- No just-in-time provisioning: a person must already be a member (invited
 -- through AUTH-005) to sign in with SSO.
 --
+-- Cross-tenant safety. users (and so passwords and second factors) is global,
+-- while each organization controls its own identity provider. An SSO sign-in
+-- is therefore refused for a person who is also an active member of another
+-- organization: otherwise the admin of one organization could assert that
+-- person's email at their own provider, get a session and change the
+-- person's global credentials, locking them out of the other organization.
+-- Such people keep signing in with their password until a step-up policy
+-- exists. For the same reason librehr_auth_sso_domains_taken lets the API
+-- refuse an allow-list that claims a domain another organization's enabled
+-- configuration already claims (authorize resolves a domain to one
+-- organization only).
+--
 -- Retention: login requests are purged by the API one day after creation,
 -- whenever a new sign-in starts (they hold no personal data: ids, the issuer,
 -- the client id and single-use secrets). Identity links live as long as the
 -- membership and go with it, the user or the organization (cascade).
 --
 -- Rollback: purely additive. To revert, drop the functions
--- librehr_auth_sso_resolve_user(text, text, text, text) and
+-- librehr_auth_sso_domains_taken(uuid, jsonb),
+-- librehr_auth_sso_resolve_user(text, text, text, text),
+-- librehr_auth_sso_other_org_member(uuid, uuid) and
 -- librehr_auth_sso_consume(text), then the tables sso_identities and
 -- sso_login_requests; no existing data changes.
 
@@ -212,6 +226,47 @@ BEGIN
 END
 $$;
 
+-- 3b-helper. Whether p_user_id is an active member of an organization other
+-- than p_organization_id. Active follows librehr_auth_membership (0021/0029):
+-- auditor access not expired, not a terminated employee whose termination
+-- date has arrived. Internal to librehr_auth_sso_resolve_user (no grant).
+CREATE OR REPLACE FUNCTION librehr_auth_sso_other_org_member(
+  p_user_id uuid,
+  p_organization_id uuid
+)
+RETURNS boolean
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $$
+DECLARE
+  previous_lookup text := current_setting('librehr.identity_lookup', true);
+  v_found boolean;
+BEGIN
+  PERFORM set_config('librehr.identity_lookup', 'on', true);
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.memberships m
+    JOIN public.organizations o ON o.id = m.organization_id
+    WHERE m.user_id = p_user_id
+      AND m.organization_id <> p_organization_id
+      AND (m.access_expires_at IS NULL OR m.access_expires_at > now())
+      AND NOT EXISTS (
+        SELECT 1
+        FROM public.employees e
+        WHERE e.organization_id = m.organization_id
+          AND e.user_id = m.user_id
+          AND e.status = 'terminated'
+          AND (
+            e.termination_date IS NULL
+            OR e.termination_date <= (now() AT TIME ZONE o.timezone)::date
+          )
+      )
+  ) INTO v_found;
+  PERFORM set_config('librehr.identity_lookup', coalesce(previous_lookup, ''), true);
+  RETURN v_found;
+END
+$$;
+
 -- 3b. Maps a verified identity to a member of the request's organization and
 -- links it. Callable once per consumed request, within 10 minutes of
 -- consuming it; the request is spent whatever the outcome. The API calls it
@@ -225,7 +280,9 @@ $$;
 --   no_account         - no active member (EMP-007 termination and auditor
 --                        expiry included) with that subject or email;
 --   identity_conflict  - the member is already linked to another subject of
---                        this issuer, or the subject to another member.
+--                        this issuer, or the subject to another member;
+--   multi_org_account  - the person is also an active member of another
+--                        organization (see the header: global credentials).
 -- organization_id is returned with every outcome except expired and invalid
 -- so the API can audit refusals.
 CREATE OR REPLACE FUNCTION librehr_auth_sso_resolve_user(
@@ -325,6 +382,10 @@ BEGIN
     SELECT 1 FROM public.librehr_auth_membership(v_user, v_req.organization_id)
   ) THEN
     v_outcome := 'no_account';
+  ELSIF public.librehr_auth_sso_other_org_member(v_user, v_req.organization_id) THEN
+    -- Applies to the subject match too: an existing link does not make the
+    -- other organization's credentials any safer.
+    v_outcome := 'multi_org_account';
   ELSIF v_linked IS NOT NULL THEN
     UPDATE public.sso_identities SET last_login_at = now()
     WHERE organization_id = v_req.organization_id
@@ -363,9 +424,58 @@ BEGIN
 END
 $$;
 
--- 4. Only the runtime role may call them.
+-- 3c. The domains of p_domains (normalized like librehr_auth_sso_config:
+-- trimmed, lower case, without a leading '@') that an enabled configuration
+-- of another organization already allows. POST /v1/sso/config refuses to
+-- enable an allow-list that overlaps, so a tenant cannot send another
+-- tenant's people to its own identity provider. Returns domain names only,
+-- never which organization claims them.
+CREATE OR REPLACE FUNCTION librehr_auth_sso_domains_taken(
+  p_organization_id uuid,
+  p_domains jsonb
+)
+RETURNS TABLE (domain text)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $$
+#variable_conflict use_column
+DECLARE
+  previous text := current_setting('librehr.identity_lookup', true);
+BEGIN
+  IF p_organization_id IS NULL OR jsonb_typeof(p_domains) IS DISTINCT FROM 'array' THEN
+    RETURN;
+  END IF;
+  PERFORM set_config('librehr.identity_lookup', 'on', true);
+  RETURN QUERY
+    SELECT DISTINCT wanted.domain
+    FROM (
+      SELECT regexp_replace(lower(btrim(d.value)), '^@', '') AS domain
+      FROM jsonb_array_elements_text(p_domains) AS d(value)
+    ) AS wanted
+    WHERE length(wanted.domain) > 0
+      AND EXISTS (
+        SELECT 1
+        FROM public.sso_configurations c
+        CROSS JOIN LATERAL jsonb_array_elements_text(
+          CASE WHEN jsonb_typeof(c.allowed_domains) = 'array'
+               THEN c.allowed_domains ELSE '[]'::jsonb END
+        ) AS claimed(value)
+        WHERE c.enabled
+          AND c.organization_id <> p_organization_id
+          AND regexp_replace(lower(btrim(claimed.value)), '^@', '') = wanted.domain
+      )
+    ORDER BY wanted.domain;
+  PERFORM set_config('librehr.identity_lookup', coalesce(previous, ''), true);
+END
+$$;
+
+-- 4. Only the runtime role may call them; the helper is internal.
 REVOKE ALL ON FUNCTION librehr_auth_sso_consume(text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION librehr_auth_sso_resolve_user(text, text, text, text)
+  FROM PUBLIC;
+REVOKE ALL ON FUNCTION librehr_auth_sso_other_org_member(uuid, uuid)
+  FROM PUBLIC;
+REVOKE ALL ON FUNCTION librehr_auth_sso_domains_taken(uuid, jsonb)
   FROM PUBLIC;
 
 DO $$
@@ -373,7 +483,8 @@ BEGIN
   IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'librehr_app') THEN
     GRANT EXECUTE ON FUNCTION
       librehr_auth_sso_consume(text),
-      librehr_auth_sso_resolve_user(text, text, text, text)
+      librehr_auth_sso_resolve_user(text, text, text, text),
+      librehr_auth_sso_domains_taken(uuid, jsonb)
     TO librehr_app;
   END IF;
 END $$;
