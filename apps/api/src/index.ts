@@ -71,7 +71,6 @@ async function bootstrap() {
     timeChainKey: env.TIME_CHAIN_KEY,
     nodeEnv: env.NODE_ENV,
     trustProxy: env.TRUST_PROXY,
-    storageDir: env.STORAGE_LOCAL_DIR,
     config: {
       nodeEnv: env.NODE_ENV,
       appUrl: env.APP_URL,
