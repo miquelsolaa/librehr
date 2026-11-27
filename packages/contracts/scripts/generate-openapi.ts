@@ -531,47 +531,6 @@ registry.registerPath({
       description: "Too many requests",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
-    429: {
-      description: "Too many requests",
-      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
-    },
-    502: {
-      description:
-        "SSO_UNAVAILABLE: the identity provider's discovery document could not be read",
-      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
-    },
-  },
-});
-
-registry.registerPath({
-  method: "get",
-  path: "/v1/sso/callback",
-  summary:
-    "OIDC redirect URI (browser navigation). Verifies state, PKCE and the id_token, then opens a session pinned to the configuration's organization. Business edition (AUTH-004)",
-  request: {
-    query: z.object({
-      state: z.string().optional(),
-      code: z.string().optional(),
-      error: z.string().optional(),
-    }),
-  },
-  responses: {
-    302: {
-      description: `Always a redirect to the web app: /{locale}/sso/complete on success, /{locale}/sign-in#sso_challenge=... when local 2FA is required, or /{locale}/sign-in?sso_error=CODE with one of ${SsoErrorCodeSchema.options.join(", ")}`,
-    },
-    403: {
-      description:
-        "LICENSE_REQUIRED without a Business licence that grants sso (LIC-003)",
-      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
-    },
-    404: {
-      description: "SSO_DISABLED",
-      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
-    },
-    429: {
-      description: "Too many requests",
-      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
-    },
   },
 });
 
