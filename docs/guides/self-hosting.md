@@ -47,13 +47,15 @@ starts with an unverified address and is emailed a confirmation link (valid
 24 hours, works once, no sign-in needed to open it, but confirming asks for
 the account password, so a link that reached a mistyped address is useless to
 whoever received it). Unverified users keep
-full access; a signed-in user can ask for a new link. People who join through
+full access and see a banner in the app with a button that asks for a new
+link. People who join through
 an invitation are verified by accepting it. Password reset links go only to
 verified addresses, so an administrator who never confirmed their address
 recovers access with the `recover-account` command above. Verification links
 older than 30 days are deleted whenever a new one is requested. Without
 `SMTP_HOST` and `APP_URL` no link is sent and asking for one answers 503
-`EMAIL_UNAVAILABLE`.
+`EMAIL_UNAVAILABLE`; the banner then tells the user that the server cannot
+send email yet.
 
 LibreHR is designed to be easily self-hostable on any standard Linux server, VPS, or cloud instance running Docker.
 

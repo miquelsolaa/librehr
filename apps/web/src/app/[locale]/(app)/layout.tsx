@@ -23,6 +23,7 @@ import { NotificationBell } from "../../../components/notification-bell";
 import { ClockWidget } from "../../../components/clock-widget";
 import { ClockStatusProvider } from "../../../components/clock-status-provider";
 import { UserMenu } from "../../../components/user-menu";
+import { EmailVerificationBanner } from "../../../components/email-verification-banner";
 import { getStoredSession } from "@/lib/auth";
 import { getApiClient } from "@/lib/api-client";
 import {
@@ -290,6 +291,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             tabIndex={-1}
             className="flex-1 p-4 pb-20 md:p-8 md:pb-8 max-w-[1280px] w-full mx-auto"
           >
+            <EmailVerificationBanner />
             {children}
           </main>
 

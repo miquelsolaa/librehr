@@ -69,7 +69,22 @@
     "requestNewLink": "Ask for a new link",
     "resetDone": "Your password has been changed. Sign in with the new one.",
     "tooManyRequests": "Too many attempts. Wait a few minutes and try again.",
-    "genericError": "Something went wrong. Try again."
+    "genericError": "Something went wrong. Try again.",
+    "verifyEmail": {
+      "title": "Confirm your email address",
+      "description": "Enter the password of your LibreHR account to confirm that this address is yours. If you did not create the account, do not confirm it.",
+      "passwordLabel": "Account password",
+      "wrongPassword": "That is not the password of the account this link was sent for.",
+      "submit": "Confirm email address",
+      "done": "Your email address is confirmed.",
+      "invalidLink": "This confirmation link is invalid, already used or expired. Sign in and ask for a new one from the notice at the top of the page.",
+      "continue": "Go to LibreHR",
+      "bannerTitle": "Confirm your email address",
+      "bannerText": "Until you confirm it, we cannot send you password reset links. Open the link in the email we sent you, or ask for a new one.",
+      "bannerResend": "Send a new link",
+      "bannerSent": "A new confirmation link is on its way. Check your spam folder if it does not arrive.",
+      "bannerUnavailable": "This server cannot send email yet. Whoever runs LibreHR needs to set up email (SMTP and APP_URL)."
+    }
   },
   "nav": {
     "more": "More",
