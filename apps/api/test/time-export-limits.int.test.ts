@@ -143,14 +143,39 @@ describe("GET /v1/time/export limits (TIM-006)", () => {
     expect(res.headers.get("content-type")).toContain(
       "application/problem+json",
     );
-    const problem = (await res.json()) as { code: string; detail: string };
+    const problem = (await res.json()) as {
+      code: string;
+      detail: string;
+      asyncAvailable?: boolean;
+      employeeDays?: number;
+    };
     expect(problem.code).toBe("EXPORT_TOO_LARGE");
     expect(problem.detail).toMatch(/shorter period/);
+    // Issue #38: it still fits a background export.
+    expect(problem.asyncAvailable).toBe(true);
+    expect(problem.employeeDays).toBe(8);
     expect(await auditCount(a.orgId)).toBe(before);
     expect(
       (await get(`/v1/time/export?${NOV}&scope=organization`, a.admin, capped))
         .status,
     ).toBe(200);
+  });
+
+  it("omits the background hint when the export exceeds the async cap too", async () => {
+    const capped = await appWith({
+      maxEmployeeDays: 6,
+      asyncMaxEmployeeDays: 7,
+      rateLimit: { windowMs: 60_000, max: 1000 },
+    });
+    const res = await get(
+      "/v1/time/export?startDate=2026-11-02&endDate=2026-11-03&scope=organization",
+      a.admin,
+      capped,
+    );
+    expect(res.status).toBe(422);
+    const problem = (await res.json()) as Record<string, unknown>;
+    expect(problem["code"]).toBe("EXPORT_TOO_LARGE");
+    expect(problem).not.toHaveProperty("asyncAvailable");
   });
 
   it("rate-limits exports per user with a 429 problem", async () => {

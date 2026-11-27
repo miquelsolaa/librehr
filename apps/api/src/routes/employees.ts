@@ -24,12 +24,14 @@ import {
   AuditRepository,
   EmergencyContactRepository,
   AccessRevocationRepository,
+  SsoRepository,
   type TenantTx,
 } from "@librehr/db";
 import { z } from "zod";
 import {
   ForbiddenError,
   NotFoundError,
+  SsoBreakGlassRequiredError,
   ValidationError,
 } from "../errors/index.js";
 import {
@@ -63,6 +65,7 @@ export function createEmployeeRoutes(
   const auditRepo = new AuditRepository();
   const emergencyRepo = new EmergencyContactRepository();
   const accessRevocationRepo = new AccessRevocationRepository();
+  const ssoRepo = new SsoRepository();
 
   // EMP-001 directory: visible to anyone holding employee.read at any scope,
   // limited to directory fields whatever the caller's scope.
@@ -394,8 +397,17 @@ export function createEmployeeRoutes(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        if (!(await employeeRepo.findById(tx, id))) {
+        const target = await employeeRepo.findById(tx, id);
+        if (!target) {
           throw new NotFoundError({ detail: "Employee not found" });
+        }
+        // AUTH-004: an organization that requires SSO keeps at least one
+        // break-glass admin, whatever the termination date.
+        if (
+          target.userId &&
+          (await ssoRepo.isLastBreakGlassAdmin(tx, target.userId))
+        ) {
+          throw new SsoBreakGlassRequiredError();
         }
         const result = await employeeRepo.terminate(tx, id, parse.data);
         // EMP-007: when the date is today or past (org time zone) the user's

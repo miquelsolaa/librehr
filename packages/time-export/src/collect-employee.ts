@@ -1,13 +1,12 @@
-import type { Context } from "hono";
 import {
   dateInZone,
   type EmploymentPeriod,
   type InspectionExportEmployee,
 } from "@librehr/core";
 import type { TenantTx, TimeEventRow } from "@librehr/db";
-import { resolveBusinessTimeZone } from "./business-date.js";
-import { verifyEmployeeChain } from "./time-export-chain.js";
+import { verifyEmployeeChain } from "./chain.js";
 import { buildTimesheet } from "./timesheet.js";
+import type { ZoneResolver } from "./zone-resolver.js";
 
 /**
  * Local dates within the period touched by a TIM-003 correction: the day of
@@ -68,23 +67,27 @@ export interface CollectedEmployee {
  * and one paged pass over the chain that verifies every stored row once.
  */
 export async function collectExportEmployee(
-  c: Context,
   tx: TenantTx,
+  zones: ZoneResolver,
   subject: ExportSubject,
   period: { startDate: string; endDate: string },
   employmentPeriods: readonly EmploymentPeriod[] | null,
   timeChainKey: string,
 ): Promise<CollectedEmployee> {
-  const timeZone = await resolveBusinessTimeZone(c, tx, subject.locationId);
+  const timeZone = await zones(subject.locationId);
   const chainStatus = await verifyEmployeeChain(tx, timeChainKey, subject.id);
-  const { timesheet, events } = await buildTimesheet(c, tx, {
-    employeeId: subject.id,
-    locationId: subject.locationId,
-    startDate: period.startDate,
-    endDate: period.endDate,
-    timeZone,
-    employmentPeriods,
-  });
+  const { timesheet, events } = await buildTimesheet(
+    tx,
+    {
+      employeeId: subject.id,
+      locationId: subject.locationId,
+      startDate: period.startDate,
+      endDate: period.endDate,
+      timeZone,
+      employmentPeriods,
+    },
+    zones,
+  );
   return {
     input: {
       employeeId: subject.id,

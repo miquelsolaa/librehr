@@ -82,8 +82,9 @@ describe("scheduler dispatcher (issue #115)", () => {
       organizations: 2,
       // orgA: 30 and 31 October x 3 daily jobs + October's accrual. orgB:
       // 31 October has not closed in the Canaries yet, so its window is
-      // 29 and 30 October and October is not accrued yet.
-      enqueued: 7 + 6,
+      // 29 and 30 October and October is not accrued yet. Plus the
+      // instance retention sweep of UTC day 31 October.
+      enqueued: 7 + 6 + 1,
       alreadyEnqueued: 0,
       failed: 0,
     });
@@ -91,9 +92,17 @@ describe("scheduler dispatcher (issue #115)", () => {
     // The same tick again, and a later one in the same window: nothing new
     // for orgA; orgB's 31 October has now closed in the Canaries too.
     const again = await tick("2026-10-31T23:45:00Z", "tick-2");
-    expect(again).toMatchObject({ enqueued: 0, alreadyEnqueued: 13 });
+    expect(again).toMatchObject({ enqueued: 0, alreadyEnqueued: 14 });
+    // tick-3 falls on a new UTC day, so the sweep runs again.
     const later = await tick("2026-11-01T00:45:00Z", "tick-3");
-    expect(later).toMatchObject({ enqueued: 4, failed: 0 });
+    expect(later).toMatchObject({ enqueued: 4 + 1, failed: 0 });
+    const sweeps = await db.adminSql<{ key: string; data: object }[]>`
+      SELECT singleton_key AS key, data FROM pgboss.job
+      WHERE name = 'retention.sweep-global' ORDER BY singleton_key`;
+    expect(sweeps).toEqual([
+      { key: "2026-10-31", data: { runDate: "2026-10-31" } },
+      { key: "2026-11-01", data: { runDate: "2026-11-01" } },
+    ]);
 
     const jobs = await jobsIn();
     const keys = jobs.map((j) => `${j.name} ${j.key}`);

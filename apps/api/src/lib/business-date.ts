@@ -1,6 +1,7 @@
 import type { Context } from "hono";
 import { todayInZone } from "@librehr/core";
 import { OrganizationRepository, type TenantTx } from "@librehr/db";
+import type { ZoneResolver } from "@librehr/time-export";
 import { SystemClockAdapter } from "../adapters/clock-system.js";
 import type { ClockPort } from "../ports/clock.js";
 
@@ -30,6 +31,14 @@ export async function resolveBusinessTimeZone(
   const zone = await orgRepo.getBusinessTimeZone(tx, locationId);
   cache.set(key, zone);
   return zone;
+}
+
+/**
+ * {@link resolveBusinessTimeZone} as a context-free resolver for
+ * `@librehr/time-export`, sharing this request's cache.
+ */
+export function businessZoneResolver(c: Context, tx: TenantTx): ZoneResolver {
+  return (locationId) => resolveBusinessTimeZone(c, tx, locationId);
 }
 
 /**

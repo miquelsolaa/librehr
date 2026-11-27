@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TimeChainLink, TimeEventRow } from "@librehr/db";
-import { correctedDates } from "../src/lib/time-export.js";
-import { employeeChainStatus } from "../src/lib/time-export-chain.js";
+import { correctedDates, employeeChainStatus } from "@librehr/time-export";
 import {
   createTimeChainSigner,
   resolveTimeChainKey,
