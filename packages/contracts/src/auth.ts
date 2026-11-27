@@ -167,6 +167,11 @@ export const SsoConfigSchema = z.object({
   enabled: z.boolean(),
   enforceSso: z.boolean(),
   allowedDomains: z.array(z.string()),
+  /**
+   * The redirect URI to register with the identity provider, derived from
+   * the API's configured public URL. Business edition only.
+   */
+  redirectUri: z.string().url().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
   /**
@@ -205,14 +210,43 @@ export type SaveSsoConfigRequest = z.infer<typeof SaveSsoConfigRequestSchema>;
 export const SsoAuthorizeRequestSchema = z.object({
   email: z.string().email().optional(),
   domain: z.string().optional(),
+  /** Language of the pages the callback redirects to; defaults to ca. */
+  locale: z.enum(["ca", "es", "en"]).optional(),
 });
 export type SsoAuthorizeRequest = z.infer<typeof SsoAuthorizeRequestSchema>;
 
+/**
+ * `state` is not returned: the API keeps it server-side and binds the flow
+ * to the browser with an HttpOnly cookie read by the callback.
+ */
 export const SsoAuthorizeResponseSchema = z.object({
   authorizationUrl: z.string().url(),
-  state: z.string(),
 });
 export type SsoAuthorizeResponse = z.infer<typeof SsoAuthorizeResponseSchema>;
+
+/**
+ * Why GET /v1/sso/callback sent the browser back to the sign-in page, as
+ * the `sso_error` query parameter. Only codes reached after the identity
+ * provider authenticated the person name the cause; state and token
+ * failures stay generic.
+ */
+export const SsoErrorCodeSchema = z.enum([
+  "SSO_STATE_INVALID",
+  "SSO_EXPIRED",
+  "SSO_PROVIDER_ERROR",
+  "SSO_EXCHANGE_FAILED",
+  "SSO_TOKEN_INVALID",
+  "SSO_EMAIL_NOT_VERIFIED",
+  "SSO_DOMAIN_NOT_ALLOWED",
+  "SSO_NO_ACCOUNT",
+  "SSO_IDENTITY_CONFLICT",
+  // The person also belongs to another organization: their password and
+  // second factors are shared, so one organization's provider cannot sign
+  // them in (they use their password).
+  "SSO_MULTI_ORG_ACCOUNT",
+  "SSO_UNAVAILABLE",
+]);
+export type SsoErrorCode = z.infer<typeof SsoErrorCodeSchema>;
 
 /**
  * problem+json `code` (403) when a password session is refused because the

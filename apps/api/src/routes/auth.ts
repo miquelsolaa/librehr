@@ -505,15 +505,18 @@ export function createAuthRoutes(
     // After SSO the challenge names the configuration's organization, so
     // the session stays there; after a password, the same deterministic
     // default membership as password sign-in.
-    const session = await authPort.createSession({
-      id: userRow.id,
-      email: userRow.email,
-      name: userRow.name,
-      twoFactorEnabled: true,
-      ...(challenge.organizationId
-        ? { organizationId: challenge.organizationId }
-        : {}),
-    });
+    const session = await authPort.createSession(
+      {
+        id: userRow.id,
+        email: userRow.email,
+        name: userRow.name,
+        twoFactorEnabled: true,
+        ...(challenge.organizationId
+          ? { organizationId: challenge.organizationId }
+          : {}),
+      },
+      { authMethod: challenge.authMethod ?? "password" },
+    );
     if (!session) {
       return c.json(
         createProblemDetails({

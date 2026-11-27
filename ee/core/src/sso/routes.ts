@@ -1,26 +1,28 @@
-import crypto from "node:crypto";
 import type { Hono } from "hono";
 import {
   type AuthUser,
   SaveSsoConfigRequestSchema,
   SSO_BREAK_GLASS_REQUIRED_CODE,
-  SsoAuthorizeRequestSchema,
   createProblemDetails,
 } from "@librehr/contracts";
 import {
   withTenant,
+  IdentityRepository,
   SsoRepository,
   AuditRepository,
-  IdentityRepository,
   SsoClientSecretRequiredError,
+  type SsoConfigRow,
 } from "@librehr/db";
 import type { EeApiExtension, EeExtensionContext } from "../extension.js";
-import { buildOidcAuthorizationUrl, isAllowedEmailDomain } from "./oidc.js";
+import { registerAuthorizeRoute } from "./authorize.js";
+import { registerCallbackRoute } from "./callback.js";
+import { createOidcDiscovery, type OidcDiscovery } from "./discovery.js";
+import { OidcError } from "./errors.js";
 
 /**
  * AUTH-004 OIDC single sign-on (Business edition, LIC-003). Mounted by the
- * API only when the licence grants `sso`; SSO_ENABLED still gates it because
- * the callback is not built yet.
+ * API only when the licence grants `sso`; SSO_ENABLED still gates it until
+ * the web app finishes the sign-in.
  */
 export const ssoExtension: EeApiExtension = {
   feature: "sso",
@@ -30,8 +32,8 @@ export const ssoExtension: EeApiExtension = {
 function registerSsoRoutes(router: Hono, context: EeExtensionContext): void {
   const { sql, requireAuth, createError } = context;
   const ssoRepo = new SsoRepository();
-  const auditRepo = new AuditRepository();
   const identityRepo = new IdentityRepository();
+  const auditRepo = new AuditRepository();
 
   if (!context.ssoEnabled) {
     const disabled = () => {
@@ -51,6 +53,21 @@ function registerSsoRoutes(router: Hono, context: EeExtensionContext): void {
     "/v1/sso/callback",
     context.publicApiUrl,
   ).toString();
+  // Per process; discovery documents and key sets are cached for an hour.
+  const discovery = createOidcDiscovery(context.oidcHttp);
+  const toResponse = (config: SsoConfigRow) => ({
+    id: config.id,
+    organizationId: config.organizationId,
+    provider: config.provider,
+    clientId: config.clientId,
+    issuerUrl: config.issuerUrl,
+    enabled: config.enabled,
+    enforceSso: config.enforceSso,
+    allowedDomains: config.allowedDomains,
+    redirectUri,
+    createdAt: config.createdAt.toISOString(),
+    updatedAt: config.updatedAt.toISOString(),
+  });
 
   // 1. GET /v1/sso/config - View organization SSO configuration (admin/hr)
   router.get("/config", requireAuth, async (c) => {
@@ -88,19 +105,7 @@ function registerSsoRoutes(router: Hono, context: EeExtensionContext): void {
     }
     const { config, activePersonalAccessTokens } = found;
 
-    return c.json({
-      id: config.id,
-      organizationId: config.organizationId,
-      provider: config.provider,
-      clientId: config.clientId,
-      issuerUrl: config.issuerUrl,
-      enabled: config.enabled,
-      enforceSso: config.enforceSso,
-      allowedDomains: config.allowedDomains,
-      createdAt: config.createdAt.toISOString(),
-      updatedAt: config.updatedAt.toISOString(),
-      activePersonalAccessTokens,
-    });
+    return c.json({ ...toResponse(config), activePersonalAccessTokens });
   });
 
   // 2. POST /v1/sso/config - Configure or update SSO settings (admin only)
@@ -138,6 +143,34 @@ function registerSsoRoutes(router: Hono, context: EeExtensionContext): void {
         400,
         { "Content-Type": "application/problem+json" },
       );
+    }
+
+    // A disabled configuration may be saved while the provider is down, and
+    // claims no domain.
+    if (parsed.data.enabled) {
+      // Authorize resolves a domain to one organization: refuse to claim a
+      // domain another organization already signs in with, so a tenant
+      // cannot send another tenant's people to its own provider.
+      const taken = await withTenant(
+        sql,
+        { organizationId: user.organizationId, userId: user.id },
+        (tx) => identityRepo.ssoDomainsTaken(tx, parsed.data.allowedDomains),
+      );
+      if (taken.length > 0) {
+        throw createError({
+          status: 400,
+          title: "Validation Error",
+          code: "VALIDATION_ERROR",
+          detail: "Invalid SSO configuration payload",
+          errors: [
+            {
+              field: "allowedDomains",
+              message: `Already used for single sign-on by another organization: ${taken.join(", ")}`,
+            },
+          ],
+        });
+      }
+      await assertUsableIssuer(discovery, parsed.data.issuerUrl, createError);
     }
 
     const saved = await withTenant(
@@ -200,89 +233,43 @@ function registerSsoRoutes(router: Hono, context: EeExtensionContext): void {
     );
 
     return c.json({
-      id: saved.id,
-      organizationId: saved.organizationId,
-      provider: saved.provider,
-      clientId: saved.clientId,
-      issuerUrl: saved.issuerUrl,
-      enabled: saved.enabled,
-      enforceSso: saved.enforceSso,
-      allowedDomains: saved.allowedDomains,
-      createdAt: saved.createdAt.toISOString(),
-      updatedAt: saved.updatedAt.toISOString(),
+      ...toResponse(saved),
       activePersonalAccessTokens: saved.activePersonalAccessTokens,
     });
   });
 
-  // 3. POST /v1/sso/authorize - Initiate SSO flow
-  router.post("/authorize", async (c) => {
-    const body = await c.req.json().catch(() => ({}));
-    const parsed = SsoAuthorizeRequestSchema.safeParse(body);
+  registerAuthorizeRoute(router, { context, discovery, redirectUri });
+  registerCallbackRoute(router, { context, discovery, redirectUri });
+}
 
-    if (!parsed.success) {
-      return c.json(
-        createProblemDetails({
-          status: 400,
-          title: "Validation Error",
-          detail: "Invalid SSO authorize request",
-          code: "VALIDATION_ERROR",
-        }),
-        400,
-        { "Content-Type": "application/problem+json" },
-      );
-    }
-
-    const email = parsed.data.email;
-    const domain =
-      parsed.data.domain ?? (email ? email.split("@")[1] : undefined);
-
-    if (!domain) {
-      return c.json(
-        createProblemDetails({
-          status: 400,
-          title: "Missing Domain",
-          detail:
-            "Email or company domain is required to discover SSO provider",
-          code: "MISSING_DOMAIN",
-        }),
-        400,
-        { "Content-Type": "application/problem+json" },
-      );
-    }
-
-    // Discovery runs before any tenant context: the identity lookup returns
-    // only the matching enabled configuration, never the client secret.
-    const config = await identityRepo.ssoConfigForDomain(sql, domain);
-    const match =
-      config && isAllowedEmailDomain(`user@${domain}`, config.allowedDomains)
-        ? config
-        : null;
-
-    if (!match) {
-      return c.json(
-        createProblemDetails({
-          status: 404,
-          title: "SSO Not Configured",
-          detail: `No active SSO configuration found for domain '${domain}'`,
-          code: "SSO_NOT_FOUND",
-        }),
-        404,
-        { "Content-Type": "application/problem+json" },
-      );
-    }
-
-    const state = crypto.randomBytes(16).toString("hex");
-
-    const authorizationUrl = buildOidcAuthorizationUrl({
-      issuerUrl: match.issuerUrl,
-      clientId: match.clientId,
-      redirectUri,
-      state,
+/**
+ * Refuses an issuer sign-in could not use: not https, a Microsoft
+ * multi-tenant endpoint, or no valid discovery document reachable through
+ * the outbound guard (which also refuses internal addresses).
+ */
+async function assertUsableIssuer(
+  discovery: OidcDiscovery,
+  issuerUrl: string,
+  createError: EeExtensionContext["createError"],
+): Promise<void> {
+  try {
+    await discovery.discover(issuerUrl);
+  } catch (error) {
+    if (!(error instanceof OidcError)) throw error;
+    throw createError({
+      status: 400,
+      title: "Validation Error",
+      code: "VALIDATION_ERROR",
+      detail: "Invalid SSO configuration payload",
+      errors: [
+        {
+          field: "issuerUrl",
+          message:
+            error.reason === "issuer_not_supported"
+              ? "Use an https issuer; Microsoft needs a tenant-specific issuer"
+              : "The issuer's discovery document could not be read",
+        },
+      ],
     });
-
-    return c.json({
-      authorizationUrl,
-      state,
-    });
-  });
+  }
 }

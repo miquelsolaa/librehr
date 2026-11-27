@@ -15,6 +15,7 @@ import {
   hasBusinessEdition,
 } from "./support/business-edition.js";
 import type { AuthPort, AuthSession } from "../src/ports/auth.js";
+import { FakeOidcProvider } from "./support/fake-oidc-provider.js";
 
 class MockAuthPort implements AuthPort {
   private sessions = new Map<string, AuthSession>();
@@ -326,6 +327,12 @@ describe.skipIf(!hasBusinessEdition)(
           nodeEnv: "production",
           ssoEnabled: true,
           publicApiUrl: "https://api.hr.example.com",
+          // Saving and authorize read the issuer's discovery document.
+          oidcHttp: new FakeOidcProvider(
+            "https://idp.example.com/realms/acme",
+            "librehr-client",
+            clientSecret,
+          ).http,
         },
       });
     }, 60000);
