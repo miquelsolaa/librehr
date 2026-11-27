@@ -30,6 +30,9 @@ describe.skipIf(!hasBusinessEdition)("SSO sign-in callback (AUTH-004)", () => {
   const twoFactorUser = "d9000000-0000-0000-0000-00000000000d";
   const outsider = "e9000000-0000-0000-0000-00000000000e";
   const admin = "f9000000-0000-0000-0000-00000000000f";
+  const shared = "c9000000-0000-0000-0000-0000000000a1"; // member of A and B
+  const leaver = "c9000000-0000-0000-0000-0000000000a2"; // terminated in A
+  const adminB = "c9000000-0000-0000-0000-0000000000a3"; // admin of B
   const recoveryCode = "cccc-3333";
   const sessionSecret = "a-secure-test-secret-with-at-least-32-characters";
   const appUrl = "https://hr.example.test";
@@ -113,19 +116,28 @@ describe.skipIf(!hasBusinessEdition)("SSO sign-in callback (AUTH-004)", () => {
     await sql`INSERT INTO users (id, email, name) VALUES
       (${member}, 'member@a.example.test', 'Member'),
       (${outsider}, 'outsider@a.example.test', 'Outsider'),
-      (${admin}, 'admin@a.example.test', 'Admin')`;
+      (${admin}, 'admin@a.example.test', 'Admin'),
+      (${shared}, 'shared@a.example.test', 'Shared'),
+      (${leaver}, 'leaver@a.example.test', 'Leaver'),
+      (${adminB}, 'admin@b.example.test', 'Admin B')`;
     await sql`INSERT INTO users (id, email, name, two_factor_enabled, two_factor_secret, two_factor_recovery_codes)
       VALUES (${twoFactorUser}, '2fa@a.example.test', 'Two Factor', true,
         'JBSWY3DPEHPK3PXP', ${sql.json([hashed])})`;
     await withTenant(sql, { organizationId: orgA }, async (tx) => {
       await tx`INSERT INTO memberships (organization_id, user_id, role) VALUES
         (${orgA}, ${member}, 'employee'), (${orgA}, ${twoFactorUser}, 'employee'),
-        (${orgA}, ${admin}, 'admin')`;
+        (${orgA}, ${admin}, 'admin'), (${orgA}, ${shared}, 'employee'),
+        (${orgA}, ${leaver}, 'employee')`;
+      await tx`INSERT INTO employees
+        (organization_id, user_id, first_name, last_name, email, status, termination_date)
+        VALUES (${orgA}, ${leaver}, 'Lea', 'Ver', 'leaver@a.example.test',
+                'terminated', '2020-01-31')`;
     });
     // The outsider's email is in org A's domain, but only org B has them.
     await withTenant(sql, { organizationId: orgB }, async (tx) => {
-      await tx`INSERT INTO memberships (organization_id, user_id, role)
-        VALUES (${orgB}, ${outsider}, 'employee')`;
+      await tx`INSERT INTO memberships (organization_id, user_id, role) VALUES
+        (${orgB}, ${outsider}, 'employee'), (${orgB}, ${shared}, 'employee'),
+        (${orgB}, ${adminB}, 'admin')`;
     });
     await sql`INSERT INTO sso_configurations
       (organization_id, provider, client_id, client_secret, issuer_url,
@@ -284,6 +296,106 @@ describe.skipIf(!hasBusinessEdition)("SSO sign-in callback (AUTH-004)", () => {
     expect(cookie(res, "librehr_session")).toBeUndefined();
   });
 
+  it("refuses a terminated member (EMP-007) without a session", async () => {
+    const res = await signIn({
+      sub: "sub-leaver",
+      email: "leaver@a.example.test",
+    });
+    expect(ssoError(res)).toBe("SSO_NO_ACCOUNT");
+    expect(cookie(res, "librehr_session")).toBeUndefined();
+  });
+
+  // Cross-tenant: users (password, second factors) is global. Org A's
+  // provider must not get a session for someone who also belongs to org B,
+  // or org A's admin could take over the credentials org B relies on.
+  it("refuses a person who also belongs to another organization", async () => {
+    const res = await signIn({
+      sub: "sub-shared",
+      email: "shared@a.example.test",
+    });
+    expect(ssoError(res)).toBe("SSO_MULTI_ORG_ACCOUNT");
+    expect(cookie(res, "librehr_session")).toBeUndefined();
+    const sessions = await db.adminSql`
+      SELECT 1 FROM sessions WHERE user_id = ${shared}`;
+    expect(sessions).toHaveLength(0);
+    const links = await db.adminSql`
+      SELECT 1 FROM sso_identities WHERE user_id = ${shared}`;
+    expect(links).toHaveLength(0);
+    const audit = await auditRows("auth.sso.sign_in_failed");
+    expect(audit.at(-1)).toEqual({
+      actor_id: null,
+      metadata: { reason: "multi_org_account", provider: "generic_oidc" },
+    });
+  });
+
+  it("answers a lost state in the language the sign-in started in", async () => {
+    const { res, url } = await start("en");
+    const setCookie = res.headers.get("set-cookie") ?? "";
+    expect(setCookie).toMatch(/librehr_sso_state=[^;]+;[^,]*Max-Age=720/);
+    expect(setCookie).toMatch(/librehr_sso_locale=en;/);
+    // The state cookie is gone (e.g. another browser tab finished it).
+    const lost = await app.request(
+      `/v1/sso/callback?${new URLSearchParams(idp.approve(url, {})).toString()}`,
+      { headers: { Cookie: "librehr_sso_locale=en" } },
+    );
+    expect(lost.headers.get("location")).toBe(
+      `${appUrl}/en/sign-in?sso_error=SSO_STATE_INVALID`,
+    );
+    const unknown = await app.request(`/v1/sso/callback?state=x`, {
+      headers: { Cookie: "librehr_sso_locale=xx" },
+    });
+    expect(unknown.headers.get("location")).toBe(
+      `${appUrl}/ca/sign-in?sso_error=SSO_STATE_INVALID`,
+    );
+  });
+
+  it("refuses an invalid authorize request", async () => {
+    const post = (body: unknown) =>
+      app.request("/v1/sso/authorize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    const invalid = await post({ email: "not-an-email" });
+    expect(invalid.status).toBe(400);
+    expect(await invalid.json()).toMatchObject({ code: "VALIDATION_ERROR" });
+    const missing = await post({});
+    expect(missing.status).toBe(400);
+    expect(await missing.json()).toMatchObject({ code: "MISSING_DOMAIN" });
+    expect(cookie(missing, "librehr_sso_state")).toBeUndefined();
+  });
+
+  it("answers 502 when the provider cannot be discovered", async () => {
+    const unreachable = build({
+      oidcHttp: async () => {
+        throw new Error("connect ECONNREFUSED");
+      },
+    });
+    const res = await unreachable.request("/v1/sso/authorize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "member@a.example.test" }),
+    });
+    expect(res.status).toBe(502);
+    expect(await res.json()).toMatchObject({ code: "SSO_UNAVAILABLE" });
+    expect(cookie(res, "librehr_sso_state")).toBeUndefined();
+  });
+
+  it("rate-limits authorize", async () => {
+    const limited = build();
+    let status = 0;
+    for (let i = 0; i < 31; i += 1) {
+      status = (
+        await limited.request("/v1/sso/authorize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ domain: "unknown.example.test" }),
+        })
+      ).status;
+    }
+    expect(status).toBe(429);
+  });
+
   it("refuses a second subject for an already linked member", async () => {
     const res = await signIn({
       sub: "sub-other",
@@ -344,8 +456,11 @@ describe.skipIf(!hasBusinessEdition)("SSO sign-in callback (AUTH-004)", () => {
       return body.errors.map((e) => e.field);
     };
 
+    let adminBToken: string;
+
     beforeAll(async () => {
-      const session = await new BetterAuthAdapter(db.appSql).createSession({
+      const auth = new BetterAuthAdapter(db.appSql);
+      const session = await auth.createSession({
         id: admin,
         email: "admin@a.example.test",
         name: "Admin",
@@ -353,6 +468,44 @@ describe.skipIf(!hasBusinessEdition)("SSO sign-in callback (AUTH-004)", () => {
         twoFactorEnabled: false,
       });
       adminToken = session!.token;
+      const sessionB = await auth.createSession({
+        id: adminB,
+        email: "admin@b.example.test",
+        name: "Admin B",
+        organizationId: orgB,
+        twoFactorEnabled: false,
+      });
+      adminBToken = sessionB!.token;
+    });
+
+    // Cross-tenant: org B cannot claim the domain org A signs in with.
+    it("refuses to enable a domain another organization already claims", async () => {
+      const saveB = (allowedDomains: string[], enabled = true) =>
+        app.request("/v1/sso/config", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${adminBToken}`,
+          },
+          body: JSON.stringify({
+            provider: "generic_oidc",
+            clientId: "client-b",
+            clientSecret: "secret-b",
+            issuerUrl: "https://idp.example.test/realms/b",
+            enabled,
+            allowedDomains,
+          }),
+        });
+      const taken = await saveB(["b.example.test", "@A.Example.Test"]);
+      expect(await issuerError(taken)).toEqual(["allowedDomains"]);
+      const stored = await db.adminSql`
+        SELECT 1 FROM sso_configurations WHERE organization_id = ${orgB}`;
+      expect(stored).toHaveLength(0);
+
+      // Its own domain is fine; the authorize lookup still finds org A.
+      expect((await saveB(["b.example.test"])).status).toBe(200);
+      const { url } = await start();
+      expect(new URL(url).searchParams.get("client_id")).toBe("client-a");
     });
 
     it("shows the redirect URI the API sends", async () => {

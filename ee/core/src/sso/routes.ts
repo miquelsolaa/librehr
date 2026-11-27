@@ -6,6 +6,7 @@ import {
 } from "@librehr/contracts";
 import {
   withTenant,
+  IdentityRepository,
   SsoRepository,
   AuditRepository,
   SsoClientSecretRequiredError,
@@ -29,6 +30,7 @@ export const ssoExtension: EeApiExtension = {
 function registerSsoRoutes(router: Hono, context: EeExtensionContext): void {
   const { sql, requireAuth, createError } = context;
   const ssoRepo = new SsoRepository();
+  const identityRepo = new IdentityRepository();
   const auditRepo = new AuditRepository();
 
   const redirectUri = new URL(
@@ -116,8 +118,31 @@ function registerSsoRoutes(router: Hono, context: EeExtensionContext): void {
       );
     }
 
-    // A disabled configuration may be saved while the provider is down.
+    // A disabled configuration may be saved while the provider is down, and
+    // claims no domain.
     if (parsed.data.enabled) {
+      // Authorize resolves a domain to one organization: refuse to claim a
+      // domain another organization already signs in with, so a tenant
+      // cannot send another tenant's people to its own provider.
+      const taken = await identityRepo.ssoDomainsTaken(
+        sql,
+        user.organizationId,
+        parsed.data.allowedDomains,
+      );
+      if (taken.length > 0) {
+        throw createError({
+          status: 400,
+          title: "Validation Error",
+          code: "VALIDATION_ERROR",
+          detail: "Invalid SSO configuration payload",
+          errors: [
+            {
+              field: "allowedDomains",
+              message: `Already used for single sign-on by another organization: ${taken.join(", ")}`,
+            },
+          ],
+        });
+      }
       await assertUsableIssuer(discovery, parsed.data.issuerUrl, createError);
     }
 
