@@ -53,6 +53,7 @@ describe("organization security settings API", () => {
       expect(await res.json()).toEqual({
         requireTwoFactor: false,
         auditorAccessMaxDays: 90,
+        secondaryLeadVisibility: "calendar",
       });
     });
   });
@@ -91,6 +92,7 @@ describe("organization security settings API", () => {
       expect(await res.json()).toEqual({
         requireTwoFactor: true,
         auditorAccessMaxDays: 45,
+        secondaryLeadVisibility: "calendar",
       });
       expect(await requireTwoFactor(a.orgId)).toBe(true);
       expect((await patch(a.admin, {})).status).toBe(400);

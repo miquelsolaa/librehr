@@ -14916,11 +14916,20 @@
                       "type": "integer",
                       "minimum": 1,
                       "maximum": 366
+                    },
+                    "secondaryLeadVisibility": {
+                      "type": "string",
+                      "enum": [
+                        "off",
+                        "calendar",
+                        "profile"
+                      ]
                     }
                   },
                   "required": [
                     "requireTwoFactor",
-                    "auditorAccessMaxDays"
+                    "auditorAccessMaxDays",
+                    "secondaryLeadVisibility"
                   ]
                 }
               }
@@ -14943,6 +14952,14 @@
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 366
+                  },
+                  "secondaryLeadVisibility": {
+                    "type": "string",
+                    "enum": [
+                      "off",
+                      "calendar",
+                      "profile"
+                    ]
                   }
                 }
               }
@@ -14964,11 +14981,20 @@
                       "type": "integer",
                       "minimum": 1,
                       "maximum": 366
+                    },
+                    "secondaryLeadVisibility": {
+                      "type": "string",
+                      "enum": [
+                        "off",
+                        "calendar",
+                        "profile"
+                      ]
                     }
                   },
                   "required": [
                     "requireTwoFactor",
-                    "auditorAccessMaxDays"
+                    "auditorAccessMaxDays",
+                    "secondaryLeadVisibility"
                   ]
                 }
               }

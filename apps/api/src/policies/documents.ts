@@ -19,7 +19,11 @@ export interface DocumentAccessFields {
   targetLocationId: string | null;
 }
 
-/** Whether a company-wide document targets the caller (DOC-002). */
+/**
+ * Whether a company-wide document targets the caller (DOC-002). A department
+ * audience matches the primary department and, per ORG-007, departments the
+ * caller has an active secondary membership in.
+ */
 export function isInDocumentAudience(
   ctx: PolicyUserContext,
   doc: DocumentAccessFields,
@@ -30,10 +34,13 @@ export function isInDocumentAudience(
   switch (doc.audienceType) {
     case "company":
       return true;
-    case "department":
-      return (
-        Boolean(ctx.departmentId) && ctx.departmentId === doc.targetDepartmentId
-      );
+    case "department": {
+      // ORG-007 (ADR 0008 D5): active secondary departments count too.
+      const target = doc.targetDepartmentId;
+      const mine =
+        ctx.departmentIds ?? (ctx.departmentId ? [ctx.departmentId] : []);
+      return target !== null && mine.includes(target);
+    }
     case "location":
       return Boolean(ctx.locationId) && ctx.locationId === doc.targetLocationId;
     default:

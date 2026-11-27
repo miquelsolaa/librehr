@@ -467,6 +467,12 @@
     "twoFactorDisableSessionExpired": "La teva sessió ha caducat. Torna a iniciar sessió per canviar la configuració de seguretat.",
     "twoFactorDisableForbidden": "No tens permís per canviar l'autenticació en dos passos d'aquest compte.",
     "twoFactorDisableRateLimited": "Massa intents. Espera uns minuts i torna-ho a provar.",
+    "leadVisibilityLabel": "Què veuen els responsables dels seus membres",
+    "leadVisibilityHint": "S'aplica als responsables de departaments, projectes i àrees respecte a les persones que hi pertanyen a més del seu departament principal. Mai no permet editar, aprovar ni veure dades sensibles.",
+    "leadVisibilityOff": "Res més enllà del seu rol",
+    "leadVisibilityCalendar": "Absències al calendari de l'equip, sense el seu tipus",
+    "leadVisibilityProfile": "Absències i la fitxa del directori",
+    "leadVisibilityLoadError": "No s'ha pogut carregar aquest ajust. Torna a carregar la pàgina per tornar-ho a provar.",
     "twoFactorDisableBreakGlass": "Ets l'únic administrador amb verificació en dos passos d'una organització que exigeix inici de sessió únic. Activa-la abans per a un altre administrador."
   },
   "setup": {

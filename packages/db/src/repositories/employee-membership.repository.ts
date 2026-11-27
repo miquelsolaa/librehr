@@ -205,4 +205,53 @@ export class EmployeeMembershipRepository {
     if (result.count === 0) return null;
     return this.findById(tx, employeeId, id);
   }
+
+  /**
+   * ORG-007 (ADR 0008 decision 8): employees a lead may see under the
+   * organization's lead visibility setting, on a calendar date. A lead is the
+   * lead_employee_id of a department or a non-archived group; members are the
+   * department's primary members plus anyone with a membership in it active
+   * on the date. The lead and terminated employees are left out.
+   */
+  async listMembersLedBy(
+    tx: TenantTx,
+    leadEmployeeId: string,
+    date: string,
+  ): Promise<string[]> {
+    const orgId = tx.__tenantContext.organizationId;
+    const rows = await tx<{ id: string }[]>`
+      SELECT e.id
+      FROM employees e
+      WHERE e.organization_id = ${orgId}
+        AND e.id <> ${leadEmployeeId}
+        AND e.status <> 'terminated'
+        AND (
+          EXISTS (
+            SELECT 1 FROM departments d
+            WHERE d.organization_id = ${orgId}
+              AND d.id = e.department_id
+              AND d.lead_employee_id = ${leadEmployeeId}
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM employee_memberships m
+            LEFT JOIN departments d
+              ON d.id = m.department_id AND d.organization_id = m.organization_id
+            LEFT JOIN org_groups g
+              ON g.id = m.group_id AND g.organization_id = m.organization_id
+            WHERE m.organization_id = ${orgId}
+              AND m.employee_id = e.id
+              AND m.start_date <= ${date}::date
+              AND (m.end_date IS NULL OR m.end_date >= ${date}::date)
+              AND (
+                d.lead_employee_id = ${leadEmployeeId}
+                OR (g.lead_employee_id = ${leadEmployeeId}
+                    AND g.archived_at IS NULL)
+              )
+          )
+        )
+      ORDER BY e.id
+    `;
+    return rows.map((r) => r.id);
+  }
 }

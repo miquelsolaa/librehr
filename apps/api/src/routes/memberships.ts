@@ -3,17 +3,11 @@ import type { Sql } from "postgres";
 import { z } from "zod";
 import {
   type AuthUser,
-  type EmployeeMembership,
-  type EmployeeMembershipWriteResponse,
   CreateEmployeeMembershipRequestSchema,
   EndEmployeeMembershipRequestSchema,
   UpdateEmployeeMembershipRequestSchema,
 } from "@librehr/contracts";
-import {
-  findOverlappingMembership,
-  peakAllocationDuring,
-  type EmployeeMembership as CoreMembership,
-} from "@librehr/core";
+import { findOverlappingMembership } from "@librehr/core";
 import {
   withTenant,
   AuditRepository,
@@ -21,21 +15,24 @@ import {
   EmployeeMembershipRepository,
   EmployeeRepository,
   OrgGroupRepository,
-  type EmployeeMembershipRow,
   type TenantTx,
 } from "@librehr/db";
 import { requireAuth } from "../middleware/auth.js";
 import {
+  canOnEmployee,
   requireEmployeeInScope,
   resolvePolicyContext,
 } from "../policies/context.js";
+import { canReadAsLead } from "../policies/lead-visibility.js";
 import {
   ConflictError,
+  ForbiddenError,
   NotFoundError,
   ValidationError,
 } from "../errors/index.js";
 import { IdParamSchema, parseJsonBody, parseParams } from "../lib/validate.js";
 import { mapPgErrors, PG_EXCLUSION_VIOLATION } from "../lib/pg-errors.js";
+import { toMembership, writeResponse } from "../lib/membership-response.js";
 
 const memberships = new EmployeeMembershipRepository();
 const employees = new EmployeeRepository();
@@ -73,39 +70,6 @@ const membershipNotFound = () =>
     code: "MEMBERSHIP_NOT_FOUND",
     detail: "Membership not found",
   });
-
-export function toMembership(row: EmployeeMembershipRow): EmployeeMembership {
-  return {
-    id: row.id,
-    employeeId: row.employeeId,
-    departmentId: row.departmentId,
-    groupId: row.groupId,
-    targetType: row.targetType,
-    targetName: row.targetName,
-    role: row.role,
-    allocationPercent: row.allocationPercent,
-    startDate: row.startDate,
-    endDate: row.endDate,
-    endReason: row.endReason,
-    ended: row.endedBy !== null,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  };
-}
-
-/** The write result plus the over-allocation warning (ADR 0008 D3). */
-function writeResponse(
-  row: EmployeeMembershipRow,
-  others: readonly CoreMembership[],
-): EmployeeMembershipWriteResponse {
-  const peak = peakAllocationDuring([...others, row], row);
-  return {
-    membership: toMembership(row),
-    overAllocation: peak.overAllocated
-      ? { date: peak.date, totalPercent: peak.totalPercent }
-      : null,
-  };
-}
 
 /**
  * ORG-007 (ADR 0008): secondary memberships of an employee. Reading needs
@@ -146,14 +110,40 @@ export function createMembershipRoutes(sql: Sql) {
     );
   };
 
+  /**
+   * Readers in scope get every field. A lead allowed the member's profile by
+   * the `profile` setting (ADR 0008 decision 8) gets what the directory
+   * shows: no role label and no end reason.
+   */
   router.get("/employees/:id/memberships", requireAuth, async (c) => {
     const { id } = parseParams(c, IdParamSchema, {
       detail: "Employee not found",
     });
-    const rows = await inEmployeeScope(c, id, "employee.read", (tx) =>
-      memberships.listForEmployee(tx, id),
+    const user = (c.get as (key: string) => unknown)("user") as AuthUser;
+    const result = await withTenant(
+      sql,
+      { organizationId: user.organizationId, userId: user.id },
+      async (tx) => {
+        const ctx = await resolvePolicyContext(c, tx);
+        const employee = (await employees.findScopeByIds(tx, [id]))[0] ?? null;
+        if (!employee)
+          throw new NotFoundError({ detail: "Employee not found" });
+        const asLead =
+          !canOnEmployee(ctx, "employee.read", employee) &&
+          canReadAsLead(ctx, "employee.read", id);
+        if (!asLead && !canOnEmployee(ctx, "employee.read", employee))
+          throw new ForbiddenError({
+            detail: "This employee is outside your access scope",
+          });
+        const rows = (await memberships.listForEmployee(tx, id)).map(
+          toMembership,
+        );
+        return asLead
+          ? rows.map((m) => ({ ...m, role: null, endReason: null }))
+          : rows;
+      },
     );
-    return c.json(rows.map(toMembership));
+    return c.json(result);
   });
 
   router.post("/employees/:id/memberships", requireAuth, async (c) => {
