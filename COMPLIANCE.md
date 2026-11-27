@@ -77,6 +77,30 @@ Implementing ADM-005 is the next required feature. Its retention periods are
 compliance defaults, so the maintainers must confirm them (with counsel)
 before it ships.
 
+**Retention configuration (ADM-005, in progress).** Periods are configuration
+per organization: `retention_policies` (migration 0042) holds an optional
+override per category, and a missing row means the default in
+`packages/core/src/retention`. Every category is report-only: nothing is
+deleted or anonymised. The defaults below are the maintainers' recommendation,
+**pending legal confirmation by counsel** (issue #32); only the time-records
+floor is law, and it is enforced by a database CHECK.
+
+| Category              | Default (days)               | Measured from                       | Legal floor         |
+| --------------------- | ---------------------------- | ----------------------------------- | ------------------- |
+| `time_records`        | 1461 (4 years)               | the clock event                     | 1461 (ET art. 34.9) |
+| `leave_records`       | 1461 (4 years)               | the employee's termination date     | none                |
+| `audit_log`           | 1095 (3 years)               | the entry                           | none                |
+| `deleted_documents`   | 30 (grace after soft delete) | the soft delete                     | none                |
+| `statutory_documents` | 1461 (4 years)               | the upload (contracts and payslips) | none                |
+| `notifications`       | 365                          | the notification                    | none                |
+| `invitations`         | 90                           | acceptance or expiry                | none                |
+
+A soft-deleted contract or payslip counts as eligible only once both its
+`deleted_documents` grace and its `statutory_documents` period have passed;
+otherwise it is reported as held back. Password reset links
+(`password_reset_tokens`, instance-wide, not per organization) keep their
+30-day retention of migration 0040.
+
 ## 6. Feature-level compliance requirements
 
 - **Time tracking:** append-only events, corrections referenced not overwritten, 4-year retention, exports with hash, employee access to own records, optional inspector role with time-limited (default 90 days, configurable per organization), logged access, employee notified of corrections.

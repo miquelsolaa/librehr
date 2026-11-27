@@ -32,3 +32,4 @@ export * from "./webhook.repository.js";
 export * from "./shift.repository.js";
 export * from "./scheduler.repository.js";
 export * from "./rate-limit.repository.js";
+export * from "./retention.repository.js";
