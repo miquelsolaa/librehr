@@ -226,6 +226,10 @@ export const SsoErrorCodeSchema = z.enum([
   "SSO_DOMAIN_NOT_ALLOWED",
   "SSO_NO_ACCOUNT",
   "SSO_IDENTITY_CONFLICT",
+  // The person also belongs to another organization: their password and
+  // second factors are shared, so one organization's provider cannot sign
+  // them in (they use their password).
+  "SSO_MULTI_ORG_ACCOUNT",
   "SSO_UNAVAILABLE",
 ]);
 export type SsoErrorCode = z.infer<typeof SsoErrorCodeSchema>;

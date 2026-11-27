@@ -105,6 +105,7 @@ export function registerAuthorizeRoute(
         });
       });
 
+      const locale = parsed.data.locale ?? "ca";
       const secrets = createLoginSecrets();
       await identityRepo.ssoBeginLogin(context.sql, {
         state: secrets.state,
@@ -114,9 +115,9 @@ export function registerAuthorizeRoute(
         clientId: match.clientId,
         nonce: secrets.nonce,
         codeVerifier: secrets.codeVerifier,
-        locale: parsed.data.locale ?? "ca",
+        locale,
       });
-      setStateCookie(c, secrets.state, redirectUri);
+      setStateCookie(c, secrets.state, locale, redirectUri);
 
       return c.json({
         authorizationUrl: buildOidcAuthorizationUrl({

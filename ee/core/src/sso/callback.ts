@@ -43,6 +43,7 @@ const RESOLVE_ERROR_CODES: Record<
   domain_not_allowed: "SSO_DOMAIN_NOT_ALLOWED",
   no_account: "SSO_NO_ACCOUNT",
   identity_conflict: "SSO_IDENTITY_CONFLICT",
+  multi_org_account: "SSO_MULTI_ORG_ACCOUNT",
 };
 
 type ConsumedRequest = Extract<SsoConsumeResult, { outcome: "ok" }>;
@@ -100,21 +101,24 @@ export function registerCallbackRoute(router: Hono, deps: SsoSignInDeps): void {
       const fail = (locale: SsoLocale, code: SsoErrorCode) =>
         c.redirect(webUrl(locale, `sign-in?sso_error=${code}`), 302);
 
-      const cookieState = takeStateCookie(c, redirectUri);
+      const { state: cookieState, locale: cookieLocale } = takeStateCookie(
+        c,
+        redirectUri,
+      );
       const query = CallbackQuerySchema.safeParse(c.req.query());
       const state = query.success ? query.data.state : undefined;
       // Checked before the request is spent, so a forged callback opened in
       // someone else's browser cannot burn or finish a sign-in.
       if (!query.success || !state || !cookieState) {
-        return fail("ca", "SSO_STATE_INVALID");
+        return fail(cookieLocale, "SSO_STATE_INVALID");
       }
       if (!safeEqual(state, cookieState)) {
-        return fail("ca", "SSO_STATE_INVALID");
+        return fail(cookieLocale, "SSO_STATE_INVALID");
       }
 
       const request = await identityRepo.ssoConsume(context.sql, state);
       if (request.outcome === "invalid") {
-        return fail("ca", "SSO_STATE_INVALID");
+        return fail(cookieLocale, "SSO_STATE_INVALID");
       }
       if (request.outcome !== "ok") {
         const code =

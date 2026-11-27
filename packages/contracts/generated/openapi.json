@@ -6963,7 +6963,7 @@
         ],
         "responses": {
           "302": {
-            "description": "Always a redirect to the web app: /{locale}/sso/complete on success, /{locale}/sign-in#sso_challenge=... when local 2FA is required, or /{locale}/sign-in?sso_error=CODE with one of SSO_STATE_INVALID, SSO_EXPIRED, SSO_PROVIDER_ERROR, SSO_EXCHANGE_FAILED, SSO_TOKEN_INVALID, SSO_EMAIL_NOT_VERIFIED, SSO_DOMAIN_NOT_ALLOWED, SSO_NO_ACCOUNT, SSO_IDENTITY_CONFLICT, SSO_UNAVAILABLE"
+            "description": "Always a redirect to the web app: /{locale}/sso/complete on success, /{locale}/sign-in#sso_challenge=... when local 2FA is required, or /{locale}/sign-in?sso_error=CODE with one of SSO_STATE_INVALID, SSO_EXPIRED, SSO_PROVIDER_ERROR, SSO_EXCHANGE_FAILED, SSO_TOKEN_INVALID, SSO_EMAIL_NOT_VERIFIED, SSO_DOMAIN_NOT_ALLOWED, SSO_NO_ACCOUNT, SSO_IDENTITY_CONFLICT, SSO_MULTI_ORG_ACCOUNT, SSO_UNAVAILABLE"
           },
           "403": {
             "description": "LICENSE_REQUIRED without a Business licence that grants sso (LIC-003)",
