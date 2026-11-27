@@ -57,6 +57,8 @@ export default function PeoplePage() {
   const [inviteRole, setInviteRole] = React.useState<
     "employee" | "manager" | "admin"
   >("employee");
+  // ORG-007: every invited employee gets a primary department.
+  const [inviteDept, setInviteDept] = React.useState("");
   const [inviteSending, setInviteSending] = React.useState(false);
   const [inviteSuccess, setInviteSuccess] = React.useState(false);
   const [inviteError, setInviteError] = React.useState("");
@@ -138,12 +140,14 @@ export default function PeoplePage() {
       await getApiClient().createInvitation({
         email: inviteEmail,
         role: inviteRole,
+        departmentId: inviteDept,
       });
       setInviteSuccess(true);
       setTimeout(() => {
         setInviteOpen(false);
         setInviteSuccess(false);
         setInviteEmail("");
+        setInviteDept("");
       }, 1500);
     } catch {
       setInviteError(t("inviteError"));
@@ -351,6 +355,31 @@ export default function PeoplePage() {
                           {tInvites("roleManager")}
                         </option>
                         <option value="admin">{tInvites("roleAdmin")}</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="invite-department"
+                        className="text-xs font-medium text-foreground"
+                      >
+                        {tInvites("departmentLabel")}
+                      </label>
+                      <select
+                        id="invite-department"
+                        required
+                        className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
+                        value={inviteDept}
+                        onChange={(e) => setInviteDept(e.target.value)}
+                      >
+                        <option value="">
+                          {tInvites("departmentPlaceholder")}
+                        </option>
+                        {departments.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.name}
+                          </option>
+                        ))}
                       </select>
                     </div>
 
