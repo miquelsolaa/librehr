@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
+import fc from "fast-check";
 import {
   isAllowedEmailDomain,
   buildOidcAuthorizationUrl,
-  decodeJwtClaims,
 } from "../src/sso/oidc.js";
 
 describe("SSO OIDC Helpers", () => {
@@ -41,24 +41,28 @@ describe("SSO OIDC Helpers", () => {
     expect(msUrl).toContain("client_id=ms-client-456");
   });
 
-  it("decodes unverified JWT claims safely", () => {
-    const header = Buffer.from(JSON.stringify({ alg: "RS256" })).toString(
-      "base64url",
-    );
-    const payload = Buffer.from(
-      JSON.stringify({
-        sub: "user-123",
-        email: "alice@acme.corp",
-        name: "Alice Smith",
+  it("accepts only an exact allowed domain, never a look-alike", () => {
+    const label = fc.stringMatching(/^[a-z0-9-]{1,12}$/);
+    fc.assert(
+      fc.property(label, label, fc.string(), (name, base, noise) => {
+        const allowed = `${base}.example`;
+        expect(isAllowedEmailDomain(`${name}@${allowed}`, [allowed])).toBe(
+          true,
+        );
+        for (const lookAlike of [
+          `${name}@${allowed}.evil`,
+          `${name}@evil-${allowed}`,
+          `${name}@sub.${allowed}`,
+          `${name}@${allowed}@x.${allowed}`,
+        ]) {
+          expect(isAllowedEmailDomain(lookAlike, [allowed])).toBe(false);
+        }
+        const other = `${name}@${noise}`;
+        expect(isAllowedEmailDomain(other, [allowed])).toBe(
+          noise.trim().toLowerCase() === allowed,
+        );
       }),
-    ).toString("base64url");
-    const fakeToken = `${header}.${payload}.sig`;
-
-    const claims = decodeJwtClaims(fakeToken);
-    expect(claims).not.toBeNull();
-    expect(claims?.["email"]).toBe("alice@acme.corp");
-    expect(claims?.["name"]).toBe("Alice Smith");
-    expect(claims?.["sub"]).toBe("user-123");
+    );
   });
 
   // CodeQL js/incomplete-url-substring-sanitization: the provider is decided
