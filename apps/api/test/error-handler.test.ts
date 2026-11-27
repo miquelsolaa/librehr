@@ -6,6 +6,7 @@ import {
   ConflictError,
   ForbiddenError,
   NotFoundError,
+  SsoRequiredError,
   UnauthorizedError,
   ValidationError,
   type AppError,
@@ -32,6 +33,12 @@ describe("errorHandler", () => {
     ["UnauthorizedError", new UnauthorizedError(), 401, "UNAUTHORIZED"],
     ["ForbiddenError", new ForbiddenError(), 403, "FORBIDDEN"],
     ["ConflictError", new ConflictError(), 409, "CONFLICT"],
+    [
+      "SsoRequiredError (AUTH-004)",
+      new SsoRequiredError(),
+      403,
+      "SSO_REQUIRED",
+    ],
     ["ValidationError", new ValidationError(), 400, "VALIDATION_ERROR"],
     [
       "ValidationError (422)",

@@ -242,4 +242,27 @@ test.describe("disable two-factor dialog (AUTH-003)", () => {
       page.getByRole("button", { name: "Desactivar Doble Factor" }),
     ).toBeVisible();
   });
+
+  test("the last break-glass admin of an organization requiring SSO is told why (AUTH-004)", async ({
+    page,
+  }) => {
+    await mockSecurityApi(page, () => ({
+      status: 409,
+      json: {
+        type: "about:blank",
+        title: "Conflict",
+        status: 409,
+        code: "SSO_BREAK_GLASS_REQUIRED",
+      },
+    }));
+    await page.goto("/en/settings/security");
+    await page.getByRole("button", { name: "Disable Two-Factor" }).click();
+    const dialog = page.getByRole("dialog", { name: "Disable Two-Factor" });
+    await dialog.getByLabel("Authentication or recovery code").fill(VALID_CODE);
+    await dialog.getByRole("button", { name: "Disable two-factor" }).click();
+    await expect(dialog.getByRole("alert")).toContainText(
+      "You are the only administrator with two-factor authentication",
+    );
+    await expectNoAxeViolations(page);
+  });
 });

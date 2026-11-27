@@ -10,6 +10,8 @@ export {
   LicenseRequiredError,
   NotFoundError,
   SelfApprovalForbiddenError,
+  SsoBreakGlassRequiredError,
+  SsoRequiredError,
   UnauthorizedError,
   ValidationError,
   type ValidationErrorOptions,
