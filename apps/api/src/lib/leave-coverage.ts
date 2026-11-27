@@ -44,7 +44,8 @@ export type LeaveCoverageFailure = {
  * on each working day (ORG-007, ADR 0008 D6):
  * - blackouts are the union of org-wide ones and those of every department
  *   the person works in that day;
- * - the primary department must have a coverage policy, as before;
+ * - the primary department must have a coverage policy, as before (an
+ *   employee without one skips only this requirement);
  * - a secondary department is checked only when it has a policy, so adding
  *   a membership never causes COVERAGE_NOT_CONFIGURED;
  * - team size and absences count heads among the department's primary and
@@ -86,18 +87,23 @@ export async function checkLeaveCoverage(
   }
 
   // Coverage rules must be configured explicitly for the primary department.
-  if (input.primaryDepartmentId === null) return null;
-  const primary = await departmentRepo.findById(tx, input.primaryDepartmentId);
-  if (!primary || primary.minPresencePercent === null) {
-    return {
-      error: "COVERAGE_NOT_CONFIGURED",
-      message:
-        "Configure the department coverage policy before requesting leave.",
-    };
+  // An employee stored without one (tolerated until edited, ADR 0008 D10)
+  // skips only that requirement: secondaries with a policy are still checked.
+  const policies = new Map<string, number>();
+  if (input.primaryDepartmentId !== null) {
+    const primary = await departmentRepo.findById(
+      tx,
+      input.primaryDepartmentId,
+    );
+    if (!primary || primary.minPresencePercent === null) {
+      return {
+        error: "COVERAGE_NOT_CONFIGURED",
+        message:
+          "Configure the department coverage policy before requesting leave.",
+      };
+    }
+    policies.set(primary.id, primary.minPresencePercent);
   }
-  const policies = new Map<string, number>([
-    [primary.id, primary.minPresencePercent],
-  ]);
   for (const m of secondaries) {
     const id = m.departmentId!;
     if (policies.has(id)) continue;
