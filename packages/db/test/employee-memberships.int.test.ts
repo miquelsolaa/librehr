@@ -91,13 +91,13 @@ describe("employee memberships and org groups (0046)", () => {
       memberships.end(tx, ids.empA, created.id, {
         endDate: "2026-06-30",
         endedBy: actor,
-        endReason: "reorganisation",
+        endReason: "reassigned",
       }),
     );
     expect(ended).toMatchObject({
       endDate: "2026-06-30",
       endedBy: actor,
-      endReason: "reorganisation",
+      endReason: "reassigned",
     });
 
     const active = await inA((tx) =>
@@ -184,6 +184,49 @@ describe("employee memberships and org groups (0046)", () => {
     await expect(insert(null, group.id, 0)).rejects.toMatchObject({
       code: "23514",
     });
+  });
+
+  it("accepts only coarse end reasons (23514)", async () => {
+    const m = await inA((tx) =>
+      memberships.create(tx, {
+        employeeId: ids.empA,
+        departmentId: ids.deptA2,
+        startDate: "2030-01-01",
+        createdBy: actor,
+      }),
+    );
+    await expect(
+      inA(
+        (tx) => tx`
+          UPDATE employee_memberships SET end_reason = 'sick leave'
+          WHERE id = ${m.id}`,
+      ),
+    ).rejects.toMatchObject({ code: "23514" });
+  });
+
+  it("keeps an invitation's department in the tenant and clears it on delete", async () => {
+    const invite = (deptId: string) =>
+      inA(
+        (tx) => tx<{ id: string }[]>`
+          INSERT INTO invitations (email, role, token, expires_at, department_id)
+          VALUES (${`${crypto.randomUUID()}@a.test`}, 'employee',
+                  ${crypto.randomUUID()}, now() + interval '1 day', ${deptId})
+          RETURNING id`,
+      );
+    await expect(invite(ids.deptB)).rejects.toMatchObject({ code: "23503" });
+
+    const doomed = crypto.randomUUID();
+    await db.adminSql`
+      INSERT INTO departments (id, organization_id, name)
+      VALUES (${doomed}, ${ids.orgA}, 'Doomed')`;
+    const [row] = await invite(doomed);
+    await db.adminSql`DELETE FROM departments WHERE id = ${doomed}`;
+    const [after] = await db.adminSql<
+      { organizationId: string; departmentId: string | null }[]
+    >`
+      SELECT organization_id AS "organizationId", department_id AS "departmentId"
+      FROM invitations WHERE id = ${row!.id}`;
+    expect(after).toEqual({ organizationId: ids.orgA, departmentId: null });
   });
 
   it("rejects links to another tenant's employee, department or group (composite FKs)", async () => {
