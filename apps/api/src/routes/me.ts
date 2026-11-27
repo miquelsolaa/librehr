@@ -40,6 +40,11 @@ export function createMeRoutes(sql: Sql) {
       });
     }
 
+    // users is a global table without RLS (AUTH-001 email verification).
+    const [account] = await sql<{ emailVerified: boolean }[]>`
+      SELECT email_verified AS "emailVerified" FROM users WHERE id = ${user.id}
+    `;
+
     const permissions = (ROLE_PERMISSIONS[user.role] ?? []).map(
       (p) => p.permission,
     );
@@ -55,6 +60,7 @@ export function createMeRoutes(sql: Sql) {
         requireTwoFactor: org.require_two_factor,
       },
       permissions,
+      emailVerified: account?.emailVerified ?? false,
     });
   });
 

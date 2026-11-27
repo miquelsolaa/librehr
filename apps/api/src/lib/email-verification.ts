@@ -1,6 +1,8 @@
 import crypto from "node:crypto";
 import type { Sql } from "postgres";
 import { hashBearerToken } from "@librehr/db";
+import type { MailPort } from "../ports/mail.js";
+import { logger } from "../middleware/logger.js";
 import { verifyPassword } from "./password.js";
 
 /**
@@ -80,6 +82,42 @@ export type EmailVerificationResult =
   | { status: "verified"; userId: string }
   | { status: "invalid_token" }
   | { status: "invalid_password" };
+
+/**
+ * Creates a link for `userId` and emails it, without blocking the caller:
+ * the response must not wait on SMTP. Nothing is sent when the account is
+ * already verified or over its hourly cap. Failures are logged with the
+ * error class and code only, since SMTP messages often quote the recipient.
+ */
+export function sendEmailVerification(
+  sql: Sql,
+  mail: { mailPort: MailPort; appUrl: string },
+  userId: string,
+  locale: string | undefined,
+  options: EmailVerificationOptions = {},
+): void {
+  void createEmailVerificationToken(sql, userId, options)
+    .then((created) => {
+      if (!created) return;
+      const message = emailVerificationEmail(
+        mail.appUrl,
+        locale,
+        created.token,
+        options.ttlMs,
+      );
+      return mail.mailPort.sendMail({ to: created.email, ...message });
+    })
+    .catch((err: unknown) => {
+      const code =
+        typeof err === "object" && err !== null && "code" in err
+          ? String(err.code)
+          : undefined;
+      logger.error(
+        { errName: err instanceof Error ? err.name : "unknown", code },
+        "email verification email failed",
+      );
+    });
+}
 
 /**
  * Marks the account's email as verified with a link token and the account

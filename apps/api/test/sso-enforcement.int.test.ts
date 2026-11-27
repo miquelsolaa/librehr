@@ -117,6 +117,8 @@ describe("SSO enforcement for password sessions (AUTH-004)", () => {
       await sql`INSERT INTO users (id, email, name, password_hash)
         VALUES (${id}, ${emailOf(id)}, 'Test User', ${hash})`;
     }
+    // Reset links go only to verified addresses (AUTH-001).
+    await sql`UPDATE users SET email_verified = true WHERE id = ${resetUser}`;
     for (const id of [employee2fa, admin2fa, invitedAdmin2fa]) {
       const secret = generateTotpSecret();
       secrets.set(id, secret);

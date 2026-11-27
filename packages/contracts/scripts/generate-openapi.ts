@@ -16,6 +16,8 @@ import {
   SsoErrorCodeSchema,
 } from "../src/auth.js";
 import {
+  EmailVerificationConfirmSchema,
+  EmailVerificationRequestSchema,
   PasswordResetConfirmSchema,
   PasswordResetRequestSchema,
   SignInRequestSchema,
@@ -419,6 +421,85 @@ registry.registerPath({
     400: {
       description:
         "Validation failure, or RESET_TOKEN_INVALID for an unknown, used or expired token",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    429: {
+      description: "Too many requests",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/auth/email-verification",
+  summary:
+    "Email a verification link to the signed-in account (AUTH-001). Interactive sessions only; answers 202 and sends nothing when the email is already verified",
+  request: {
+    body: {
+      content: {
+        "application/json": { schema: EmailVerificationRequestSchema },
+      },
+    },
+  },
+  responses: {
+    202: {
+      description: "Accepted; a link is emailed if the email is unverified",
+      content: {
+        "application/json": { schema: z.object({ success: z.boolean() }) },
+      },
+    },
+    400: {
+      description: "Validation failure",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    401: {
+      description: "Not signed in",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    403: {
+      description: "Personal access tokens cannot request links",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    429: {
+      description: "Too many requests",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    503: {
+      description:
+        "EMAIL_UNAVAILABLE: SMTP or APP_URL is not configured on this instance",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/v1/auth/email-verification/confirm",
+  summary:
+    "Confirm the account's email with a verification link token and the account password (AUTH-001). No sign-in needed and none is granted; the token works once, and a wrong password spends nothing",
+  request: {
+    body: {
+      content: {
+        "application/json": { schema: EmailVerificationConfirmSchema },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Email verified",
+      content: {
+        "application/json": { schema: z.object({ success: z.boolean() }) },
+      },
+    },
+    400: {
+      description:
+        "Validation failure, or VERIFICATION_TOKEN_INVALID for an unknown, used, expired or outdated token",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    401: {
+      description:
+        "INVALID_CREDENTIALS: the password is not the password of the link's account",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
     429: {
@@ -2553,6 +2634,8 @@ const clientTs = `/**
  */
 
 import type {
+  EmailVerificationConfirm,
+  EmailVerificationRequest,
   PasswordResetConfirm,
   PasswordResetRequest,
   SignInRequest,
@@ -2805,6 +2888,22 @@ export class LibreHrApiClient {
 
   async confirmPasswordReset(data: PasswordResetConfirm): Promise<{ success: boolean }> {
     return this.request<{ success: boolean }>('/v1/auth/password-reset/confirm', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // AUTH-001: emails a verification link to the signed-in account.
+  async requestEmailVerification(data: EmailVerificationRequest = {}): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>('/v1/auth/email-verification', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // AUTH-001: works without a session, so the link opens on any device.
+  async confirmEmailVerification(data: EmailVerificationConfirm): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>('/v1/auth/email-verification/confirm', {
       method: 'POST',
       body: JSON.stringify(data),
     });

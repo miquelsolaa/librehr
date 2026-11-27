@@ -15,10 +15,10 @@ import { hashPassword } from "./password.js";
 export const DEFAULT_RESET_LINKS_PER_HOUR = 3;
 
 /**
- * Creates a reset link token, or null when the email has no password account
- * or the account already got `maxPerHour` links in the last hour. The cap is
- * per account and kept in the database, so rotating IPs cannot flood an
- * inbox; the caller answers 202 either way.
+ * Creates a reset link token, or null when the email has no password account,
+ * the address is unverified, or the account already got `maxPerHour` links
+ * in the last hour. The cap is per account and kept in the database, so
+ * rotating IPs cannot flood an inbox; the caller answers 202 either way.
  */
 export async function createPasswordResetToken(
   sql: Sql,
@@ -34,11 +34,14 @@ export async function createPasswordResetToken(
       WHERE created_at < now() - interval '30 days'`;
     // Accounts without a password sign in only through single sign-on: a
     // local password would let them bypass their organization's provider.
+    // Links go only to confirmed addresses (AUTH-001): a mistyped, unverified
+    // address must not hand the account to whoever owns it. Unverified
+    // accounts recover through the recover-account CLI.
     // FOR UPDATE serializes requests for one account (users row first, then
     // tokens: the same order as librehr_auth_reset_password).
     const [account] = await tx<{ id: string }[]>`
       SELECT id FROM users
-      WHERE email = ${email} AND password_hash IS NOT NULL
+      WHERE email = ${email} AND password_hash IS NOT NULL AND email_verified
       LIMIT 1
       FOR UPDATE`;
     if (!account) return null;

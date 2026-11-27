@@ -42,6 +42,19 @@ one is requested. Self-service reset
 needs `SMTP_HOST` and `APP_URL`; without them, requests are accepted but no
 email is sent.
 
+Email verification (AUTH-001). The administrator created by the setup wizard
+starts with an unverified address and is emailed a confirmation link (valid
+24 hours, works once, no sign-in needed to open it, but confirming asks for
+the account password, so a link that reached a mistyped address is useless to
+whoever received it). Unverified users keep
+full access; a signed-in user can ask for a new link. People who join through
+an invitation are verified by accepting it. Password reset links go only to
+verified addresses, so an administrator who never confirmed their address
+recovers access with the `recover-account` command above. Verification links
+older than 30 days are deleted whenever a new one is requested. Without
+`SMTP_HOST` and `APP_URL` no link is sent and asking for one answers 503
+`EMAIL_UNAVAILABLE`.
+
 LibreHR is designed to be easily self-hostable on any standard Linux server, VPS, or cloud instance running Docker.
 
 ## System Requirements
@@ -209,7 +222,7 @@ your `.env`. When you configure a provider:
 - [ ] Ensure database port 5432 is not exposed to the public internet (bind to internal Docker network only).
 - [ ] Run `pnpm doctor` or verify RLS is forced on all tenant tables.
 - [ ] Setup daily automated backups using `infra/scripts/backup.sh`.
-- [ ] Configure outbound SMTP settings to deliver transactional invites and password resets.
+- [ ] Configure outbound SMTP settings to deliver transactional invites, email verification links and password resets.
 - [ ] If the API host may only reach the internet through a forward proxy, allow direct outbound HTTPS for webhook deliveries (see [Outbound webhooks](#outbound-webhooks-and-proxies)).
 
 ### Outbound webhooks and proxies

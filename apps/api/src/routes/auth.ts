@@ -1,6 +1,8 @@
 import { Hono, type Context } from "hono";
 import type { Sql } from "postgres";
 import {
+  EmailVerificationConfirmSchema,
+  EmailVerificationRequestSchema,
   PasswordResetConfirmSchema,
   PasswordResetRequestSchema,
   SignInRequestSchema,
@@ -48,6 +50,12 @@ import {
   passwordResetEmail,
   resetPasswordWithToken,
 } from "../lib/password-reset.js";
+import {
+  sendEmailVerification,
+  verifyEmailWithToken,
+  type EmailVerificationOptions,
+} from "../lib/email-verification.js";
+import { requireInteractiveSession } from "../middleware/pat-scopes.js";
 import { parseJsonBody } from "../lib/validate.js";
 import { FailureLockout } from "../lib/failure-lockout.js";
 import type { RateLimitStore } from "../lib/rate-limit-store.js";
@@ -78,6 +86,8 @@ export interface AuthRouteOptions {
   /** Overrides of the reset limits (tests); see lib/password-reset.ts. */
   passwordReset?:
     { maxLinksPerAccountPerHour?: number | undefined } | undefined;
+  /** Overrides of the email verification defaults (cap, link lifetime). */
+  emailVerification?: EmailVerificationOptions | undefined;
 }
 
 /** A JSON body field for rate-limit keys; never throws. */
@@ -385,7 +395,7 @@ export function createAuthRoutes(
   if (!mailPort || !appUrl) {
     logger.warn(
       { mail: Boolean(mailPort), appUrl: Boolean(appUrl) },
-      "password reset emails are off: SMTP or APP_URL is not configured",
+      "password reset and email verification emails are off: SMTP or APP_URL is not configured",
     );
   }
 
@@ -441,6 +451,109 @@ export function createAuthRoutes(
         throw new ValidationError({
           code: "RESET_TOKEN_INVALID",
           detail: "The reset link is invalid, used or expired",
+        });
+      }
+      return c.json({ success: true });
+    },
+  );
+
+  // AUTH-001 email verification. Requesting a link needs an interactive
+  // session (personal access tokens are refused). Confirming needs the
+  // 256-bit token and the account password, but no session, so the link
+  // works on another device; it grants no session. The password stops a
+  // stranger who got a link sent to a mistyped address from verifying it
+  // and then requesting reset links. Besides these buckets,
+  // createEmailVerificationToken caps links per account in the database.
+  const verificationUserLimit = createRateLimiter({
+    name: "auth.email-verification.user",
+    store,
+    windowMs: 15 * minute,
+    max: 3,
+    trustProxy,
+    account: (c) => currentUser(c).id,
+  });
+  const verificationConfirmLimit = createRateLimiter({
+    name: "auth.email-verification-confirm.ip",
+    store,
+    windowMs: minute,
+    max: 10,
+    trustProxy,
+  });
+  // Password guesses against one link, like the per-account sign-in bucket.
+  const verificationConfirmTokenLimit = createRateLimiter({
+    name: "auth.email-verification-confirm.token",
+    store,
+    windowMs: 15 * minute,
+    max: 5,
+    trustProxy,
+    account: (c) => bodyField(c, "token"),
+  });
+
+  router.post(
+    "/email-verification",
+    requireAuth,
+    perIp("auth.email-verification.ip"),
+    verificationUserLimit,
+    async (c) => {
+      requireInteractiveSession(c);
+      const user = currentUser(c);
+      const body: unknown = await c.req.json().catch(() => ({}));
+      const parsed = EmailVerificationRequestSchema.safeParse(body ?? {});
+      if (!parsed.success) throw ValidationError.fromZod(parsed.error);
+      if (!mailPort || !appUrl) {
+        return c.json(
+          createProblemDetails({
+            status: 503,
+            title: "Service unavailable",
+            detail: "Email is not configured on this instance",
+            code: "EMAIL_UNAVAILABLE",
+          }),
+          503,
+          { "Content-Type": "application/problem+json" },
+        );
+      }
+      let locale: string | undefined = parsed.data.locale;
+      if (!locale) {
+        const [org] = await sql<{ defaultLocale: string }[]>`
+          SELECT default_locale AS "defaultLocale" FROM organizations
+          WHERE id = ${user.organizationId}`;
+        locale = org?.defaultLocale;
+      }
+      sendEmailVerification(
+        sql,
+        { mailPort, appUrl },
+        user.id,
+        locale,
+        options.emailVerification,
+      );
+      return c.json({ success: true }, 202);
+    },
+  );
+
+  router.post(
+    "/email-verification/confirm",
+    perIp("auth.email-verification-confirm.ip-burst"),
+    verificationConfirmLimit,
+    verificationConfirmTokenLimit,
+    async (c) => {
+      const body = await c.req.json().catch(() => null);
+      const parsed = EmailVerificationConfirmSchema.safeParse(body);
+      if (!parsed.success) throw ValidationError.fromZod(parsed.error);
+      const result = await verifyEmailWithToken(
+        sql,
+        parsed.data.token,
+        parsed.data.password,
+      );
+      if (result.status === "invalid_token") {
+        throw new ValidationError({
+          code: "VERIFICATION_TOKEN_INVALID",
+          detail: "The verification link is invalid, used or expired",
+        });
+      }
+      if (result.status === "invalid_password") {
+        throw new UnauthorizedError({
+          code: "INVALID_CREDENTIALS",
+          detail: "Invalid password",
         });
       }
       return c.json({ success: true });
