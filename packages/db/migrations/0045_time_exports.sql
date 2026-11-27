@@ -1,15 +1,22 @@
 -- 0045_time_exports.sql
 -- TIM-006 (issue #38): organization time exports above the synchronous cap
--- run as a background job in the worker, which stores the file for a limited
--- time and lets the requester download it.
+-- run as a background job in the worker, which stores the file in the
+-- database for a limited time and lets the requester download it.
 --
 -- `time_exports` is both the outbox and the record of what was issued. The
 -- API inserts a 'queued' row; the worker's per-minute dispatch lists queued
 -- rows through librehr_queued_time_exports() below and enqueues one pg-boss
 -- job per row (the API never talks to pg-boss). The job claims the row
--- ('running'), builds the export, writes the file to local storage and marks
--- the row 'ready' with the content hash, size and expiry. At expiry the
--- worker deletes the file and marks the row 'expired'.
+-- ('running'), builds the export and, in one transaction, stores its bytes in
+-- `time_export_files` and marks the row 'ready' with the content hash, size
+-- and expiry. At expiry the worker deletes the bytes and marks the row
+-- 'expired', again in one transaction, so no file can outlive its record.
+--
+-- The bytes live in Postgres (bytea, TOASTed) rather than on a disk shared by
+-- the api and the worker: tenant isolation comes from RLS like every other
+-- table, the api and worker need no shared volume or host, and backups,
+-- organization deletion (ON DELETE CASCADE) and the expiry sweep all see the
+-- same data. Size is bounded by TIME_EXPORT_MAX_FILE_MB. See ADR 0009.
 --
 -- Retention: the file lives for a configurable TTL (7 days by default); this
 -- row (id, period, requester id, content hash) is kept with the ADM-002 audit
@@ -18,13 +25,16 @@
 -- document (requester name and role, organization name) is read when the job
 -- runs, because the job re-checks the requester's permission then anyway.
 --
--- Tenancy: ENABLE + FORCE RLS with the usual tenant policy. The runtime role
--- may insert and read (request, status, download); only the worker (the
--- owner role) updates rows. Nothing deletes rows here.
+-- Tenancy: ENABLE + FORCE RLS with the usual tenant policy on both tables.
+-- The runtime role may insert and read export rows (request, status) and
+-- only read file rows (download); only the worker (the owner role) updates
+-- export rows and inserts or deletes file rows. Export rows are never
+-- deleted by the application.
 --
--- New table and function only (additive), safe on a populated database.
+-- New tables and function only (additive), safe on a populated database.
 -- Rollback (forward-only in practice): DROP FUNCTION
--- public.librehr_queued_time_exports(integer); DROP TABLE time_exports.
+-- public.librehr_queued_time_exports(integer); DROP TABLE time_export_files;
+-- DROP TABLE time_exports.
 
 CREATE TABLE IF NOT EXISTS "time_exports" (
   -- Also the exportId printed in the document and the audit entry.
@@ -49,9 +59,6 @@ CREATE TABLE IF NOT EXISTS "time_exports" (
   "content_hash" text NULL,
   "employee_count" integer NULL,
   "byte_size" bigint NULL,
-  -- Relative key of the file in the worker's local storage; NULL once the
-  -- file is deleted.
-  "storage_key" text NULL,
   -- Coarse machine code (e.g. EXPORT_FAILED), never a message or stack.
   "error_code" text NULL,
   "created_at" timestamptz NOT NULL DEFAULT now(),
@@ -70,25 +77,20 @@ CREATE TABLE IF NOT EXISTS "time_exports" (
     CHECK ("content_hash" IS NULL OR "content_hash" ~ '^[0-9a-f]{64}$'),
   CONSTRAINT "time_exports_byte_size_check"
     CHECK ("byte_size" IS NULL OR "byte_size" > 0),
-  -- A relative path without traversal, so a row can never point the
-  -- download or the cleanup outside the storage root.
-  CONSTRAINT "time_exports_storage_key_check"
-    CHECK (
-      "storage_key" IS NULL
-      OR ("storage_key" ~ '^[A-Za-z0-9][A-Za-z0-9/_.-]*$'
-          AND position('..' IN "storage_key") = 0)
-    ),
   CONSTRAINT "time_exports_error_code_check"
     CHECK ("error_code" IS NULL OR "error_code" ~ '^[A-Z][A-Z0-9_]*$'),
   CONSTRAINT "time_exports_ready_check"
     CHECK (
       "status" <> 'ready'
       OR ("content_hash" IS NOT NULL AND "employee_count" IS NOT NULL
-          AND "byte_size" IS NOT NULL AND "storage_key" IS NOT NULL
+          AND "byte_size" IS NOT NULL
           AND "completed_at" IS NOT NULL AND "expires_at" IS NOT NULL)
     ),
   CONSTRAINT "time_exports_failed_check"
-    CHECK ("status" <> 'failed' OR "error_code" IS NOT NULL)
+    CHECK ("status" <> 'failed' OR "error_code" IS NOT NULL),
+  -- Target of the composite foreign key of time_export_files, so a file row
+  -- can only belong to an export of its own organization.
+  CONSTRAINT "time_exports_id_org_key" UNIQUE ("id", "organization_id")
 );
 
 -- The requester's own exports, newest first.
@@ -146,6 +148,50 @@ BEGIN
     END IF;
   END LOOP;
 END $$;
+
+-- The stored file of a ready export (TIM-006, ADR 0009). One row per export,
+-- written in the transaction that marks the export ready and deleted in the
+-- one that marks it expired. Deleting the organization or the export row
+-- deletes the bytes with it. No names in the row; the content is the
+-- export document itself (special care: it holds working-time records).
+CREATE TABLE IF NOT EXISTS "time_export_files" (
+  "export_id" uuid PRIMARY KEY,
+  "organization_id" uuid NOT NULL
+    DEFAULT NULLIF(current_setting('app.current_org', true), '')::uuid
+    REFERENCES "organizations"("id") ON DELETE CASCADE,
+  "content" bytea NOT NULL,
+  CONSTRAINT "time_export_files_export_fk"
+    FOREIGN KEY ("export_id", "organization_id")
+    REFERENCES "time_exports"("id", "organization_id") ON DELETE CASCADE
+);
+
+ALTER TABLE "time_export_files" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "time_export_files" FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "time_export_files_tenant_isolation" ON "time_export_files";
+CREATE POLICY "time_export_files_tenant_isolation" ON "time_export_files"
+  FOR ALL
+  USING (organization_id = NULLIF(current_setting('app.current_org', true), '')::uuid)
+  WITH CHECK (organization_id = NULLIF(current_setting('app.current_org', true), '')::uuid);
+
+-- The runtime roles only read the bytes (download); the worker (owner)
+-- inserts and deletes them.
+DO $$
+DECLARE
+  runtime_role text;
+BEGIN
+  FOREACH runtime_role IN ARRAY ARRAY['librehr_app', 'openhr_app'] LOOP
+    IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = runtime_role) THEN
+      EXECUTE format('GRANT SELECT ON "time_export_files" TO %I', runtime_role);
+      EXECUTE format(
+        'REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON "time_export_files" FROM %I',
+        runtime_role
+      );
+    END IF;
+  END LOOP;
+END $$;
+
+COMMENT ON TABLE "time_export_files" IS
+  'TIM-006: bytes of a ready background time export, deleted at expiry (TIME_EXPORT_FILE_TTL_HOURS, 7 days by default).';
 
 -- The worker's dispatch sweep: ids of queued exports across organizations,
 -- oldest first, and nothing else (no requester, period or format). It is the
