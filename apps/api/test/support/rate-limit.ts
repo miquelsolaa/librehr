@@ -91,7 +91,25 @@ export function memoryRateLimitStore(now = Date.now): RateLimitStore {
       const locked = lockedMs(key, at);
       if (locked > 0) return { allowed: false, lockedMs: locked };
       fail(key, policy, at);
-      return { allowed: true };
+      // Mirrors the repository: the attempt that set the lock gets its token.
+      const record = failures.get(key);
+      return record && record.count === 0 && record.lockedUntil > at
+        ? { allowed: true, lockToken: String(record.lockedUntil) }
+        : { allowed: true };
+    },
+    async release(key, policy, lockToken) {
+      const record = failures.get(key);
+      if (!record) return;
+      const own =
+        lockToken !== undefined &&
+        record.lockedUntil > 0 &&
+        String(record.lockedUntil) === lockToken;
+      failures.set(
+        key,
+        own
+          ? { ...record, count: Math.max(policy.limit - 1, 0), lockedUntil: 0 }
+          : { ...record, count: Math.max(record.count - 1, 0) },
+      );
     },
     async reset(key) {
       failures.delete(key);

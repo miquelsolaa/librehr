@@ -5,10 +5,16 @@ import {
   type ScheduledJob,
 } from "@librehr/core";
 import { SchedulerRepository, withTenant, type Sql } from "@librehr/db";
-import { enqueue, prepareJob, type JobSender } from "./enqueue.js";
+import {
+  enqueue,
+  prepareJob,
+  type JobSender,
+  type QueueName,
+} from "./enqueue.js";
 import type { TimeCloseDayPayload } from "../queues/time.close-day.js";
 import type { AuditVerifyChainPayload } from "../queues/audit.verify-chain.js";
 import type { RetentionEnforcePayload } from "../queues/retention.enforce.js";
+import type { RetentionSweepGlobalPayload } from "../queues/retention.sweep-global.js";
 import type { LeaveAccruePayload } from "../queues/leave.accrue.js";
 
 export const SCHEDULER_TICK_QUEUE = "scheduler.tick";
@@ -106,8 +112,8 @@ type ScheduledPayload =
 
 /**
  * The payload of a due job. `retention.enforce` is always sent as a dry run:
- * switching scheduled purges on is a compliance decision for ADM-005
- * (COMPLIANCE.md section 5), not something the scheduler turns on by default.
+ * the handler has no purge path yet, and switching purges on is a compliance
+ * decision for ADM-005 (COMPLIANCE.md section 5), pending counsel.
  */
 export function payloadFor(
   organizationId: string,
@@ -134,6 +140,9 @@ export function payloadFor(
  * longer than the 2-day catch-up window), and the `exclusive` queue policy
  * rejects a concurrent duplicate. Handlers are idempotent as well, so a race
  * costs at most one redundant run.
+ *
+ * When `retention.enforce` is scheduled, the tick also enqueues the
+ * instance-wide `retention.sweep-global` once per UTC day.
  *
  * One organization's failure (e.g. an invalid time zone) is logged by id and
  * does not stop the others. Logs carry ids and counts only.
@@ -177,16 +186,12 @@ export async function dispatchDueJobs(
         jobs: deps.config.jobs,
       });
       for (const d of due) {
-        const payload = payloadFor(org.organizationId, d);
-        const { singletonKey: key } = prepareJob(d.job, payload);
-        const existing = await deps.boss.findJobs(d.job, { key });
-        if (existing.some((j) => ENQUEUED_STATES.has(j.state))) {
-          report.alreadyEnqueued++;
-          continue;
-        }
-        const id = await enqueue(deps.boss, d.job, payload);
-        if (id === null) report.alreadyEnqueued++;
-        else report.enqueued++;
+        const sent = await enqueueOnce(
+          deps.boss,
+          d.job,
+          payloadFor(org.organizationId, d),
+        );
+        report[sent ? "enqueued" : "alreadyEnqueued"]++;
       }
     } catch (err) {
       report.failed++;
@@ -199,8 +204,46 @@ export async function dispatchDueJobs(
     }
   }
 
+  if (deps.config.jobs.includes("retention.enforce")) {
+    // Global tables (password reset links) are swept once per UTC day for the
+    // whole instance, not per organization (ADM-005).
+    const payload: RetentionSweepGlobalPayload = {
+      runDate: instant.toISOString().slice(0, 10),
+    };
+    try {
+      const sent = await enqueueOnce(
+        deps.boss,
+        "retention.sweep-global",
+        payload,
+      );
+      report[sent ? "enqueued" : "alreadyEnqueued"]++;
+    } catch (err) {
+      report.failed++;
+      deps.logger.error({
+        msg: "scheduler could not enqueue the instance retention sweep",
+        jobId,
+        error: err instanceof Error ? err.name : "unknown",
+      });
+    }
+  }
+
   deps.logger.info({ msg: "scheduler tick finished", jobId, ...report });
   return report;
+}
+
+/**
+ * Enqueues a job unless pg-boss still holds one with its singleton key in any
+ * state but cancelled. Returns false when it was already enqueued.
+ */
+async function enqueueOnce(
+  boss: SchedulerBoss,
+  queue: QueueName,
+  payload: object,
+): Promise<boolean> {
+  const { singletonKey: key } = prepareJob(queue, payload);
+  const existing = await boss.findJobs(queue, { key });
+  if (existing.some((j) => ENQUEUED_STATES.has(j.state))) return false;
+  return (await enqueue(boss, queue, payload)) !== null;
 }
 
 /**
