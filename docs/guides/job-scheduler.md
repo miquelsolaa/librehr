@@ -17,6 +17,11 @@ the jobs that are due in its local time:
 | `retention.enforce`  | each day   | that day has ended                        | `{ organizationId, runDate, dryRun: true }`           |
 | `leave.accrue`       | each month | the month's last day has ended            | `{ organizationId, runDate }` (last day of the month) |
 
+When `retention.enforce` is scheduled, each tick also enqueues the
+instance-wide `retention.sweep-global` (`{ runDate }`, the current UTC day)
+once per UTC day, not per organization. It deletes password reset links older
+than 30 days.
+
 `leave.accrue` is **opt-in**: it runs only when `SCHEDULER_JOBS` lists it.
 Besides the month's accrual it credits `upfront` policies for the month that
 starts and closes the previous leave year in its January run
@@ -103,14 +108,36 @@ so give every instance the same `SCHEDULER_*` values; pg-boss sends one tick
 per occurrence however many instances run. A tick that reaches a worker with
 `SCHEDULER_ENABLED=false` does nothing.
 
+## Background time exports
+
+Besides the tick, the worker installs two more schedules for TIM-006
+background exports (issue #38, [ADR 0009](../adr/0009-background-time-exports.md)).
+They do not depend on `SCHEDULER_ENABLED`, so disabling the tick never strands
+a requested export:
+
+- `time.export.dispatch`, every minute: lists queued `time_exports` rows
+  through `librehr_queued_time_exports()` (migration 0045, owner-only like
+  `librehr_scheduler_organizations()`) and enqueues `time.export` with
+  `{ organizationId, exportId }`. A new export therefore starts within about
+  a minute.
+- `time.export.cleanup`, every hour: deletes stored files older than
+  `TIME_EXPORT_FILE_TTL_HOURS` (default 168) and marks their rows `expired`,
+  and fails exports stuck in `running` for more than 4 hours
+  (`EXPORT_STALLED`), notifying their requesters. The rows and audit entries
+  are kept.
+
+A `time.export` job expires in pg-boss after 1 hour instead of the default
+15 minutes, so a slow export is not started again while it still runs; a run
+whose worker died is re-driven after that hour, three runs at most.
+
 ## Known limitations
 
-- **`retention.enforce` is not implemented yet (ADM-005).** It is scheduled
-  daily but dead-letters by design until it is, so each organization gets one
-  failed `retention.enforce` job per day, which makes the gap visible (see
-  `COMPLIANCE.md` §5). Leave it out with `SCHEDULER_JOBS` if you prefer. The
-  scheduler always sends `dryRun: true`: turning scheduled purges on is a
-  compliance decision for ADM-005, not a scheduler default.
+- **`retention.enforce` is a dry-run report (ADM-005).** Each run counts
+  the rows past their retention period per category and writes one
+  `retention.run` audit entry with the counts; it deletes nothing, and
+  `dryRun: false` changes nothing (see `COMPLIANCE.md` §5). The scheduler
+  sends `dryRun: true`; enabling purges waits for counsel to confirm the
+  periods (issue #32).
 - **Monthly and daily accrual is credited after the month.** `leave.accrue`
   runs once a month has ended, so `monthly` and `daily` credits arrive just
   after the month they are for. `upfront` policies are credited by the same

@@ -279,7 +279,13 @@ export const TeamAbsencesQuerySchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
+  /**
+   * ORG-007: absences of people whose primary department is this one, or
+   * whose secondary membership in it overlaps the absence.
+   */
   departmentId: z.guid().optional(),
+  /** ORG-007: absences of members of this project or area, as above. */
+  groupId: z.guid().optional(),
 });
 export type TeamAbsencesQuery = z.infer<typeof TeamAbsencesQuerySchema>;
 

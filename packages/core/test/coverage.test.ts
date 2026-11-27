@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  blackoutsForDepartments,
   checkBlackoutDate,
   evaluateTeamCoverage,
   type BlackoutPeriod,
@@ -82,5 +83,40 @@ describe("Team Coverage and Blackout Rules (LEA-007)", () => {
         "Maximum team absence limit of 2 employees reached",
       );
     });
+  });
+});
+
+describe("blackoutsForDepartments (LEA-007, ORG-007)", () => {
+  const blackouts = [
+    {
+      departmentId: null,
+      startDate: "2026-12-24",
+      endDate: "2026-12-31",
+      reason: "Closing",
+    },
+    {
+      departmentId: "d2",
+      startDate: "2026-11-20",
+      endDate: "2026-11-30",
+      reason: "Peak",
+    },
+    {
+      departmentId: "d3",
+      startDate: "2026-08-01",
+      endDate: "2026-08-15",
+      reason: "Audit",
+    },
+  ];
+
+  it("unions org-wide blackouts with those of every given department", () => {
+    expect(
+      blackoutsForDepartments(blackouts, ["d1", "d2"]).map((b) => b.reason),
+    ).toEqual(["Closing", "Peak"]);
+  });
+
+  it("keeps only org-wide blackouts when no department is given", () => {
+    expect(blackoutsForDepartments(blackouts, []).map((b) => b.reason)).toEqual(
+      ["Closing"],
+    );
   });
 });

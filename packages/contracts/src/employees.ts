@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { WeeklyContractHoursSchema } from "./employment-history.js";
+import { MembershipTargetTypeSchema } from "./memberships.js";
 
 export const EmployeeStatusSchema = z.enum([
   "active",
@@ -21,12 +22,30 @@ export type TerminationReason = z.infer<typeof TerminationReasonSchema>;
 export const ListEmployeesQuerySchema = z.object({
   search: z.string().optional(),
   departmentId: z.guid().optional(),
+  /** ORG-007: members of a project or area on today's business date. */
+  groupId: z.guid().optional(),
+  /**
+   * ORG-007: how departmentId matches. "any" (the default) is the primary
+   * department or a secondary membership active today; "primary" is the
+   * primary department only.
+   */
+  membership: z.enum(["primary", "any"]).optional(),
   locationId: z.guid().optional(),
   status: EmployeeStatusSchema.optional(),
   page: z.coerce.number().int().min(1).optional(),
   pageSize: z.coerce.number().int().min(1).max(100).optional(),
 });
 export type ListEmployeesQuery = z.infer<typeof ListEmployeesQuerySchema>;
+
+/** ORG-007: a secondary membership active on today's business date. */
+export const DirectoryMembershipSchema = z.object({
+  type: MembershipTargetTypeSchema,
+  /** The department or group id. */
+  id: z.guid(),
+  name: z.string(),
+  allocationPercent: z.number().nullable(),
+});
+export type DirectoryMembership = z.infer<typeof DirectoryMembershipSchema>;
 
 export const EmployeeListItemSchema = z.object({
   id: z.guid(),
@@ -39,6 +58,7 @@ export const EmployeeListItemSchema = z.object({
   locationName: z.string().nullable(),
   jobTitle: z.string().nullable(),
   managerName: z.string().nullable(),
+  secondaryMemberships: z.array(DirectoryMembershipSchema),
 });
 export type EmployeeListItem = z.infer<typeof EmployeeListItemSchema>;
 
@@ -95,7 +115,8 @@ export const CreateEmployeeRequestSchema = z
       .regex(/^\d{4}-\d{2}-\d{2}$/, "Format must be YYYY-MM-DD")
       .nullable()
       .optional(),
-    departmentId: z.guid().nullable().optional(),
+    /** ORG-007 (ADR 0008 decision 13): the primary department is required. */
+    departmentId: z.guid("A primary department is required"),
     managerId: z.guid().nullable().optional(),
     locationId: z.guid().nullable().optional(),
     jobTitle: z.string().optional(),
@@ -131,7 +152,13 @@ export const UpdateEmployeeRequestSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .nullable()
     .optional(),
-  departmentId: z.guid().nullable().optional(),
+  /**
+   * ORG-007 (ADR 0008 decision 13): the primary department cannot be
+   * cleared. An employee stored without one must get one in the same edit
+   * (422 PRIMARY_DEPARTMENT_REQUIRED). Changing it ends a secondary
+   * membership in the new department the day before.
+   */
+  departmentId: z.guid("A primary department is required").optional(),
   managerId: z.guid().nullable().optional(),
   locationId: z.guid().nullable().optional(),
   status: EmployeeStatusSchema.optional(),

@@ -10,6 +10,8 @@ import {
   bigint,
   integer,
   check,
+  foreignKey,
+  unique,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { primaryId, timestamps, organizationIdCol } from "./common.js";
@@ -72,61 +74,6 @@ export const sessions = pgTable(
   (table) => [
     index("sessions_token_idx").on(table.token),
     index("sessions_user_idx").on(table.userId),
-  ],
-);
-
-// AUTH-001: single-use password reset links (0040). Global, like users.
-export const passwordResetTokens = pgTable(
-  "password_reset_tokens",
-  {
-    id: primaryId(),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    // SHA-256 hex of the emailed token (hashBearerToken); never the raw token.
-    tokenHash: text("token_hash").notNull().unique(),
-    expiresAt: timestamp("expires_at", {
-      withTimezone: true,
-      mode: "date",
-    }).notNull(),
-    usedAt: timestamp("used_at", { withTimezone: true, mode: "date" }),
-    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
-      .defaultNow()
-      .notNull(),
-  },
-  (table) => [
-    index("password_reset_tokens_user_idx").on(table.userId, table.createdAt),
-    index("password_reset_tokens_created_idx").on(table.createdAt),
-  ],
-);
-
-// AUTH-001: single-use email verification links (0043). Global, like users.
-export const emailVerificationTokens = pgTable(
-  "email_verification_tokens",
-  {
-    id: primaryId(),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    // The address the link was sent to; it verifies only while users.email matches.
-    email: text("email").notNull(),
-    // SHA-256 hex of the emailed token (hashBearerToken); never the raw token.
-    tokenHash: text("token_hash").notNull().unique(),
-    expiresAt: timestamp("expires_at", {
-      withTimezone: true,
-      mode: "date",
-    }).notNull(),
-    usedAt: timestamp("used_at", { withTimezone: true, mode: "date" }),
-    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
-      .defaultNow()
-      .notNull(),
-  },
-  (table) => [
-    index("email_verification_tokens_user_idx").on(
-      table.userId,
-      table.createdAt,
-    ),
-    index("email_verification_tokens_created_idx").on(table.createdAt),
   ],
 );
 
@@ -213,6 +160,9 @@ export const invitations = pgTable(
       withTimezone: true,
       mode: "date",
     }),
+    // ORG-007 (ADR 0008 decision 13): primary department of the employee
+    // created on accept. Same-tenant composite foreign key in 0046.
+    departmentId: uuid("department_id"),
     ...timestamps,
   },
   (table) => [
@@ -265,5 +215,86 @@ export const ssoConfigurations = pgTable(
   (table) => [
     index("sso_org_idx").on(table.organizationId),
     index("sso_provider_idx").on(table.provider),
+  ],
+);
+
+// AUTH-004 (0044): single-use OIDC sign-in requests. Global table without
+// RLS, like sessions; consumed only through librehr_auth_sso_consume.
+export const ssoLoginRequests = pgTable(
+  "sso_login_requests",
+  {
+    id: primaryId(),
+    // SHA-256 hex of the `state` value (hashBearerToken); never the raw value.
+    stateHash: text("state_hash").notNull().unique(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    ssoConfigurationId: uuid("sso_configuration_id")
+      .notNull()
+      .references(() => ssoConfigurations.id, { onDelete: "cascade" }),
+    issuerUrl: text("issuer_url").notNull(),
+    clientId: text("client_id").notNull(),
+    nonce: text("nonce").notNull(),
+    codeVerifier: text("code_verifier").notNull(),
+    locale: text("locale").notNull().default("ca"),
+    expiresAt: timestamp("expires_at", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true, mode: "date" }),
+    completedAt: timestamp("completed_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("sso_login_requests_created_idx").on(table.createdAt),
+    index("sso_login_requests_config_idx").on(table.ssoConfigurationId),
+    check(
+      "sso_login_requests_locale_check",
+      sql`${table.locale} IN ('ca', 'es', 'en')`,
+    ),
+  ],
+);
+
+// AUTH-004 (0044): identity provider subject linked to a member. Tenant
+// table; rows are created only by librehr_auth_sso_resolve_user.
+export const ssoIdentities = pgTable(
+  "sso_identities",
+  {
+    id: primaryId(),
+    organizationId: organizationIdCol(),
+    userId: uuid("user_id").notNull(),
+    issuer: text("issuer").notNull(),
+    subject: text("subject").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+    lastLoginAt: timestamp("last_login_at", {
+      withTimezone: true,
+      mode: "date",
+    })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    foreignKey({
+      name: "sso_identities_membership_fk",
+      columns: [table.organizationId, table.userId],
+      foreignColumns: [memberships.organizationId, memberships.userId],
+    }).onDelete("cascade"),
+    unique("sso_identities_subject_unique").on(
+      table.organizationId,
+      table.issuer,
+      table.subject,
+    ),
+    unique("sso_identities_user_unique").on(
+      table.organizationId,
+      table.issuer,
+      table.userId,
+    ),
   ],
 );

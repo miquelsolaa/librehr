@@ -25,7 +25,7 @@ Prices and the reasons for them are in [ADR 0007](adr/0007-cloud-early-access-an
 
 | Area           | Community (AGPL)                                                                                         | Business (`ee/`)                                                                                      |
 | -------------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| People and org | Employees, departments, locations, org chart, custom fields, employment history, imports                 | Multi-entity groups (planned)                                                                         |
+| People and org | Employees, departments and memberships, locations, org chart, custom fields, employment history, imports | Multi-entity groups (planned)                                                                         |
 | Time off       | Leave types, statutory leave, policies, ledger, calendars, coverage rules, delegations                   | —                                                                                                     |
 | Time tracking  | Registro de jornada, hash chain, corrections, kiosk, shifts, time bank, inspector role, exports          | —                                                                                                     |
 | Documents      | Repository, payslips, acknowledgements, templates                                                        | E-signature integrations (planned)                                                                    |

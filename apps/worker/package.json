@@ -9,6 +9,7 @@
     "@librehr/core": "workspace:*",
     "@librehr/db": "workspace:*",
     "@librehr/emails": "workspace:*",
+    "@librehr/time-export": "workspace:*",
     "@react-email/render": "^2.0.0",
     "nodemailer": "^10.3.1",
     "pg-boss": "^12.38.0",

@@ -2,10 +2,26 @@
 
 All legal and regulatory revisions affecting LibreHR are tracked here.
 
+## [2026-11-27] - Background working-time exports (`TIM-006`, issue #38)
+
+- **Asynchronous export path (`TIM-006`):** organization exports above the synchronous cap of 50,000 employee-days, up to 500,000, are queued (`POST /v1/time/exports`) and built by the worker with the same builder, so the document and its SHA-256 hash match the synchronous export for the same data. Each build writes the same ADM-002 `time.export` audit entry, marked `delivery: "async"`.
+- **New retention default:** the stored export file can be downloaded for 7 days (`TIME_EXPORT_FILE_TTL_HOURS`, 1-720 hours) and is then deleted. Only this download copy expires: the `time_exports` record (id, period, requester, hash) and the audit entries are kept for at least 4 years, like the working-time records themselves (Real Decreto-ley 8/2019, `TIM-007`).
+- **Access logging (`TIM-008`):** only the requester can download an export, and only while they still hold organization-wide `time.record.read` (a lapsed auditor window ends access); every download writes a `time.export.download` audit entry with the export id, format and hash only.
+- **Storage and encryption stance:** the file is stored in the database (`time_export_files`) under row-level security, readable only through the requester's download, and is not encrypted at the application level: it holds names and working times but no special-category data, the same data the database already holds. Operators should encrypt the database disk and backups. Failed or stalled exports notify the requester and store nothing.
+
 ## [2026-11-26] - Email verification and auth link retention (`AUTH-001`)
 
 - **Email verification (`AUTH-001`):** Accounts confirm their email address with a single-use link (24 h by default) plus the account password, so whoever receives a link sent to a mistyped address cannot confirm it. Password reset links go only to confirmed addresses. Each confirmation writes an `auth.email_verified` audit entry with ids only.
 - **Retention (`ADM-005` pending):** Rows of `email_verification_tokens` (which hold the address a link was sent to) and `password_reset_tokens` are kept 30 days. Until ADM-005 ships, the API deletes older rows whenever a new link is requested. See `COMPLIANCE.md` section 5.
+
+## [2026-11-26] - Retention categories and the time-records floor (`ADM-005`, #32)
+
+- **Retention configuration per organization:** `retention_policies` (migration 0042, RLS) holds an optional period per data category (`time_records`, `leave_records`, `audit_log`, `deleted_documents`, `statutory_documents`, `notifications`, `invitations`); a missing row means the default in `packages/core/src/retention`. The defaults are listed in `COMPLIANCE.md` section 5.
+- **Defaults pending counsel:** the default periods are the maintainers' recommendation and are **not yet confirmed by counsel**. Counsel's sign-off will be recorded here as its own dated entry before any period is used as a basis for deletion.
+- **Time-records floor (Estatuto de los Trabajadores art. 34.9):** working-time records must be kept four years, so `time_records` cannot be configured below 1461 days. The floor is a database CHECK, not only an application rule.
+- **Nothing is deleted:** this change stores configuration and counts eligible records only. No tenant-scoped record is deleted or anonymised.
+- **Daily dry-run report (`retention.run` audit action):** the `retention.enforce` worker job runs daily per organization, counts the records past each period in the organization's time zone and writes one `retention.run` audit entry holding dates and counts only (no names, titles or file names). `statutory_documents` is reported as a hold (`heldBack`), never as eligible.
+- **Instance-wide sweep of password reset links:** the new `retention.sweep-global` job deletes `password_reset_tokens` rows older than 30 days (the retention documented with migration 0040) once per UTC day. This is the only deletion that runs; nothing tenant-scoped is deleted yet.
 
 ## [2026-11-26] - Vacation carry-over: pending legal review of ET art. 38.3
 

@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PgBoss } from "pg-boss";
-import { SCHEDULED_JOBS, SCHEDULER_CATCH_UP_DAYS } from "@librehr/core";
+import {
+  SCHEDULED_JOBS,
+  SCHEDULER_CATCH_UP_DAYS,
+  type ScheduledJob,
+} from "@librehr/core";
 import type { Sql } from "@librehr/db";
 
 // Stand-ins for the database reads; the integration test covers the real ones.
@@ -8,7 +12,10 @@ const orgs: Array<{ organizationId: string; timeZone: string }> = [];
 const locationZones = new Map<string, string[]>();
 const tenantCalls: string[] = [];
 
-vi.mock("@librehr/db", () => ({
+// Partial: the queue registry also loads the time-export queue, whose
+// modules need the real repositories at import time.
+vi.mock("@librehr/db", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
   SchedulerRepository: class {
     async listOrganizations() {
       return orgs;
@@ -95,7 +102,7 @@ describe("dispatchDueJobs", () => {
     );
     expect(report).toEqual({
       organizations: 1,
-      enqueued: 7,
+      enqueued: 8,
       alreadyEnqueued: 0,
       failed: 0,
     });
@@ -135,6 +142,8 @@ describe("dispatchDueJobs", () => {
         `${ORG_A}:2026-10-31`,
         { organizationId: ORG_A, runDate: "2026-10-31" },
       ],
+      // Instance-wide, once per UTC day, after the organizations.
+      ["retention.sweep-global", "2026-10-31", { runDate: "2026-10-31" }],
     ]);
     // Location zones are read inside the tenant's own context.
     expect(tenantCalls).toEqual([ORG_A]);
@@ -213,6 +222,52 @@ describe("dispatchDueJobs", () => {
       organizationId: ORG_A,
       error: "RangeError",
     });
+  });
+});
+
+describe("instance retention sweep (ADM-005)", () => {
+  const deps = (iso: string, jobs: readonly ScheduledJob[]) => ({
+    sql,
+    logger,
+    clock: clockAt(iso),
+    config: { enabled: true, graceMinutes: 30, jobs },
+  });
+
+  it("enqueues retention.sweep-global once per UTC day, even with no organization", async () => {
+    const boss = fakeBoss();
+    const first = await dispatchDueJobs(
+      { ...deps("2026-11-12T00:10:00Z", ["retention.enforce"]), boss },
+      "tick-1",
+    );
+    expect(first).toEqual({
+      organizations: 0,
+      enqueued: 1,
+      alreadyEnqueued: 0,
+      failed: 0,
+    });
+    boss.jobs[0]!.state = "completed";
+    const sameDay = await dispatchDueJobs(
+      { ...deps("2026-11-12T23:50:00Z", ["retention.enforce"]), boss },
+      "tick-2",
+    );
+    expect(sameDay).toMatchObject({ enqueued: 0, alreadyEnqueued: 1 });
+    await dispatchDueJobs(
+      { ...deps("2026-11-13T00:10:00Z", ["retention.enforce"]), boss },
+      "tick-3",
+    );
+    expect(boss.jobs.map((j) => [j.name, j.key, j.data])).toEqual([
+      ["retention.sweep-global", "2026-11-12", { runDate: "2026-11-12" }],
+      ["retention.sweep-global", "2026-11-13", { runDate: "2026-11-13" }],
+    ]);
+  });
+
+  it("does not sweep when retention.enforce is not scheduled", async () => {
+    const boss = fakeBoss();
+    await dispatchDueJobs(
+      { ...deps("2026-11-12T08:00:00Z", ["time.close-day"]), boss },
+      "tick-1",
+    );
+    expect(boss.send).not.toHaveBeenCalled();
   });
 });
 
