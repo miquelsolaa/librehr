@@ -32,7 +32,12 @@ import {
   ForbiddenError,
   NotFoundError,
   SsoBreakGlassRequiredError,
+  ValidationError,
 } from "../errors/index.js";
+import {
+  endSecondariesInNewPrimary,
+  requireDepartmentInTenant,
+} from "../lib/primary-department.js";
 import { IdParamSchema, parseParams } from "../lib/validate.js";
 import { clientIp } from "../lib/client-ip.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -172,6 +177,7 @@ export function createEmployeeRoutes(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
+        await requireDepartmentInTenant(tx, data.departmentId);
         const emp = await employeeRepo.create(tx, {
           firstName: data.firstName,
           lastName: data.lastName,
@@ -180,7 +186,7 @@ export function createEmployeeRoutes(
           phone: data.phone ?? null,
           address: data.address ?? null,
           birthDate: data.birthDate ?? null,
-          departmentId: data.departmentId ?? null,
+          departmentId: data.departmentId,
           managerId: data.managerId ?? null,
           locationId: data.locationId ?? null,
           jobTitle: data.jobTitle,
@@ -307,8 +313,28 @@ export function createEmployeeRoutes(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        if (!(await employeeRepo.findById(tx, id))) {
+        const current = await employeeRepo.findById(tx, id);
+        if (!current) {
           throw new NotFoundError({ detail: "Employee not found" });
+        }
+        // ADR 0008 decision 13: employees stored without a primary
+        // department are tolerated until edited; an edit must supply one.
+        if (data.departmentId === undefined && current.departmentId === null)
+          throw new ValidationError({
+            status: 422,
+            code: "PRIMARY_DEPARTMENT_REQUIRED",
+            detail: "Choose a primary department for this employee",
+          });
+        if (
+          data.departmentId !== undefined &&
+          data.departmentId !== current.departmentId
+        ) {
+          await requireDepartmentInTenant(tx, data.departmentId);
+          await endSecondariesInNewPrimary(c, tx, {
+            employeeId: id,
+            departmentId: data.departmentId,
+            actorId: user.id,
+          });
         }
         const result = await employeeRepo.update(tx, id, data);
         await auditRepo.log(tx, {

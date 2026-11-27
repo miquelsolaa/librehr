@@ -5,7 +5,7 @@ import {
   createProblemDetails,
   EmployeeImportRequestSchema,
 } from "@librehr/contracts";
-import { validateEmployeeCsv } from "@librehr/core";
+import { departmentNameKey, validateEmployeeCsv } from "@librehr/core";
 import {
   withTenant,
   EmployeeRepository,
@@ -42,7 +42,19 @@ export function createEmployeeImportRoutes(sql: Sql) {
     }
 
     const body = await parseJsonBody(c, EmployeeImportRequestSchema);
-    const validationReport = validateEmployeeCsv(body.csvContent);
+    // ORG-007 (ADR 0008 decision 13): every row needs a known primary
+    // department, checked in the dry run too.
+    const departments = await withTenant(
+      sql,
+      { organizationId: user.organizationId, userId: user.id },
+      (tx) => deptRepo.findMany(tx),
+    );
+    const deptMap = new Map<string, string>(
+      departments.map((d) => [departmentNameKey(d.name), d.id]),
+    );
+    const validationReport = validateEmployeeCsv(body.csvContent, {
+      knownDepartmentNames: new Set(deptMap.keys()),
+    });
 
     // If invalid or dryRun=true, return report without modifying database
     if (!validationReport.valid || body.dryRun) {
@@ -60,21 +72,15 @@ export function createEmployeeImportRoutes(sql: Sql) {
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        const departments = await deptRepo.findMany(tx);
         const locations = await locRepo.findLocations(tx);
-
-        const deptMap = new Map<string, string>(
-          departments.map((d) => [d.name.toLowerCase().trim(), d.id]),
-        );
 
         // Rows without a start date start today in the import location's zone.
         const locationId = locations[0]?.id ?? null;
         const today = await businessToday(c, tx, locationId);
 
         for (const row of validationReport.parsedRows) {
-          const deptId = row.departmentName
-            ? (deptMap.get(row.departmentName.toLowerCase().trim()) ?? null)
-            : null;
+          // Validated above: present and known.
+          const deptId = deptMap.get(departmentNameKey(row.departmentName!));
 
           await empRepo.create(tx, {
             firstName: row.firstName,

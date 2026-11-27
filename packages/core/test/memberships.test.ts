@@ -8,6 +8,8 @@ import {
   isMembershipActiveOn,
   isSameMembershipTarget,
   membershipPeriodsOverlap,
+  peakAllocationDuring,
+  planPrimaryDepartmentChange,
   type EmployeeMembership,
   type MembershipPeriod,
 } from "../src/org/memberships.js";
@@ -305,5 +307,132 @@ describe("memberships (ORG-007)", () => {
         { numRuns: 200 },
       );
     });
+  });
+});
+
+describe("peakAllocationDuring", () => {
+  it("finds the day a later start pushes the total above 100%", () => {
+    const rows = [
+      dept("d1", "2026-01-01", null, 60),
+      group("g1", "2026-03-01", "2026-03-31", 50),
+    ];
+    expect(
+      peakAllocationDuring(rows, { startDate: "2026-01-01", endDate: null }),
+    ).toEqual({ date: "2026-03-01", totalPercent: 110, overAllocated: true });
+  });
+
+  it("ignores starts outside the period and reports its first day otherwise", () => {
+    const rows = [
+      dept("d1", "2026-01-01", null, 40),
+      group("g1", "2027-01-01", null, 80),
+    ];
+    expect(
+      peakAllocationDuring(rows, {
+        startDate: "2026-06-01",
+        endDate: "2026-12-31",
+      }),
+    ).toEqual({ date: "2026-06-01", totalPercent: 40, overAllocated: false });
+  });
+
+  it("is at least the total of every day in the period", () => {
+    const day = fc
+      .integer({ min: 0, max: 400 })
+      .map((n) => addDays("2026-01-01", n));
+    const row = fc
+      .tuple(
+        day,
+        fc.integer({ min: 0, max: 60 }),
+        fc.integer({ min: 1, max: 100 }),
+      )
+      .map(([start, length, pct]) =>
+        dept("d", start, addDays(start, length), pct),
+      );
+    fc.assert(
+      fc.property(fc.array(row, { maxLength: 6 }), day, (rows, start) => {
+        const end = addDays(start, 30);
+        const peak = peakAllocationDuring(rows, {
+          startDate: start,
+          endDate: end,
+        });
+        for (const date of datesInRange(start, end)) {
+          expect(peak.totalPercent).toBeGreaterThanOrEqual(
+            allocationOn(rows, date).totalPercent,
+          );
+        }
+      }),
+    );
+  });
+});
+
+describe("planPrimaryDepartmentChange (ADR 0008 decision 3)", () => {
+  const row = (
+    id: string,
+    departmentId: string | null,
+    startDate: string,
+    endDate: string | null,
+  ) => ({
+    id,
+    departmentId,
+    groupId: departmentId ? null : "g1",
+    startDate,
+    endDate,
+  });
+
+  it("ends a current secondary in the new primary the day before", () => {
+    const current = row("m1", "d2", "2026-01-01", null);
+    const later = row("m2", "d2", "2025-06-01", "2027-01-01");
+    expect(
+      planPrimaryDepartmentChange([current, later], "d2", "2027-01-01"),
+    ).toEqual({
+      toEnd: [
+        { membership: current, endDate: "2026-12-31" },
+        { membership: later, endDate: "2026-12-31" },
+      ],
+      conflicts: [],
+    });
+  });
+
+  it("leaves past rows, other departments and groups alone", () => {
+    const plan = planPrimaryDepartmentChange(
+      [
+        row("past", "d2", "2025-01-01", "2026-03-31"),
+        row("other", "d3", "2025-01-01", null),
+        row("group", null, "2025-01-01", null),
+      ],
+      "d2",
+      "2026-04-01",
+    );
+    expect(plan).toEqual({ toEnd: [], conflicts: [] });
+  });
+
+  it("reports rows starting today or later as conflicts", () => {
+    const today = row("today", "d2", "2028-02-29", null);
+    const future = row("future", "d2", "2028-03-05", "2028-04-01");
+    expect(
+      planPrimaryDepartmentChange([today, future], "d2", "2028-02-29"),
+    ).toEqual({ toEnd: [], conflicts: [today, future] });
+  });
+
+  it("never plans an end before a start (property)", () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: -400, max: 400 }),
+        fc.option(fc.integer({ min: 0, max: 400 })),
+        (startOffset, length) => {
+          const today = "2026-06-15";
+          const startDate = addDays(today, startOffset);
+          const endDate = length === null ? null : addDays(startDate, length);
+          const m = row("m", "d1", startDate, endDate);
+          const plan = planPrimaryDepartmentChange([m], "d1", today);
+          for (const { endDate: end } of plan.toEnd) {
+            expect(end >= startDate).toBe(true);
+            expect(end).toBe("2026-06-14");
+          }
+          expect(plan.toEnd.length + plan.conflicts.length).toBe(
+            endDate !== null && endDate < today ? 0 : 1,
+          );
+        },
+      ),
+    );
   });
 });

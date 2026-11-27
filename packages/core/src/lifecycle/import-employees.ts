@@ -26,12 +26,32 @@ export interface EmployeeImportValidationResult {
   parsedRows: EmployeeCsvRow[];
 }
 
+export interface EmployeeCsvOptions {
+  /**
+   * Lower-cased, trimmed names of the organization's departments. When
+   * given, every row needs a `department` naming one of them: the primary
+   * department is required (ORG-007, ADR 0008 decision 13).
+   */
+  knownDepartmentNames?: ReadonlySet<string> | undefined;
+}
+
+/** Key a department name is matched by: case and surrounding spaces ignored. */
+export function departmentNameKey(name: string): string {
+  return name.toLowerCase().trim();
+}
+
 /**
  * Validates a CSV string of employee records for bulk import (EMP-006).
  * Follows atomic validation: never partially applies if any row contains formatting errors.
+ *
+ * @example
+ * validateEmployeeCsv("firstName,lastName,email,department\nAna,Puig,ana@x.test,Sales", {
+ *   knownDepartmentNames: new Set(["sales"]),
+ * }).valid; // => true
  */
 export function validateEmployeeCsv(
   csvContent: string,
+  options: EmployeeCsvOptions = {},
 ): EmployeeImportValidationResult {
   const lines = csvContent
     .split(/\r?\n/)
@@ -143,6 +163,25 @@ export function validateEmployeeCsv(
         row: rowNum,
         field: "iban",
         message: "Invalid IBAN checksum or format",
+      });
+    }
+
+    const known = options.knownDepartmentNames;
+    if (known && !departmentName) {
+      errors.push({
+        row: rowNum,
+        field: "department",
+        message: "A primary department is required",
+      });
+    } else if (
+      known &&
+      departmentName &&
+      !known.has(departmentNameKey(departmentName))
+    ) {
+      errors.push({
+        row: rowNum,
+        field: "department",
+        message: "Unknown department",
       });
     }
 
