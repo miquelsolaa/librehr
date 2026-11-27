@@ -12,13 +12,18 @@ import { Button, Input } from "@librehr/ui";
 import { apiClient } from "@/lib/api-client";
 
 export type MembershipErrorKey =
-  "saveError" | "overlapError" | "primaryError" | "allocationInvalid";
+  | "saveError"
+  | "overlapError"
+  | "primaryError"
+  | "allocationInvalid"
+  | "alreadyEndedError";
 
 /** Maps the API's problem codes to messages the person can act on. */
 export function membershipErrorFor(cause: unknown): MembershipErrorKey {
   const code = (cause as { code?: unknown } | null)?.code;
   if (code === "MEMBERSHIP_OVERLAP") return "overlapError";
   if (code === "SECONDARY_IS_PRIMARY") return "primaryError";
+  if (code === "MEMBERSHIP_ALREADY_ENDED") return "alreadyEndedError";
   return "saveError";
 }
 

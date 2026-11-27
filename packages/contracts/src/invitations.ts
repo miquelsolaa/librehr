@@ -13,7 +13,12 @@ export const CreateInvitationRequestSchema = z
     role: z
       .enum(["admin", "manager", "employee", "auditor"])
       .default("employee"),
-    departmentId: z.guid().nullable().optional(),
+    /**
+     * ORG-007 (ADR 0008 decision 13): primary department of the employee
+     * created on accept. Required for every role but auditors, who get no
+     * employee record and must not carry one.
+     */
+    departmentId: z.guid().optional(),
     /** TIM-008: last day of access, in the organization's time zone. */
     accessUntil: AccessUntilSchema.optional(),
   })
@@ -23,6 +28,20 @@ export const CreateInvitationRequestSchema = z
         code: z.ZodIssueCode.custom,
         path: ["accessUntil"],
         message: "An access end date is required for auditors",
+      });
+    }
+    if (value.role !== "auditor" && value.departmentId === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["departmentId"],
+        message: "A primary department is required",
+      });
+    }
+    if (value.role === "auditor" && value.departmentId !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["departmentId"],
+        message: "Auditors do not belong to a department",
       });
     }
     if (value.role !== "auditor" && value.accessUntil !== undefined) {

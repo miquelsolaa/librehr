@@ -462,7 +462,13 @@
     "twoFactorDisableInvalidCode": "El codi no és vàlid. Revisa la teva aplicació autenticadora i torna-ho a provar.",
     "twoFactorDisableSessionExpired": "La teva sessió ha caducat. Torna a iniciar sessió per canviar la configuració de seguretat.",
     "twoFactorDisableForbidden": "No tens permís per canviar l'autenticació en dos passos d'aquest compte.",
-    "twoFactorDisableRateLimited": "Massa intents. Espera uns minuts i torna-ho a provar."
+    "twoFactorDisableRateLimited": "Massa intents. Espera uns minuts i torna-ho a provar.",
+    "leadVisibilityLabel": "Què veuen els responsables dels seus membres",
+    "leadVisibilityHint": "S'aplica als responsables de departaments, projectes i àrees respecte a les persones que hi pertanyen a més del seu departament principal. Mai no permet editar, aprovar ni veure dades sensibles.",
+    "leadVisibilityOff": "Res més enllà del seu rol",
+    "leadVisibilityCalendar": "Absències al calendari de l'equip, sense el seu tipus",
+    "leadVisibilityProfile": "Absències i la fitxa del directori",
+    "leadVisibilityLoadError": "No s'ha pogut carregar aquest ajust. Torna a carregar la pàgina per tornar-ho a provar."
   },
   "setup": {
     "title": "Benvingut a LibreHR",
@@ -509,6 +515,8 @@
     "roleEmployee": "Empleat",
     "roleManager": "Responsable / Mànager",
     "roleAdmin": "Administrador",
+    "departmentLabel": "Departament principal",
+    "departmentPlaceholder": "Tria un departament",
     "sendInvite": "Enviar Invitació",
     "inviteSent": "Invitació enviada correctament!",
     "errorTitle": "Error en la invitació",
@@ -1277,7 +1285,13 @@
     "overlapError": "Aquesta persona ja hi pertany en aquest període. Canvia les dates o edita la pertinença existent.",
     "primaryError": "Aquest ja és el departament principal de la persona.",
     "allocationInvalid": "Introdueix un percentatge més gran que 0 i fins a 100, amb dos decimals com a màxim.",
-    "overAllocated": "Desat. A partir del {date} les altres pertinences sumen un {percent} %, més del 100 %."
+    "overAllocated": "Desat. A partir del {date} les altres pertinences sumen un {percent} %, més del 100 %.",
+    "endReasonNone": "Sense motiu",
+    "endReasonProjectEnded": "Fi del projecte o de l'assignació",
+    "endReasonReassigned": "Reassignació",
+    "endReasonOther": "Altres",
+    "endReasonPrimaryChanged": "Ha passat a ser el departament principal",
+    "alreadyEndedError": "Aquesta pertinença ja s'ha finalitzat; les seves dates ja no es poden canviar."
   },
   "orgGroups": {
     "title": "Projectes i àrees",

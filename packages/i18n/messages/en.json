@@ -462,7 +462,13 @@
     "twoFactorDisableInvalidCode": "That code is not valid. Check your authenticator app and try again.",
     "twoFactorDisableSessionExpired": "Your session has expired. Sign in again to change your security settings.",
     "twoFactorDisableForbidden": "You are not allowed to change two-factor authentication for this account.",
-    "twoFactorDisableRateLimited": "Too many attempts. Wait a few minutes and try again."
+    "twoFactorDisableRateLimited": "Too many attempts. Wait a few minutes and try again.",
+    "leadVisibilityLabel": "What leads see of their members",
+    "leadVisibilityHint": "Applies to leads of departments, projects and areas for people who belong to them besides their primary department. It never allows editing, approving or seeing sensitive data.",
+    "leadVisibilityOff": "Nothing beyond their role",
+    "leadVisibilityCalendar": "Absences in the team calendar, without their type",
+    "leadVisibilityProfile": "Absences and the directory profile",
+    "leadVisibilityLoadError": "This setting could not be loaded. Reload the page to try again."
   },
   "setup": {
     "title": "Welcome to LibreHR",
@@ -509,6 +515,8 @@
     "roleEmployee": "Employee",
     "roleManager": "Manager",
     "roleAdmin": "Administrator",
+    "departmentLabel": "Primary department",
+    "departmentPlaceholder": "Choose a department",
     "sendInvite": "Send Invitation",
     "inviteSent": "Invitation sent successfully!",
     "errorTitle": "Invitation error",
@@ -1277,7 +1285,13 @@
     "overlapError": "This person already belongs to it in that period. Change the dates or edit the existing membership.",
     "primaryError": "This is already the person's primary department.",
     "allocationInvalid": "Enter a percentage greater than 0 and up to 100, with at most two decimals.",
-    "overAllocated": "Saved. From {date} the other memberships add up to {percent}%, which is more than 100%."
+    "overAllocated": "Saved. From {date} the other memberships add up to {percent}%, which is more than 100%.",
+    "endReasonNone": "No reason given",
+    "endReasonProjectEnded": "Project or assignment ended",
+    "endReasonReassigned": "Reassigned",
+    "endReasonOther": "Other",
+    "endReasonPrimaryChanged": "Became the primary department",
+    "alreadyEndedError": "This membership has already been ended; its dates can no longer change."
   },
   "orgGroups": {
     "title": "Projects and areas",

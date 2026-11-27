@@ -1333,7 +1333,17 @@
             "type": [
               "string",
               "null"
+            ],
+            "enum": [
+              "project_ended",
+              "reassigned",
+              "primary_changed",
+              "other",
+              null
             ]
+          },
+          "ended": {
+            "type": "boolean"
           },
           "createdAt": {
             "type": "string",
@@ -1356,6 +1366,7 @@
           "startDate",
           "endDate",
           "endReason",
+          "ended",
           "createdAt",
           "updatedAt"
         ]
@@ -1449,8 +1460,12 @@
               "string",
               "null"
             ],
-            "minLength": 1,
-            "maxLength": 500
+            "enum": [
+              "project_ended",
+              "reassigned",
+              "other",
+              null
+            ]
           }
         },
         "required": [
@@ -1523,7 +1538,17 @@
                 "type": [
                   "string",
                   "null"
+                ],
+                "enum": [
+                  "project_ended",
+                  "reassigned",
+                  "primary_changed",
+                  "other",
+                  null
                 ]
+              },
+              "ended": {
+                "type": "boolean"
               },
               "createdAt": {
                 "type": "string",
@@ -1546,6 +1571,7 @@
               "startDate",
               "endDate",
               "endReason",
+              "ended",
               "createdAt",
               "updatedAt"
             ]
@@ -1616,10 +1642,7 @@
             "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
           },
           "departmentId": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": "string",
             "format": "uuid"
           },
           "managerId": {
@@ -1662,7 +1685,8 @@
         "required": [
           "firstName",
           "lastName",
-          "email"
+          "email",
+          "departmentId"
         ]
       },
       "UpdateEmployeeRequest": {
@@ -1706,10 +1730,7 @@
             "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
           },
           "departmentId": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": "string",
             "format": "uuid"
           },
           "managerId": {
@@ -1821,10 +1842,7 @@
             "default": "employee"
           },
           "departmentId": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": "string",
             "format": "uuid"
           },
           "accessUntil": {
@@ -8157,10 +8175,7 @@
                     "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
                   },
                   "departmentId": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
+                    "type": "string",
                     "format": "uuid"
                   },
                   "managerId": {
@@ -8203,7 +8218,8 @@
                 "required": [
                   "firstName",
                   "lastName",
-                  "email"
+                  "email",
+                  "departmentId"
                 ]
               }
             }
@@ -8685,10 +8701,7 @@
                     "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
                   },
                   "departmentId": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
+                    "type": "string",
                     "format": "uuid"
                   },
                   "managerId": {
@@ -11186,7 +11199,17 @@
                         "type": [
                           "string",
                           "null"
+                        ],
+                        "enum": [
+                          "project_ended",
+                          "reassigned",
+                          "primary_changed",
+                          "other",
+                          null
                         ]
+                      },
+                      "ended": {
+                        "type": "boolean"
                       },
                       "createdAt": {
                         "type": "string",
@@ -11209,6 +11232,7 @@
                       "startDate",
                       "endDate",
                       "endReason",
+                      "ended",
                       "createdAt",
                       "updatedAt"
                     ]
@@ -11522,7 +11546,17 @@
                           "type": [
                             "string",
                             "null"
+                          ],
+                          "enum": [
+                            "project_ended",
+                            "reassigned",
+                            "primary_changed",
+                            "other",
+                            null
                           ]
+                        },
+                        "ended": {
+                          "type": "boolean"
                         },
                         "createdAt": {
                           "type": "string",
@@ -11545,6 +11579,7 @@
                         "startDate",
                         "endDate",
                         "endReason",
+                        "ended",
                         "createdAt",
                         "updatedAt"
                       ]
@@ -12049,7 +12084,17 @@
                           "type": [
                             "string",
                             "null"
+                          ],
+                          "enum": [
+                            "project_ended",
+                            "reassigned",
+                            "primary_changed",
+                            "other",
+                            null
                           ]
+                        },
+                        "ended": {
+                          "type": "boolean"
                         },
                         "createdAt": {
                           "type": "string",
@@ -12072,6 +12117,7 @@
                         "startDate",
                         "endDate",
                         "endReason",
+                        "ended",
                         "createdAt",
                         "updatedAt"
                       ]
@@ -12481,8 +12527,12 @@
                       "string",
                       "null"
                     ],
-                    "minLength": 1,
-                    "maxLength": 500
+                    "enum": [
+                      "project_ended",
+                      "reassigned",
+                      "other",
+                      null
+                    ]
                   }
                 },
                 "required": [
@@ -12560,7 +12610,17 @@
                       "type": [
                         "string",
                         "null"
+                      ],
+                      "enum": [
+                        "project_ended",
+                        "reassigned",
+                        "primary_changed",
+                        "other",
+                        null
                       ]
+                    },
+                    "ended": {
+                      "type": "boolean"
                     },
                     "createdAt": {
                       "type": "string",
@@ -12583,6 +12643,7 @@
                     "startDate",
                     "endDate",
                     "endReason",
+                    "ended",
                     "createdAt",
                     "updatedAt"
                   ]
@@ -13547,10 +13608,7 @@
                     "default": "employee"
                   },
                   "departmentId": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
+                    "type": "string",
                     "format": "uuid"
                   },
                   "accessUntil": {

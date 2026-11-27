@@ -27,7 +27,8 @@ const admin = user(0, "admin");
 const alice = user(1, "employee");
 const bruno = user(2, "employee");
 const carla = user(3, "employee");
-const users = [admin, alice, bruno, carla];
+const dani = user(4, "employee");
+const users = [admin, alice, bruno, carla, dani];
 
 const auth: AuthPort = {
   async verifyCredentials() {
@@ -84,6 +85,7 @@ describe("leave coverage across memberships (LEA-007, ORG-007)", () => {
         ["support", 50],
         ["ops", null],
         ["legal", 0],
+        ["solo", 100],
       ] as const) {
         dept[key] = (await departments.create(tx, { name: key })).id;
         if (policy !== null) {
@@ -100,10 +102,13 @@ describe("leave coverage across memberships (LEA-007, ORG-007)", () => {
           requiresApproval: true,
         })
       ).id;
+      // Dani has no primary department (tolerated until edited, ADR 0008
+      // D10) and is the only member of solo, which needs full presence.
       for (const [key, u, departmentId] of [
         ["alice", alice, dept["home"]],
         ["bruno", bruno, dept["sales"]],
         ["carla", carla, dept["support"]],
+        ["dani", dani, undefined],
       ] as const) {
         emp[key] = (
           await employees.create(tx, {
@@ -135,6 +140,12 @@ describe("leave coverage across memberships (LEA-007, ORG-007)", () => {
         employeeId: emp["alice"]!,
         departmentId: dept["ops"]!,
         startDate: "2030-11-01",
+        createdBy: admin.id,
+      });
+      await memberships.create(tx, {
+        employeeId: emp["dani"]!,
+        departmentId: dept["solo"]!,
+        startDate: "2031-02-01",
         createdBy: admin.id,
       });
       await leave.createBlackoutPeriod(tx, {
@@ -224,5 +235,14 @@ describe("leave coverage across memberships (LEA-007, ORG-007)", () => {
     const res = await requestLeave(bruno, "2030-11-04");
     expect(res.status).toBe(409);
     expect(await res.json()).toMatchObject({ code: "COVERAGE_NOT_CONFIGURED" });
+  });
+
+  it("checks secondary policies for someone without a primary department", async () => {
+    // No primary means no COVERAGE_NOT_CONFIGURED, but solo's threshold holds.
+    const blocked = await requestLeave(dani, "2031-02-03");
+    expect(blocked.status).toBe(400);
+    expect(await blocked.json()).toMatchObject({ code: "COVERAGE_THRESHOLD" });
+    // Before the membership starts nothing is checked.
+    expect((await requestLeave(dani, "2031-01-27")).status).toBe(201);
   });
 });
