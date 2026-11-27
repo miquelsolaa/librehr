@@ -22,7 +22,6 @@ export interface TimeExportJobRow {
   contentHash: string | null;
   employeeCount: number | null;
   byteSize: number | null;
-  storageKey: string | null;
   errorCode: string | null;
   createdAt: Date;
   startedAt: Date | null;
@@ -42,7 +41,7 @@ const columns = (tx: TenantTx) => tx`
   period_start::text as "periodStart", period_end::text as "periodEnd",
   employee_days as "employeeDays", status, attempts,
   content_hash as "contentHash", employee_count as "employeeCount",
-  byte_size::float8 as "byteSize", storage_key as "storageKey",
+  byte_size::float8 as "byteSize",
   error_code as "errorCode", created_at as "createdAt",
   started_at as "startedAt", completed_at as "completedAt",
   expires_at as "expiresAt"
@@ -51,10 +50,11 @@ const columns = (tx: TenantTx) => tx`
 /**
  * TIM-006 (issue #38): background organization exports. The API requests
  * and reads (`create`, `findForRequester`, `listForRequester`,
- * `countActive`); the worker dispatches, runs and cleans up (`listQueued`,
- * `findById`, `claim`, `markReady`, `markFailed`, `listExpired`,
- * `markExpired`, `failStale`). The runtime role cannot update rows, so the
- * worker-side methods only work for the owner role.
+ * `countActive`, `readFile`); the worker dispatches, runs and cleans up
+ * (`listQueued`, `findById`, `claim`, `markReady`, `markFailed`,
+ * `listExpired`, `markExpired`, `failStale`). The runtime role cannot update
+ * export rows nor write file rows, so the worker-side methods only work for
+ * the owner role. The file bytes live in `time_export_files` (ADR 0009).
  */
 export class TimeExportRepository {
   /**
@@ -169,15 +169,18 @@ export class TimeExportRepository {
     return rows[0] ?? null;
   }
 
-  /** Records the stored file. Only a running export can become ready. */
+  /**
+   * Stores the file and marks the export ready, in the caller's transaction,
+   * so the bytes exist exactly when the row says `ready`. Only a running
+   * export can become ready; otherwise nothing is written and null returned.
+   */
   async markReady(
     tx: TenantTx,
     id: string,
     data: {
       contentHash: string;
       employeeCount: number;
-      byteSize: number;
-      storageKey: string;
+      content: Uint8Array;
       expiresAt: Date;
     },
   ): Promise<TimeExportJobRow | null> {
@@ -186,14 +189,44 @@ export class TimeExportRepository {
       SET status = 'ready',
           content_hash = ${data.contentHash},
           employee_count = ${data.employeeCount},
-          byte_size = ${data.byteSize},
-          storage_key = ${data.storageKey},
+          byte_size = ${data.content.byteLength},
           error_code = NULL,
           completed_at = now(),
           expires_at = ${data.expiresAt}
       WHERE id = ${id} AND status = 'running'
       RETURNING ${columns(tx)}`;
-    return rows[0] ?? null;
+    const ready = rows[0] ?? null;
+    if (!ready) return null;
+    await tx`
+      INSERT INTO time_export_files (export_id, content)
+      VALUES (${id}, ${Buffer.from(
+        data.content.buffer,
+        data.content.byteOffset,
+        data.content.byteLength,
+      )})`;
+    return ready;
+  }
+
+  /**
+   * The bytes of a ready export, only for its requester and only before it
+   * expires at `now`; null otherwise (unknown, someone else's, not ready,
+   * expired or another tenant's).
+   */
+  async readFile(
+    tx: TenantTx,
+    id: string,
+    userId: string,
+    now: Date,
+  ): Promise<Uint8Array<ArrayBuffer> | null> {
+    const rows = await tx<{ content: Uint8Array }[]>`
+      SELECT f.content
+      FROM time_exports e
+      JOIN time_export_files f
+        ON f.export_id = e.id AND f.organization_id = e.organization_id
+      WHERE e.id = ${id} AND e.requested_by = ${userId}
+        AND e.status = 'ready' AND e.expires_at > ${now}`;
+    const content = rows[0]?.content;
+    return content ? new Uint8Array(content) : null;
   }
 
   /** Gives up on a queued or running export with a coarse error code. */
@@ -210,45 +243,44 @@ export class TimeExportRepository {
     return rows[0] ?? null;
   }
 
-  /** Ready exports whose file expired at or before `now`. */
-  async listExpired(
-    tx: TenantTx,
-    now: Date,
-    limit: number,
-  ): Promise<{ id: string; storageKey: string }[]> {
-    return tx<{ id: string; storageKey: string }[]>`
-      SELECT id, storage_key AS "storageKey" FROM time_exports
+  /** Ids of ready exports whose file expired at or before `now`. */
+  async listExpired(tx: TenantTx, now: Date, limit: number): Promise<string[]> {
+    const rows = await tx<{ id: string }[]>`
+      SELECT id FROM time_exports
       WHERE status = 'ready' AND expires_at <= ${now}
       ORDER BY expires_at, id
       LIMIT ${limit}`;
+    return rows.map((row) => row.id);
   }
 
   /**
-   * Marks a ready export's file as deleted. The row (id, period, hash,
-   * requester) stays as the trace of what was issued.
+   * Removes a ready export's file and marks it expired, in the caller's
+   * transaction. The row (id, period, hash, requester) stays as the trace of
+   * what was issued.
    */
   async markExpired(tx: TenantTx, id: string): Promise<boolean> {
     const rows = await tx`
-      UPDATE time_exports SET status = 'expired', storage_key = NULL
+      UPDATE time_exports SET status = 'expired'
       WHERE id = ${id} AND status = 'ready'
       RETURNING id`;
-    return rows.length > 0;
+    if (rows.length === 0) return false;
+    await tx`DELETE FROM time_export_files WHERE export_id = ${id}`;
+    return true;
   }
 
   /**
    * Fails exports stuck in running since before `startedBefore` (a crashed
-   * worker). Returns their ids.
+   * worker). Returns the failed rows, so the caller can notify requesters.
    */
   async failStale(
     tx: TenantTx,
     startedBefore: Date,
     errorCode: string,
-  ): Promise<string[]> {
-    const rows = await tx<{ id: string }[]>`
+  ): Promise<TimeExportJobRow[]> {
+    return tx<TimeExportJobRow[]>`
       UPDATE time_exports
       SET status = 'failed', error_code = ${errorCode}, completed_at = now()
       WHERE status = 'running' AND started_at < ${startedBefore}
-      RETURNING id`;
-    return rows.map((row) => row.id);
+      RETURNING ${columns(tx)}`;
   }
 }

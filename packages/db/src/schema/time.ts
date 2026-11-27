@@ -13,6 +13,9 @@ import {
   bigint,
   uniqueIndex,
   jsonb,
+  unique,
+  foreignKey,
+  customType,
 } from "drizzle-orm/pg-core";
 import { primaryId, organizationIdCol, timestamps } from "./common.js";
 import { organizations } from "./platform.js";
@@ -313,7 +316,6 @@ export const timeExports = pgTable(
     contentHash: text("content_hash"),
     employeeCount: integer("employee_count"),
     byteSize: bigint("byte_size", { mode: "number" }),
-    storageKey: text("storage_key"), // relative key in local storage; null once deleted
     errorCode: text("error_code"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .defaultNow()
@@ -340,6 +342,31 @@ export const timeExports = pgTable(
     index("time_exports_ready_expiry_idx")
       .on(table.organizationId, table.expiresAt)
       .where(sql`${table.status} = 'ready'`),
+    unique("time_exports_id_org_key").on(table.id, table.organizationId),
+  ],
+);
+
+const bytea = customType<{ data: Uint8Array; driverData: Uint8Array }>({
+  dataType: () => "bytea",
+});
+
+// TIM-006 (#38, ADR 0009): bytes of a ready export, in the database under
+// RLS. Inserted with the ready status and deleted with the expired one.
+export const timeExportFiles = pgTable(
+  "time_export_files",
+  {
+    exportId: uuid("export_id").primaryKey(),
+    organizationId: organizationIdCol().references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    content: bytea("content").notNull(),
+  },
+  (table) => [
+    foreignKey({
+      name: "time_export_files_export_fk",
+      columns: [table.exportId, table.organizationId],
+      foreignColumns: [timeExports.id, timeExports.organizationId],
+    }).onDelete("cascade"),
   ],
 );
 
