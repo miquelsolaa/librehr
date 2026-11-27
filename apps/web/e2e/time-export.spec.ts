@@ -7,6 +7,7 @@ import {
   EMPLOYEE_ID,
   EXPORT_ID,
   REPORT_ID,
+  SYNC_EXPORT_URL,
   mockJsonExport,
   mockPicker,
 } from "./support/time-export";
@@ -20,7 +21,7 @@ test("admin downloads the whole organization as CSV and sees its id and hash", a
 }) => {
   await seedProfile(page, { role: "admin" });
   const exportRequests: URL[] = [];
-  await mockRoute(page, "**/v1/time/export**", (route) => {
+  await mockRoute(page, SYNC_EXPORT_URL, (route) => {
     exportRequests.push(new URL(route.request().url()));
     return route.fulfill({
       status: 200,
@@ -83,7 +84,7 @@ test("employee sees a specific message when the export is forbidden", async ({
   page,
 }) => {
   await seedProfile(page, { role: "employee" });
-  await mockRoute(page, "**/v1/time/export**", (route) =>
+  await mockRoute(page, SYNC_EXPORT_URL, (route) =>
     route.fulfill({
       status: 403,
       contentType: "application/problem+json",

@@ -16,6 +16,12 @@ export interface AppErrorInit extends AppErrorOptions {
   code: string;
   type?: string | undefined;
   errors?: FieldIssue[] | undefined;
+  /**
+   * RFC 9457 extension members added to the problem document (e.g. a hint a
+   * client acts on). Same rule as `detail`: safe values only. They never
+   * replace the standard members.
+   */
+  extensions?: Readonly<Record<string, string | number | boolean>> | undefined;
 }
 
 /**
@@ -30,6 +36,8 @@ export class AppError extends Error {
   readonly code: string;
   readonly detail: string | undefined;
   readonly errors: FieldIssue[] | undefined;
+  readonly extensions:
+    Readonly<Record<string, string | number | boolean>> | undefined;
 
   constructor(init: AppErrorInit) {
     super(init.detail ?? init.title);
@@ -40,5 +48,6 @@ export class AppError extends Error {
     this.code = init.code;
     this.detail = init.detail;
     this.errors = init.errors;
+    this.extensions = init.extensions;
   }
 }

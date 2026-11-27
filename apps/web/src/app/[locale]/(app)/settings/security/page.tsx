@@ -24,6 +24,7 @@ import {
   Input,
   PageHeader,
 } from "@librehr/ui";
+import { SSO_BREAK_GLASS_REQUIRED_CODE } from "@librehr/contracts";
 import type { SecondaryLeadVisibility } from "@librehr/contracts";
 import { getApiClient } from "@/lib/api-client";
 import { getStoredSession } from "@/lib/auth";
@@ -33,6 +34,7 @@ type DisableErrorKey =
   | "twoFactorDisableSessionExpired"
   | "twoFactorDisableForbidden"
   | "twoFactorDisableRateLimited"
+  | "twoFactorDisableBreakGlass"
   | "twoFactorDisableError";
 
 /** Maps the API problem (RFC 9457) from POST /v1/auth/2fa/disable to a message. */
@@ -41,6 +43,9 @@ function disableErrorKey(err: unknown): DisableErrorKey {
   const code = "code" in err ? err.code : undefined;
   const status = "status" in err ? err.status : undefined;
   if (code === "INVALID_2FA_CODE") return "twoFactorDisableInvalidCode";
+  // AUTH-004: the last break-glass admin of an organization requiring SSO.
+  if (code === SSO_BREAK_GLASS_REQUIRED_CODE)
+    return "twoFactorDisableBreakGlass";
   if (status === 401) return "twoFactorDisableSessionExpired";
   if (status === 403) return "twoFactorDisableForbidden";
   if (status === 429) return "twoFactorDisableRateLimited";

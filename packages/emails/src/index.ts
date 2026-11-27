@@ -3,3 +3,4 @@ export * from "./templates/password-reset.js";
 export * from "./templates/leave-requested.js";
 export * from "./templates/leave-status-changed.js";
 export * from "./notifications/missing-clock-out.js";
+export * from "./notifications/time-export.js";
