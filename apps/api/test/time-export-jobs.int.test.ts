@@ -1,12 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FixturePerson } from "@librehr/testing";
 import type { TimeExportJob } from "@librehr/contracts";
 import { createApp } from "../src/app.js";
-import { createLocalExportFileReader } from "../src/lib/export-files.js";
 import { isolatedRateLimitStore } from "./support/rate-limit.js";
 import { as, fixtureAuthPort } from "./support/fixture-app.js";
 import {
@@ -17,12 +13,12 @@ import {
 
 // TIM-006 (issue #38): queue, status and download of background organization
 // exports. The worker's side has its own suite; here a "ready" export is a
-// row and file set up the way the worker leaves them.
+// row and its stored bytes (time_export_files) set up the way the worker
+// leaves them.
 const BODY = { format: "csv", startDate: "2026-11-02", endDate: "2026-11-04" };
 
 describe("/v1/time/exports (TIM-006 background exports)", () => {
   let f: TimeExportFixture;
-  let storageDir: string;
   let auditor: FixturePerson;
   let app: ReturnType<typeof createApp>;
   let csv: Buffer;
@@ -42,7 +38,6 @@ describe("/v1/time/exports (TIM-006 background exports)", () => {
         auditor,
       ]),
       rateLimitStore: isolatedRateLimitStore(await f.db.appSql()),
-      timeExportFiles: createLocalExportFileReader(storageDir),
       timeExport: {
         rateLimit: { windowMs: 60_000, max: 1000 },
         jobsRateLimit: { windowMs: 60_000, max: 1000 },
@@ -68,32 +63,29 @@ describe("/v1/time/exports (TIM-006 background exports)", () => {
       FROM audit_log WHERE organization_id = ${f.a.orgId} AND action = ${action}
       ORDER BY created_at`;
 
-  /** A finished export, as the worker leaves it: file on disk, row ready. */
+  /** A finished export, as the worker leaves it: row ready, bytes stored. */
   const readyExport = async (
     person: FixturePerson,
     options: { expiresAt?: Date; file?: boolean } = {},
   ) => {
     const id = randomUUID();
-    const key = `time-exports/${f.a.orgId}/${id}-1.csv`;
-    if (options.file !== false) {
-      await mkdir(path.join(storageDir, path.dirname(key)), {
-        recursive: true,
-      });
-      await writeFile(path.join(storageDir, key), csv);
-    }
     await f.db.sql`
       INSERT INTO time_exports (id, organization_id, requested_by, format, locale,
         period_start, period_end, employee_days, status, attempts, content_hash,
-        employee_count, byte_size, storage_key, started_at, completed_at, expires_at)
+        employee_count, byte_size, started_at, completed_at, expires_at)
       VALUES (${id}, ${f.a.orgId}, ${person.id}, 'csv', 'es', '2026-11-02',
-        '2026-11-04', 15, 'ready', 1, ${csvHash}, 5, ${csv.byteLength}, ${key},
+        '2026-11-04', 15, 'ready', 1, ${csvHash}, 5, ${csv.byteLength},
         now(), now(), ${options.expiresAt ?? new Date(Date.now() + 3_600_000)})`;
+    if (options.file !== false) {
+      await f.db.sql`
+        INSERT INTO time_export_files (export_id, organization_id, content)
+        VALUES (${id}, ${f.a.orgId}, ${csv})`;
+    }
     return id;
   };
 
   beforeAll(async () => {
     f = await setupTimeExportFixture("txj");
-    storageDir = await mkdtemp(path.join(tmpdir(), "librehr-exports-"));
     // An auditor of org A whose TIM-008 window can be closed by a test.
     const id = randomUUID();
     const email = `auditor-${id.slice(0, 8)}@fixture.invalid`;
@@ -123,7 +115,6 @@ describe("/v1/time/exports (TIM-006 background exports)", () => {
   }, 120000);
 
   afterAll(async () => {
-    if (storageDir) await rm(storageDir, { recursive: true, force: true });
     if (f) await f.db.close();
   });
 
@@ -146,7 +137,7 @@ describe("/v1/time/exports (TIM-006 background exports)", () => {
       expiresAt: null,
     });
     expect(job.employeeDays).toBeGreaterThan(0);
-    expect(job).not.toHaveProperty("storageKey");
+    expect(job).not.toHaveProperty("content");
     expect(job).not.toHaveProperty("requestedBy");
     expect((await auditRows("time.export")).length).toBe(audits);
 
@@ -282,7 +273,8 @@ describe("/v1/time/exports (TIM-006 background exports)", () => {
     const missing = await readyExport(f.a.auditor, { file: false });
     const swept = await readyExport(f.a.auditor);
     await f.db
-      .sql`UPDATE time_exports SET status = 'expired', storage_key = NULL WHERE id = ${swept}`;
+      .sql`UPDATE time_exports SET status = 'expired' WHERE id = ${swept}`;
+    await f.db.sql`DELETE FROM time_export_files WHERE export_id = ${swept}`;
     for (const id of [past, missing, swept]) {
       const res = await get(`/v1/time/exports/${id}/download`, f.a.auditor);
       expect(res.status).toBe(410);

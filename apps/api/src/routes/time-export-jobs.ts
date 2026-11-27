@@ -20,7 +20,6 @@ import {
 import { requireAuth } from "../middleware/auth.js";
 import { createRateLimiter } from "../middleware/rate-limit.js";
 import type { RateLimitStore } from "../lib/rate-limit-store.js";
-import type { ExportFileReader } from "../lib/export-files.js";
 import { can } from "../policies/can.js";
 import { resolvePolicyContext } from "../policies/context.js";
 import {
@@ -41,7 +40,6 @@ const DEFAULT_RATE_LIMIT = { windowMs: 60_000, max: 30 };
 
 export interface TimeExportJobRouteOptions {
   rateLimitStore: RateLimitStore;
-  files: ExportFileReader;
   trustProxy?: number | undefined;
   /** Overrides OFFICIAL_EXPORT_ASYNC_MAX_EMPLOYEE_DAYS (tests). */
   asyncMaxEmployeeDays?: number | undefined;
@@ -54,7 +52,7 @@ const currentUser = (c: { get: unknown }) =>
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
 
-/** The requester's view of a row: no storage key, no requester id. */
+/** The requester's view of a row: no file bytes, no requester id. */
 function toJob(row: TimeExportJobRow): TimeExportJob {
   return {
     exportId: row.id,
@@ -227,6 +225,7 @@ export function createTimeExportJobRoutes(
   router.get("/time/exports/:id/download", requireAuth, limit, async (c) => {
     const user = currentUser(c);
     const { id } = parseParams(c, IdParamSchema, { code: "EXPORT_NOT_FOUND" });
+    const now = new Date();
     const file = await withTenant(
       sql,
       { organizationId: user.organizationId, userId: user.id },
@@ -244,23 +243,21 @@ export function createTimeExportJobRoutes(
           row.status === "expired" ||
           (row.status === "ready" &&
             row.expiresAt !== null &&
-            row.expiresAt.getTime() <= Date.now())
+            row.expiresAt.getTime() <= now.getTime())
         ) {
           throw expired();
         }
-        if (
-          row.status !== "ready" ||
-          row.storageKey === null ||
-          row.contentHash === null
-        ) {
+        if (row.status !== "ready" || row.contentHash === null) {
           throw new ConflictError({
             code: "EXPORT_NOT_READY",
             detail: "The export is not ready to download.",
           });
         }
-        const bytes = await options.files.get(row.storageKey);
+        // The bytes live in time_export_files, read under the same RLS
+        // context and requester check as the row (ADR 0009).
+        const bytes = await repo.readFile(tx, row.id, user.id, now);
         if (!bytes) {
-          // Ready but no file: deleted by hand, or another volume.
+          // Ready but no stored bytes: removed outside the application.
           logger.error({
             msg: "time export file missing",
             requirement: "TIM-006",

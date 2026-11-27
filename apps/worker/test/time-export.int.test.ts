@@ -1,7 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   createRoleSeparatedDatabase,
@@ -21,10 +18,6 @@ import {
   organizationExportSubjects,
 } from "@librehr/time-export";
 import {
-  createLocalExportFileStore,
-  type ExportFileStore,
-} from "../src/lib/export-files.js";
-import {
   handleTimeExport,
   TIME_EXPORT_FAILED_CATEGORY,
   TIME_EXPORT_READY_CATEGORY,
@@ -43,8 +36,6 @@ describe("time.export (TIM-006, issue #38)", () => {
   let base: TestDatabase;
   let db: RoleSeparatedDatabase;
   let owner: Sql;
-  let dir: string;
-  let files: ExportFileStore;
   const repo = new TimeExportRepository();
   const logger = { info: vi.fn(), error: vi.fn() };
 
@@ -55,20 +46,16 @@ describe("time.export (TIM-006, issue #38)", () => {
     db = await createRoleSeparatedDatabase(base);
     await runMigrations(db.ownerConnectionString);
     owner = createDatabaseClient(db.ownerConnectionString, { max: 3 });
-    dir = await mkdtemp(path.join(tmpdir(), "librehr-exports-"));
-    files = createLocalExportFileStore(dir);
   }, 120000);
 
   afterAll(async () => {
     if (owner) await owner.end();
     if (db) await db.close();
     if (base) await base.close();
-    if (dir) await rm(dir, { recursive: true, force: true });
   });
 
   const deps = (over: Partial<TimeExportDeps> = {}): TimeExportDeps => ({
     sql: owner,
-    files,
     timeChainKey: KEY,
     clock,
     fileTtlHours: 168,
@@ -132,9 +119,21 @@ describe("time.export (TIM-006, issue #38)", () => {
       WHERE action = 'time.export' AND resource_id = ${id}`;
   const notificationsOf = (userId: string) =>
     db.adminSql<{ category: string; link: string; body: string }[]>`
-      SELECT category, link, body FROM notifications WHERE user_id = ${userId}`;
-  const storedFiles = async (orgId: string) =>
-    readdir(path.join(dir, "time-exports", orgId)).catch(() => []);
+      SELECT category, link, body FROM notifications WHERE user_id = ${userId}
+      ORDER BY created_at, id`;
+  // The stored bytes (time_export_files), read as the owner under RLS.
+  const storedFiles = (orgId: string) =>
+    withTenant(
+      owner,
+      { organizationId: orgId },
+      (tx) => tx<{ exportId: string; content: Buffer }[]>`
+        SELECT export_id AS "exportId", content FROM time_export_files`,
+    );
+  const fileOf = async (orgId: string, id: string) => {
+    const file = (await storedFiles(orgId)).find((f) => f.exportId === id);
+    if (!file) throw new Error("no stored file");
+    return file.content;
+  };
 
   it("dispatches queued exports of every organization, ids only", async () => {
     const orgA = await newOrg();
@@ -175,7 +174,7 @@ describe("time.export (TIM-006, issue #38)", () => {
       employeeCount: 2,
       expiresAt: new Date(NOW.getTime() + 168 * 3_600_000),
     });
-    const bytes = await readFile(path.join(dir, row.storageKey!));
+    const bytes = await fileOf(orgId, queued.id);
     expect(bytes.byteLength).toBe(row.byteSize);
     expect(bytes[0]).not.toBe(0xef); // no BOM: the download adds it
 
@@ -242,8 +241,7 @@ describe("time.export (TIM-006, issue #38)", () => {
       "pdf",
     );
     expect((await run(orgId, queued.id)).outcome).toBe("ready");
-    const row = (await rowOf(orgId, queued.id))!;
-    const bytes = await readFile(path.join(dir, row.storageKey!));
+    const bytes = await fileOf(orgId, queued.id);
     expect(bytes.subarray(0, 5).toString("latin1")).toBe("%PDF-");
   });
 
@@ -264,7 +262,7 @@ describe("time.export (TIM-006, issue #38)", () => {
     expect(await rowOf(orgId, queued.id)).toMatchObject({
       status: "failed",
       errorCode: "FORBIDDEN",
-      storageKey: null,
+      byteSize: null,
     });
     expect(await auditOf(queued.id)).toEqual([]);
     expect(await storedFiles(orgId)).toEqual([]);
@@ -287,15 +285,17 @@ describe("time.export (TIM-006, issue #38)", () => {
     const orgId = await newOrg();
     const admin = await member(orgId, "admin");
     const queued = await request(orgId, admin, "csv");
-    const broken: ExportFileStore = {
-      put: async () => {
-        throw new Error("disk full");
+    // Any error inside the run's transaction (here the clock) rolls it back.
+    const broken = {
+      clock: {
+        now: (): Date => {
+          throw new Error("clock unavailable");
+        },
       },
-      delete: async () => {},
     };
-    await expect(run(orgId, queued.id, { files: broken })).rejects.toThrow();
-    await expect(run(orgId, queued.id, { files: broken })).rejects.toThrow();
-    expect(await run(orgId, queued.id, { files: broken })).toMatchObject({
+    await expect(run(orgId, queued.id, broken)).rejects.toThrow();
+    await expect(run(orgId, queued.id, broken)).rejects.toThrow();
+    expect(await run(orgId, queued.id, broken)).toMatchObject({
       outcome: "failed",
       errorCode: "EXPORT_FAILED",
     });
@@ -304,6 +304,7 @@ describe("time.export (TIM-006, issue #38)", () => {
       attempts: 3,
     });
     expect(await auditOf(queued.id)).toEqual([]);
+    expect(await storedFiles(orgId)).toEqual([]);
   });
 
   it("does nothing for an export id of another organization", async () => {
@@ -317,11 +318,12 @@ describe("time.export (TIM-006, issue #38)", () => {
     });
   });
 
-  it("deletes expired files, keeps the record and fails stalled runs", async () => {
+  it("deletes expired files, keeps the record and fails and notifies stalled runs", async () => {
     const orgId = await newOrg();
     const done = await request(orgId, await member(orgId, "admin"), "csv");
     expect((await run(orgId, done.id)).outcome).toBe("ready");
-    const stuck = await request(orgId, await member(orgId, "admin"), "csv");
+    const stuckBy = await member(orgId, "admin");
+    const stuck = await request(orgId, stuckBy, "csv");
     await withTenant(owner, { organizationId: orgId }, (tx) =>
       repo.claim(tx, stuck.id),
     );
@@ -332,20 +334,22 @@ describe("time.export (TIM-006, issue #38)", () => {
     // Before expiry nothing changes.
     await handleTimeExportCleanup(
       { id: "cleanup-1", data: {} },
-      { sql: owner, files, clock, logger },
+      { sql: owner, clock, logger },
     );
     expect((await rowOf(orgId, done.id))!.status).toBe("ready");
+    expect(await storedFiles(orgId)).toHaveLength(1);
+    expect(await notificationsOf(stuckBy)).toEqual([]);
 
     const later = { now: () => new Date(NOW.getTime() + 169 * 3_600_000) };
     const report = await handleTimeExportCleanup(
       { id: "cleanup-2", data: {} },
-      { sql: owner, files, clock: later, logger },
+      { sql: owner, clock: later, logger },
     );
     expect(report.failed).toBe(0);
     expect(report.expired).toBeGreaterThanOrEqual(1);
     expect(await rowOf(orgId, done.id)).toMatchObject({
       status: "expired",
-      storageKey: null,
+      byteSize: expect.any(Number),
       contentHash: expect.stringMatching(/^[0-9a-f]{64}$/),
     });
     expect(await storedFiles(orgId)).toEqual([]);
@@ -354,5 +358,30 @@ describe("time.export (TIM-006, issue #38)", () => {
       status: "failed",
       errorCode: "EXPORT_STALLED",
     });
+    // The requester of the stalled export is told, in the export's locale.
+    expect(await notificationsOf(stuckBy)).toEqual([
+      {
+        category: TIME_EXPORT_FAILED_CATEGORY,
+        link: `/time/export?job=${stuck.id}`,
+        body: expect.stringContaining("2026-11-02"),
+      },
+    ]);
+    // A second sweep does not notify again.
+    await handleTimeExportCleanup(
+      { id: "cleanup-3", data: {} },
+      { sql: owner, clock: later, logger },
+    );
+    expect(await notificationsOf(stuckBy)).toHaveLength(1);
+  });
+
+  it("cannot leave stored bytes behind their export row", async () => {
+    const orgId = await newOrg();
+    const queued = await request(orgId, await member(orgId, "admin"), "csv");
+    expect((await run(orgId, queued.id)).outcome).toBe("ready");
+    expect(await storedFiles(orgId)).toHaveLength(1);
+    // Removing the export row (or its organization, which cascades to it)
+    // removes the bytes: no file can exist without the row that tracks it.
+    await db.adminSql`DELETE FROM time_exports WHERE id = ${queued.id}`;
+    expect(await storedFiles(orgId)).toEqual([]);
   });
 });
