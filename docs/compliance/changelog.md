@@ -2,6 +2,13 @@
 
 All legal and regulatory revisions affecting LibreHR are tracked here.
 
+## [2026-11-27] - Background working-time exports (`TIM-006`, issue #38)
+
+- **Asynchronous export path (`TIM-006`):** organization exports above the synchronous cap of 50,000 employee-days, up to 500,000, are queued (`POST /v1/time/exports`) and built by the worker with the same builder, so the document and its SHA-256 hash match the synchronous export for the same data. Each build writes the same ADM-002 `time.export` audit entry, marked `delivery: "async"`.
+- **New retention default:** the stored export file can be downloaded for 7 days (`TIME_EXPORT_FILE_TTL_HOURS`, 1-720 hours) and is then deleted. Only this download copy expires: the `time_exports` record (id, period, requester, hash) and the audit entries are kept for at least 4 years, like the working-time records themselves (Real Decreto-ley 8/2019, `TIM-007`).
+- **Access logging (`TIM-008`):** only the requester can download an export, and only while they still hold organization-wide `time.record.read` (a lapsed auditor window ends access); every download writes a `time.export.download` audit entry with the export id, format and hash only.
+- **Storage and encryption stance:** the file is stored in the database (`time_export_files`) under row-level security, readable only through the requester's download, and is not encrypted at the application level: it holds names and working times but no special-category data, the same data the database already holds. Operators should encrypt the database disk and backups. Failed or stalled exports notify the requester and store nothing.
+
 ## [2026-11-26] - Retention categories and the time-records floor (`ADM-005`, #32)
 
 - **Retention configuration per organization:** `retention_policies` (migration 0042, RLS) holds an optional period per data category (`time_records`, `leave_records`, `audit_log`, `deleted_documents`, `statutory_documents`, `notifications`, `invitations`); a missing row means the default in `packages/core/src/retention`. The defaults are listed in `COMPLIANCE.md` section 5.
