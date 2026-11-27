@@ -13,7 +13,6 @@ import {
   configureTimeExportSchedules,
   handleTimeExportDispatch,
 } from "./queues/time.export-dispatch.js";
-import { createLocalExportFileStore } from "./lib/export-files.js";
 import { createSmtpMailer } from "./lib/smtp-mailer.js";
 import { processBatch, type BatchJob } from "./lib/process-batch.js";
 import { createDatabaseClient } from "@librehr/db";
@@ -98,11 +97,9 @@ async function startWorker() {
   );
 
   // Background time exports (TIM-006): outbox sweep, build, file cleanup.
-  const exportFiles = createLocalExportFileStore(env.TIME_EXPORT.storageDir);
   await register("time.export", (job) =>
     handleTimeExport(job, {
       sql,
-      files: exportFiles,
       timeChainKey: env.TIME_CHAIN_KEY,
       clock,
       fileTtlHours: env.TIME_EXPORT.fileTtlHours,
@@ -118,7 +115,7 @@ async function startWorker() {
     }),
   );
   await register("time.export.cleanup", (job) =>
-    handleTimeExportCleanup(job, { sql, files: exportFiles, clock, logger }),
+    handleTimeExportCleanup(job, { sql, clock, logger }),
   );
   await configureTimeExportSchedules(boss);
 

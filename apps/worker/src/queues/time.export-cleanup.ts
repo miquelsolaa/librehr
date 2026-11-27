@@ -6,8 +6,8 @@ import {
   TimeExportRepository,
   type Sql,
 } from "@librehr/db";
-import type { ExportFileStore } from "../lib/export-files.js";
 import { parsePayload } from "../lib/payload.js";
+import { notifyTimeExportFailed } from "./time.export.js";
 
 export const TimeExportCleanupPayloadSchema = z.strictObject({});
 
@@ -22,14 +22,15 @@ export const timeExportCleanupSingletonKey = (): string =>
 export const TIME_EXPORT_CLEANUP_BATCH = 500;
 
 /**
- * A run still `running` after this long belongs to a crashed worker: pg-boss
- * re-drives a job after 15 minutes, three times at most.
+ * A run still `running` after this long belongs to a crashed worker. pg-boss
+ * re-drives a run after TIME_EXPORT_EXPIRE_SECONDS (1 hour), three runs at
+ * most, so this stays above expiry x attempts (4 h > 3 h) and never fails an
+ * export that pg-boss may still be re-driving.
  */
-export const TIME_EXPORT_STALE_MINUTES = 120;
+export const TIME_EXPORT_STALE_MINUTES = 240;
 
 export interface TimeExportCleanupDeps {
   sql: Sql;
-  files: ExportFileStore;
   clock: Clock;
   logger: { info(obj: object): void; error(obj: object): void };
 }
@@ -38,7 +39,7 @@ export interface TimeExportCleanupReport {
   organizations: number;
   /** Files deleted and their exports marked expired. */
   expired: number;
-  /** Exports stuck in `running`, now failed (EXPORT_STALLED). */
+  /** Exports stuck in `running`, now failed (EXPORT_STALLED) and notified. */
   stalled: number;
   /** Organizations skipped because of an error (logged by id). */
   failed: number;
@@ -47,11 +48,12 @@ export interface TimeExportCleanupReport {
 /**
  * TIM-006 (issue #38) retention of export files: every hour, for every
  * organization, deletes the files whose download period ended and marks
- * their exports `expired`. Only the bytes go: the row (id, period, hash,
- * requester) and the ADM-002 audit entry stay as the >= 4-year record of
- * what was issued (TIM-007). The file is deleted before the row changes, so
- * a failure leaves a ready-but-expired row (which the download refuses by
- * date) and never a file nobody tracks.
+ * their exports `expired`, in one transaction per organization. Only the
+ * bytes go: the row (id, period, hash, requester) and the ADM-002 audit
+ * entry stay as the >= 4-year record of what was issued (TIM-007).
+ *
+ * It also fails exports left `running` by a dead worker (EXPORT_STALLED) and
+ * notifies their requesters, as a failed run does.
  */
 export async function handleTimeExportCleanup(
   job: { id: string; data: unknown },
@@ -78,19 +80,19 @@ export async function handleTimeExportCleanup(
         deps.sql,
         { organizationId: org.organizationId },
         async (tx) => {
-          for (const row of await repo.listExpired(
+          for (const id of await repo.listExpired(
             tx,
             now,
             TIME_EXPORT_CLEANUP_BATCH,
           )) {
-            await deps.files.delete(row.storageKey);
-            if (await repo.markExpired(tx, row.id)) report.expired++;
+            if (await repo.markExpired(tx, id)) report.expired++;
           }
           const stalled = await repo.failStale(
             tx,
             staleBefore,
             "EXPORT_STALLED",
           );
+          for (const row of stalled) await notifyTimeExportFailed(tx, row);
           report.stalled += stalled.length;
         },
       );

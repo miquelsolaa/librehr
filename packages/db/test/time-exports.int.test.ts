@@ -12,8 +12,9 @@ import { withTenant, type TenantTx } from "../src/with-tenant.js";
 import { TimeExportRepository } from "../src/repositories/time-export.repository.js";
 
 // TIM-006 (#38): background export rows (migration 0045). The API role
-// requests and reads; only the worker's owner role updates; the dispatch
-// function is the owner's only cross-tenant read and returns ids only.
+// requests and reads; only the worker's owner role updates and stores the
+// file bytes (time_export_files, under RLS); the dispatch function is the
+// owner's only cross-tenant read and returns ids only.
 describe("time_exports (0045)", () => {
   let base: TestDatabase;
   let db: RoleSeparatedDatabase;
@@ -66,7 +67,7 @@ describe("time_exports (0045)", () => {
       periodStart: "2026-01-01",
       periodEnd: "2026-12-31",
       contentHash: null,
-      storageKey: null,
+      byteSize: null,
     });
     const id = created!.id;
 
@@ -186,12 +187,12 @@ describe("time_exports (0045)", () => {
     });
 
     const expiresAt = new Date("2026-02-01T00:00:00Z");
+    const content = new TextEncoder().encode("a;b\n1;2\n");
     const ready = await asOwner(orgA, (tx) =>
       repo.markReady(tx, id, {
         contentHash: hash,
         employeeCount: 330,
-        byteSize: 4096,
-        storageKey: `time-exports/${orgA}/${id}.csv`,
+        content,
         expiresAt,
       }),
     );
@@ -199,9 +200,31 @@ describe("time_exports (0045)", () => {
       status: "ready",
       contentHash: hash,
       employeeCount: 330,
-      byteSize: 4096,
+      byteSize: content.byteLength,
       expiresAt,
     });
+
+    // The bytes are readable by the requester only, before expiry, and only
+    // in the export's own tenant.
+    const before = new Date("2026-01-31T23:59:59Z");
+    expect(
+      await asApp(orgA, (tx) => repo.readFile(tx, id, alice, before)),
+    ).toEqual(content);
+    expect(
+      await asApp(orgA, (tx) => repo.readFile(tx, id, bob, before)),
+    ).toBeNull();
+    expect(
+      await asApp(orgB, (tx) => repo.readFile(tx, id, alice, before)),
+    ).toBeNull();
+    expect(
+      await asApp(orgA, (tx) => repo.readFile(tx, id, alice, expiresAt)),
+    ).toBeNull();
+    const [otherTenant] = await asApp(
+      orgB,
+      (tx) => tx<{ n: number }[]>`
+        SELECT count(*)::int AS n FROM time_export_files`,
+    );
+    expect(otherTenant?.n).toBe(0);
     // Ready is final for the job: no second claim, ready or failure.
     expect(await asOwner(orgA, (tx) => repo.claim(tx, id))).toBeNull();
     expect(
@@ -219,12 +242,78 @@ describe("time_exports (0045)", () => {
     ).toEqual([]);
     expect(
       await asOwner(orgA, (tx) => repo.listExpired(tx, expiresAt, 10)),
-    ).toEqual([{ id, storageKey: `time-exports/${orgA}/${id}.csv` }]);
+    ).toEqual([id]);
     expect(await asOwner(orgA, (tx) => repo.markExpired(tx, id))).toBe(true);
     expect(await asOwner(orgA, (tx) => repo.markExpired(tx, id))).toBe(false);
     expect(
       await asApp(orgA, (tx) => repo.findForRequester(tx, id, alice)),
-    ).toMatchObject({ status: "expired", storageKey: null, contentHash: hash });
+    ).toMatchObject({ status: "expired", contentHash: hash });
+    // Expiry removed the bytes in the same transaction.
+    const [left] = await asOwner(
+      orgA,
+      (tx) => tx<{ n: number }[]>`
+        SELECT count(*)::int AS n FROM time_export_files WHERE export_id = ${id}`,
+    );
+    expect(left?.n).toBe(0);
+  });
+
+  it("keeps file bytes read-only for the runtime role and inside their tenant", async () => {
+    const created = await asApp(orgB, (tx) =>
+      repo.create(tx, request(randomUUID())),
+    );
+    const id = created!.id;
+    await asOwner(orgB, (tx) => repo.claim(tx, id));
+    await asOwner(orgB, (tx) =>
+      repo.markReady(tx, id, {
+        contentHash: hash,
+        employeeCount: 1,
+        content: new Uint8Array([1, 2, 3]),
+        expiresAt: new Date("2030-01-01T00:00:00Z"),
+      }),
+    );
+
+    await expect(
+      asApp(
+        orgB,
+        (tx) => tx`
+        UPDATE time_export_files SET content = '\\x00' WHERE export_id = ${id}`,
+      ),
+    ).rejects.toThrow(/permission denied/i);
+    await expect(
+      asApp(
+        orgB,
+        (tx) => tx`DELETE FROM time_export_files WHERE export_id = ${id}`,
+      ),
+    ).rejects.toThrow(/permission denied/i);
+    await expect(
+      asApp(
+        orgB,
+        (tx) => tx`
+        INSERT INTO time_export_files (export_id, content)
+        VALUES (${randomUUID()}, '\\x00')`,
+      ),
+    ).rejects.toThrow(/permission denied/i);
+    // Even the owner cannot attach bytes to another tenant's export.
+    await expect(
+      asOwner(
+        orgA,
+        (tx) => tx`
+        INSERT INTO time_export_files (export_id, organization_id, content)
+        VALUES (${id}, ${orgB}, '\\x00')`,
+      ),
+    ).rejects.toThrow(/row-level security/i);
+
+    const [grants] = await db.adminSql<{ privileges: string[] }[]>`
+      SELECT array_agg(privilege_type::text ORDER BY privilege_type) AS privileges
+      FROM information_schema.role_table_grants
+      WHERE table_name = 'time_export_files' AND grantee = 'librehr_app'`;
+    expect(grants?.privileges).toEqual(["SELECT"]);
+    const [rls] = await db.adminSql<
+      { relrowsecurity: boolean; relforcerowsecurity: boolean }[]
+    >`
+      SELECT relrowsecurity, relforcerowsecurity FROM pg_class
+      WHERE relname = 'time_export_files'`;
+    expect(rls).toEqual({ relrowsecurity: true, relforcerowsecurity: true });
   });
 
   it("fails exports stuck in running and records a coarse error code", async () => {
@@ -241,29 +330,18 @@ describe("time_exports (0045)", () => {
       await asOwner(orgA, (tx) =>
         repo.failStale(tx, new Date(Date.now() + 60_000), "EXPORT_TIMEOUT"),
       ),
-    ).toEqual([queued!.id]);
+    ).toMatchObject([{ id: queued!.id, requestedBy: alice, locale: "es" }]);
     expect(
       await asApp(orgA, (tx) => repo.findForRequester(tx, queued!.id, alice)),
     ).toMatchObject({ status: "failed", errorCode: "EXPORT_TIMEOUT" });
   });
 
-  it("rejects a storage key outside the storage root and an incomplete ready row", async () => {
+  it("rejects an incomplete ready row and a free-text error code", async () => {
     const created = await asApp(orgB, (tx) =>
       repo.create(tx, { ...request(randomUUID()), format: "pdf" }),
     );
     const id = created!.id;
     await asOwner(orgB, (tx) => repo.claim(tx, id));
-    await expect(
-      asOwner(orgB, (tx) =>
-        repo.markReady(tx, id, {
-          contentHash: hash,
-          employeeCount: 1,
-          byteSize: 10,
-          storageKey: "time-exports/../../etc/passwd",
-          expiresAt: new Date(),
-        }),
-      ),
-    ).rejects.toThrow(/time_exports_storage_key_check/);
     await expect(
       asOwner(
         orgB,
