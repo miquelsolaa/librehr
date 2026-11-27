@@ -3,7 +3,11 @@ import { ESLint } from "eslint";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { MAX_LINES, MAX_LINES_ALLOWLIST } from "../eslint/max-lines.js";
+import {
+  MAX_LINES,
+  MAX_LINES_ALLOWLIST,
+  literalGlob,
+} from "../eslint/max-lines.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../../..");
@@ -66,6 +70,11 @@ describe("max-lines ratchet", () => {
       expect(MAX_LINES_ALLOWLIST).toContain(filePath);
       expect(await maxLinesErrors(source(MAX_LINES + 1), filePath)).toEqual([]);
     }
+  });
+
+  it("escapes glob metacharacters, backslash included", () => {
+    expect(literalGlob("a/[id]/(app)/b.ts")).toBe("a/\\[id\\]/\\(app\\)/b.ts");
+    expect(literalGlob("a\\(b).ts")).toBe("a\\\\\\(b\\).ts");
   });
 
   // The allowlist only shrinks. Lower this ceiling in the same PR that

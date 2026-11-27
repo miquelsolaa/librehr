@@ -54,8 +54,12 @@ export const MAX_LINES_ALLOWLIST = [
   "packages/ui/stories/brand.stories.tsx",
 ];
 
-/** Next.js route segments use `[id]` and `(app)`, which are glob syntax. */
-const literalGlob = (path) => path.replace(/[[\]()]/g, "\\$&");
+/**
+ * Next.js route segments use `[id]` and `(app)`, which are glob syntax.
+ * Backslash is escaped too, so an escape already in the path cannot pair
+ * with the one added here and leave a metacharacter live.
+ */
+export const literalGlob = (path) => path.replace(/[\\[\]()]/g, "\\$&");
 
 export const maxLinesConfigs = [
   {
