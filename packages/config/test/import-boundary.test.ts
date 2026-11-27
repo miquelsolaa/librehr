@@ -26,6 +26,7 @@ const CORE = "packages/core/src/domain.ts";
 const WEB = "apps/web/src/app/page.tsx";
 const API = "apps/api/src/routes/example.ts";
 const WORKER = "apps/worker/src/jobs/example.ts";
+const TIME_EXPORT = "packages/time-export/src/example.ts";
 
 describe("Import boundary rules (AGENTS.md section 2)", () => {
   // Loading the flat config and typescript-eslint takes seconds under a
@@ -78,6 +79,14 @@ describe("Import boundary rules (AGENTS.md section 2)", () => {
       [WORKER, "@librehr/web"],
       [WORKER, "@librehr/api"],
       [WORKER, "@librehr/ui"],
+      // time-export -> core, db only, and no HTTP framework (issue #38)
+      [CORE, "@librehr/time-export"],
+      [WEB, "@librehr/time-export"],
+      [TIME_EXPORT, "@librehr/contracts"],
+      [TIME_EXPORT, "@librehr/api"],
+      [TIME_EXPORT, "@librehr/emails"],
+      [TIME_EXPORT, "hono"],
+      [TIME_EXPORT, "../../../apps/api/src/lib/business-date"],
     ])("%s cannot import %s", async (file, specifier) => {
       const messages = await restrictedImportMessages(specifier, file);
       expect(messages.length).toBeGreaterThan(0);
@@ -95,6 +104,10 @@ describe("Import boundary rules (AGENTS.md section 2)", () => {
       [WORKER, "@librehr/core"],
       [WORKER, "@librehr/db"],
       [WORKER, "@librehr/emails/render"],
+      [API, "@librehr/time-export"],
+      [WORKER, "@librehr/time-export"],
+      [TIME_EXPORT, "@librehr/core"],
+      [TIME_EXPORT, "@librehr/db"],
       [CORE, "./leave/accrual"],
     ])("%s may import %s", async (file, specifier) => {
       expect(await restrictedImportMessages(specifier, file)).toEqual([]);

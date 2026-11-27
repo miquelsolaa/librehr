@@ -68,6 +68,10 @@ Pure TypeScript, no I/O, injected `Clock`. Modules: `calendar` (working days, ho
 
 Drizzle schema (`schema/*.ts`), SQL migrations (generated + hand-edited for RLS/triggers), RLS policy definitions, seed scripts, and repositories that **require a transaction-scoped tenant context** (type-level: repository functions take `Tx`, obtained only via `withTenant(ctx, fn)`).
 
+### 3.5a packages/time-export
+
+The TIM-006 official time-export builder (`buildOfficialExport`, the paged chain check, per-employee collection and the period timesheet loader), shared by the API's synchronous export and the worker's background job (issue #38) so both produce the same document and hash. Depends on `core` and `db` only; takes a tenant transaction and a zone resolver, never an HTTP context. Authorization, caps, auditing and delivery stay with the caller.
+
 ### 3.6 packages/contracts
 
 Zod schemas for all requests/responses/events, error codes, and permission names. Generates OpenAPI and the typed client (`pnpm contracts:generate`). Breaking changes require a version bump of the affected route.
