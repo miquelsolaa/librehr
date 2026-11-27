@@ -149,6 +149,40 @@ export class TimeExportRepository {
       FROM public.librehr_queued_time_exports(${limit})`;
   }
 
+  /**
+   * The requester's name and role while they still hold an active membership
+   * in the current organization (an auditor's TIM-008 window still open, no
+   * terminated employee record), the same rule as the session lookup of
+   * migration 0029. null otherwise, so the worker re-checks access when the
+   * job runs, not only when it was requested.
+   */
+  async findActiveRequester(
+    tx: TenantTx,
+    userId: string,
+  ): Promise<{ name: string; role: string } | null> {
+    const rows = await tx<{ name: string; role: string }[]>`
+      SELECT u.name, m.role
+      FROM memberships m
+      JOIN users u ON u.id = m.user_id
+      JOIN organizations o ON o.id = m.organization_id
+      WHERE m.organization_id = ${tx.__tenantContext.organizationId}
+        AND m.user_id = ${userId}
+        AND (m.access_expires_at IS NULL OR m.access_expires_at > now())
+        AND NOT EXISTS (
+          SELECT 1 FROM employees e
+          WHERE e.organization_id = m.organization_id
+            AND e.user_id = m.user_id
+            AND e.status = 'terminated'
+            AND (
+              e.termination_date IS NULL
+              OR e.termination_date <= (now() AT TIME ZONE o.timezone)::date
+            )
+        )
+      ORDER BY m.created_at, m.id
+      LIMIT 1`;
+    return rows[0] ?? null;
+  }
+
   async findById(tx: TenantTx, id: string): Promise<TimeExportJobRow | null> {
     const rows = await tx<TimeExportJobRow[]>`
       SELECT ${columns(tx)} FROM time_exports WHERE id = ${id}`;

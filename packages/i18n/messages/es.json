@@ -665,6 +665,14 @@
     "missingClockOut": {
       "title": "Falta el fichaje de salida",
       "body": "Tu registro de jornada del {date} sigue abierto. Solicita una corrección con la hora en que terminaste."
+    },
+    "timeExportReady": {
+      "title": "Exportación del registro de jornada lista",
+      "body": "La exportación del registro de jornada del {start} al {end} ya se puede descargar hasta el {until}."
+    },
+    "timeExportFailed": {
+      "title": "No se ha podido generar la exportación",
+      "body": "La exportación del registro de jornada del {start} al {end} no se ha podido generar. Inténtalo de nuevo o pide un periodo más corto."
     }
   },
   "timeTracking": {

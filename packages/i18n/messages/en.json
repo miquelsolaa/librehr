@@ -665,6 +665,14 @@
     "missingClockOut": {
       "title": "Missing clock-out",
       "body": "Your time record for {date} is still open. Request a correction with the time you finished."
+    },
+    "timeExportReady": {
+      "title": "Time record export ready",
+      "body": "Your time record export for {start} to {end} can be downloaded until {until}."
+    },
+    "timeExportFailed": {
+      "title": "Time record export failed",
+      "body": "Your time record export for {start} to {end} could not be generated. Try again or request a shorter period."
     }
   },
   "timeTracking": {
