@@ -56,9 +56,12 @@ The maintainer approved the recommended answer to every question below on
    `(organization_id, ...)` keys. Both new tables get RLS enabled and forced
    with the standard tenant policy and are added to `TENANT_TABLES`.
 6. **Nothing is deleted from under history (D8).** Memberships cascade only
-   with their employee. Departments and groups are `RESTRICT`: deleting a
+   with their employee. Departments and groups are restricted: deleting a
    department that any membership references answers 409. Groups are
-   archived, never hard-deleted.
+   archived, never hard-deleted. Migration 0046 declares these keys as
+   `NO ACTION` rather than `RESTRICT`. Both refuse a direct delete, but
+   `NO ACTION` is checked at the end of the statement, so deleting a whole
+   organization still cascades.
 7. **The `department` permission scope stays primary-only (D4).** No built-in
    role uses it, and widening it could grant write rights to custom roles.
 8. **Secondary-lead visibility is an organization setting (D2).** Values

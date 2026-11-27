@@ -49,6 +49,8 @@ export const TENANT_TABLES = [
   "time_exports",
   "time_export_files",
   "retention_policies",
+  "org_groups",
+  "employee_memberships",
 ] as const;
 
 export type TenantTable = (typeof TENANT_TABLES)[number];
