@@ -44,7 +44,7 @@
 -- person's email at their own provider, get a session and change the
 -- person's global credentials, locking them out of the other organization.
 -- Such people keep signing in with their password until a step-up policy
--- exists. For the same reason librehr_auth_sso_domains_taken lets the API
+-- exists. For the same reason librehr_auth_sso_domain_taken lets the API
 -- refuse an allow-list that claims a domain another organization's enabled
 -- configuration already claims (authorize resolves a domain to one
 -- organization only).
@@ -55,7 +55,7 @@
 -- membership and go with it, the user or the organization (cascade).
 --
 -- Rollback: purely additive. To revert, drop the functions
--- librehr_auth_sso_domains_taken(uuid, jsonb),
+-- librehr_auth_sso_domain_taken(text),
 -- librehr_auth_sso_resolve_user(text, text, text, text),
 -- librehr_auth_sso_other_org_member(uuid, uuid) and
 -- librehr_auth_sso_consume(text), then the tables sso_identities and
@@ -424,48 +424,46 @@ BEGIN
 END
 $$;
 
--- 3c. The domains of p_domains (normalized like librehr_auth_sso_config:
--- trimmed, lower case, without a leading '@') that an enabled configuration
--- of another organization already allows. POST /v1/sso/config refuses to
--- enable an allow-list that overlaps, so a tenant cannot send another
--- tenant's people to its own identity provider. Returns domain names only,
--- never which organization claims them.
-CREATE OR REPLACE FUNCTION librehr_auth_sso_domains_taken(
-  p_organization_id uuid,
-  p_domains jsonb
-)
-RETURNS TABLE (domain text)
+-- 3c. Whether p_domain (normalized like librehr_auth_sso_config: trimmed,
+-- lower case, without a leading '@') is already allowed by an enabled
+-- configuration of an organization other than the current tenant
+-- (app.current_org, set by withTenant for the signed-in admin). POST
+-- /v1/sso/config refuses to enable an allow-list with such a domain, so a
+-- tenant cannot send another tenant's people to its own identity provider.
+-- Keyed on the domain like librehr_auth_sso_config; never says which
+-- organization claims it. Without a tenant context it raises.
+CREATE OR REPLACE FUNCTION librehr_auth_sso_domain_taken(p_domain text)
+RETURNS boolean
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, public
 AS $$
-#variable_conflict use_column
 DECLARE
   previous text := current_setting('librehr.identity_lookup', true);
+  v_org uuid := NULLIF(current_setting('app.current_org', true), '')::uuid;
+  v_domain text := regexp_replace(lower(btrim(coalesce(p_domain, ''))), '^@', '');
+  v_taken boolean;
 BEGIN
-  IF p_organization_id IS NULL OR jsonb_typeof(p_domains) IS DISTINCT FROM 'array' THEN
-    RETURN;
+  IF v_org IS NULL THEN
+    RAISE EXCEPTION 'librehr_auth_sso_domain_taken needs a tenant context'
+      USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  IF length(v_domain) = 0 THEN
+    RETURN false;
   END IF;
   PERFORM set_config('librehr.identity_lookup', 'on', true);
-  RETURN QUERY
-    SELECT DISTINCT wanted.domain
-    FROM (
-      SELECT regexp_replace(lower(btrim(d.value)), '^@', '') AS domain
-      FROM jsonb_array_elements_text(p_domains) AS d(value)
-    ) AS wanted
-    WHERE length(wanted.domain) > 0
-      AND EXISTS (
-        SELECT 1
-        FROM public.sso_configurations c
-        CROSS JOIN LATERAL jsonb_array_elements_text(
-          CASE WHEN jsonb_typeof(c.allowed_domains) = 'array'
-               THEN c.allowed_domains ELSE '[]'::jsonb END
-        ) AS claimed(value)
-        WHERE c.enabled
-          AND c.organization_id <> p_organization_id
-          AND regexp_replace(lower(btrim(claimed.value)), '^@', '') = wanted.domain
-      )
-    ORDER BY wanted.domain;
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.sso_configurations c
+    CROSS JOIN LATERAL jsonb_array_elements_text(
+      CASE WHEN jsonb_typeof(c.allowed_domains) = 'array'
+           THEN c.allowed_domains ELSE '[]'::jsonb END
+    ) AS claimed(value)
+    WHERE c.enabled
+      AND c.organization_id <> v_org
+      AND regexp_replace(lower(btrim(claimed.value)), '^@', '') = v_domain
+  ) INTO v_taken;
   PERFORM set_config('librehr.identity_lookup', coalesce(previous, ''), true);
+  RETURN v_taken;
 END
 $$;
 
@@ -475,7 +473,7 @@ REVOKE ALL ON FUNCTION librehr_auth_sso_resolve_user(text, text, text, text)
   FROM PUBLIC;
 REVOKE ALL ON FUNCTION librehr_auth_sso_other_org_member(uuid, uuid)
   FROM PUBLIC;
-REVOKE ALL ON FUNCTION librehr_auth_sso_domains_taken(uuid, jsonb)
+REVOKE ALL ON FUNCTION librehr_auth_sso_domain_taken(text)
   FROM PUBLIC;
 
 DO $$
@@ -484,7 +482,7 @@ BEGIN
     GRANT EXECUTE ON FUNCTION
       librehr_auth_sso_consume(text),
       librehr_auth_sso_resolve_user(text, text, text, text),
-      librehr_auth_sso_domains_taken(uuid, jsonb)
+      librehr_auth_sso_domain_taken(text)
     TO librehr_app;
   END IF;
 END $$;

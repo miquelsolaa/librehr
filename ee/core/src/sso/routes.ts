@@ -124,10 +124,10 @@ function registerSsoRoutes(router: Hono, context: EeExtensionContext): void {
       // Authorize resolves a domain to one organization: refuse to claim a
       // domain another organization already signs in with, so a tenant
       // cannot send another tenant's people to its own provider.
-      const taken = await identityRepo.ssoDomainsTaken(
+      const taken = await withTenant(
         sql,
-        user.organizationId,
-        parsed.data.allowedDomains,
+        { organizationId: user.organizationId, userId: user.id },
+        (tx) => identityRepo.ssoDomainsTaken(tx, parsed.data.allowedDomains),
       );
       if (taken.length > 0) {
         throw createError({

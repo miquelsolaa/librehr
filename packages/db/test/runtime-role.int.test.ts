@@ -17,8 +17,8 @@ const APPEND_ONLY_TABLES = [
   "audit_log",
   "timesheet_closures",
 ];
-// Callable by librehr_app: each one is keyed by a secret the caller holds,
-// except librehr_auth_sso_domains_taken, which returns only domain names.
+// Callable by librehr_app: each one is keyed by a secret the caller holds
+// (librehr_auth_sso_domain_taken by a domain, like librehr_auth_sso_config).
 const LOOKUP_FUNCTIONS = [
   "librehr_auth_session",
   "librehr_auth_session_bind_org",
@@ -27,7 +27,7 @@ const LOOKUP_FUNCTIONS = [
   "librehr_auth_sso_config",
   "librehr_auth_sso_consume",
   "librehr_auth_sso_resolve_user",
-  "librehr_auth_sso_domains_taken",
+  "librehr_auth_sso_domain_taken",
 ];
 
 // Production layout: NOSUPERUSER NOBYPASSRLS owner runs migrations, the
