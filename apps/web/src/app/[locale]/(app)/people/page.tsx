@@ -22,7 +22,11 @@ import {
 } from "@librehr/ui";
 import { getApiClient } from "@/lib/api-client";
 import { getStoredSession } from "@/lib/auth";
-import type { EmployeeListItem, Department } from "@librehr/contracts";
+import type {
+  EmployeeListItem,
+  Department,
+  OrgGroup,
+} from "@librehr/contracts";
 
 export default function PeoplePage() {
   const params = useParams();
@@ -38,9 +42,13 @@ export default function PeoplePage() {
     "signInRequired" | "loadError" | null
   >(null);
   const [departmentsError, setDepartmentsError] = React.useState(false);
+  const [groups, setGroups] = React.useState<OrgGroup[]>([]);
+  const [groupsError, setGroupsError] = React.useState(false);
   const requestSequence = React.useRef(0);
   const [search, setSearch] = React.useState("");
   const [selectedDept, setSelectedDept] = React.useState<string>("");
+  const [selectedGroup, setSelectedGroup] = React.useState<string>("");
+  const [primaryOnly, setPrimaryOnly] = React.useState(false);
   const [selectedStatus, setSelectedStatus] = React.useState<string>("");
 
   // Invite modal state
@@ -49,6 +57,8 @@ export default function PeoplePage() {
   const [inviteRole, setInviteRole] = React.useState<
     "employee" | "manager" | "admin"
   >("employee");
+  // ORG-007: every invited employee gets a primary department.
+  const [inviteDept, setInviteDept] = React.useState("");
   const [inviteSending, setInviteSending] = React.useState(false);
   const [inviteSuccess, setInviteSuccess] = React.useState(false);
   const [inviteError, setInviteError] = React.useState("");
@@ -68,6 +78,8 @@ export default function PeoplePage() {
       const res = await getApiClient().listEmployees({
         search: search || undefined,
         departmentId: selectedDept || undefined,
+        groupId: selectedGroup || undefined,
+        membership: selectedDept && primaryOnly ? "primary" : undefined,
         status:
           (selectedStatus as "active" | "on_leave" | "terminated") || undefined,
       });
@@ -80,7 +92,7 @@ export default function PeoplePage() {
     } finally {
       if (sequence === requestSequence.current) setLoading(false);
     }
-  }, [search, selectedDept, selectedStatus]);
+  }, [search, selectedDept, selectedGroup, primaryOnly, selectedStatus]);
 
   React.useEffect(() => {
     fetchEmployees();
@@ -102,6 +114,22 @@ export default function PeoplePage() {
     fetchDepartments();
   }, [fetchDepartments]);
 
+  // ORG-007: active projects and areas for the membership filter.
+  const fetchGroups = React.useCallback(() => {
+    if (!getStoredSession()) return;
+    setGroupsError(false);
+    void getApiClient()
+      .listOrgGroups()
+      .then((list) => setGroups(list))
+      .catch(() => {
+        setGroups([]);
+        setGroupsError(true);
+      });
+  }, []);
+  React.useEffect(() => {
+    fetchGroups();
+  }, [fetchGroups]);
+
   const handleSendInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     setInviteSending(true);
@@ -112,12 +140,14 @@ export default function PeoplePage() {
       await getApiClient().createInvitation({
         email: inviteEmail,
         role: inviteRole,
+        departmentId: inviteDept,
       });
       setInviteSuccess(true);
       setTimeout(() => {
         setInviteOpen(false);
         setInviteSuccess(false);
         setInviteEmail("");
+        setInviteDept("");
       }, 1500);
     } catch {
       setInviteError(t("inviteError"));
@@ -157,11 +187,35 @@ export default function PeoplePage() {
     {
       id: "department",
       header: t("colDepartment"),
-      cell: (item: EmployeeListItem) => (
-        <span className="text-muted-foreground">
-          {item.departmentName ?? "—"}
-        </span>
-      ),
+      cell: (item: EmployeeListItem) => {
+        // ORG-007: secondary memberships active today, under the primary.
+        const others = item.secondaryMemberships ?? [];
+        return (
+          <div className="text-muted-foreground">
+            <span>{item.departmentName ?? "—"}</span>
+            {others.length > 0 && (
+              <ul
+                aria-label={t("secondaryMemberships")}
+                className="mt-1 flex flex-wrap gap-1"
+              >
+                {others.map((m) => (
+                  <li
+                    key={`${m.type}:${m.id}`}
+                    className="rounded-full bg-surface-raised px-2 py-0.5 text-xs"
+                  >
+                    {m.allocationPercent === null
+                      ? m.name
+                      : t("membershipWithAllocation", {
+                          name: m.name,
+                          percent: m.allocationPercent,
+                        })}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        );
+      },
     },
     {
       id: "location",
@@ -304,6 +358,31 @@ export default function PeoplePage() {
                       </select>
                     </div>
 
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="invite-department"
+                        className="text-xs font-medium text-foreground"
+                      >
+                        {tInvites("departmentLabel")}
+                      </label>
+                      <select
+                        id="invite-department"
+                        required
+                        className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
+                        value={inviteDept}
+                        onChange={(e) => setInviteDept(e.target.value)}
+                      >
+                        <option value="">
+                          {tInvites("departmentPlaceholder")}
+                        </option>
+                        {departments.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
                     <DialogFooter>
                       <Button
                         type="button"
@@ -339,7 +418,7 @@ export default function PeoplePage() {
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <select
             className="h-10 rounded-input border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
             value={selectedDept}
@@ -352,6 +431,41 @@ export default function PeoplePage() {
                 {d.name}
               </option>
             ))}
+          </select>
+
+          {selectedDept && (
+            <label className="flex items-center gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={primaryOnly}
+                onChange={(e) => setPrimaryOnly(e.target.checked)}
+              />
+              {t("primaryOnly")}
+            </label>
+          )}
+
+          <select
+            className="h-10 rounded-input border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
+            value={selectedGroup}
+            onChange={(e) => setSelectedGroup(e.target.value)}
+            aria-label={t("allGroups")}
+          >
+            <option value="">{t("allGroups")}</option>
+            {(["project", "area"] as const).map((kind) => {
+              const ofKind = groups.filter((g) => g.kind === kind);
+              return ofKind.length === 0 ? null : (
+                <optgroup
+                  key={kind}
+                  label={kind === "project" ? t("projects") : t("areas")}
+                >
+                  {ofKind.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                </optgroup>
+              );
+            })}
           </select>
 
           <select
@@ -378,6 +492,22 @@ export default function PeoplePage() {
             type="button"
             className="text-primary underline"
             onClick={fetchDepartments}
+          >
+            {t("retry")}
+          </button>
+        </div>
+      )}
+
+      {groupsError && (
+        <div
+          role="status"
+          className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground"
+        >
+          <span>{t("groupsError")}</span>
+          <button
+            type="button"
+            className="text-primary underline"
+            onClick={fetchGroups}
           >
             {t("retry")}
           </button>

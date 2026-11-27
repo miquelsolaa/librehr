@@ -24,6 +24,8 @@ import {
   Input,
   PageHeader,
 } from "@librehr/ui";
+import { SSO_BREAK_GLASS_REQUIRED_CODE } from "@librehr/contracts";
+import type { SecondaryLeadVisibility } from "@librehr/contracts";
 import { getApiClient } from "@/lib/api-client";
 import { getStoredSession } from "@/lib/auth";
 
@@ -32,6 +34,7 @@ type DisableErrorKey =
   | "twoFactorDisableSessionExpired"
   | "twoFactorDisableForbidden"
   | "twoFactorDisableRateLimited"
+  | "twoFactorDisableBreakGlass"
   | "twoFactorDisableError";
 
 /** Maps the API problem (RFC 9457) from POST /v1/auth/2fa/disable to a message. */
@@ -40,6 +43,9 @@ function disableErrorKey(err: unknown): DisableErrorKey {
   const code = "code" in err ? err.code : undefined;
   const status = "status" in err ? err.status : undefined;
   if (code === "INVALID_2FA_CODE") return "twoFactorDisableInvalidCode";
+  // AUTH-004: the last break-glass admin of an organization requiring SSO.
+  if (code === SSO_BREAK_GLASS_REQUIRED_CODE)
+    return "twoFactorDisableBreakGlass";
   if (status === 401) return "twoFactorDisableSessionExpired";
   if (status === 403) return "twoFactorDisableForbidden";
   if (status === 429) return "twoFactorDisableRateLimited";
@@ -58,6 +64,12 @@ export default function SecuritySettingsPage() {
   const [session, setSession] = React.useState(getStoredSession());
   const [twoFactorEnabled, setTwoFactorEnabled] = React.useState(false);
   const [requireTwoFactor, setRequireTwoFactor] = React.useState(false);
+  // ORG-007 (ADR 0008 decision 8): what leads of departments, projects and
+  // areas see of their members. Null until loaded (or when loading failed).
+  const [leadVisibility, setLeadVisibility] =
+    React.useState<SecondaryLeadVisibility | null>(null);
+  const [leadVisibilityLoadFailed, setLeadVisibilityLoadFailed] =
+    React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
   const [actionLoading, setActionLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
@@ -175,6 +187,39 @@ export default function SecuritySettingsPage() {
     } catch (err) {
       setDisableCode("");
       setDisableError(t(disableErrorKey(err)));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (!isAdmin) return;
+    let cancelled = false;
+    getApiClient()
+      .getSecuritySettings()
+      .then((settings) => {
+        if (!cancelled) setLeadVisibility(settings.secondaryLeadVisibility);
+      })
+      .catch(() => {
+        if (!cancelled) setLeadVisibilityLoadFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin]);
+
+  const handleLeadVisibilityChange = async (next: SecondaryLeadVisibility) => {
+    setActionLoading(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      const saved = await getApiClient().updateSecuritySettings({
+        secondaryLeadVisibility: next,
+      });
+      setLeadVisibility(saved.secondaryLeadVisibility);
+      setSuccessMessage(t("orgPolicyUpdatedSuccess"));
+    } catch {
+      setErrorMessage(t("orgPolicyUpdateError"));
     } finally {
       setActionLoading(false);
     }
@@ -337,6 +382,48 @@ export default function SecuritySettingsPage() {
                 disabled={actionLoading || isLoading}
                 className="h-5 w-5 rounded-sm border-border text-primary focus:ring-primary cursor-pointer"
               />
+            </div>
+
+            <div className="space-y-1.5 rounded-input border border-border bg-background p-4">
+              <label
+                htmlFor="lead-visibility"
+                className="text-sm font-medium text-foreground"
+              >
+                {t("leadVisibilityLabel")}
+              </label>
+              <p
+                id="lead-visibility-hint"
+                className="text-xs text-muted-foreground"
+              >
+                {t("leadVisibilityHint")}
+              </p>
+              {leadVisibilityLoadFailed ? (
+                <p className="text-sm text-danger">
+                  {t("leadVisibilityLoadError")}
+                </p>
+              ) : (
+                <select
+                  id="lead-visibility"
+                  aria-describedby="lead-visibility-hint"
+                  className="flex h-10 w-full rounded-input border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
+                  value={leadVisibility ?? ""}
+                  disabled={actionLoading || leadVisibility === null}
+                  onChange={(e) =>
+                    void handleLeadVisibilityChange(
+                      e.target.value as SecondaryLeadVisibility,
+                    )
+                  }
+                >
+                  {leadVisibility === null && (
+                    <option value="">{tCommon("loading")}</option>
+                  )}
+                  <option value="off">{t("leadVisibilityOff")}</option>
+                  <option value="calendar">
+                    {t("leadVisibilityCalendar")}
+                  </option>
+                  <option value="profile">{t("leadVisibilityProfile")}</option>
+                </select>
+              )}
             </div>
           </div>
         )}

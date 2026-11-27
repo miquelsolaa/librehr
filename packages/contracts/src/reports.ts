@@ -1,8 +1,33 @@
 import { z } from "zod";
 
+/**
+ * ORG-007: optional breakdown on the period's end date. `groupBy=group`
+ * (projects and areas) only has the membership basis; `basis` defaults to
+ * "primary" for departments and "membership" for groups.
+ */
+export const HeadcountBreakdownGroupBySchema = z.enum(["department", "group"]);
+export const HeadcountBreakdownBasisSchema = z.enum(["primary", "membership"]);
+
 export const HeadcountReportQuerySchema = z
-  .object({ startDate: z.string().date(), endDate: z.string().date() })
-  .refine((value) => value.startDate <= value.endDate);
+  .object({
+    startDate: z.string().date(),
+    endDate: z.string().date(),
+    groupBy: HeadcountBreakdownGroupBySchema.optional(),
+    basis: HeadcountBreakdownBasisSchema.optional(),
+  })
+  .refine((value) => value.startDate <= value.endDate)
+  .refine((value) => !value.basis || value.groupBy, {
+    message: "basis requires groupBy",
+    path: ["basis"],
+  })
+  .refine(
+    (value) => !(value.groupBy === "group" && value.basis === "primary"),
+    {
+      message: "Groups have no primary members",
+      path: ["basis"],
+    },
+  );
+export type HeadcountReportQuery = z.infer<typeof HeadcountReportQuerySchema>;
 
 export const HeadcountMetricsSchema = z.object({
   startingHeadcount: z.number().int(),
@@ -14,10 +39,33 @@ export const HeadcountMetricsSchema = z.object({
 });
 export type HeadcountMetrics = z.infer<typeof HeadcountMetricsSchema>;
 
+export const HeadcountBreakdownRowSchema = z.object({
+  type: z.enum(["department", "project", "area"]),
+  id: z.guid(),
+  name: z.string(),
+  headcount: z.number().int(),
+  /** Primary members count 1; secondaries their allocation (null = 100%). */
+  fte: z.number(),
+});
+export type HeadcountBreakdownRow = z.infer<typeof HeadcountBreakdownRowSchema>;
+
+export const HeadcountBreakdownSchema = z.object({
+  groupBy: HeadcountBreakdownGroupBySchema,
+  basis: HeadcountBreakdownBasisSchema,
+  /** The period end date: memberships and employment on that day. */
+  asOf: z.string().date(),
+  /** True on the membership basis: one person can count in several rows. */
+  totalsOverlap: z.boolean(),
+  rows: z.array(HeadcountBreakdownRowSchema),
+});
+export type HeadcountBreakdown = z.infer<typeof HeadcountBreakdownSchema>;
+
 export const HeadcountReportResponseSchema = z.object({
   periodStart: z.string().date(),
   periodEnd: z.string().date(),
   headcount: HeadcountMetricsSchema,
+  /** Present only when the query has groupBy. */
+  breakdown: HeadcountBreakdownSchema.optional(),
 });
 export type HeadcountReportResponse = z.infer<
   typeof HeadcountReportResponseSchema

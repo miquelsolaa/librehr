@@ -124,6 +124,19 @@ export function buildHierarchyTree<T extends ReportingNode>(
   return rootNodes;
 }
 
+/**
+ * ORG-007: a secondary membership drawn as a dotted line to the lead of the
+ * department, project or area. The tree itself stays manager-based.
+ */
+export interface OrgChartMembershipItem {
+  type: "department" | "project" | "area";
+  id: string;
+  name: string;
+  allocationPercent: number | null;
+  leadEmployeeId: string | null;
+  leadName: string | null;
+}
+
 export interface FlatEmployeeOrgItem {
   id: string;
   name: string;
@@ -134,6 +147,7 @@ export interface FlatEmployeeOrgItem {
   departmentName: string | null;
   locationName: string | null;
   managerId: string | null;
+  secondaryMemberships?: OrgChartMembershipItem[] | undefined;
 }
 
 export interface OrgChartNode {
@@ -146,6 +160,7 @@ export interface OrgChartNode {
   departmentName: string | null;
   locationName: string | null;
   managerId: string | null;
+  secondaryMemberships: OrgChartMembershipItem[];
   directReportsCount: number;
   totalTeamCount: number;
   directReports: OrgChartNode[];
@@ -161,6 +176,7 @@ export function buildOrgChart(items: readonly FlatEmployeeOrgItem[]): {
   for (const item of items) {
     nodeMap.set(item.id, {
       ...item,
+      secondaryMemberships: item.secondaryMemberships ?? [],
       directReportsCount: 0,
       totalTeamCount: 0,
       directReports: [],

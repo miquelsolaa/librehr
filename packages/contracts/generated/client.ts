@@ -47,6 +47,19 @@ import type {
 } from '../src/employees.js';
 import type { EmploymentPeriod, CreateEmploymentPeriod } from '../src/employment-history.js';
 import type {
+  OrgGroup,
+  ListOrgGroupsQuery,
+  CreateOrgGroupRequest,
+  UpdateOrgGroupRequest,
+} from '../src/org-groups.js';
+import type {
+  EmployeeMembership,
+  EmployeeMembershipWriteResponse,
+  CreateEmployeeMembershipRequest,
+  UpdateEmployeeMembershipRequest,
+  EndEmployeeMembershipRequest,
+} from '../src/memberships.js';
+import type {
   CreateInvitationRequest,
   InvitationResponse,
   InvitationDetails,
@@ -111,6 +124,11 @@ import type {
   TimeBankSummary,
   CreateTimeBankEntry,
 } from '../src/time.js';
+import type {
+  TimeExportJobRequest,
+  TimeExportJob,
+  TimeExportJobListResponse,
+} from '../src/time-export-jobs.js';
 import type {
   CloseTimesheetPeriodRequest,
   CloseTimesheetPeriodResponse,
@@ -285,6 +303,8 @@ export class LibreHrApiClient {
     const searchParams = new URLSearchParams();
     if (query?.search) searchParams.set('search', query.search);
     if (query?.departmentId) searchParams.set('departmentId', query.departmentId);
+    if (query?.groupId) searchParams.set('groupId', query.groupId);
+    if (query?.membership) searchParams.set('membership', query.membership);
     if (query?.locationId) searchParams.set('locationId', query.locationId);
     if (query?.status) searchParams.set('status', query.status);
     if (query?.page) searchParams.set('page', String(query.page));
@@ -350,6 +370,42 @@ export class LibreHrApiClient {
 
   async updateDepartmentCoverage(id: string, data: DepartmentCoverage): Promise<DepartmentCoverage> {
     return this.request<DepartmentCoverage>('/v1/org/departments/' + encodeURIComponent(id) + '/coverage', { method: 'PUT', body: JSON.stringify(data) });
+  }
+
+  async listOrgGroups(query: ListOrgGroupsQuery = {}): Promise<OrgGroup[]> {
+    const params = new URLSearchParams();
+    if (query.kind) params.set('kind', query.kind);
+    if (query.includeArchived) params.set('includeArchived', query.includeArchived);
+    const qs = params.toString();
+    return this.request<OrgGroup[]>('/v1/org/groups' + (qs ? '?' + qs : ''));
+  }
+
+  async createOrgGroup(data: CreateOrgGroupRequest): Promise<OrgGroup> {
+    return this.request<OrgGroup>('/v1/org/groups', { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  async updateOrgGroup(id: string, data: UpdateOrgGroupRequest): Promise<OrgGroup> {
+    return this.request<OrgGroup>('/v1/org/groups/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(data) });
+  }
+
+  async archiveOrgGroup(id: string): Promise<OrgGroup> {
+    return this.request<OrgGroup>('/v1/org/groups/' + encodeURIComponent(id) + '/archive', { method: 'POST' });
+  }
+
+  async listEmployeeMemberships(employeeId: string): Promise<EmployeeMembership[]> {
+    return this.request<EmployeeMembership[]>('/v1/employees/' + encodeURIComponent(employeeId) + '/memberships');
+  }
+
+  async createEmployeeMembership(employeeId: string, data: CreateEmployeeMembershipRequest): Promise<EmployeeMembershipWriteResponse> {
+    return this.request<EmployeeMembershipWriteResponse>('/v1/employees/' + encodeURIComponent(employeeId) + '/memberships', { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  async updateEmployeeMembership(employeeId: string, membershipId: string, data: UpdateEmployeeMembershipRequest): Promise<EmployeeMembershipWriteResponse> {
+    return this.request<EmployeeMembershipWriteResponse>('/v1/employees/' + encodeURIComponent(employeeId) + '/memberships/' + encodeURIComponent(membershipId), { method: 'PATCH', body: JSON.stringify(data) });
+  }
+
+  async endEmployeeMembership(employeeId: string, membershipId: string, data: EndEmployeeMembershipRequest): Promise<EmployeeMembership> {
+    return this.request<EmployeeMembership>('/v1/employees/' + encodeURIComponent(employeeId) + '/memberships/' + encodeURIComponent(membershipId) + '/end', { method: 'POST', body: JSON.stringify(data) });
   }
 
   async listLegalEntities(): Promise<LegalEntityOption[]> {
@@ -574,12 +630,13 @@ export class LibreHrApiClient {
     });
   }
 
-  async listTeamAbsences(params: { startDate: string; endDate: string; departmentId?: string }): Promise<TeamAbsence[]> {
+  async listTeamAbsences(params: { startDate: string; endDate: string; departmentId?: string; groupId?: string }): Promise<TeamAbsence[]> {
     const searchParams = new URLSearchParams({
       startDate: params.startDate,
       endDate: params.endDate,
     });
     if (params.departmentId) searchParams.set('departmentId', params.departmentId);
+    if (params.groupId) searchParams.set('groupId', params.groupId);
     return this.request<TeamAbsence[]>(`/v1/calendar/team-absences?${searchParams.toString()}`);
   }
 
@@ -679,6 +736,21 @@ export class LibreHrApiClient {
       endDate: params.endDate,
     });
     return this.request<ExportEmployeesResponse>(`/v1/time/export/employees?${searchParams.toString()}`);
+  }
+
+  async createTimeExportJob(data: TimeExportJobRequest): Promise<TimeExportJob> {
+    return this.request<TimeExportJob>('/v1/time/exports', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async listTimeExportJobs(): Promise<TimeExportJobListResponse> {
+    return this.request<TimeExportJobListResponse>('/v1/time/exports');
+  }
+
+  async getTimeExportJob(id: string): Promise<TimeExportJob> {
+    return this.request<TimeExportJob>(`/v1/time/exports/${encodeURIComponent(id)}`);
   }
 
   async listTimesheetClosures(params: { month: string }): Promise<TimesheetClosuresResponse> {
@@ -836,13 +908,14 @@ export class LibreHrApiClient {
   }
 
   // Reports & Insights (M5)
-  async getHeadcountReport(startDate: string, endDate: string): Promise<HeadcountReportResponse> {
-    const params = new URLSearchParams({ startDate, endDate });
+  // ORG-007: an optional breakdown by department or group (projects, areas).
+  async getHeadcountReport(startDate: string, endDate: string, breakdown?: { groupBy: 'department' | 'group'; basis?: 'primary' | 'membership' }): Promise<HeadcountReportResponse> {
+    const params = new URLSearchParams({ startDate, endDate, ...breakdown });
     return this.request<HeadcountReportResponse>(`/v1/reports/headcount?${params}`);
   }
 
-  async exportHeadcountCsv(startDate: string, endDate: string): Promise<string> {
-    const params = new URLSearchParams({ startDate, endDate });
+  async exportHeadcountCsv(startDate: string, endDate: string, breakdown?: { groupBy: 'department' | 'group'; basis?: 'primary' | 'membership' }): Promise<string> {
+    const params = new URLSearchParams({ startDate, endDate, ...breakdown });
     return this.request<string>(`/v1/reports/headcount/export?${params}`, undefined, true);
   }
 

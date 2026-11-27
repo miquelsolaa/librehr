@@ -25,7 +25,7 @@ Prices and the reasons for them are in [ADR 0007](adr/0007-cloud-early-access-an
 
 | Area           | Community (AGPL)                                                                                         | Business (`ee/`)                                                                                      |
 | -------------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| People and org | Employees, departments, locations, org chart, custom fields, employment history, imports                 | Multi-entity groups (planned)                                                                         |
+| People and org | Employees, departments and memberships, locations, org chart, custom fields, employment history, imports | Multi-entity groups (planned)                                                                         |
 | Time off       | Leave types, statutory leave, policies, ledger, calendars, coverage rules, delegations                   | —                                                                                                     |
 | Time tracking  | Registro de jornada, hash chain, corrections, kiosk, shifts, time bank, inspector role, exports          | —                                                                                                     |
 | Documents      | Repository, payslips, acknowledgements, templates                                                        | E-signature integrations (planned)                                                                    |
@@ -43,6 +43,8 @@ A Business licence key is a signed token set in `LIBREHR_LICENSE_KEY`. It is ver
 The key is read once, when the API starts. A key that expires while the API is running keeps working until the next restart; restart the API after changing or renewing a key.
 
 What a Business feature stored is never hidden when its licence lapses (`LIC-003`). For single sign-on, administrators can still read the stored configuration (`GET /v1/sso/config`) and switch it off (`POST /v1/sso/config/disable`) in Community; creating or changing it needs the licence.
+
+"Require SSO" is enforced only while the licence grants `sso` and `SSO_ENABLED` is on; otherwise members sign in with their password and the setting is kept. See [Require single sign-on](guides/sso-enforcement.md).
 
 ## Builds and images
 

@@ -15,6 +15,7 @@ import {
   Clock,
   ClipboardCheck,
   CalendarClock,
+  FolderKanban,
 } from "lucide-react";
 import { Badge } from "@librehr/ui";
 
@@ -27,6 +28,7 @@ export default function SettingsPage() {
   const tSchedule = useTranslations("scheduleSettings");
   const tAuditors = useTranslations("auditorAccess");
   const tPolicies = useTranslations("leavePolicies");
+  const tGroups = useTranslations("orgGroups");
 
   const settingsCards = [
     {
@@ -46,6 +48,12 @@ export default function SettingsPage() {
       description: t("departmentsDescription"),
       href: `/${locale}/settings/departments`,
       icon: <Building2 className="h-5 w-5 text-primary" />,
+    },
+    {
+      title: tGroups("title"),
+      description: tGroups("linkDescription"),
+      href: `/${locale}/settings/groups`,
+      icon: <FolderKanban className="h-5 w-5 text-primary" />,
     },
     {
       title: t("locationsTitle"),

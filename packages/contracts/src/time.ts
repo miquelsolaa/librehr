@@ -202,7 +202,7 @@ function inclusiveDays(startDate: string, endDate: string): number {
 }
 
 /** Export period rule: end on or after start, at most 366 days. */
-function refineExportPeriod(
+export function refineExportPeriod(
   value: { startDate: string; endDate: string },
   ctx: z.RefinementCtx,
 ): void {

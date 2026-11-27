@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   validateDocumentFile,
+  sanitizeDocumentFilename,
   matchBulkPayslips,
   computeChecklistTaskDueDates,
   validateEmployeeCsv,
@@ -16,6 +17,20 @@ describe("M4 Pure Domain Logic: Documents & Lifecycle", () => {
       );
       expect(res.valid).toBe(true);
       expect(res.sanitizedFilename).toBe("contract_2026.pdf");
+    });
+
+    it("sanitizes a bulk payslip filename into a single safe key segment", () => {
+      expect(sanitizeDocumentFilename("../../app/node_modules/x.js")).toBe(
+        "x.js",
+      );
+      expect(sanitizeDocumentFilename("..\\..\\x 12345678Z.pdf")).toBe(
+        "x_12345678Z.pdf",
+      );
+      expect(sanitizeDocumentFilename("..")).toBe("unnamed_document");
+      expect(sanitizeDocumentFilename("a/")).toBe("unnamed_document");
+      expect(sanitizeDocumentFilename("2026-05 nómina.pdf")).toBe(
+        "2026-05_n_mina.pdf",
+      );
     });
 
     it("rejects disallowed MIME types", () => {
@@ -132,6 +147,32 @@ Marta,Garcia,not-an-email,00000000A`;
       expect(result.valid).toBe(false);
       expect(result.errors.length).toBeGreaterThanOrEqual(1);
       expect(result.parsedRows).toHaveLength(0); // Atomic: never partially applies
+    });
+
+    it("requires a known primary department when departments are given (ORG-007)", () => {
+      const csv = `firstName,lastName,email,department
+Marta,Garcia,marta@librehr.test, sales
+Pau,Roca,pau@librehr.test,
+Joan,Vila,joan@librehr.test,Unknown`;
+
+      const result = validateEmployeeCsv(csv, {
+        knownDepartmentNames: new Set(["sales"]),
+      });
+      expect(result.valid).toBe(false);
+      expect(result.parsedRows).toHaveLength(0);
+      expect(result.errors).toEqual([
+        {
+          row: 3,
+          field: "department",
+          message: "A primary department is required",
+        },
+        { row: 4, field: "department", message: "Unknown department" },
+      ]);
+      expect(
+        validateEmployeeCsv(csv.split("\n").slice(0, 2).join("\n"), {
+          knownDepartmentNames: new Set(["sales"]),
+        }).valid,
+      ).toBe(true);
     });
   });
 });
