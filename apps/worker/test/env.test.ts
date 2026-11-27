@@ -178,24 +178,21 @@ describe("worker env", () => {
   });
 
   describe("background time exports (TIM-006)", () => {
-    it("keeps files 7 days, caps them at 100 MB and shares the API's storage default", () => {
+    it("keeps files 7 days and caps them at 100 MB", () => {
       expect(loadWorkerEnv({ NODE_ENV: "test" }).TIME_EXPORT).toEqual({
-        storageDir: "./data/storage",
         fileTtlHours: 168,
         maxFileBytes: 100 * 1024 * 1024,
       });
     });
 
-    it("reads the directory, TTL and size cap; empty values are the defaults", () => {
+    it("reads the TTL and size cap; empty values are the defaults", () => {
       expect(
         loadWorkerEnv({
           NODE_ENV: "test",
-          STORAGE_LOCAL_DIR: "/data/storage",
           TIME_EXPORT_FILE_TTL_HOURS: "24",
           TIME_EXPORT_MAX_FILE_MB: "",
         }).TIME_EXPORT,
       ).toEqual({
-        storageDir: "/data/storage",
         fileTtlHours: 24,
         maxFileBytes: 100 * 1024 * 1024,
       });

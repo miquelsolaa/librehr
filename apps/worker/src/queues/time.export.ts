@@ -7,6 +7,7 @@ import {
   OrganizationRepository,
   TimeExportRepository,
   type Sql,
+  type TenantTx,
   type TimeExportJobRow,
 } from "@librehr/db";
 import {
@@ -20,7 +21,6 @@ import {
   officialExportAuditMetadata,
   organizationExportSubjects,
 } from "@librehr/time-export";
-import type { ExportFileStore } from "../lib/export-files.js";
 import { parsePayload } from "../lib/payload.js";
 
 /** Ids only: everything else is read from the row (no PII in pg-boss). */
@@ -42,12 +42,20 @@ export const timeExportSingletonKey = (
  */
 export const TIME_EXPORT_MAX_ATTEMPTS = 3;
 
+/**
+ * pg-boss expiry of one `time.export` run (send option `expireInSeconds`).
+ * pg-boss's default is 15 minutes, after which it starts another run of the
+ * same job while the first may still be building; an export near the
+ * 500,000 employee-day cap can take longer than that. One hour lets a slow
+ * run finish and still re-drives a run whose worker died.
+ */
+export const TIME_EXPORT_EXPIRE_SECONDS = 60 * 60;
+
 export const TIME_EXPORT_READY_CATEGORY = "time_export_ready";
 export const TIME_EXPORT_FAILED_CATEGORY = "time_export_failed";
 
 export interface TimeExportDeps {
   sql: Sql;
-  files: ExportFileStore;
   timeChainKey: string;
   clock: Clock;
   fileTtlHours: number;
@@ -68,11 +76,6 @@ export interface TimeExportReport {
 const repo = new TimeExportRepository();
 const notificationRepo = new NotificationRepository();
 
-/** `<org>/<export>-<attempt>`: a re-driven run never overwrites another's file. */
-export function timeExportStorageKey(row: TimeExportJobRow): string {
-  return `time-exports/${row.organizationId}/${row.id}-${row.attempts}.${row.format}`;
-}
-
 /**
  * TIM-006 (issue #38): builds a queued organization export with the same
  * builder as GET /v1/time/export, stores the file for `fileTtlHours` and
@@ -80,11 +83,12 @@ export function timeExportStorageKey(row: TimeExportJobRow): string {
  *
  * The requester's access is checked again here: a user whose role changed
  * or whose auditor window (TIM-008) closed since the request gets a failed
- * export (FORBIDDEN), not a file. The file, the `ready` status, the ADM-002
+ * export (FORBIDDEN), not a file. The file bytes (`time_export_files`, in
+ * the database under RLS, ADR 0009), the `ready` status, the ADM-002
  * `time.export` audit entry (same metadata as the synchronous route plus
  * `delivery: "async"`, actor = requester) and the notification are written
- * in one transaction; a failed export is not audited, as a refused
- * synchronous one is not.
+ * in one transaction, so a crash leaves nothing behind; a failed export is
+ * not audited, as a refused synchronous one is not.
  *
  * At-least-once safe: a job for an export that is no longer queued or
  * running does nothing, and only one run can turn a running export ready.
@@ -104,7 +108,6 @@ export async function handleTimeExport(
     return fail(job, deps, claimed, "EXPORT_FAILED");
   }
 
-  let storedKey: string | null = null;
   try {
     const result = await withTenant(
       deps.sql,
@@ -150,17 +153,13 @@ export async function handleTimeExport(
           return { code: "EXPORT_TOO_LARGE" } as const;
         }
 
-        const storageKey = timeExportStorageKey(claimed);
-        await deps.files.put(storageKey, bytes);
-        storedKey = storageKey;
         const expiresAt = new Date(
           deps.clock.now().getTime() + deps.fileTtlHours * 3_600_000,
         );
         const ready = await repo.markReady(tx, claimed.id, {
           contentHash: build.result.contentHash,
           employeeCount: build.employees.length,
-          byteSize: bytes.byteLength,
-          storageKey,
+          content: bytes,
           expiresAt,
         });
         // Another run finished first: keep its file and record.
@@ -195,13 +194,11 @@ export async function handleTimeExport(
       return fail(job, deps, claimed, result.code);
     }
     if (result.superseded) {
-      await deleteQuietly(deps, storedKey);
       return finish(job, deps, claimed.id, "skipped");
     }
     return finish(job, deps, claimed.id, "ready");
   } catch (err) {
-    // Nothing committed: the file must not outlive its transaction.
-    await deleteQuietly(deps, storedKey);
+    // The transaction rolled back: no bytes, no status change, no audit.
     deps.logger.error({
       msg: "time export run failed",
       requirement: "TIM-006",
@@ -217,19 +214,6 @@ export async function handleTimeExport(
   }
 }
 
-async function deleteQuietly(
-  deps: TimeExportDeps,
-  key: string | null,
-): Promise<void> {
-  if (key === null) return;
-  try {
-    await deps.files.delete(key);
-  } catch {
-    // The hourly cleanup cannot see an orphan; log it for the operator.
-    deps.logger.error({ msg: "time export file not removed", key });
-  }
-}
-
 async function fail(
   job: { id: string },
   deps: TimeExportDeps,
@@ -242,22 +226,36 @@ async function fail(
     async (tx) => {
       const marked = await repo.markFailed(tx, row.id, errorCode);
       if (!marked) return false;
-      const text = timeExportFailedNotification(row.locale, {
-        periodStart: row.periodStart,
-        periodEnd: row.periodEnd,
-      });
-      await notificationRepo.create(tx, {
-        userId: row.requestedBy,
-        title: text.title,
-        body: text.body,
-        category: TIME_EXPORT_FAILED_CATEGORY,
-        link: `/time/export?job=${row.id}`,
-      });
+      await notifyTimeExportFailed(tx, row);
       return true;
     },
   );
   if (!failed) return finish(job, deps, row.id, "skipped");
   return finish(job, deps, row.id, "failed", errorCode);
+}
+
+/**
+ * Tells the requester, in the export's locale, that it failed. Used by a
+ * failed run and by the cleanup for runs whose worker died (EXPORT_STALLED).
+ */
+export async function notifyTimeExportFailed(
+  tx: TenantTx,
+  row: Pick<
+    TimeExportJobRow,
+    "id" | "requestedBy" | "locale" | "periodStart" | "periodEnd"
+  >,
+): Promise<void> {
+  const text = timeExportFailedNotification(row.locale, {
+    periodStart: row.periodStart,
+    periodEnd: row.periodEnd,
+  });
+  await notificationRepo.create(tx, {
+    userId: row.requestedBy,
+    title: text.title,
+    body: text.body,
+    category: TIME_EXPORT_FAILED_CATEGORY,
+    link: `/time/export?job=${row.id}`,
+  });
 }
 
 function finish(

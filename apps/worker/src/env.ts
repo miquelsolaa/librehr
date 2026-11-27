@@ -69,9 +69,8 @@ const RawEnvSchema = z.object({
       .pipe(z.array(z.enum(SCHEDULED_JOBS)).min(1))
       .optional(),
   ),
-  // Background time exports (TIM-006, issue #38). The directory is shared
-  // with the API, which serves the downloads from it.
-  STORAGE_LOCAL_DIR: optionalString,
+  // Background time exports (TIM-006, issue #38). The files are stored in
+  // the database (time_export_files), so no directory is configured.
   TIME_EXPORT_FILE_TTL_HOURS: z.preprocess(
     (v) => (v === "" ? undefined : v),
     z.coerce.number().int().min(1).max(720).default(168),
@@ -105,8 +104,6 @@ export interface WorkerEnv {
     jobs: readonly ScheduledJob[];
   };
   TIME_EXPORT: {
-    /** Root of the export files (the API's STORAGE_LOCAL_DIR). */
-    storageDir: string;
     /** How long a finished export can be downloaded (default 7 days). */
     fileTtlHours: number;
     /** Exports larger than this fail instead of being stored. */
@@ -228,8 +225,6 @@ export function loadWorkerEnv(
       jobs: parsed.SCHEDULER_JOBS ?? DEFAULT_SCHEDULER_JOBS,
     },
     TIME_EXPORT: {
-      // Same default as the API's LocalStorageAdapter.
-      storageDir: parsed.STORAGE_LOCAL_DIR ?? "./data/storage",
       fileTtlHours: parsed.TIME_EXPORT_FILE_TTL_HOURS,
       maxFileBytes: parsed.TIME_EXPORT_MAX_FILE_MB * 1024 * 1024,
     },
