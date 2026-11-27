@@ -8,11 +8,17 @@ import { handleRetentionEnforce } from "./queues/retention.enforce.js";
 import { handleRetentionSweepGlobal } from "./queues/retention.sweep-global.js";
 import { handleAuditVerifyChain } from "./queues/audit.verify-chain.js";
 import { handleSchedulerTick } from "./queues/scheduler.tick.js";
+import { handleTimeExport } from "./queues/time.export.js";
+import { handleTimeExportCleanup } from "./queues/time.export-cleanup.js";
+import {
+  configureTimeExportSchedules,
+  handleTimeExportDispatch,
+} from "./queues/time.export-dispatch.js";
 import { createSmtpMailer } from "./lib/smtp-mailer.js";
 import { processBatch, type BatchJob } from "./lib/process-batch.js";
 import { createDatabaseClient } from "@librehr/db";
 import { SystemClock } from "@librehr/core";
-import type { QueueName } from "./lib/enqueue.js";
+import { enqueue, type QueueName } from "./lib/enqueue.js";
 import { ensureQueues } from "./lib/queue-setup.js";
 import { configureSchedule, dispatchDueJobs } from "./lib/scheduler.js";
 
@@ -93,6 +99,29 @@ async function startWorker() {
       ),
     ),
   );
+
+  // Background time exports (TIM-006): outbox sweep, build, file cleanup.
+  await register("time.export", (job) =>
+    handleTimeExport(job, {
+      sql,
+      timeChainKey: env.TIME_CHAIN_KEY,
+      clock,
+      fileTtlHours: env.TIME_EXPORT.fileTtlHours,
+      maxFileBytes: env.TIME_EXPORT.maxFileBytes,
+      logger,
+    }),
+  );
+  await register("time.export.dispatch", (job) =>
+    handleTimeExportDispatch(job, {
+      sql,
+      send: (payload) => enqueue(boss, "time.export", payload),
+      logger,
+    }),
+  );
+  await register("time.export.cleanup", (job) =>
+    handleTimeExportCleanup(job, { sql, clock, logger }),
+  );
+  await configureTimeExportSchedules(boss);
 
   // The schedule is stored in pg-boss, so every worker instance installs the
   // same one and pg-boss sends a single tick per occurrence.

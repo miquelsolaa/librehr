@@ -19,6 +19,8 @@ const DIRECTORY_KEYS = [
   "locationName",
   "managerName",
   "preferredName",
+  // ORG-007: names (and optional allocation) of memberships active today.
+  "secondaryMemberships",
   "status",
 ].sort();
 

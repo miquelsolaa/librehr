@@ -91,6 +91,7 @@ describe("Employees API Integration Tests (EMP-001 - EMP-007, ADM-001, ADM-002)"
           firstName: "Carles",
           lastName: "Puig",
           email: "carles@librehr.test",
+          departmentId: "00000000-0000-0000-0000-0000000000d1",
           nationalId: "00000000A", // Invalid control letter for 00000000 (expects T)
         }),
       });
@@ -112,6 +113,7 @@ describe("Employees API Integration Tests (EMP-001 - EMP-007, ADM-001, ADM-002)"
         firstName: "Carles",
         lastName: "Puig",
         email: "carles@librehr.test",
+        departmentId: "00000000-0000-0000-0000-0000000000d1",
         nationalId: "00000000A", // Invalid control letter
       }),
     });

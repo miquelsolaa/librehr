@@ -127,10 +127,26 @@ export type TwoFactorDisableRequest = z.infer<
   typeof TwoFactorDisableRequestSchema
 >;
 
+/**
+ * ORG-007 (ADR 0008 decision 8): read access of department and group leads to
+ * their members. `off`: none beyond the role; `calendar`: masked absences
+ * (the team calendar, shown to everyone); `profile`: also members' profiles
+ * limited to directory fields. Never write, approval or sensitive fields.
+ */
+export const SecondaryLeadVisibilitySchema = z.enum([
+  "off",
+  "calendar",
+  "profile",
+]);
+export type SecondaryLeadVisibility = z.infer<
+  typeof SecondaryLeadVisibilitySchema
+>;
+
 export const OrgSecuritySettingsSchema = z.object({
   requireTwoFactor: z.boolean(),
   /** TIM-008: maximum days ahead an auditor's access end date may be set. */
   auditorAccessMaxDays: AuditorAccessMaxDaysSchema,
+  secondaryLeadVisibility: SecondaryLeadVisibilitySchema,
 });
 export type OrgSecuritySettings = z.infer<typeof OrgSecuritySettingsSchema>;
 
@@ -139,11 +155,13 @@ export const UpdateOrgSecuritySettingsSchema = z
   .object({
     requireTwoFactor: z.boolean().optional(),
     auditorAccessMaxDays: AuditorAccessMaxDaysSchema.optional(),
+    secondaryLeadVisibility: SecondaryLeadVisibilitySchema.optional(),
   })
   .refine(
     (value) =>
       value.requireTwoFactor !== undefined ||
-      value.auditorAccessMaxDays !== undefined,
+      value.auditorAccessMaxDays !== undefined ||
+      value.secondaryLeadVisibility !== undefined,
     { message: "At least one setting is required" },
   );
 export type UpdateOrgSecuritySettings = z.infer<

@@ -148,5 +148,31 @@ Marta,Garcia,not-an-email,00000000A`;
       expect(result.errors.length).toBeGreaterThanOrEqual(1);
       expect(result.parsedRows).toHaveLength(0); // Atomic: never partially applies
     });
+
+    it("requires a known primary department when departments are given (ORG-007)", () => {
+      const csv = `firstName,lastName,email,department
+Marta,Garcia,marta@librehr.test, sales
+Pau,Roca,pau@librehr.test,
+Joan,Vila,joan@librehr.test,Unknown`;
+
+      const result = validateEmployeeCsv(csv, {
+        knownDepartmentNames: new Set(["sales"]),
+      });
+      expect(result.valid).toBe(false);
+      expect(result.parsedRows).toHaveLength(0);
+      expect(result.errors).toEqual([
+        {
+          row: 3,
+          field: "department",
+          message: "A primary department is required",
+        },
+        { row: 4, field: "department", message: "Unknown department" },
+      ]);
+      expect(
+        validateEmployeeCsv(csv.split("\n").slice(0, 2).join("\n"), {
+          knownDepartmentNames: new Set(["sales"]),
+        }).valid,
+      ).toBe(true);
+    });
   });
 });

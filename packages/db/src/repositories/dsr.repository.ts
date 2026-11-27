@@ -7,6 +7,7 @@ import {
 import { LeaveRepository } from "./leave.repository.js";
 import { TimeRepository } from "./time.repository.js";
 import { DocumentRepository } from "./document.repository.js";
+import { EmployeeMembershipRepository } from "./employee-membership.repository.js";
 
 export interface DataSubjectExportDump {
   exportedAt: string;
@@ -18,6 +19,20 @@ export interface DataSubjectExportDump {
   };
   timeRecords: unknown[];
   documents: unknown[];
+  /** ORG-007: secondary memberships, current and past. */
+  memberships: DataSubjectMembership[];
+}
+
+/** A membership without the ids of the people who recorded or ended it. */
+export interface DataSubjectMembership {
+  id: string;
+  targetType: string;
+  targetName: string;
+  role: string | null;
+  allocationPercent: number | null;
+  startDate: string;
+  endDate: string | null;
+  endReason: string | null;
 }
 
 /**
@@ -69,6 +84,7 @@ export class DsrRepository {
   private leaveRepo = new LeaveRepository();
   private timeRepo = new TimeRepository();
   private docRepo = new DocumentRepository();
+  private membershipRepo = new EmployeeMembershipRepository();
 
   async exportEmployeeData(
     tx: TenantTx,
@@ -77,16 +93,23 @@ export class DsrRepository {
     const employee = await this.empRepo.findById(tx, employeeId);
     if (!employee) return null;
 
-    const [balance, ledgerEntries, leaveRequests, timeEvents, documents] =
-      await Promise.all([
-        this.leaveRepo.calculateBalance(tx, employeeId),
-        this.leaveRepo.getLedgerEntries(tx, employeeId),
-        this.leaveRepo.getLeaveRequests(tx, { employeeId }),
-        this.timeRepo.getEventsForEmployee(tx, employeeId),
-        // Soft-deleted documents are still held until purged, so they are
-        // part of what the subject is entitled to see (marked by deletedAt).
-        this.docRepo.list(tx, { employeeId, includeDeleted: true }),
-      ]);
+    const [
+      balance,
+      ledgerEntries,
+      leaveRequests,
+      timeEvents,
+      documents,
+      memberships,
+    ] = await Promise.all([
+      this.leaveRepo.calculateBalance(tx, employeeId),
+      this.leaveRepo.getLedgerEntries(tx, employeeId),
+      this.leaveRepo.getLeaveRequests(tx, { employeeId }),
+      this.timeRepo.getEventsForEmployee(tx, employeeId),
+      // Soft-deleted documents are still held until purged, so they are
+      // part of what the subject is entitled to see (marked by deletedAt).
+      this.docRepo.list(tx, { employeeId, includeDeleted: true }),
+      this.membershipRepo.listForEmployee(tx, employeeId),
+    ]);
 
     return {
       exportedAt: new Date().toISOString(),
@@ -98,6 +121,16 @@ export class DsrRepository {
       },
       timeRecords: timeEvents,
       documents,
+      memberships: memberships.map((m) => ({
+        id: m.id,
+        targetType: m.targetType,
+        targetName: m.targetName,
+        role: m.role,
+        allocationPercent: m.allocationPercent,
+        startDate: m.startDate,
+        endDate: m.endDate,
+        endReason: m.endReason,
+      })),
     };
   }
 }

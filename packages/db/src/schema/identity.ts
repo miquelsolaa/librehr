@@ -185,6 +185,9 @@ export const invitations = pgTable(
       withTimezone: true,
       mode: "date",
     }),
+    // ORG-007 (ADR 0008 decision 13): primary department of the employee
+    // created on accept. Same-tenant composite foreign key in 0046.
+    departmentId: uuid("department_id"),
     ...timestamps,
   },
   (table) => [

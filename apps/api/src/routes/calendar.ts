@@ -232,10 +232,14 @@ export function createCalendarRoutes(sql: Sql) {
       async (tx) => {
         const startDate = query.startDate ?? (await businessToday(c, tx));
         const endDate = query.endDate ?? addDays(startDate, 30);
+        // ORG-007: filters also match memberships overlapping the absence,
+        // so a person shows under every department or group they belong to.
         return leaveRepo.getTeamAbsences(tx, {
           startDate,
           endDate,
           departmentId,
+          includeSecondary: true,
+          groupId: query.groupId,
         });
       },
     );

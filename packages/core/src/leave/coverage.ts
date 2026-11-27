@@ -37,6 +37,35 @@ export function checkBlackoutDate(
   return { inBlackout: false };
 }
 
+/** A blackout period scoped to one department, or org-wide when null. */
+export interface DepartmentBlackoutPeriod extends BlackoutPeriod {
+  departmentId: string | null;
+}
+
+/**
+ * Blackouts that apply to someone working in `departmentIds`: org-wide ones
+ * plus those of any of the departments, i.e. the union across the primary
+ * and secondary departments (LEA-007, ADR 0008 D6).
+ *
+ * @example
+ * blackoutsForDepartments(
+ *   [
+ *     { departmentId: null, startDate: "2026-12-24", endDate: "2026-12-31", reason: "Closing" },
+ *     { departmentId: "d2", startDate: "2026-11-20", endDate: "2026-11-30", reason: "Peak" },
+ *     { departmentId: "d3", startDate: "2026-08-01", endDate: "2026-08-15", reason: "Audit" },
+ *   ],
+ *   ["d1", "d2"],
+ * ); // => the org-wide and the d2 blackouts
+ */
+export function blackoutsForDepartments<T extends DepartmentBlackoutPeriod>(
+  blackouts: readonly T[],
+  departmentIds: readonly string[],
+): T[] {
+  return blackouts.filter(
+    (bo) => bo.departmentId === null || departmentIds.includes(bo.departmentId),
+  );
+}
+
 /**
  * Pure calculation to enforce team coverage minimum thresholds (LEA-007).
  */

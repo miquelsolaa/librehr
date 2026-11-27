@@ -1,19 +1,35 @@
 import type { Context } from "hono";
 import type { AuthUser, Permission } from "@librehr/contracts";
-import { EmployeeRepository, type TenantTx } from "@librehr/db";
+import { todayInZone } from "@librehr/core";
+import {
+  EmployeeMembershipRepository,
+  EmployeeRepository,
+  OrganizationRepository,
+  type TenantTx,
+} from "@librehr/db";
+import { SystemClockAdapter } from "../adapters/clock-system.js";
 import { ForbiddenError, NotFoundError } from "../errors/index.js";
+import type { ClockPort } from "../ports/clock.js";
 import { can, employeeIdsInScope, type PolicyUserContext } from "./can.js";
 
 const employeeRepo = new EmployeeRepository();
+const membershipRepo = new EmployeeMembershipRepository();
+const orgRepo = new OrganizationRepository();
+const systemClock: ClockPort = new SystemClockAdapter();
 const CACHE_KEY = "policyContext";
 
-/** Builds the policy context for a user: linked employee and direct reports. */
+/**
+ * Builds the policy context for a user: linked employee, direct reports and,
+ * for ORG-007, the departments they work in today and the members they lead
+ * (only when the organization lets leads see profiles).
+ */
 export async function loadPolicyContext(
   tx: TenantTx,
   user: AuthUser,
+  clock: ClockPort = systemClock,
 ): Promise<PolicyUserContext> {
   const identity = await employeeRepo.findPolicyIdentity(tx, user.id);
-  return {
+  const ctx: PolicyUserContext = {
     userId: user.id,
     organizationId: user.organizationId,
     role: user.role,
@@ -22,6 +38,37 @@ export async function loadPolicyContext(
     locationId: identity?.locationId ?? undefined,
     reports: identity?.reports ?? [],
   };
+  if (!identity) return ctx;
+
+  const settings = await orgRepo.getPolicySettings(tx, identity.locationId);
+  // Without settings nothing beyond the role is granted (fail closed).
+  if (!settings) return ctx;
+  // Memberships are calendar dates in the organization's (or location's)
+  // time zone, so "active" is judged on the business date, never UTC.
+  const today = todayInZone(settings.timeZone, clock);
+  const active = await membershipRepo.listActiveOn(
+    tx,
+    identity.employeeId,
+    today,
+  );
+  const secondary = active.flatMap((m) =>
+    m.departmentId ? [m.departmentId] : [],
+  );
+  ctx.departmentIds = [
+    ...new Set([
+      ...(identity.departmentId ? [identity.departmentId] : []),
+      ...secondary,
+    ]),
+  ];
+  ctx.leadVisibility = settings.secondaryLeadVisibility;
+  if (settings.secondaryLeadVisibility === "profile") {
+    ctx.ledMemberIds = await membershipRepo.listMembersLedBy(
+      tx,
+      identity.employeeId,
+      today,
+    );
+  }
+  return ctx;
 }
 
 /**

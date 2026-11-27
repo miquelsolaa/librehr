@@ -640,8 +640,25 @@ export class LeaveRepository {
       startDate: string;
       endDate: string;
       departmentId?: string | undefined;
+      /**
+       * ORG-007: also match departmentId against secondary memberships that
+       * overlap the absence within the window. Default false (primary only).
+       */
+      includeSecondary?: boolean | undefined;
+      /** ORG-007: members of this project or area during the absence. */
+      groupId?: string | undefined;
     },
   ): Promise<TeamAbsenceRow[]> {
+    const orgId = tx.__tenantContext.organizationId;
+    const departmentId = options.departmentId ?? null;
+    const groupId = options.groupId ?? null;
+    // A membership counts when it overlaps the absence days inside the window.
+    const overlapsAbsence = () => tx`
+      em.organization_id = ${orgId} AND em.employee_id = r.employee_id
+      AND em.start_date <= LEAST(r.end_date, ${options.endDate}::date)
+      AND (em.end_date IS NULL
+        OR em.end_date >= GREATEST(r.start_date, ${options.startDate}::date))
+    `;
     return tx<TeamAbsenceRow[]>`
       SELECT r.id as "requestId", r.employee_id as "employeeId",
              CONCAT(e.first_name, ' ', e.last_name) as "employeeName",
@@ -662,7 +679,15 @@ export class LeaveRepository {
         AND r.status = 'approved'
         AND r.start_date <= ${options.endDate}
         AND r.end_date >= ${options.startDate}
-        AND (${options.departmentId ?? null}::uuid IS NULL OR e.department_id = ${options.departmentId ?? null})
+        AND (${departmentId}::uuid IS NULL OR e.department_id = ${departmentId}
+          OR (${options.includeSecondary === true}::boolean AND EXISTS (
+            SELECT 1 FROM employee_memberships em
+            WHERE em.department_id = ${departmentId} AND ${overlapsAbsence()}
+          )))
+        AND (${groupId}::uuid IS NULL OR EXISTS (
+          SELECT 1 FROM employee_memberships em
+          WHERE em.group_id = ${groupId} AND ${overlapsAbsence()}
+        ))
       ORDER BY r.start_date ASC
     `;
   }

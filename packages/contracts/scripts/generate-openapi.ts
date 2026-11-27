@@ -39,6 +39,7 @@ import {
 import {
   EmployeeListItemSchema,
   ListEmployeesResponseSchema,
+  ListEmployeesQuerySchema,
   EmployeeProfileSchema,
   CreateEmployeeRequestSchema,
   UpdateEmployeeRequestSchema,
@@ -50,6 +51,19 @@ import {
   EmploymentPeriodSchema,
   CreateEmploymentPeriodSchema,
 } from "../src/employment-history.js";
+import {
+  OrgGroupSchema,
+  CreateOrgGroupRequestSchema,
+  UpdateOrgGroupRequestSchema,
+  OrgGroupKindSchema,
+} from "../src/org-groups.js";
+import {
+  EmployeeMembershipSchema,
+  CreateEmployeeMembershipRequestSchema,
+  UpdateEmployeeMembershipRequestSchema,
+  EndEmployeeMembershipRequestSchema,
+  EmployeeMembershipWriteResponseSchema,
+} from "../src/memberships.js";
 import {
   CreateInvitationRequestSchema,
   InvitationResponseSchema,
@@ -76,6 +90,7 @@ import {
   AdjustBalanceRequestSchema,
   HolidaySchema,
   TeamAbsenceSchema,
+  TeamAbsencesQuerySchema,
   BlackoutPeriodSchema,
   CreateBlackoutPeriodSchema,
   ApprovalDelegationSchema,
@@ -106,6 +121,11 @@ import {
   TimeBankSummarySchema,
   CreateTimeBankEntrySchema,
 } from "../src/time.js";
+import {
+  TimeExportJobRequestSchema,
+  TimeExportJobSchema,
+  TimeExportJobListResponseSchema,
+} from "../src/time-export-jobs.js";
 import {
   CloseTimesheetPeriodRequestSchema,
   CloseTimesheetPeriodResponseSchema,
@@ -187,6 +207,26 @@ registry.register("ListEmployeesResponse", ListEmployeesResponseSchema);
 registry.register("EmployeeProfile", EmployeeProfileSchema);
 registry.register("EmploymentPeriod", EmploymentPeriodSchema);
 registry.register("CreateEmploymentPeriod", CreateEmploymentPeriodSchema);
+registry.register("OrgGroup", OrgGroupSchema);
+registry.register("CreateOrgGroupRequest", CreateOrgGroupRequestSchema);
+registry.register("UpdateOrgGroupRequest", UpdateOrgGroupRequestSchema);
+registry.register("EmployeeMembership", EmployeeMembershipSchema);
+registry.register(
+  "CreateEmployeeMembershipRequest",
+  CreateEmployeeMembershipRequestSchema,
+);
+registry.register(
+  "UpdateEmployeeMembershipRequest",
+  UpdateEmployeeMembershipRequestSchema,
+);
+registry.register(
+  "EndEmployeeMembershipRequest",
+  EndEmployeeMembershipRequestSchema,
+);
+registry.register(
+  "EmployeeMembershipWriteResponse",
+  EmployeeMembershipWriteResponseSchema,
+);
 registry.register("CreateEmployeeRequest", CreateEmployeeRequestSchema);
 registry.register("UpdateEmployeeRequest", UpdateEmployeeRequestSchema);
 registry.register("TerminateEmployeeRequest", TerminateEmployeeRequestSchema);
@@ -227,6 +267,9 @@ registry.register("TimeCorrectionItem", TimeCorrectionItemSchema);
 registry.register("PendingApprovals", PendingApprovalsSchema);
 registry.register("OfficialExportResponse", OfficialExportResponseSchema);
 registry.register("ExportEmployeesResponse", ExportEmployeesResponseSchema);
+registry.register("TimeExportJobRequest", TimeExportJobRequestSchema);
+registry.register("TimeExportJob", TimeExportJobSchema);
+registry.register("TimeExportJobListResponse", TimeExportJobListResponseSchema);
 registry.register("KioskClockRequest", KioskClockRequestSchema);
 registry.register("KioskClockResponse", KioskClockResponseSchema);
 registry.register("SetEmployeePin", SetEmployeePinSchema);
@@ -624,7 +667,9 @@ registry.registerPath({
 registry.registerPath({
   method: "get",
   path: "/v1/employees",
-  summary: "List employees with search, filter, and pagination",
+  summary:
+    "List employees with search, filter, and pagination. The department filter matches the primary department or, unless membership=primary, a secondary membership active today (ORG-007)",
+  request: { query: ListEmployeesQuerySchema },
   responses: {
     200: {
       description: "Paginated list of employees",
@@ -783,6 +828,193 @@ registry.registerPath({
       description: "Department not found",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
+  },
+});
+
+// ORG-007 (ADR 0008): projects, areas and secondary memberships
+const problem = (description: string) => ({
+  description,
+  content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+});
+const groupId = z.object({ id: z.guid() });
+const membershipIds = z.object({ id: z.guid(), membershipId: z.guid() });
+registry.registerPath({
+  method: "get",
+  path: "/v1/org/groups",
+  summary: "List projects and areas (org.read)",
+  request: {
+    query: z.object({
+      kind: OrgGroupKindSchema.optional(),
+      includeArchived: z.enum(["true", "false"]).optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Groups, active only unless includeArchived=true",
+      content: { "application/json": { schema: z.array(OrgGroupSchema) } },
+    },
+    401: problem("Unauthorized"),
+    403: problem("Forbidden"),
+  },
+});
+registry.registerPath({
+  method: "post",
+  path: "/v1/org/groups",
+  summary: "Create a project or area (org.write, audited)",
+  request: {
+    body: {
+      content: { "application/json": { schema: CreateOrgGroupRequestSchema } },
+    },
+  },
+  responses: {
+    201: {
+      description: "Group created",
+      content: { "application/json": { schema: OrgGroupSchema } },
+    },
+    400: problem("Invalid group"),
+    401: problem("Unauthorized"),
+    403: problem("Forbidden"),
+    404: problem("Parent group or lead employee not found"),
+    409: problem("An active group of this kind has that name"),
+    422: problem("Parent is not an active area, or the group is not a project"),
+  },
+});
+registry.registerPath({
+  method: "patch",
+  path: "/v1/org/groups/{id}",
+  summary: "Update a project or area (org.write, audited)",
+  request: {
+    params: groupId,
+    body: {
+      content: { "application/json": { schema: UpdateOrgGroupRequestSchema } },
+    },
+  },
+  responses: {
+    200: {
+      description: "Group updated",
+      content: { "application/json": { schema: OrgGroupSchema } },
+    },
+    400: problem("Invalid group"),
+    401: problem("Unauthorized"),
+    403: problem("Forbidden"),
+    404: problem("Group, parent or lead not found"),
+    409: problem("Name taken, or the group is archived"),
+    422: problem("Invalid parent or dates"),
+  },
+});
+registry.registerPath({
+  method: "post",
+  path: "/v1/org/groups/{id}/archive",
+  summary: "Archive a project or area; groups are never deleted (idempotent)",
+  request: { params: groupId },
+  responses: {
+    200: {
+      description: "Group archived",
+      content: { "application/json": { schema: OrgGroupSchema } },
+    },
+    401: problem("Unauthorized"),
+    403: problem("Forbidden"),
+    404: problem("Group not found"),
+  },
+});
+registry.registerPath({
+  method: "get",
+  path: "/v1/employees/{id}/memberships",
+  summary:
+    "List an employee's secondary memberships, current and past (employee.read)",
+  request: { params: groupId },
+  responses: {
+    200: {
+      description: "Memberships, newest first",
+      content: {
+        "application/json": { schema: z.array(EmployeeMembershipSchema) },
+      },
+    },
+    401: problem("Unauthorized"),
+    403: problem("Employee outside your scope"),
+    404: problem("Employee not found"),
+  },
+});
+registry.registerPath({
+  method: "post",
+  path: "/v1/employees/{id}/memberships",
+  summary:
+    "Add a secondary membership in a department, project or area (employee.write, audited)",
+  description:
+    "overAllocation warns, without blocking, when the employee's secondary allocations add up to more than 100% on some day.",
+  request: {
+    params: groupId,
+    body: {
+      content: {
+        "application/json": { schema: CreateEmployeeMembershipRequestSchema },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "Membership created",
+      content: {
+        "application/json": { schema: EmployeeMembershipWriteResponseSchema },
+      },
+    },
+    400: problem("Invalid membership"),
+    401: problem("Unauthorized"),
+    403: problem("Employee outside your scope"),
+    404: problem("Employee, department or group not found"),
+    409: problem("Overlapping membership, or the group is archived"),
+    422: problem("The department is the employee's primary one"),
+  },
+});
+registry.registerPath({
+  method: "patch",
+  path: "/v1/employees/{id}/memberships/{membershipId}",
+  summary: "Change a membership's dates, allocation or role (audited)",
+  request: {
+    params: membershipIds,
+    body: {
+      content: {
+        "application/json": { schema: UpdateEmployeeMembershipRequestSchema },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Membership updated",
+      content: {
+        "application/json": { schema: EmployeeMembershipWriteResponseSchema },
+      },
+    },
+    400: problem("Invalid membership"),
+    401: problem("Unauthorized"),
+    403: problem("Employee outside your scope"),
+    404: problem("Employee or membership not found"),
+    409: problem("Overlapping membership"),
+    422: problem("End date before start date"),
+  },
+});
+registry.registerPath({
+  method: "post",
+  path: "/v1/employees/{id}/memberships/{membershipId}/end",
+  summary: "End a membership on a date; the row is kept as history (audited)",
+  request: {
+    params: membershipIds,
+    body: {
+      content: {
+        "application/json": { schema: EndEmployeeMembershipRequestSchema },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Membership ended",
+      content: { "application/json": { schema: EmployeeMembershipSchema } },
+    },
+    400: problem("Invalid end"),
+    401: problem("Unauthorized"),
+    403: problem("Employee outside your scope"),
+    404: problem("Employee or membership not found"),
+    409: problem("Already ended, or extending it would overlap"),
+    422: problem("End date before start date"),
   },
 });
 
@@ -966,7 +1198,7 @@ registry.registerPath({
   },
 });
 
-// Organization security settings (AUTH-003, TIM-008)
+// Organization security settings (AUTH-003, TIM-008, ORG-007 lead visibility)
 registry.registerPath({
   method: "get",
   path: "/v1/settings/security",
@@ -1271,7 +1503,9 @@ registry.registerPath({
 registry.registerPath({
   method: "get",
   path: "/v1/calendar/team-absences",
-  summary: "Get team absence schedule respecting GDPR privacy rules",
+  summary:
+    "Get team absence schedule respecting GDPR privacy rules. departmentId and groupId also match secondary memberships that overlap the absence (ORG-007)",
+  request: { query: TeamAbsencesQuerySchema },
   responses: {
     200: {
       description: "Team absence schedule",
@@ -1580,7 +1814,7 @@ registry.registerPath({
     },
     422: {
       description:
-        "EXPORT_TOO_LARGE: organization export over OFFICIAL_EXPORT_MAX_EMPLOYEE_DAYS (employees × days); request a shorter period",
+        "EXPORT_TOO_LARGE: organization export over OFFICIAL_EXPORT_MAX_EMPLOYEE_DAYS (employees × days); request a shorter period. When the export fits OFFICIAL_EXPORT_ASYNC_MAX_EMPLOYEE_DAYS the problem also carries `asyncAvailable: true` and `employeeDays`: queue it with POST /v1/time/exports.",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
     429: {
@@ -1741,6 +1975,147 @@ registry.registerPath({
 
 registry.registerPath({
   method: "post",
+  path: "/v1/time/exports",
+  summary:
+    "Queue a background organization export (TIM-006, issue #38) as CSV or PDF",
+  description:
+    "For organization exports larger than the synchronous cap (GET /v1/time/export answers 422 with asyncAvailable). Requires organization-wide time.record.read (admin, auditor). The worker builds the document with the same builder as the synchronous export (same content hash rule, generation time = when it runs) and stores the file; the requester is notified in-app and downloads it until it expires (7 days by default). At most one queued or running export per user and 3 per organization. Limited to 30 requests per minute per user and client address (shared by every /v1/time/exports route).",
+  request: {
+    body: {
+      content: { "application/json": { schema: TimeExportJobRequestSchema } },
+    },
+  },
+  responses: {
+    202: {
+      description: "Queued. Location: the export's status URL.",
+      content: { "application/json": { schema: TimeExportJobSchema } },
+    },
+    400: {
+      description:
+        "Invalid body (dates, period over 366 days, format other than csv or pdf, locale, unknown fields)",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    401: {
+      description: "Not authenticated",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    403: {
+      description: "No organization-wide time.record.read",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    409: {
+      description:
+        "EXPORT_IN_PROGRESS: the caller already has an export queued or running, or the organization has 3",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    422: {
+      description:
+        "EXPORT_TOO_LARGE over OFFICIAL_EXPORT_ASYNC_MAX_EMPLOYEE_DAYS, or EXPORT_EMPTY when nobody is employed during the period",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    429: {
+      description: "RATE_LIMIT_EXCEEDED, with a Retry-After header",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/v1/time/exports",
+  summary: "The caller's background exports (TIM-006), newest first",
+  description:
+    "Only exports the caller requested, the 20 newest. Requires organization-wide time.record.read.",
+  responses: {
+    200: {
+      description: "The caller's exports",
+      content: {
+        "application/json": { schema: TimeExportJobListResponseSchema },
+      },
+    },
+    401: {
+      description: "Not authenticated",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    403: {
+      description: "No organization-wide time.record.read",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    429: {
+      description: "RATE_LIMIT_EXCEEDED, with a Retry-After header",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/v1/time/exports/{id}",
+  summary: "Status of one background export (TIM-006)",
+  request: { params: z.object({ id: z.guid() }) },
+  responses: {
+    200: {
+      description: "The export",
+      content: { "application/json": { schema: TimeExportJobSchema } },
+    },
+    401: {
+      description: "Not authenticated",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    404: {
+      description:
+        "EXPORT_NOT_FOUND: no such export, not the caller's, another tenant's, or the caller no longer holds organization-wide time access",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    429: {
+      description: "RATE_LIMIT_EXCEEDED, with a Retry-After header",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/v1/time/exports/{id}/download",
+  summary: "Download a finished background export (TIM-006)",
+  description:
+    "Only the requester, while they still hold organization-wide time.record.read. Same body and headers as GET /v1/time/export in that format (X-Export-Id, X-Content-SHA256, Content-Disposition, Cache-Control: no-store; CSV with a UTF-8 BOM that is not hashed). Every download writes a time.export.download audit entry (TIM-008 access logging, ids only).",
+  request: { params: z.object({ id: z.guid() }) },
+  responses: {
+    200: {
+      description: "The stored file",
+      content: {
+        "text/csv": { schema: z.string() },
+        "application/pdf": { schema: z.string().openapi({ format: "binary" }) },
+      },
+    },
+    401: {
+      description: "Not authenticated",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    404: {
+      description:
+        "EXPORT_NOT_FOUND: no such export, not the caller's, another tenant's, or the caller no longer holds organization-wide time access",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    409: {
+      description: "EXPORT_NOT_READY: queued, running or failed",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    410: {
+      description:
+        "EXPORT_EXPIRED: the file was deleted at expiry; request a new export",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    429: {
+      description: "RATE_LIMIT_EXCEEDED, with a Retry-After header",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "post",
   path: "/v1/schedules/assignments",
   summary: "Assign an explicit weekly schedule to an employee",
   request: {
@@ -1781,6 +2156,8 @@ registry.registerPath({
   method: "get",
   path: "/v1/reports/headcount",
   summary: "Get an administrator-only headcount report",
+  description:
+    "ORG-007: with `groupBy`, the response carries `breakdown`: headcount and FTE per department (`basis` primary, the default, or membership) or per project and area (membership basis only), on the period end date. On the membership basis one person can count in several rows (`totalsOverlap`).",
   request: { query: HeadcountReportQuerySchema },
   responses: {
     200: {
@@ -1790,7 +2167,7 @@ registry.registerPath({
       },
     },
     400: {
-      description: "Invalid dates",
+      description: "Invalid dates, groupBy or basis",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
     403: {
@@ -1807,6 +2184,8 @@ registry.registerPath({
   method: "get",
   path: "/v1/reports/headcount/export",
   summary: "Download an administrator-only headcount report as CSV",
+  description:
+    "ORG-007: with `groupBy`, one row per department or group (`as_of,basis,totals_overlap,group_type,group_id,group_name,headcount,fte`) instead of the period summary.",
   request: { query: HeadcountReportQuerySchema },
   responses: {
     200: {
@@ -1814,7 +2193,7 @@ registry.registerPath({
       content: { "text/csv": { schema: z.string() } },
     },
     400: {
-      description: "Invalid dates",
+      description: "Invalid dates, groupBy or basis",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
     403: {
@@ -2215,6 +2594,19 @@ import type {
 } from '../src/employees.js';
 import type { EmploymentPeriod, CreateEmploymentPeriod } from '../src/employment-history.js';
 import type {
+  OrgGroup,
+  ListOrgGroupsQuery,
+  CreateOrgGroupRequest,
+  UpdateOrgGroupRequest,
+} from '../src/org-groups.js';
+import type {
+  EmployeeMembership,
+  EmployeeMembershipWriteResponse,
+  CreateEmployeeMembershipRequest,
+  UpdateEmployeeMembershipRequest,
+  EndEmployeeMembershipRequest,
+} from '../src/memberships.js';
+import type {
   CreateInvitationRequest,
   InvitationResponse,
   InvitationDetails,
@@ -2279,6 +2671,11 @@ import type {
   TimeBankSummary,
   CreateTimeBankEntry,
 } from '../src/time.js';
+import type {
+  TimeExportJobRequest,
+  TimeExportJob,
+  TimeExportJobListResponse,
+} from '../src/time-export-jobs.js';
 import type {
   CloseTimesheetPeriodRequest,
   CloseTimesheetPeriodResponse,
@@ -2437,6 +2834,8 @@ export class LibreHrApiClient {
     const searchParams = new URLSearchParams();
     if (query?.search) searchParams.set('search', query.search);
     if (query?.departmentId) searchParams.set('departmentId', query.departmentId);
+    if (query?.groupId) searchParams.set('groupId', query.groupId);
+    if (query?.membership) searchParams.set('membership', query.membership);
     if (query?.locationId) searchParams.set('locationId', query.locationId);
     if (query?.status) searchParams.set('status', query.status);
     if (query?.page) searchParams.set('page', String(query.page));
@@ -2502,6 +2901,42 @@ export class LibreHrApiClient {
 
   async updateDepartmentCoverage(id: string, data: DepartmentCoverage): Promise<DepartmentCoverage> {
     return this.request<DepartmentCoverage>('/v1/org/departments/' + encodeURIComponent(id) + '/coverage', { method: 'PUT', body: JSON.stringify(data) });
+  }
+
+  async listOrgGroups(query: ListOrgGroupsQuery = {}): Promise<OrgGroup[]> {
+    const params = new URLSearchParams();
+    if (query.kind) params.set('kind', query.kind);
+    if (query.includeArchived) params.set('includeArchived', query.includeArchived);
+    const qs = params.toString();
+    return this.request<OrgGroup[]>('/v1/org/groups' + (qs ? '?' + qs : ''));
+  }
+
+  async createOrgGroup(data: CreateOrgGroupRequest): Promise<OrgGroup> {
+    return this.request<OrgGroup>('/v1/org/groups', { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  async updateOrgGroup(id: string, data: UpdateOrgGroupRequest): Promise<OrgGroup> {
+    return this.request<OrgGroup>('/v1/org/groups/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(data) });
+  }
+
+  async archiveOrgGroup(id: string): Promise<OrgGroup> {
+    return this.request<OrgGroup>('/v1/org/groups/' + encodeURIComponent(id) + '/archive', { method: 'POST' });
+  }
+
+  async listEmployeeMemberships(employeeId: string): Promise<EmployeeMembership[]> {
+    return this.request<EmployeeMembership[]>('/v1/employees/' + encodeURIComponent(employeeId) + '/memberships');
+  }
+
+  async createEmployeeMembership(employeeId: string, data: CreateEmployeeMembershipRequest): Promise<EmployeeMembershipWriteResponse> {
+    return this.request<EmployeeMembershipWriteResponse>('/v1/employees/' + encodeURIComponent(employeeId) + '/memberships', { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  async updateEmployeeMembership(employeeId: string, membershipId: string, data: UpdateEmployeeMembershipRequest): Promise<EmployeeMembershipWriteResponse> {
+    return this.request<EmployeeMembershipWriteResponse>('/v1/employees/' + encodeURIComponent(employeeId) + '/memberships/' + encodeURIComponent(membershipId), { method: 'PATCH', body: JSON.stringify(data) });
+  }
+
+  async endEmployeeMembership(employeeId: string, membershipId: string, data: EndEmployeeMembershipRequest): Promise<EmployeeMembership> {
+    return this.request<EmployeeMembership>('/v1/employees/' + encodeURIComponent(employeeId) + '/memberships/' + encodeURIComponent(membershipId) + '/end', { method: 'POST', body: JSON.stringify(data) });
   }
 
   async listLegalEntities(): Promise<LegalEntityOption[]> {
@@ -2726,12 +3161,13 @@ export class LibreHrApiClient {
     });
   }
 
-  async listTeamAbsences(params: { startDate: string; endDate: string; departmentId?: string }): Promise<TeamAbsence[]> {
+  async listTeamAbsences(params: { startDate: string; endDate: string; departmentId?: string; groupId?: string }): Promise<TeamAbsence[]> {
     const searchParams = new URLSearchParams({
       startDate: params.startDate,
       endDate: params.endDate,
     });
     if (params.departmentId) searchParams.set('departmentId', params.departmentId);
+    if (params.groupId) searchParams.set('groupId', params.groupId);
     return this.request<TeamAbsence[]>(\`/v1/calendar/team-absences?\${searchParams.toString()}\`);
   }
 
@@ -2831,6 +3267,21 @@ export class LibreHrApiClient {
       endDate: params.endDate,
     });
     return this.request<ExportEmployeesResponse>(\`/v1/time/export/employees?\${searchParams.toString()}\`);
+  }
+
+  async createTimeExportJob(data: TimeExportJobRequest): Promise<TimeExportJob> {
+    return this.request<TimeExportJob>('/v1/time/exports', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async listTimeExportJobs(): Promise<TimeExportJobListResponse> {
+    return this.request<TimeExportJobListResponse>('/v1/time/exports');
+  }
+
+  async getTimeExportJob(id: string): Promise<TimeExportJob> {
+    return this.request<TimeExportJob>(\`/v1/time/exports/\${encodeURIComponent(id)}\`);
   }
 
   async listTimesheetClosures(params: { month: string }): Promise<TimesheetClosuresResponse> {
@@ -2988,13 +3439,14 @@ export class LibreHrApiClient {
   }
 
   // Reports & Insights (M5)
-  async getHeadcountReport(startDate: string, endDate: string): Promise<HeadcountReportResponse> {
-    const params = new URLSearchParams({ startDate, endDate });
+  // ORG-007: an optional breakdown by department or group (projects, areas).
+  async getHeadcountReport(startDate: string, endDate: string, breakdown?: { groupBy: 'department' | 'group'; basis?: 'primary' | 'membership' }): Promise<HeadcountReportResponse> {
+    const params = new URLSearchParams({ startDate, endDate, ...breakdown });
     return this.request<HeadcountReportResponse>(\`/v1/reports/headcount?\${params}\`);
   }
 
-  async exportHeadcountCsv(startDate: string, endDate: string): Promise<string> {
-    const params = new URLSearchParams({ startDate, endDate });
+  async exportHeadcountCsv(startDate: string, endDate: string, breakdown?: { groupBy: 'department' | 'group'; basis?: 'primary' | 'membership' }): Promise<string> {
+    const params = new URLSearchParams({ startDate, endDate, ...breakdown });
     return this.request<string>(\`/v1/reports/headcount/export?\${params}\`, undefined, true);
   }
 
