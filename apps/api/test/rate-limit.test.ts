@@ -1,7 +1,10 @@
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { createRateLimiter } from "../src/middleware/rate-limit.js";
-import { FailureLockout } from "../src/lib/failure-lockout.js";
+import {
+  FailureLockout,
+  PROVISIONAL_LOCK_MS,
+} from "../src/lib/failure-lockout.js";
 import {
   createPostgresRateLimitStore,
   rateLimitKeyHasher,
@@ -382,6 +385,47 @@ describe("FailureLockout", () => {
       expect((await lockout.reserve("u1", 3)).allowed).toBe(true);
     }
     expect((await lockout.reserve("u1", 3)).allowed).toBe(false);
+  });
+
+  it("releases a reservation in its own namespace, lifting the lock it set (#178)", async () => {
+    // Fixed clock: with the real one, a millisecond tick between calls makes
+    // the remaining lock time 299_999 and the exact assertions flaky.
+    const store = memoryRateLimitStore(() => 0);
+    const pins = new FailureLockout({ name: "kiosk.pin", store, ...policy });
+    const tfa = new FailureLockout({ name: "auth.2fa", store, ...policy });
+    const setter = await pins.reserve("ip", 1);
+    expect(setter).toEqual({ allowed: true, lockToken: expect.any(String) });
+    await tfa.release("ip", 1, setter);
+    expect(await pins.lockedFor(["ip"])).toBe(300_000);
+    // A refused reservation carries no token: it cannot lift the lock.
+    await pins.release("ip", 1, { allowed: false, lockedMs: 1 });
+    expect(await pins.lockedFor(["ip"])).toBe(300_000);
+    await pins.release("ip", 1, setter);
+    expect(await pins.lockedFor(["ip"])).toBe(0);
+  });
+
+  it("keeps the Retry-After of a fresh, maybe provisional, lock short (#178)", () => {
+    const lockout = new FailureLockout({
+      name: "kiosk.pin",
+      store: memoryRateLimitStore(),
+      ...policy,
+    });
+    // Just set: at most PROVISIONAL_LOCK_MS.
+    expect(lockout.retryAfterMs(300_000)).toBe(PROVISIONAL_LOCK_MS);
+    expect(lockout.retryAfterMs(299_000)).toBe(PROVISIONAL_LOCK_MS - 1_000);
+    // Older than PROVISIONAL_LOCK_MS: the full remaining time.
+    expect(lockout.retryAfterMs(300_000 - PROVISIONAL_LOCK_MS)).toBe(
+      300_000 - PROVISIONAL_LOCK_MS,
+    );
+    expect(lockout.retryAfterMs(60_000)).toBe(60_000);
+    // A lock shorter than the grace is never lengthened.
+    const brief = new FailureLockout({
+      name: "kiosk.pin",
+      store: memoryRateLimitStore(),
+      failureWindowMs: 60_000,
+      lockoutMs: 1_000,
+    });
+    expect(brief.retryAfterMs(800)).toBe(800);
   });
 
   it("clears failures on reset", async () => {

@@ -37,6 +37,7 @@ export const TENANT_TABLES = [
   "blackout_periods",
   "approval_delegations",
   "sso_configurations",
+  "sso_identities",
   "document_templates",
   "webhooks",
   "shift_templates",
@@ -45,6 +46,7 @@ export const TENANT_TABLES = [
   "shift_assignments",
   "shift_swaps",
   "timesheet_closures",
+  "retention_policies",
 ] as const;
 
 export type TenantTable = (typeof TENANT_TABLES)[number];
