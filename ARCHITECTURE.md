@@ -94,7 +94,7 @@ Zod schemas for all requests/responses/events, error codes, and permission names
 Naming: snake_case tables/columns, plural table names, `id uuid` (UUIDv7), `created_at/updated_at timestamptz`, `deleted_at` for soft delete where retention requires.
 
 Platform: `organizations`, `legal_entities`, `locations`.
-Identity: `users` (auth identity), `sessions`, `memberships` (user<->org with role), `invitations`, `api_tokens`, `rate_limit_buckets` (global, HMAC-keyed rate-limit and lockout counters shared by API replicas).
+Identity: `users` (auth identity), `sessions`, `memberships` (user<->org with role), `invitations`, `api_tokens`, `rate_limit_buckets` (global, HMAC-keyed rate-limit and lockout counters shared by API replicas), `sso_login_requests` (global, single-use OIDC sign-in state, Business SSO) and `sso_identities` (tenant, identity provider subject linked to a member).
 People: `employees` (person record), `employments` (period rows: title, department, manager, location, type, start/end, schedule_id), `departments`, `teams`, `team_members`, `custom_field_defs`, `custom_field_values`, `emergency_contacts`.
 Leave: `leave_types`, `leave_policies`, `leave_policy_assignments`, `holiday_calendars`, `holidays`, `leave_requests` (status machine), `leave_request_days` (materialized per-day rows incl. half days), `leave_ledger` (append-only: accrual/usage/adjustment/carryover/expiry, with `source_ref`).
 Time: `schedules` (+ `schedule_rules`), `time_events` (append-only: `clock_in|clock_out|break_start|break_end|correction`, `employee_id`, `occurred_at`, `recorded_at`, `source`, `actor_id`, `ref_event_id`, `reason`, `prev_hash`, `hash`), `time_correction_requests`, `time_exports`, `timesheet_closures`.

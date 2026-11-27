@@ -63,6 +63,14 @@ function isEnvelope(value: string): boolean {
   }
 }
 
+/**
+ * The plaintext of a stored client secret: an envelope is decrypted, a legacy
+ * plaintext row is returned as it is. For the OIDC token exchange only.
+ */
+export function decryptStoredClientSecret(stored: string): string {
+  return isEnvelope(stored) ? decryptEnvelope(stored) : stored;
+}
+
 const COLUMNS = `
   id,
   organization_id as "organizationId",
@@ -96,7 +104,7 @@ export class SsoRepository {
     `;
     const stored = rows[0]?.clientSecret;
     if (stored === undefined) return null;
-    return isEnvelope(stored) ? decryptEnvelope(stored) : stored;
+    return decryptStoredClientSecret(stored);
   }
 
   /**

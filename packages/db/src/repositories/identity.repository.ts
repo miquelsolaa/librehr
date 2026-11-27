@@ -1,10 +1,28 @@
 import type { Sql } from "postgres";
 import { jsonStringArray } from "./json-array.js";
 import { hashBearerToken } from "../crypto/token-hash.js";
+import type { TenantTx } from "../with-tenant.js";
+import {
+  ssoBeginLogin,
+  ssoConsume,
+  ssoResolveUser,
+  type SsoConsumeResult,
+  type SsoLoginRequestInput,
+  type SsoResolveResult,
+} from "./sso-login.repository.js";
+
+export {
+  SSO_LOGIN_REQUEST_TTL_SECONDS,
+  type SsoConsumeResult,
+  type SsoLocale,
+  type SsoLoginRequestInput,
+  type SsoResolveOutcome,
+  type SsoResolveResult,
+} from "./sso-login.repository.js";
 
 /**
  * Identity lookups that run before a tenant context exists. They go through
- * the SECURITY DEFINER functions of migrations 0019/0020, the only way the runtime
+ * the SECURITY DEFINER functions of migrations 0019/0020/0044, the only way the runtime
  * role (NOBYPASSRLS) can read these tenant tables without `withTenant`.
  *
  * Callers pass raw session and invitation tokens; only their SHA-256 digest
@@ -195,5 +213,49 @@ export class IdentityRepository {
     return row
       ? { ...row, allowedDomains: stringArray(row.allowedDomains) }
       : null;
+  }
+
+  /**
+   * The domains of `domains` (normalized: trimmed, lower case, no leading
+   * '@') that an enabled SSO configuration of another organization already
+   * allows (AUTH-004, migration 0044). Call inside `withTenant` for the
+   * organization that wants them. Never says which organization.
+   */
+  async ssoDomainsTaken(
+    tx: TenantTx,
+    domains: readonly string[],
+  ): Promise<string[]> {
+    const normalized = [
+      ...new Set(
+        domains
+          .map((d) => d.trim().toLowerCase().replace(/^@/, ""))
+          .filter((d) => d.length > 0),
+      ),
+    ].sort();
+    const taken: string[] = [];
+    for (const domain of normalized) {
+      const [row] = await tx<{ taken: boolean }[]>`
+        SELECT librehr_auth_sso_domain_taken(${domain}) AS taken`;
+      if (row?.taken) taken.push(domain);
+    }
+    return taken;
+  }
+
+  /** Stores a started SSO sign-in (AUTH-004); see sso-login.repository.ts. */
+  async ssoBeginLogin(sql: Sql, input: SsoLoginRequestInput): Promise<void> {
+    return ssoBeginLogin(sql, input);
+  }
+
+  /** Spends the sign-in request for `state` once; see sso-login.repository.ts. */
+  async ssoConsume(sql: Sql, state: string): Promise<SsoConsumeResult> {
+    return ssoConsume(sql, state);
+  }
+
+  /** Maps a verified identity to a member; see sso-login.repository.ts. */
+  async ssoResolveUser(
+    sql: Sql,
+    input: { state: string; issuer: string; subject: string; email: string },
+  ): Promise<SsoResolveResult> {
+    return ssoResolveUser(sql, input);
   }
 }
