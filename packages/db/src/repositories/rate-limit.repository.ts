@@ -15,9 +15,14 @@ export interface FailurePolicy {
   lockoutMs: number;
 }
 
-/** Result of reserving an attempt: allowed, or refused with the lock's remaining ms. */
+/**
+ * Result of reserving an attempt: allowed, or refused with the lock's
+ * remaining ms. `lockToken` is set when this attempt reached the limit and
+ * locked the key; pass it to `release` so that a successful attempt can lift
+ * the lock it set itself.
+ */
 export type AttemptReservation =
-  { allowed: true } | { allowed: false; lockedMs: number };
+  { allowed: true; lockToken?: string } | { allowed: false; lockedMs: number };
 
 export interface SweepOptions {
   /** Rows per DELETE. */
@@ -96,7 +101,8 @@ export class RateLimitRepository {
    * same upsert as `recordFailure`, refused while the key is locked. The
    * attempt that reaches `limit` is still allowed and locks the key, so at
    * most `limit` attempts are ever verified per window, also under
-   * concurrency across replicas. A successful attempt `remove`s the key.
+   * concurrency across replicas. A successful attempt `remove`s the key, or
+   * `release`s its reservation when the key is a shared budget.
    */
   async reserveAttempt(
     sql: Sql,
@@ -107,19 +113,33 @@ export class RateLimitRepository {
     const f = failureUpsert(sql, key, policy, nowMs);
     // The outer SELECT reads the snapshot from before the upsert: when it is
     // refused, that is the lock that refused it.
-    const rows = await sql<{ allowed: boolean; lockedMs: number | null }[]>`
+    // An attempt that reaches the limit leaves count = 0 and returns the lock
+    // it set, in exact epoch microseconds (a JS Date would drop them).
+    const rows = await sql<
+      {
+        allowed: boolean;
+        lockedMs: number | null;
+        lockToken: string | null;
+      }[]
+    >`
       WITH up AS (
         ${f.insert} ON CONFLICT (key) DO UPDATE SET ${f.set}
         WHERE b.locked_until IS NULL OR b.locked_until <= ${f.now}
-        RETURNING 1
+        RETURNING CASE WHEN count = 0 THEN ${lockTokenOf(sql, sql`locked_until`)}
+                  END AS token
       )
       SELECT EXISTS (SELECT 1 FROM up) AS allowed,
+        (SELECT token FROM up) AS "lockToken",
         (SELECT ${remainingMs(sql, sql`locked_until`, f.now)}
            FROM rate_limit_buckets WHERE key = ${key}) AS "lockedMs"
     `;
     const row = rows[0];
     if (!row) throw new Error("rate limit reservation returned no row");
-    if (row.allowed) return { allowed: true };
+    if (row.allowed) {
+      return row.lockToken
+        ? { allowed: true, lockToken: row.lockToken }
+        : { allowed: true };
+    }
     // A lock committed after this statement's snapshot reads as 0: still
     // refused, with a minimal Retry-After.
     return { allowed: false, lockedMs: Math.max(Number(row.lockedMs) || 0, 1) };
@@ -139,6 +159,39 @@ export class RateLimitRepository {
       WHERE key = ANY(${[...keys]}::text[]) AND locked_until > ${now}
     `;
     return Number(rows[0]?.ms) || 0;
+  }
+
+  /**
+   * Gives back one reserved attempt that turned out not to be a failure (a
+   * correct PIN on a shared per-IP budget, or an attempt refused elsewhere).
+   * It decrements rather than deletes, so a success cannot wipe the failures
+   * other attempts recorded. When `lockToken` is the lock this reservation set
+   * (still the row's lock), the lock is lifted and the count goes back to
+   * `limit - 1`: the next failure locks again. Any other lock is kept. A
+   * missing row (swept or reset) is a no-op.
+   *
+   * If the failure window restarted between reserve and release, the
+   * decrement removes one failure from the new window: at most one per
+   * successful attempt, so it cannot be used to gain guesses.
+   */
+  async release(
+    sql: Sql,
+    key: string,
+    policy: Pick<FailurePolicy, "limit">,
+    lockToken?: string,
+  ): Promise<void> {
+    const own =
+      lockToken === undefined
+        ? sql`false`
+        : sql`(b.locked_until IS NOT NULL
+               AND ${lockTokenOf(sql, sql`b.locked_until`)} = ${lockToken})`;
+    await sql`
+      UPDATE rate_limit_buckets AS b SET
+        count = CASE WHEN ${own} THEN ${Math.max(policy.limit - 1, 0)}::int
+                     ELSE GREATEST(b.count - 1, 0) END,
+        locked_until = CASE WHEN ${own} THEN NULL ELSE b.locked_until END
+      WHERE b.key = ${key}
+    `;
   }
 
   /** Forgets a key (a successful attempt clears its failures). */
@@ -185,6 +238,11 @@ function clock(sql: Sql, nowMs: number | undefined): Fragment {
 
 function plus(sql: Sql, t: Fragment, ms: number): Fragment {
   return sql`(${t} + ${ms}::double precision * interval '1 millisecond')`;
+}
+
+/** A lock's end as exact epoch microseconds, in text. */
+function lockTokenOf(sql: Sql, column: Fragment): Fragment {
+  return sql`(extract(epoch FROM ${column}) * 1000000)::bigint::text`;
 }
 
 function remainingMs(sql: Sql, column: Fragment, now: Fragment): Fragment {
