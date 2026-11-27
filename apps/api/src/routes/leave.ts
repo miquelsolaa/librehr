@@ -14,8 +14,6 @@ import {
 import {
   validateLeaveRequest,
   calculateWorkingDays,
-  checkBlackoutDate,
-  evaluateTeamCoverage,
   balancesByLeaveType,
   runningBalancesByLeaveType,
   availableForLeaveType,
@@ -25,7 +23,6 @@ import {
   LeaveRepository,
   HolidayRepository,
   EmployeeRepository,
-  DepartmentRepository,
   NotificationRepository,
   AuditRepository,
 } from "@librehr/db";
@@ -41,6 +38,7 @@ import {
 import { toLeaveRequestResponse } from "../lib/approval-items.js";
 import { canOnEmployee, resolvePolicyContext } from "../policies/context.js";
 import { businessToday } from "../lib/business-date.js";
+import { checkLeaveCoverage } from "../lib/leave-coverage.js";
 import type { MailPort } from "../ports/mail.js";
 
 export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
@@ -48,7 +46,6 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
   const leaveRepo = new LeaveRepository();
   const holidayRepo = new HolidayRepository();
   const employeeRepo = new EmployeeRepository();
-  const departmentRepo = new DepartmentRepository();
   const notificationRepo = new NotificationRepository();
   const auditRepo = new AuditRepository();
 
@@ -371,74 +368,18 @@ export function createLeaveRoutes(sql: Sql, _mailPort?: MailPort) {
           };
         }
 
-        // Check blackout periods (LEA-007)
-        const blackouts = await leaveRepo.listBlackoutPeriods(
-          tx,
-          targetEmp.departmentId ?? undefined,
-        );
-        for (const dateStr of workingDaysCalc.breakdown.workingDays) {
-          const bo = checkBlackoutDate(dateStr, blackouts);
-          if (bo.inBlackout) {
-            return {
-              error: "BLACKOUT_PERIOD" as const,
-              message: `Requested dates conflict with a blackout period: ${bo.reason}`,
-            };
-          }
-        }
-
-        // Coverage rules must be configured explicitly for the department.
-        if (targetEmp.departmentId) {
-          const department = await departmentRepo.findById(
-            tx,
-            targetEmp.departmentId,
-          );
-          if (!department || department.minPresencePercent === null) {
-            return {
-              error: "COVERAGE_NOT_CONFIGURED" as const,
-              message:
-                "Configure the department coverage policy before requesting leave.",
-            };
-          }
-          const deptEmps = await employeeRepo.list(tx, {
-            departmentId: targetEmp.departmentId,
-            status: "active",
-          });
-          for (const date of workingDaysCalc.breakdown.workingDays) {
-            const absences = await leaveRepo.getTeamAbsences(tx, {
-              startDate: date,
-              endDate: date,
-              departmentId: targetEmp.departmentId,
-            });
-            const requestedHalf =
-              (date === reqData.startDate && reqData.halfDayStart) ||
-              (date === reqData.endDate && reqData.halfDayEnd);
-            const existingHalf = absences.some(
-              (absence) =>
-                (date === absence.startDate && absence.halfDayStart) ||
-                (date === absence.endDate && absence.halfDayEnd),
-            );
-            if (
-              department.minPresencePercent > 0 &&
-              (requestedHalf || existingHalf)
-            ) {
-              return {
-                error: "COVERAGE_UNVERIFIABLE" as const,
-                message:
-                  "Half-day coverage cannot be verified because time-of-day details are unavailable.",
-              };
-            }
-            const coverage = evaluateTeamCoverage({
-              teamSize: deptEmps.total,
-              activeAbsencesOnDate: absences.length,
-              minPresencePercent: department.minPresencePercent,
-            });
-            if (!coverage.allowed)
-              return {
-                error: "COVERAGE_THRESHOLD" as const,
-                message: coverage.reason ?? "Team coverage threshold reached",
-              };
-          }
-        }
+        // Blackouts and coverage across primary and secondary departments
+        // (LEA-007, ORG-007).
+        const coverageFailure = await checkLeaveCoverage(tx, {
+          employeeId,
+          primaryDepartmentId: targetEmp.departmentId,
+          startDate: reqData.startDate,
+          endDate: reqData.endDate,
+          halfDayStart: reqData.halfDayStart,
+          halfDayEnd: reqData.halfDayEnd,
+          workingDays: workingDaysCalc.breakdown.workingDays,
+        });
+        if (coverageFailure) return coverageFailure;
 
         // Validate request against existing requests and ledger
         const ledgerRows = await leaveRepo.getLedgerEntries(tx, employeeId);

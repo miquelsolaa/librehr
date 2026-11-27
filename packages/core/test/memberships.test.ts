@@ -3,6 +3,7 @@ import fc from "fast-check";
 import {
   activeMembershipsOn,
   allocationOn,
+  departmentIdsOn,
   findOverlappingMembership,
   isMembershipActiveDuring,
   isMembershipActiveOn,
@@ -358,6 +359,55 @@ describe("peakAllocationDuring", () => {
             allocationOn(rows, date).totalPercent,
           );
         }
+      }),
+    );
+  });
+});
+
+describe("departmentIdsOn (LEA-007 across memberships)", () => {
+  it("lists the primary first, then active secondary departments only", () => {
+    const rows = [
+      dept("d2", "2026-03-01", "2026-03-31"),
+      group("g1", "2026-01-01", null),
+      dept("d3", "2026-04-01", null),
+    ];
+    expect(departmentIdsOn("d1", rows, "2026-02-28")).toEqual(["d1"]);
+    expect(departmentIdsOn("d1", rows, "2026-03-31")).toEqual(["d1", "d2"]);
+    expect(departmentIdsOn("d1", rows, "2026-04-01")).toEqual(["d1", "d3"]);
+  });
+
+  it("works without a primary department and never repeats an id", () => {
+    const rows = [
+      dept("d1", "2024-02-29", "2024-02-29"),
+      dept("d2", "2023-12-31", "2024-01-01"),
+    ];
+    expect(departmentIdsOn(null, rows, "2024-02-29")).toEqual(["d1"]);
+    expect(departmentIdsOn("d1", rows, "2024-02-29")).toEqual(["d1"]);
+    expect(departmentIdsOn(null, rows, "2024-01-01")).toEqual(["d2"]);
+    expect(departmentIdsOn(null, rows, "2024-01-02")).toEqual([]);
+  });
+
+  it("returns exactly the primary plus the departments active that day", () => {
+    const day = fc
+      .integer({ min: 0, max: 400 })
+      .map((n) => addDays("2026-01-01", n));
+    const row = fc
+      .tuple(fc.constantFrom("d1", "d2", "d3"), day, fc.option(day))
+      .map(([id, start, end]) =>
+        dept(id, start, end === null || end < start ? null : end),
+      );
+    fc.assert(
+      fc.property(fc.array(row, { maxLength: 6 }), day, (rows, date) => {
+        const ids = departmentIdsOn("d0", rows, date);
+        expect(ids[0]).toBe("d0");
+        expect(new Set(ids).size).toBe(ids.length);
+        const expected = new Set([
+          "d0",
+          ...rows
+            .filter((m) => isMembershipActiveOn(m, date))
+            .map((m) => m.departmentId!),
+        ]);
+        expect(new Set(ids)).toEqual(expected);
       }),
     );
   });
