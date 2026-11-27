@@ -1,8 +1,9 @@
 // Import boundaries from AGENTS.md section 2:
 //   web    -> contracts, ui, i18n
-//   api    -> core, db, contracts
-//   worker -> core, db, emails
+//   api    -> core, db, contracts, time-export
+//   worker -> core, db, emails, time-export
 //   core   -> nothing internal, and no I/O libraries
+//   time-export -> core, db, and no HTTP framework (shared by api and worker)
 //   ee     -> core, db, contracts (Business edition, ADR 0004)
 // Nothing imports ee except apps/api/src/extensions/load.ts and API tests.
 //
@@ -23,6 +24,7 @@ const LAYERS = {
   ui: "packages/ui",
   i18n: "packages/i18n",
   emails: "packages/emails",
+  "time-export": "packages/time-export",
   ee: "ee",
 };
 
@@ -130,11 +132,28 @@ export const boundaryConfigs = [
   },
   {
     files: ["apps/api/**/*.{ts,tsx,js,mjs,cjs}"],
-    rules: restrict(onlyAllow("api", ["core", "db", "contracts"])),
+    rules: restrict(
+      onlyAllow("api", ["core", "db", "contracts", "time-export"]),
+    ),
   },
   {
     files: ["apps/worker/**/*.{ts,tsx,js,mjs,cjs}"],
-    rules: restrict(onlyAllow("worker", ["core", "db", "emails"])),
+    rules: restrict(
+      onlyAllow("worker", ["core", "db", "emails", "time-export"]),
+    ),
+  },
+  {
+    // Runs inside the API request and the worker job alike (issue #38), so
+    // it takes a transaction and a zone resolver, never an HTTP context.
+    files: ["packages/time-export/**/*.{ts,tsx,js,mjs,cjs}"],
+    rules: restrict([
+      ...onlyAllow("time-export", ["core", "db"]),
+      {
+        regex: "^(hono|@hono/.*)(/.*)?$",
+        message:
+          "time-export must not depend on the HTTP framework: the worker runs it too",
+      },
+    ]),
   },
   {
     files: ["ee/**/*.{ts,tsx,js,mjs,cjs}"],
@@ -148,6 +167,8 @@ export const boundaryConfigs = [
       "apps/api/src/extensions/load.ts",
       "apps/api/test/**/*.{ts,tsx,js,mjs,cjs}",
     ],
-    rules: restrict(onlyAllow("api", ["core", "db", "contracts", "ee"])),
+    rules: restrict(
+      onlyAllow("api", ["core", "db", "contracts", "time-export", "ee"]),
+    ),
   },
 ];

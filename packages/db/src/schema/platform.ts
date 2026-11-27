@@ -23,6 +23,12 @@ export const organizations = pgTable(
     auditorAccessMaxDays: integer("auditor_access_max_days")
       .default(90)
       .notNull(),
+    // ORG-007: read access of department and group leads to members (0047).
+    secondaryLeadVisibility: text("secondary_lead_visibility", {
+      enum: ["off", "calendar", "profile"],
+    })
+      .default("calendar")
+      .notNull(),
     ...timestamps,
   },
   (table) => [index("organizations_slug_idx").on(table.slug)],

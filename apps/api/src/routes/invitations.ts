@@ -14,8 +14,13 @@ import {
   EmployeeRepository,
   AuditRepository,
   AuditorAccessRepository,
+  SsoRepository,
 } from "@librehr/db";
-import { AppError, UnauthorizedError } from "../errors/index.js";
+import {
+  AppError,
+  SsoBreakGlassRequiredError,
+  UnauthorizedError,
+} from "../errors/index.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireInteractiveSession } from "../middleware/pat-scopes.js";
 import { can } from "../policies/can.js";
@@ -25,6 +30,7 @@ import { hashPassword, verifyPassword } from "../lib/password.js";
 import { invitationEmail } from "../lib/invitation-email.js";
 import { logger } from "../middleware/logger.js";
 import { resolveAuditorAccessEnd } from "../lib/auditor-access.js";
+import { requireDepartmentInTenant } from "../lib/primary-department.js";
 import {
   setSessionCookie,
   type SessionCookieOptions,
@@ -55,6 +61,7 @@ export function createInvitationRoutes(
   const employeeRepo = new EmployeeRepository();
   const auditRepo = new AuditRepository();
   const auditorRepo = new AuditorAccessRepository();
+  const ssoRepo = new SsoRepository();
 
   router.post("/invitations", requireAuth, async (c) => {
     const user = (c.get as (key: string) => unknown)("user") as AuthUser;
@@ -117,11 +124,17 @@ export function createInvitationRoutes(
                 await auditorRepo.window(tx),
               );
 
+        // ORG-007 (ADR 0008 decision 13): the invited employee's primary
+        // department, checked against this tenant (schema: auditors none).
+        if (parse.data.departmentId !== undefined)
+          await requireDepartmentInTenant(tx, parse.data.departmentId);
+
         const invite = await invitationRepo.create(tx, {
           email: parse.data.email,
           role: parse.data.role,
           invitedById: user.id,
           accessExpiresAt,
+          departmentId: parse.data.departmentId ?? null,
         });
 
         // No PII in audit metadata: the invitation id identifies the invitee.
@@ -388,6 +401,16 @@ export function createInvitationRoutes(
           });
         }
 
+        // AUTH-004: accepting a non-admin invitation demotes an existing
+        // admin; it must not remove the last break-glass admin of an
+        // organization that requires SSO. Throwing rolls the acceptance back.
+        if (
+          invite.role !== "admin" &&
+          (await ssoRepo.isLastBreakGlassAdmin(tx, user.id))
+        ) {
+          throw new SsoBreakGlassRequiredError();
+        }
+
         // 4. Create Membership. The access end date follows the role: set
         // for auditors, cleared for every other role (migration 0029 CHECK).
         await tx`
@@ -410,7 +433,8 @@ export function createInvitationRoutes(
             firstName,
             lastName,
             email: user.email,
-            departmentId: null,
+            // Null only when the department was deleted since the invite.
+            departmentId: accepted.departmentId,
           });
         }
 
@@ -445,7 +469,14 @@ export function createInvitationRoutes(
         { "Content-Type": "application/problem+json" },
       );
     }
-    const session = await authPort.createSession(authUser);
+    // AUTH-004: in an organization that requires SSO, the acceptance above
+    // has committed and createSession throws SsoRequiredError (403
+    // SSO_REQUIRED); the client continues with single sign-on. That includes
+    // break-glass admins: accepting checks no second factor and writes no
+    // break-glass audit entry, so they sign in through /auth/sign-in instead.
+    const session = await authPort.createSession(authUser, {
+      allowBreakGlass: false,
+    });
     if (!session) {
       throw new UnauthorizedError({
         code: "INVALID_INVITATION",

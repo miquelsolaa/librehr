@@ -17,6 +17,7 @@ import {
   validateIban,
   buildOrgChart,
   hashKioskPin,
+  type OrgChartMembershipItem,
 } from "@librehr/core";
 import {
   withTenant,
@@ -24,11 +25,23 @@ import {
   AuditRepository,
   EmergencyContactRepository,
   AccessRevocationRepository,
+  EmployeeMembershipRepository,
+  SsoRepository,
   type TenantTx,
 } from "@librehr/db";
 import { z } from "zod";
-import { ForbiddenError, NotFoundError } from "../errors/index.js";
+import {
+  ForbiddenError,
+  NotFoundError,
+  SsoBreakGlassRequiredError,
+  ValidationError,
+} from "../errors/index.js";
+import {
+  endSecondariesInNewPrimary,
+  requireDepartmentInTenant,
+} from "../lib/primary-department.js";
 import { IdParamSchema, parseParams } from "../lib/validate.js";
+import { businessToday } from "../lib/business-date.js";
 import { clientIp } from "../lib/client-ip.js";
 import { requireAuth } from "../middleware/auth.js";
 import { can, permissionScope } from "../policies/can.js";
@@ -55,6 +68,8 @@ export function createEmployeeRoutes(
   const auditRepo = new AuditRepository();
   const emergencyRepo = new EmergencyContactRepository();
   const accessRevocationRepo = new AccessRevocationRepository();
+  const membershipRepo = new EmployeeMembershipRepository();
+  const ssoRepo = new SsoRepository();
 
   // EMP-001 directory: visible to anyone holding employee.read at any scope,
   // limited to directory fields whatever the caller's scope.
@@ -85,7 +100,13 @@ export function createEmployeeRoutes(
             detail: "You do not have permission to view employees",
           });
         }
-        return employeeRepo.list(tx, filters);
+        // ORG-007: memberships are read on today's business date, and the
+        // department filter matches secondary memberships unless asked not to.
+        return employeeRepo.list(tx, {
+          ...filters,
+          membership: filters.membership ?? "any",
+          asOf: await businessToday(c, tx),
+        });
       },
     );
 
@@ -166,6 +187,7 @@ export function createEmployeeRoutes(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
+        await requireDepartmentInTenant(tx, data.departmentId);
         const emp = await employeeRepo.create(tx, {
           firstName: data.firstName,
           lastName: data.lastName,
@@ -174,7 +196,7 @@ export function createEmployeeRoutes(
           phone: data.phone ?? null,
           address: data.address ?? null,
           birthDate: data.birthDate ?? null,
-          departmentId: data.departmentId ?? null,
+          departmentId: data.departmentId,
           managerId: data.managerId ?? null,
           locationId: data.locationId ?? null,
           jobTitle: data.jobTitle,
@@ -301,8 +323,28 @@ export function createEmployeeRoutes(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        if (!(await employeeRepo.findById(tx, id))) {
+        const current = await employeeRepo.findById(tx, id);
+        if (!current) {
           throw new NotFoundError({ detail: "Employee not found" });
+        }
+        // ADR 0008 decision 13: employees stored without a primary
+        // department are tolerated until edited; an edit must supply one.
+        if (data.departmentId === undefined && current.departmentId === null)
+          throw new ValidationError({
+            status: 422,
+            code: "PRIMARY_DEPARTMENT_REQUIRED",
+            detail: "Choose a primary department for this employee",
+          });
+        if (
+          data.departmentId !== undefined &&
+          data.departmentId !== current.departmentId
+        ) {
+          await requireDepartmentInTenant(tx, data.departmentId);
+          await endSecondariesInNewPrimary(c, tx, {
+            employeeId: id,
+            departmentId: data.departmentId,
+            actorId: user.id,
+          });
         }
         const result = await employeeRepo.update(tx, id, data);
         await auditRepo.log(tx, {
@@ -365,8 +407,17 @@ export function createEmployeeRoutes(
       sql,
       { organizationId: user.organizationId, userId: user.id },
       async (tx) => {
-        if (!(await employeeRepo.findById(tx, id))) {
+        const target = await employeeRepo.findById(tx, id);
+        if (!target) {
           throw new NotFoundError({ detail: "Employee not found" });
+        }
+        // AUTH-004: an organization that requires SSO keeps at least one
+        // break-glass admin, whatever the termination date.
+        if (
+          target.userId &&
+          (await ssoRepo.isLastBreakGlassAdmin(tx, target.userId))
+        ) {
+          throw new SsoBreakGlassRequiredError();
         }
         const result = await employeeRepo.terminate(tx, id, parse.data);
         // EMP-007: when the date is today or past (org time zone) the user's
@@ -484,7 +535,23 @@ export function createEmployeeRoutes(
           });
         }
         const flatItems = await employeeRepo.findOrgChartItems(tx);
-        return buildOrgChart(flatItems);
+        // ORG-007: secondary memberships active today, as dotted lines.
+        const memberships = await membershipRepo.listActiveForOrgChart(
+          tx,
+          await businessToday(c, tx),
+        );
+        const byEmployee = new Map<string, OrgChartMembershipItem[]>();
+        for (const { employeeId, ...membership } of memberships) {
+          const list = byEmployee.get(employeeId) ?? [];
+          list.push(membership);
+          byEmployee.set(employeeId, list);
+        }
+        return buildOrgChart(
+          flatItems.map((item) => ({
+            ...item,
+            secondaryMemberships: byEmployee.get(item.id) ?? [],
+          })),
+        );
       },
     );
 

@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import { Hono, type Context } from "hono";
 import type { Sql } from "postgres";
 import {
@@ -23,6 +22,7 @@ import {
 } from "@librehr/core";
 import {
   AuditRepository,
+  IdentityRepository,
   TokenRepository,
   UserRepository,
   withTenant,
@@ -39,6 +39,7 @@ import {
 } from "../lib/session-cookie.js";
 import {
   ConflictError,
+  SsoBreakGlassRequiredError,
   UnauthorizedError,
   ValidationError,
 } from "../errors/index.js";
@@ -62,6 +63,11 @@ import {
   resolveTwoFactorConfig,
   type TwoFactorConfigInput,
 } from "../lib/two-factor-config.js";
+import {
+  challengeSecret,
+  createChallengeToken,
+  verifyChallengeToken,
+} from "../lib/two-factor-challenge.js";
 
 export interface AuthRouteOptions {
   /** Shared store of the rate limits and the 2FA lockout (issue #35). */
@@ -82,58 +88,6 @@ export interface AuthRouteOptions {
     { maxLinksPerAccountPerHour?: number | undefined } | undefined;
   /** Overrides of the email verification defaults (cap, link lifetime). */
   emailVerification?: EmailVerificationOptions | undefined;
-}
-
-function challengeSecret(value: string | undefined): string | null {
-  return value && value.length >= 32 ? value : null;
-}
-
-function createChallengeToken(userId: string, secret: string): string {
-  const payload = JSON.stringify({
-    userId,
-    exp: Date.now() + 5 * 60 * 1000, // 5 minutes
-  });
-  const b64Payload = Buffer.from(payload).toString("base64url");
-  const signature = crypto
-    .createHmac("sha256", secret)
-    .update(b64Payload)
-    .digest("base64url");
-  return `${b64Payload}.${signature}`;
-}
-
-function verifyChallengeToken(
-  token: string,
-  secret: string | null,
-): string | null {
-  try {
-    if (!secret) return null;
-    const parts = token.split(".");
-    if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
-    const [b64Payload, signature] = parts;
-
-    const expectedSig = crypto
-      .createHmac("sha256", secret)
-      .update(b64Payload)
-      .digest("base64url");
-
-    if (
-      !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))
-    ) {
-      return null;
-    }
-
-    const payload = JSON.parse(
-      Buffer.from(b64Payload, "base64url").toString("utf-8"),
-    ) as { userId: string; exp: number };
-
-    if (Date.now() > payload.exp) {
-      return null;
-    }
-
-    return payload.userId;
-  } catch {
-    return null;
-  }
 }
 
 /** A JSON body field for rate-limit keys; never throws. */
@@ -170,6 +124,7 @@ export function createAuthRoutes(
   const userRepo = new UserRepository();
   const auditRepo = new AuditRepository();
   const tokenRepo = new TokenRepository();
+  const identityRepo = new IdentityRepository();
   const cookieOptions: SessionCookieOptions = {
     nodeEnv: options.nodeEnv,
     trustProxy: options.trustProxy,
@@ -202,7 +157,9 @@ export function createAuthRoutes(
     trustProxy,
     account: async (c) => {
       const token = await bodyField(c, "challengeToken");
-      return token ? verifyChallengeToken(token, signingSecret) : null;
+      return token
+        ? (verifyChallengeToken(token, signingSecret)?.userId ?? null)
+        : null;
     },
   });
   const sessionUserLimit = createRateLimiter({
@@ -221,6 +178,34 @@ export function createAuthRoutes(
       user: session.user,
       expiresAt: session.expiresAt.toISOString(),
     });
+  };
+
+  // AUTH-004: a password session that opened in an organization requiring
+  // SSO is a break-glass sign-in (admin with TOTP). It is audited in that
+  // organization; if the entry cannot be written, the session is revoked so
+  // no break-glass sign-in goes unrecorded.
+  const auditBreakGlass = async (session: AuthSession) => {
+    if (!session.breakGlass) return;
+    try {
+      await withTenant(
+        sql,
+        {
+          organizationId: session.user.organizationId,
+          userId: session.user.id,
+        },
+        (tx) =>
+          auditRepo.log(tx, {
+            actorId: session.user.id,
+            action: "auth.sso.break_glass",
+            resourceType: "user",
+            resourceId: session.user.id,
+            metadata: { authMethod: "password" },
+          }),
+      );
+    } catch (err) {
+      await authPort.revokeSession(session.token);
+      throw err;
+    }
   };
 
   const noActiveMembership = () =>
@@ -365,7 +350,10 @@ export function createAuthRoutes(
             { "Content-Type": "application/problem+json" },
           );
         }
-        const challengeToken = createChallengeToken(user.id, secret);
+        const challengeToken = createChallengeToken(
+          { userId: user.id },
+          secret,
+        );
         return c.json({
           requiresTwoFactor: true,
           challengeToken,
@@ -373,8 +361,11 @@ export function createAuthRoutes(
       }
     }
 
+    // Throws SsoRequiredError (403 SSO_REQUIRED) when every membership
+    // requires single sign-on (AUTH-004); the password already verified.
     const session = await authPort.createSession(user);
     if (!session) throw noActiveMembership();
+    await auditBreakGlass(session);
     return issueSession(c, session);
   });
 
@@ -587,11 +578,11 @@ export function createAuthRoutes(
       );
     }
 
-    const userId = verifyChallengeToken(
+    const challenge = verifyChallengeToken(
       parsed.data.challengeToken,
       signingSecret,
     );
-    if (!userId) {
+    if (!challenge) {
       return c.json(
         createProblemDetails({
           status: 401,
@@ -604,7 +595,7 @@ export function createAuthRoutes(
       );
     }
 
-    const userRow = await userRepo.findById(sql, userId);
+    const userRow = await userRepo.findById(sql, challenge.userId);
     if (!userRow || !userRow.twoFactorEnabled) {
       return c.json(
         createProblemDetails({
@@ -624,14 +615,21 @@ export function createAuthRoutes(
     }
     if (result === "invalid") throw invalidCode();
 
-    // Same deterministic default membership as password sign-in, bound
-    // through the new session's token.
-    const session = await authPort.createSession({
-      id: userRow.id,
-      email: userRow.email,
-      name: userRow.name,
-      twoFactorEnabled: true,
-    });
+    // After SSO the challenge names the configuration's organization, so
+    // the session stays there; after a password, the same deterministic
+    // default membership as password sign-in.
+    const session = await authPort.createSession(
+      {
+        id: userRow.id,
+        email: userRow.email,
+        name: userRow.name,
+        twoFactorEnabled: true,
+        ...(challenge.organizationId
+          ? { organizationId: challenge.organizationId }
+          : {}),
+      },
+      { authMethod: challenge.authMethod ?? "password" },
+    );
     if (!session) {
       return c.json(
         createProblemDetails({
@@ -644,6 +642,7 @@ export function createAuthRoutes(
         { "Content-Type": "application/problem+json" },
       );
     }
+    await auditBreakGlass(session);
     return issueSession(c, session);
   });
 
@@ -800,6 +799,18 @@ export function createAuthRoutes(
       return secondFactorLocked(c, result.lockedMs);
     }
     if (result === "invalid") throw invalidCode();
+
+    // AUTH-004: the last break-glass admin of an organization that requires
+    // SSO keeps TOTP, or nobody there could sign in with a password if the
+    // identity provider fails. PATs never reach /auth, so this is a session.
+    const session = (c.get as (key: string) => unknown)("session") as
+      AuthSession | undefined;
+    if (
+      session &&
+      (await identityRepo.isLastBreakGlassAdmin(sql, session.token))
+    ) {
+      throw new SsoBreakGlassRequiredError();
+    }
 
     await userRepo.disableTwoFactor(sql, user.id);
     await withTenant(

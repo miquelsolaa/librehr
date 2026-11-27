@@ -16,6 +16,10 @@ import {
   retentionEnforceSingletonKey,
 } from "../queues/retention.enforce.js";
 import {
+  RetentionSweepGlobalPayloadSchema,
+  retentionSweepGlobalSingletonKey,
+} from "../queues/retention.sweep-global.js";
+import {
   AuditVerifyChainPayloadSchema,
   auditVerifyChainSingletonKey,
 } from "../queues/audit.verify-chain.js";
@@ -23,6 +27,19 @@ import {
   SchedulerTickPayloadSchema,
   schedulerTickSingletonKey,
 } from "../queues/scheduler.tick.js";
+import {
+  TIME_EXPORT_EXPIRE_SECONDS,
+  TimeExportPayloadSchema,
+  timeExportSingletonKey,
+} from "../queues/time.export.js";
+import {
+  TimeExportDispatchPayloadSchema,
+  timeExportDispatchSingletonKey,
+} from "../queues/time.export-dispatch.js";
+import {
+  TimeExportCleanupPayloadSchema,
+  timeExportCleanupSingletonKey,
+} from "../queues/time.export-cleanup.js";
 import { parsePayload } from "./payload.js";
 
 export { AuditVerifyChainPayloadSchema };
@@ -50,6 +67,10 @@ export const QUEUES = {
     schema: RetentionEnforcePayloadSchema,
     key: retentionEnforceSingletonKey,
   },
+  "retention.sweep-global": {
+    schema: RetentionSweepGlobalPayloadSchema,
+    key: retentionSweepGlobalSingletonKey,
+  },
   "audit.verify-chain": {
     schema: AuditVerifyChainPayloadSchema,
     key: auditVerifyChainSingletonKey,
@@ -57,6 +78,20 @@ export const QUEUES = {
   "scheduler.tick": {
     schema: SchedulerTickPayloadSchema,
     key: schedulerTickSingletonKey,
+  },
+  "time.export": {
+    schema: TimeExportPayloadSchema,
+    key: timeExportSingletonKey,
+    // A long build must not be re-driven while it still runs (TIM-006).
+    send: { expireInSeconds: TIME_EXPORT_EXPIRE_SECONDS },
+  },
+  "time.export.dispatch": {
+    schema: TimeExportDispatchPayloadSchema,
+    key: timeExportDispatchSingletonKey,
+  },
+  "time.export.cleanup": {
+    schema: TimeExportCleanupPayloadSchema,
+    key: timeExportCleanupSingletonKey,
   },
 } as const;
 
@@ -81,19 +116,24 @@ export async function enqueue<Q extends QueueName>(
   queue: Q,
   payload: unknown,
 ): Promise<string | null> {
-  const { data, singletonKey } = prepareJob(queue, payload);
-  return boss.send(queue, data, { singletonKey });
+  const { data, singletonKey, options } = prepareJob(queue, payload);
+  return boss.send(queue, data, { ...options, singletonKey });
 }
 
-/** Validates a payload and derives its `singletonKey`, as {@link enqueue} sends it. */
+/**
+ * Validates a payload and derives its `singletonKey` and the queue's extra send options
+ * (e.g. a longer expiry), as {@link enqueue} sends it.
+ */
 export function prepareJob<Q extends QueueName>(
   queue: Q,
   payload: unknown,
-): { data: object; singletonKey: string } {
+): { data: object; singletonKey: string; options: SendOptions } {
   const { schema, key } = QUEUES[queue];
+  // Only some queues set extra send options.
+  const extra = (QUEUES[queue] as { send?: SendOptions }).send;
   const data = parsePayload(queue, schema, payload);
   // The union of per-queue key functions is not callable with a union argument; the pairing
   // is guaranteed by QUEUES itself.
   const singletonKey = (key as (p: typeof data) => string)(data);
-  return { data, singletonKey };
+  return { data, singletonKey, options: extra ?? {} };
 }

@@ -18,6 +18,7 @@ import { Input, Badge, Button, PageHeader } from "@librehr/ui";
 import { getApiClient } from "@/lib/api-client";
 import { getStoredSession } from "@/lib/auth";
 import type { OrgChartNode } from "@librehr/contracts";
+import { OrgChartDottedLines } from "@/components/org-chart-dotted-lines";
 
 interface OrgNodeCardProps {
   node: OrgChartNode;
@@ -87,6 +88,13 @@ function OrgNodeCard({ node, locale, search }: OrgNodeCardProps) {
             </span>
           )}
         </div>
+
+        {/* ORG-007: secondary memberships as dotted lines to their leads */}
+        <OrgChartDottedLines
+          memberships={node.secondaryMemberships ?? []}
+          nodeId={node.id}
+          locale={locale}
+        />
 
         {/* Team stats badge & expand toggle */}
         {hasReports && (

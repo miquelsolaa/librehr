@@ -67,7 +67,7 @@ Priority: **P0** must for the release, **P1** should, **P2** nice. Each requirem
 - **AUTH-001 (P0)** Email + password sign-in with strong hashing, email verification, password reset. _Accept:_ reset links expire in 1 h and are single use; rate limiting on all auth endpoints.
 - **AUTH-002 (P0)** Session management: list active sessions, revoke, "sign out everywhere".
 - **AUTH-003 (P1)** TOTP two-factor authentication, recovery codes; organization-level "require 2FA".
-- **AUTH-004 (P1, Business edition)** OIDC SSO (Google, Microsoft, generic OIDC) configurable per organization. Ships in `ee/` and needs a licence (`LIC-003`); see `docs/editions.md`.
+- **AUTH-004 (P1, Business edition)** OIDC SSO (Google, Microsoft, generic OIDC) configurable per organization. Ships in `ee/` and needs a licence (`LIC-003`); see `docs/editions.md`. _Accept:_ "Require SSO" is decided per membership, never by email domain, and applies only with a licence granting `sso` and `SSO_ENABLED=true` (otherwise it is inert and nothing is deleted); password sign-in, 2FA verify and invitation accept never open a password session in an enforcing organization, except for break-glass admins (role admin with TOTP), and answer 403 `SSO_REQUIRED` only after the password verified when no other membership allows a password; existing password sessions stop working while enforcement is on (checked at lookup) and work again when it is lifted; existing personal access tokens keep working and new ones need an SSO session or break-glass; password reset stays available; enforcement cannot be switched on without SSO enabled and at least one admin with 2FA (409 `SSO_BREAK_GLASS_REQUIRED`); break-glass sign-ins and enforcement changes are audited.
 - **AUTH-005 (P0)** Invitations: admins invite employees by email; invite creates/links an employee record. _Accept:_ invite tokens expire in 7 days; re-sendable.
 - **AUTH-006 (P2)** Passkeys (WebAuthn).
 - Source: security best practice (OWASP ASVS L2).
@@ -80,6 +80,7 @@ Priority: **P0** must for the release, **P1** should, **P2** nice. Each requirem
 - **ORG-004 (P1)** Organization chart view (searchable, collapsible).
 - **ORG-005 (P1)** Custom fields on employee profiles (text, number, date, select), with visibility rules.
 - **ORG-006 (P0)** Multi-tenant: multiple organizations per instance fully isolated (RLS); instance super-admin can only manage organizations, never read tenant data.
+- **ORG-007 (P1)** Multiple memberships: besides one primary department, an employee can belong to several secondary departments, projects and areas, each with validity dates and an optional allocation percentage; leads of those groups get configurable read-only visibility (off, calendar, profile). _Accept:_ a person can be linked to N projects/areas/departments with validity dates; exactly one primary department remains required; directory and calendar filters work by any membership; tenant isolation (RLS) is preserved; documented in the API/OpenAPI contracts. Decisions in `docs/adr/0008-employee-memberships.md`.
 
 ### 7.3 EMP - Employees
 

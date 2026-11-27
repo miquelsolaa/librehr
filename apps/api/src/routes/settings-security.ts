@@ -46,6 +46,7 @@ export function createSettingsSecurityRoutes(sql: Sql) {
     return c.json({
       requireTwoFactor: org.requireTwoFactor,
       auditorAccessMaxDays: org.auditorAccessMaxDays,
+      secondaryLeadVisibility: org.secondaryLeadVisibility,
     });
   });
 
@@ -101,6 +102,7 @@ export function createSettingsSecurityRoutes(sql: Sql) {
           {
             requireTwoFactor: parsed.data.requireTwoFactor,
             auditorAccessMaxDays: parsed.data.auditorAccessMaxDays,
+            secondaryLeadVisibility: parsed.data.secondaryLeadVisibility,
           },
         );
         // Only the settings sent are logged (TIM-008: the auditor access
@@ -110,6 +112,10 @@ export function createSettingsSecurityRoutes(sql: Sql) {
           metadata["requireTwoFactor"] = parsed.data.requireTwoFactor;
         if (parsed.data.auditorAccessMaxDays !== undefined)
           metadata["auditorAccessMaxDays"] = parsed.data.auditorAccessMaxDays;
+        // ORG-007: who can see whom changed, so the new value is audited.
+        if (parsed.data.secondaryLeadVisibility !== undefined)
+          metadata["secondaryLeadVisibility"] =
+            parsed.data.secondaryLeadVisibility;
         await auditRepo.log(tx, {
           actorId: user.id,
           action: "organization.security_updated",

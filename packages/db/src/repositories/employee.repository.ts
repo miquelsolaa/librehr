@@ -43,6 +43,17 @@ export interface EmployeeListItem {
   locationName: string | null;
   jobTitle: string | null;
   managerName: string | null;
+  /** ORG-007: secondary memberships active on `asOf`; empty without it. */
+  secondaryMemberships: DirectoryMembershipRow[];
+}
+
+/** ORG-007: a secondary membership as the directory shows it. */
+export interface DirectoryMembershipRow {
+  type: "department" | "project" | "area";
+  /** The department or group id. */
+  id: string;
+  name: string;
+  allocationPercent: number | null;
 }
 
 export interface EmployeeProfile extends EmployeeRow {
@@ -60,6 +71,18 @@ export interface EmployeeProfile extends EmployeeRow {
 export interface ListEmployeesFilters {
   search?: string | undefined;
   departmentId?: string | undefined;
+  /** ORG-007: members of this project or area on `asOf`. */
+  groupId?: string | undefined;
+  /**
+   * ORG-007: "any" also matches departmentId against secondary memberships
+   * active on `asOf`. Default "primary" (the primary department only).
+   */
+  membership?: "primary" | "any" | undefined;
+  /**
+   * The business date (organization time zone) memberships are read on.
+   * Without it, groupId and "any" match no membership.
+   */
+  asOf?: string | undefined;
   locationId?: string | undefined;
   status?: string | undefined;
   page?: number | undefined;
@@ -258,8 +281,31 @@ export class EmployeeRepository {
     const searchPattern = filters.search
       ? `%${filters.search.trim().toLowerCase()}%`
       : null;
+    const orgId = tx.__tenantContext.organizationId;
+    const asOf = filters.asOf ?? null;
+    const departmentId = filters.departmentId ?? null;
+    const groupId = filters.groupId ?? null;
+    const anyMembership = filters.membership === "any";
+    // A fresh fragment per query: the list and the count use the same filter.
+    const membershipFilter = () => tx`
+      AND (${departmentId}::uuid IS NULL OR e.department_id = ${departmentId}
+        OR (${anyMembership}::boolean AND EXISTS (
+          SELECT 1 FROM employee_memberships em
+          WHERE em.organization_id = ${orgId} AND em.employee_id = e.id
+            AND em.department_id = ${departmentId}
+            AND em.start_date <= ${asOf}::date
+            AND (em.end_date IS NULL OR em.end_date >= ${asOf}::date)
+        )))
+      AND (${groupId}::uuid IS NULL OR EXISTS (
+        SELECT 1 FROM employee_memberships em
+        WHERE em.organization_id = ${orgId} AND em.employee_id = e.id
+          AND em.group_id = ${groupId}
+          AND em.start_date <= ${asOf}::date
+          AND (em.end_date IS NULL OR em.end_date >= ${asOf}::date)
+      ))
+    `;
 
-    const rows = await tx<EmployeeListItem[]>`
+    const rows = await tx<Omit<EmployeeListItem, "secondaryMemberships">[]>`
       SELECT e.id, e.first_name as "firstName", e.last_name as "lastName",
              e.preferred_name as "preferredName", e.email, e.status,
              d.name as "departmentName",
@@ -282,7 +328,7 @@ export class EmployeeRepository {
              LOWER(e.first_name) LIKE ${searchPattern} OR
              LOWER(e.last_name) LIKE ${searchPattern} OR
              LOWER(e.email) LIKE ${searchPattern})
-        AND (${filters.departmentId ?? null}::uuid IS NULL OR e.department_id = ${filters.departmentId ?? null})
+        ${membershipFilter()}
         AND (${filters.locationId ?? null}::uuid IS NULL OR e.location_id = ${filters.locationId ?? null})
         AND (${filters.status ?? null}::text IS NULL OR e.status = ${filters.status ?? null})
       ORDER BY e.last_name, e.first_name
@@ -297,13 +343,61 @@ export class EmployeeRepository {
              LOWER(e.first_name) LIKE ${searchPattern} OR
              LOWER(e.last_name) LIKE ${searchPattern} OR
              LOWER(e.email) LIKE ${searchPattern})
-        AND (${filters.departmentId ?? null}::uuid IS NULL OR e.department_id = ${filters.departmentId ?? null})
+        ${membershipFilter()}
         AND (${filters.locationId ?? null}::uuid IS NULL OR e.location_id = ${filters.locationId ?? null})
         AND (${filters.status ?? null}::text IS NULL OR e.status = ${filters.status ?? null})
     `;
 
     const total = parseInt(countResult[0]?.count ?? "0", 10);
-    return { items: rows, total };
+    const memberships = await this.activeMembershipsOf(
+      tx,
+      rows.map((r) => r.id),
+      asOf,
+    );
+    return {
+      items: rows.map((r) => ({
+        ...r,
+        secondaryMemberships: memberships.get(r.id) ?? [],
+      })),
+      total,
+    };
+  }
+
+  /**
+   * ORG-007: secondary memberships active on `date`, per employee, ordered
+   * by type and name. Primary departments are not membership rows.
+   */
+  private async activeMembershipsOf(
+    tx: TenantTx,
+    employeeIds: readonly string[],
+    date: string | null,
+  ): Promise<Map<string, DirectoryMembershipRow[]>> {
+    const byEmployee = new Map<string, DirectoryMembershipRow[]>();
+    if (!date || employeeIds.length === 0) return byEmployee;
+    const orgId = tx.__tenantContext.organizationId;
+    const rows = await tx<(DirectoryMembershipRow & { employeeId: string })[]>`
+      SELECT m.employee_id as "employeeId",
+             coalesce(g.kind, 'department') as type,
+             coalesce(m.department_id, m.group_id) as id,
+             coalesce(d.name, g.name) as name,
+             m.allocation_percent::float8 as "allocationPercent"
+      FROM employee_memberships m
+      LEFT JOIN departments d
+        ON d.id = m.department_id AND d.organization_id = ${orgId}
+      LEFT JOIN org_groups g
+        ON g.id = m.group_id AND g.organization_id = ${orgId}
+      WHERE m.organization_id = ${orgId}
+        AND m.employee_id = ANY(${[...employeeIds]}::uuid[])
+        AND m.start_date <= ${date}::date
+        AND (m.end_date IS NULL OR m.end_date >= ${date}::date)
+      ORDER BY type, name, id
+    `;
+    for (const { employeeId, ...membership } of rows) {
+      const list = byEmployee.get(employeeId) ?? [];
+      list.push(membership);
+      byEmployee.set(employeeId, list);
+    }
+    return byEmployee;
   }
 
   /**

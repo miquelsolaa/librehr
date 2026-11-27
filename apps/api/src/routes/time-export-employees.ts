@@ -13,7 +13,7 @@ import { employeeIdsInScope, permissionScope } from "../policies/can.js";
 import { resolvePolicyContext } from "../policies/context.js";
 import { ForbiddenError } from "../errors/index.js";
 import { parseQuery } from "../lib/validate.js";
-import { exportEmployeeName } from "../lib/time-export.js";
+import { exportEmployeeName } from "@librehr/time-export";
 
 /**
  * Default picker rate limit, per user and client address. More generous than

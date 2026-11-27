@@ -11,6 +11,7 @@ Welcome to the LibreHR documentation repository.
 - [ADR 0003: Multi-Tenancy Architecture and RLS](adr/0003-multi-tenancy-rls.md)
 - [ADR 0004: Open-Core Licensing, Editions and CLA](adr/0004-open-core-licensing.md)
 - [ADR 0007: Cloud Early Access, Pricing and Installation Service](adr/0007-cloud-early-access-and-pricing.md)
+- [ADR 0008: Employee Memberships in Several Departments, Projects and Areas](adr/0008-employee-memberships.md)
 - [Architecture Blueprint](../ARCHITECTURE.md)
 - [UI Design Guidelines](../DESIGN.md)
 - [Stubs Registry](stubs.md)
@@ -21,6 +22,7 @@ Welcome to the LibreHR documentation repository.
 - [Data Protection Impact Assessment (DPIA)](compliance/dpia-template.md)
 - [Data Breach Response Runbook](compliance/breach-runbook.md)
 - [Compliance Changelog](compliance/changelog.md)
+- [ET art. 38.3 and vacation carry-over: questions for counsel](compliance/et-38-3-carryover-questions.md)
 - [Compliance Policy](../COMPLIANCE.md)
 - [Clean-Room Policy](../CLEANROOM.md)
 
@@ -41,3 +43,4 @@ Welcome to the LibreHR documentation repository.
 - [Adding Holiday Calendars](guides/adding-a-holiday-calendar.md)
 - [Working-Time Exports (TIM-006)](guides/time-exports.md)
 - [Leave Accrual (LEA-002)](guides/leave-accrual.md)
+- [Require Single Sign-On (AUTH-004)](guides/sso-enforcement.md)

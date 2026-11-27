@@ -69,6 +69,16 @@ const RawEnvSchema = z.object({
       .pipe(z.array(z.enum(SCHEDULED_JOBS)).min(1))
       .optional(),
   ),
+  // Background time exports (TIM-006, issue #38). The files are stored in
+  // the database (time_export_files), so no directory is configured.
+  TIME_EXPORT_FILE_TTL_HOURS: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.coerce.number().int().min(1).max(720).default(168),
+  ),
+  TIME_EXPORT_MAX_FILE_MB: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.coerce.number().int().min(1).max(1024).default(100),
+  ),
 });
 
 export interface SmtpConfig {
@@ -92,6 +102,12 @@ export interface WorkerEnv {
     tickCron: string;
     graceMinutes: number;
     jobs: readonly ScheduledJob[];
+  };
+  TIME_EXPORT: {
+    /** How long a finished export can be downloaded (default 7 days). */
+    fileTtlHours: number;
+    /** Exports larger than this fail instead of being stored. */
+    maxFileBytes: number;
   };
 }
 
@@ -207,6 +223,10 @@ export function loadWorkerEnv(
       tickCron: parsed.SCHEDULER_TICK_CRON,
       graceMinutes: parsed.SCHEDULER_GRACE_MINUTES,
       jobs: parsed.SCHEDULER_JOBS ?? DEFAULT_SCHEDULER_JOBS,
+    },
+    TIME_EXPORT: {
+      fileTtlHours: parsed.TIME_EXPORT_FILE_TTL_HOURS,
+      maxFileBytes: parsed.TIME_EXPORT_MAX_FILE_MB * 1024 * 1024,
     },
   };
 }

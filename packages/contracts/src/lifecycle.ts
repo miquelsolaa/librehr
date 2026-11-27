@@ -113,6 +113,8 @@ export const DataSubjectExportResponseSchema = z.object({
   leaveSummary: z.record(z.string(), z.unknown()),
   timeRecords: z.array(z.record(z.string(), z.unknown())),
   documents: z.array(z.record(z.string(), z.unknown())),
+  /** ORG-007: secondary memberships, current and past. */
+  memberships: z.array(z.record(z.string(), z.unknown())),
 });
 export type DataSubjectExportResponse = z.infer<
   typeof DataSubjectExportResponseSchema

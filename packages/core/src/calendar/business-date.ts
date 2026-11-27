@@ -176,3 +176,27 @@ export function monthContaining(
   const end = Temporal.PlainDate.from(endDate).toPlainYearMonth();
   return start.equals(end) ? start.toString() : null;
 }
+
+const ISO_DATE_SHAPE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Whether `value` is a real calendar day written as `YYYY-MM-DD`. A shape
+ * check alone accepts impossible days such as 30 February; this rejects them
+ * so a bad date is caught at a boundary instead of failing deep inside date
+ * arithmetic.
+ *
+ * @example
+ * isValidIsoDate("2028-02-29"); // => true (leap year)
+ * isValidIsoDate("2027-02-29"); // => false
+ * isValidIsoDate("2027-02-30"); // => false
+ * isValidIsoDate("20270201"); // => false (not YYYY-MM-DD)
+ */
+export function isValidIsoDate(value: string): boolean {
+  if (!ISO_DATE_SHAPE.test(value)) return false;
+  try {
+    Temporal.PlainDate.from(value, { overflow: "reject" });
+    return true;
+  } catch {
+    return false;
+  }
+}

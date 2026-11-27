@@ -5,7 +5,11 @@ export const securityHeadersMiddleware: MiddlewareHandler = async (c, next) => {
 
   c.header("X-Content-Type-Options", "nosniff");
   c.header("X-Frame-Options", "DENY");
-  c.header("Referrer-Policy", "strict-origin-when-cross-origin");
+  // A route may only make it stricter: the SSO callback (AUTH-004) sends
+  // no-referrer so its code/state URL never leaks to the next page.
+  if (c.res.headers.get("Referrer-Policy") !== "no-referrer") {
+    c.header("Referrer-Policy", "strict-origin-when-cross-origin");
+  }
   c.header(
     "Content-Security-Policy",
     "default-src 'none'; frame-ancestors 'none'; base-uri 'none';",

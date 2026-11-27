@@ -117,6 +117,7 @@ LibreHR is designed to be easily self-hostable on any standard Linux server, VPS
    | `PUBLIC_API_URL`         | no       | Browser-facing API URL baked into the web image. Leave empty (same origin); see [Public URLs](#public-urls-and-the-reverse-proxy) |
    | `SMTP_HOST`              | yes      | Your SMTP relay (`SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` are optional)                                                 |
    | `SCHEDULER_*`            | no       | Worker job scheduler: on by default; see [the job scheduler guide](job-scheduler.md)                                              |
+   | `STORAGE_LOCAL_DIR`      | no       | Directory for uploaded document files. The compose file sets `/data/storage`, the `librehr_storage` volume; back it up            |
 
    In production the API also refuses a `DATABASE_URL` that connects as
    `librehr_owner`, as the migration role, or as the bootstrap superuser
@@ -195,7 +196,7 @@ There is no `/api` prefix: the proxy forwards `/v1/*` to the API unchanged.
 ## 2. Production Security Checklist
 
 - [ ] Enforce HTTPS using Caddy or your reverse proxy (`infra/compose/Caddyfile.example`). Session cookies are `Secure` when `NODE_ENV=production`, so the web app and API must be served over HTTPS from the same site (the bundled Caddyfile serves both from one origin).
-- [ ] If you run several API replicas, give them all the same `SESSION_SECRET`. Rate limits and lockouts (sign-in, two-factor, kiosk PINs, setup, exports) are kept in Postgres (`rate_limit_buckets`) and shared by every replica, timed by the database clock. Their keys are HMACs under a key derived from `SESSION_SECRET`, so replicas with different secrets count separately: rotating the secret resets every counter and lockout, and during a rolling rotation (old and new secret both serving) each client briefly gets up to twice its budget. The API refuses to start in production without `SESSION_SECRET`. IPv6 clients are counted per /64 network, IPv4 clients per address. A large site whose users all reach the API from one IPv6 /64 therefore shares one per-IP budget, as users behind one IPv4 NAT address already do; the per-account limits are unaffected. If Postgres is unreachable, rate-limited routes such as sign-in fail closed with a 500 rather than skip the limit.
+- [ ] If you run several API replicas, give them all the same `SESSION_SECRET`. Rate limits and lockouts (sign-in, two-factor, kiosk PINs, setup, exports) are kept in Postgres (`rate_limit_buckets`) and shared by every replica, timed by the database clock. Their keys are HMACs under a key derived from `SESSION_SECRET`, so replicas with different secrets count separately: rotating the secret resets every counter and lockout, and during a rolling rotation (old and new secret both serving) each client briefly gets up to twice its budget. The API refuses to start in production without `SESSION_SECRET`. IPv6 clients are counted per /64 network, IPv4 clients per address. A large site whose users all reach the API from one IPv6 /64 therefore shares one per-IP budget, as users behind one IPv4 NAT address already do; the per-account limits are unaffected. If Postgres is unreachable, rate-limited routes such as sign-in fail closed with a 500 rather than skip the limit. Kiosk PIN attempts are reserved per identifier and per client IP before the PIN is checked, so a burst across replicas never checks more PINs than those limits allow; a correct PIN, or an attempt refused because its identifier is locked, gives the IP's attempt back, so a shared kiosk's normal clock-ins never use up the site's failure budget. The correct PIN that reaches the IP limit locks the IP for as long as it takes to check it; attempts from that IP refused in that moment get a `Retry-After` of at most 3 seconds, and any refusal while a lock is under 3 seconds old does too (a lock that stays reports its full remaining time on the next try).
 - [ ] Set `TRUST_PROXY` to the exact number of reverse proxies in front of the API (`1` with the bundled Caddy).
 - [ ] Ensure database port 5432 is not exposed to the public internet (bind to internal Docker network only).
 - [ ] Run `pnpm doctor` or verify RLS is forced on all tenant tables.
@@ -243,6 +244,17 @@ The worker applies these values at startup, including to queues created by
 earlier versions (`QUEUE_RETENTION` in `apps/worker/src/lib/queue-setup.ts`).
 Database backups contain whatever job rows existed when they were taken, so
 expire backups under your retention policy as well.
+
+### Background export files
+
+Large organization time exports (TIM-006, issue #38) are built by the worker
+and stored in the database (the `time_export_files` table), so the API and the
+worker need no shared volume and may run on different hosts. A file can be
+downloaded by its requester for `TIME_EXPORT_FILE_TTL_HOURS` (default 168,
+7 days) and is then deleted; files larger than `TIME_EXPORT_MAX_FILE_MB`
+(default 100) fail. Ready files count towards the database size and are in
+any backup taken while they exist. They are not encrypted by LibreHR, so keep
+the database and its backups on encrypted storage.
 
 ## 4. Upgrading from Postgres 16 to Postgres 18
 

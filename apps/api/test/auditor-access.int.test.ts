@@ -35,6 +35,8 @@ describe("auditor access expiry (TIM-008)", () => {
   let db: RoleSeparatedDatabase;
   let app: ReturnType<typeof createApp>;
   let a: ScopedOrgFixture;
+  /** ORG-007: invitations other than auditors' name a primary department. */
+  let aDept: string;
   let b: ScopedOrgFixture;
   let c: ScopedOrgFixture;
   const password = "auditor-access-password";
@@ -151,6 +153,10 @@ describe("auditor access expiry (TIM-008)", () => {
     a = await seedScopedOrg(db.adminSql, "audexp-a");
     b = await seedScopedOrg(db.adminSql, "audexp-b");
     c = await seedScopedOrg(db.adminSql, "audexp-c");
+    const [dept] = await db.adminSql<{ id: string }[]>`
+      INSERT INTO departments (organization_id, name)
+      VALUES (${a.orgId}, 'Fixture department') RETURNING id`;
+    aDept = dept!.id;
     const hash = await hashPassword(password);
     await db.adminSql`UPDATE users SET password_hash = ${hash}`;
     app = createApp({
@@ -521,6 +527,7 @@ describe("auditor access expiry (TIM-008)", () => {
       expect(await settings.json()).toEqual({
         requireTwoFactor: false,
         auditorAccessMaxDays: 30,
+        secondaryLeadVisibility: "calendar",
       });
       // Lowering the maximum does not shorten the existing grant.
       const list = (await (
@@ -611,7 +618,11 @@ describe("auditor access expiry (TIM-008)", () => {
           role: "auditor",
           accessUntil: await localDay(10),
         },
-        { email: "pat-admin@example.invalid", role: "admin" },
+        {
+          email: "pat-admin@example.invalid",
+          role: "admin",
+          departmentId: aDept,
+        },
       ];
       for (const body of cases) {
         const auditedBefore = (await auditLog(a.orgId, "invitation.create"))
@@ -655,10 +666,52 @@ describe("auditor access expiry (TIM-008)", () => {
         const res = await inviteWithPat({
           email: `pat-${role}@example.invalid`,
           role,
+          departmentId: aDept,
         });
         expect(res.status).toBe(201);
         expect(((await res.json()) as { role: string }).role).toBe(role);
       }
+    });
+
+    it("requires a same-tenant primary department for non-auditor invitations (ORG-007)", async () => {
+      const [foreign] = await db.adminSql<{ id: string }[]>`
+        INSERT INTO departments (organization_id, name)
+        VALUES (${b.orgId}, 'Foreign department') RETURNING id`;
+      const token = await session(a.admin);
+      const email = "dept-required@example.invalid";
+      expect((await invite(token, { email, role: "employee" })).status).toBe(
+        400,
+      );
+      expect(
+        (
+          await invite(token, {
+            email,
+            role: "auditor",
+            accessUntil: await localDay(10),
+            departmentId: aDept,
+          })
+        ).status,
+      ).toBe(400);
+      expect(
+        (
+          await invite(token, {
+            email,
+            role: "employee",
+            departmentId: foreign!.id,
+          })
+        ).status,
+      ).toBe(404);
+      expect(await invitationsTo(email)).toBe(0);
+      const ok = await invite(token, {
+        email,
+        role: "employee",
+        departmentId: aDept,
+      });
+      expect(ok.status).toBe(201);
+      const [row] = await db.adminSql<{ departmentId: string | null }[]>`
+        SELECT department_id AS "departmentId" FROM invitations
+        WHERE email = ${email}`;
+      expect(row?.departmentId).toBe(aDept);
     });
 
     it("copies the end date to the membership on acceptance", async () => {
@@ -694,14 +747,23 @@ describe("auditor access expiry (TIM-008)", () => {
       expect((await accept(auditor.token)).status).toBe(200);
       expect(await employeesOf("no-employee@example.invalid")).toHaveLength(0);
 
-      const employee = await createInvite(
-        a.orgId,
-        "new-hire@example.invalid",
-        "employee",
-        null,
+      const employee = await withTenant(
+        db.adminSql,
+        { organizationId: a.orgId },
+        (tx) =>
+          new InvitationRepository().create(tx, {
+            email: "new-hire@example.invalid",
+            role: "employee",
+            departmentId: aDept,
+          }),
       );
       expect((await accept(employee.token)).status).toBe(200);
       expect(await employeesOf("new-hire@example.invalid")).toHaveLength(1);
+      // ORG-007: the invitation's department becomes the primary one.
+      const [hire] = await db.adminSql<{ departmentId: string | null }[]>`
+        SELECT e.department_id AS "departmentId" FROM employees e
+        WHERE e.email = 'new-hire@example.invalid' AND e.organization_id = ${a.orgId}`;
+      expect(hire?.departmentId).toBe(aDept);
     });
   });
 });
