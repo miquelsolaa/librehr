@@ -191,13 +191,66 @@ describe("rate_limit_buckets (0038)", () => {
     }
     await repo.remove(db.appSql, k);
     for (let i = 0; i < 3; i++) {
-      expect(await repo.reserveAttempt(db.appSql, k, policy, T0)).toEqual({
-        allowed: true,
-      });
+      expect(
+        (await repo.reserveAttempt(db.appSql, k, policy, T0)).allowed,
+      ).toBe(true);
     }
     expect((await repo.reserveAttempt(db.appSql, k, policy, T0)).allowed).toBe(
       false,
     );
+  });
+
+  it("releases a reservation by decrementing, never below 0 (#178)", async () => {
+    const k = key();
+    await repo.reserveAttempt(db.appSql, k, policy, T0);
+    await repo.reserveAttempt(db.appSql, k, policy, T0);
+    await repo.release(db.appSql, k, policy);
+    expect(await row(k)).toEqual({ count: 1, locked: false });
+    await repo.release(db.appSql, k, policy);
+    await repo.release(db.appSql, k, policy);
+    expect(await row(k)).toEqual({ count: 0, locked: false });
+    // A missing key (reset or swept) stays missing.
+    const gone = key();
+    await repo.release(db.appSql, gone, policy, "123");
+    expect(await row(gone)).toBeUndefined();
+  });
+
+  it("lifts only the lock the released reservation set (#178)", async () => {
+    const k = key();
+    const limited = { ...policy, limit: 5 };
+    const results = await Promise.all(
+      Array.from({ length: 25 }, () =>
+        repo.reserveAttempt(db.appSql, k, limited, T0),
+      ),
+    );
+    const allowed = results.filter((r) => r.allowed);
+    expect(allowed).toHaveLength(5);
+    const setters = allowed.filter((r) => r.lockToken !== undefined);
+    expect(setters).toHaveLength(1);
+    // A stale or foreign token only decrements; the lock stays.
+    await repo.release(db.appSql, k, limited, "1");
+    expect(await row(k)).toEqual({ count: 0, locked: true });
+    await repo.release(db.appSql, k, limited, setters[0]!.lockToken);
+    expect(await row(k)).toEqual({ count: 4, locked: false });
+    // The next attempt is the limit-th failure again: allowed, and it locks.
+    const next = await repo.reserveAttempt(db.appSql, k, limited, T0 + 1_000);
+    expect(next).toEqual({ allowed: true, lockToken: expect.any(String) });
+    expect(
+      (await repo.reserveAttempt(db.appSql, k, limited, T0 + 1_000)).allowed,
+    ).toBe(false);
+  });
+
+  it("round-trips the lock token exactly on the database clock (#178)", async () => {
+    const k = key();
+    const one = { ...policy, limit: 1 };
+    const reservation = await repo.reserveAttempt(db.appSql, k, one);
+    expect(reservation).toEqual({
+      allowed: true,
+      lockToken: expect.stringMatching(/^\d+$/),
+    });
+    if (!reservation.allowed) throw new Error("unreachable");
+    await repo.release(db.appSql, k, one, reservation.lockToken);
+    expect(await row(k)).toEqual({ count: 0, locked: false });
   });
 
   it("keeps a lockout longer than the window through a sweep", async () => {
