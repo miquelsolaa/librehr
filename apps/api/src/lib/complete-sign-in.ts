@@ -69,19 +69,26 @@ export function createCompleteSignIn(
       return {
         outcome: "two_factor_required",
         challengeToken: createChallengeToken(
-          { userId: user.id, organizationId: subject.organizationId },
+          {
+            userId: user.id,
+            organizationId: subject.organizationId,
+            authMethod: "sso",
+          },
           options.challengeSecret,
         ),
       };
     }
 
-    const session = await options.authPort.createSession({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      organizationId: subject.organizationId,
-      twoFactorEnabled: false,
-    });
+    const session = await options.authPort.createSession(
+      {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        organizationId: subject.organizationId,
+        twoFactorEnabled: false,
+      },
+      { authMethod: "sso" },
+    );
     if (!session) return { outcome: "no_membership" };
     setSessionCookie(c, session.token, session.expiresAt, options.cookie);
     return {

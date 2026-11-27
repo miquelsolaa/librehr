@@ -74,6 +74,12 @@ describe("Extension context for Business sign-in", () => {
   const cookieToken = (res: Response): string | null =>
     /librehr_session=([^;]+)/.exec(res.headers.get("set-cookie") ?? "")?.[1] ??
     null;
+  const authMethodOf = async (token: string) => {
+    const [row] = await db.adminSql<{ auth_method: string }[]>`
+      SELECT auth_method FROM sessions
+      WHERE token = ${crypto.createHash("sha256").update(token).digest("hex")}`;
+    return row?.auth_method;
+  };
   const meOrg = async (token: string) => {
     const res = await app.request("/v1/me", {
       headers: { Authorization: `Bearer ${token}` },
@@ -115,10 +121,21 @@ describe("Extension context for Business sign-in", () => {
       });
     }
 
+    // Org B requires SSO with enforcement on (AUTH-004): a session opened
+    // through the extension must be an SSO session, or it would be refused.
+    await withTenant(sql, { organizationId: orgB }, async (tx) => {
+      await tx`INSERT INTO sso_configurations
+        (organization_id, provider, client_id, client_secret, issuer_url,
+         enabled, enforce_sso, allowed_domains)
+        VALUES (${orgB}, 'generic_oidc', 'client', 'stored-secret-value',
+          'https://idp.example.invalid', true, true,
+          ${tx.json(["example.invalid"])})`;
+    });
+
     app = createApp({
       sql: db.appSql,
       rateLimitStore: isolatedRateLimitStore(db.appSql),
-      authPort: new BetterAuthAdapter(db.appSql),
+      authPort: new BetterAuthAdapter(db.appSql, { ssoEnforcement: true }),
       sessionSecret,
       extensions: [testExtension],
       config: { appUrl },
@@ -148,6 +165,7 @@ describe("Extension context for Business sign-in", () => {
     const token = cookieToken(res);
     expect(token).not.toBeNull();
     expect(await meOrg(token!)).toBe(orgB);
+    expect(await authMethodOf(token!)).toBe("sso");
   });
 
   it("opens nothing in an organization the user is not a member of", async () => {
@@ -189,6 +207,7 @@ describe("Extension context for Business sign-in", () => {
       user: { organizationId: orgB },
     });
     expect(await meOrg(cookieToken(verified)!)).toBe(orgB);
+    expect(await authMethodOf(cookieToken(verified)!)).toBe("sso");
   });
 
   it("refuses a 2FA challenge for an organization the user is not in", async () => {
