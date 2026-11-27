@@ -20,6 +20,7 @@ import {
 } from "@librehr/core";
 import {
   AuditRepository,
+  IdentityRepository,
   TokenRepository,
   UserRepository,
   withTenant,
@@ -36,6 +37,7 @@ import {
 } from "../lib/session-cookie.js";
 import {
   ConflictError,
+  SsoBreakGlassRequiredError,
   UnauthorizedError,
   ValidationError,
 } from "../errors/index.js";
@@ -112,6 +114,7 @@ export function createAuthRoutes(
   const userRepo = new UserRepository();
   const auditRepo = new AuditRepository();
   const tokenRepo = new TokenRepository();
+  const identityRepo = new IdentityRepository();
   const cookieOptions: SessionCookieOptions = {
     nodeEnv: options.nodeEnv,
     trustProxy: options.trustProxy,
@@ -165,6 +168,34 @@ export function createAuthRoutes(
       user: session.user,
       expiresAt: session.expiresAt.toISOString(),
     });
+  };
+
+  // AUTH-004: a password session that opened in an organization requiring
+  // SSO is a break-glass sign-in (admin with TOTP). It is audited in that
+  // organization; if the entry cannot be written, the session is revoked so
+  // no break-glass sign-in goes unrecorded.
+  const auditBreakGlass = async (session: AuthSession) => {
+    if (!session.breakGlass) return;
+    try {
+      await withTenant(
+        sql,
+        {
+          organizationId: session.user.organizationId,
+          userId: session.user.id,
+        },
+        (tx) =>
+          auditRepo.log(tx, {
+            actorId: session.user.id,
+            action: "auth.sso.break_glass",
+            resourceType: "user",
+            resourceId: session.user.id,
+            metadata: { authMethod: "password" },
+          }),
+      );
+    } catch (err) {
+      await authPort.revokeSession(session.token);
+      throw err;
+    }
   };
 
   const noActiveMembership = () =>
@@ -320,8 +351,11 @@ export function createAuthRoutes(
       }
     }
 
+    // Throws SsoRequiredError (403 SSO_REQUIRED) when every membership
+    // requires single sign-on (AUTH-004); the password already verified.
     const session = await authPort.createSession(user);
     if (!session) throw noActiveMembership();
+    await auditBreakGlass(session);
     return issueSession(c, session);
   });
 
@@ -471,15 +505,18 @@ export function createAuthRoutes(
     // After SSO the challenge names the configuration's organization, so
     // the session stays there; after a password, the same deterministic
     // default membership as password sign-in.
-    const session = await authPort.createSession({
-      id: userRow.id,
-      email: userRow.email,
-      name: userRow.name,
-      twoFactorEnabled: true,
-      ...(challenge.organizationId
-        ? { organizationId: challenge.organizationId }
-        : {}),
-    });
+    const session = await authPort.createSession(
+      {
+        id: userRow.id,
+        email: userRow.email,
+        name: userRow.name,
+        twoFactorEnabled: true,
+        ...(challenge.organizationId
+          ? { organizationId: challenge.organizationId }
+          : {}),
+      },
+      { authMethod: challenge.authMethod ?? "password" },
+    );
     if (!session) {
       return c.json(
         createProblemDetails({
@@ -492,6 +529,7 @@ export function createAuthRoutes(
         { "Content-Type": "application/problem+json" },
       );
     }
+    await auditBreakGlass(session);
     return issueSession(c, session);
   });
 
@@ -648,6 +686,18 @@ export function createAuthRoutes(
       return secondFactorLocked(c, result.lockedMs);
     }
     if (result === "invalid") throw invalidCode();
+
+    // AUTH-004: the last break-glass admin of an organization that requires
+    // SSO keeps TOTP, or nobody there could sign in with a password if the
+    // identity provider fails. PATs never reach /auth, so this is a session.
+    const session = (c.get as (key: string) => unknown)("session") as
+      AuthSession | undefined;
+    if (
+      session &&
+      (await identityRepo.isLastBreakGlassAdmin(sql, session.token))
+    ) {
+      throw new SsoBreakGlassRequiredError();
+    }
 
     await userRepo.disableTwoFactor(sql, user.id);
     await withTenant(

@@ -5,7 +5,11 @@ import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button, DayRing, Input, LibreHRMark } from "@librehr/ui";
-import { SsoErrorCodeSchema, type SsoErrorCode } from "@librehr/contracts";
+import {
+  SSO_REQUIRED_CODE,
+  SsoErrorCodeSchema,
+  type SsoErrorCode,
+} from "@librehr/contracts";
 import { getApiClient } from "@/lib/api-client";
 import { setStoredSession } from "@/lib/auth";
 
@@ -18,6 +22,16 @@ const SSO_ERROR_MESSAGES: Partial<Record<SsoErrorCode, string>> = {
   SSO_EMAIL_NOT_VERIFIED: "ssoErrorEmailNotVerified",
   SSO_MULTI_ORG_ACCOUNT: "ssoErrorMultiOrgAccount",
 };
+
+/** Whether an API error is the AUTH-004 "organization requires SSO" 403. */
+function isSsoRequired(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    err.code === SSO_REQUIRED_CODE
+  );
+}
 
 export default function SignInPage() {
   const router = useRouter();
@@ -70,6 +84,27 @@ export default function SignInPage() {
   const [showSsoPrompt, setShowSsoPrompt] = React.useState(false);
   const [ssoDomain, setSsoDomain] = React.useState("");
 
+  // AUTH-004: the password was right, but the organization signs in with
+  // SSO. Opens the SSO prompt, prefilled with the email's domain.
+  const showSsoRequired = React.useCallback(
+    (fromEmail: string) => {
+      setErrorMessage(tAuth("ssoRequired"));
+      setSsoDomain(fromEmail.split("@")[1]?.trim() ?? "");
+      setShowSsoPrompt(true);
+    },
+    [tAuth],
+  );
+
+  // The invitation page sends here with ?sso=required&domain=<domain> after
+  // accepting into an organization that requires SSO (the domain only, never
+  // the full email address).
+  React.useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    if (query.get("sso") !== "required") return;
+    const domain = query.get("domain")?.trim() ?? "";
+    showSsoRequired(domain ? `@${domain}` : "");
+  }, [showSsoRequired]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -96,8 +131,9 @@ export default function SignInPage() {
 
         router.push(`/${locale}/home`);
       }
-    } catch {
-      setErrorMessage(tAuth("invalidCredentials"));
+    } catch (err) {
+      if (isSsoRequired(err)) showSsoRequired(email);
+      else setErrorMessage(tAuth("invalidCredentials"));
     } finally {
       setIsLoading(false);
     }
@@ -126,8 +162,14 @@ export default function SignInPage() {
       });
 
       router.push(`/${locale}/home`);
-    } catch {
-      setErrorMessage(tAuth("invalid2FaCode"));
+    } catch (err) {
+      if (isSsoRequired(err)) {
+        setChallengeToken(null);
+        setTwoFactorCode("");
+        showSsoRequired(email);
+      } else {
+        setErrorMessage(tAuth("invalid2FaCode"));
+      }
     } finally {
       setIsLoading(false);
     }

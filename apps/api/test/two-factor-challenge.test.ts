@@ -23,6 +23,23 @@ describe("2FA challenge tokens (AUTH-003, AUTH-004)", () => {
     });
   });
 
+  it("carries the SSO first factor so the session opens as an SSO session", () => {
+    const sso = createChallengeToken(
+      { userId, organizationId, authMethod: "sso" },
+      secret,
+    );
+    expect(verifyChallengeToken(sso, secret)).toEqual({
+      userId,
+      organizationId,
+      authMethod: "sso",
+    });
+    const password = createChallengeToken(
+      { userId, authMethod: "password" },
+      secret,
+    );
+    expect(verifyChallengeToken(password, secret)).toEqual({ userId });
+  });
+
   it("expires after the TTL", () => {
     const now = 1_800_000_000_000;
     const token = createChallengeToken({ userId }, secret, now);

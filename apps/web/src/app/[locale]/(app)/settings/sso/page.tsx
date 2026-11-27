@@ -14,10 +14,11 @@ import {
 } from "lucide-react";
 import { Button, ConfirmDialog, Input, PageHeader } from "@librehr/ui";
 import { apiUrl, getApiClient } from "@/lib/api-client";
-import type {
-  ProblemDetails,
-  SsoConfig,
-  SsoProvider,
+import {
+  SSO_BREAK_GLASS_REQUIRED_CODE,
+  type ProblemDetails,
+  type SsoConfig,
+  type SsoProvider,
 } from "@librehr/contracts";
 
 export default function SsoSettingsPage() {
@@ -51,6 +52,8 @@ export default function SsoSettingsPage() {
   const [licenseRequired, setLicenseRequired] = React.useState(false);
   const [confirmDisable, setConfirmDisable] = React.useState(false);
   const [isDisabling, setIsDisabling] = React.useState(false);
+  // AUTH-004: switching "Require SSO" on signs members out, so it is confirmed.
+  const [confirmEnforce, setConfirmEnforce] = React.useState(false);
 
   // The API reports the redirect URI it sends (BETTER_AUTH_URL based); before
   // the first save, the API address as this browser reaches it.
@@ -100,7 +103,14 @@ export default function SsoSettingsPage() {
     setErrorMessage(null);
     setSuccessMessage(null);
     try {
-      setConfig(await getApiClient().disableSsoConfig());
+      const disabled = await getApiClient().disableSsoConfig();
+      // Keep the token count (AUTH-004) if this response has none.
+      setConfig((prev) => ({
+        ...disabled,
+        activePersonalAccessTokens:
+          disabled.activePersonalAccessTokens ??
+          prev?.activePersonalAccessTokens,
+      }));
       setSuccessMessage(t("ssoDisabledSuccess"));
     } catch {
       setErrorMessage(t("ssoDisableError"));
@@ -121,22 +131,37 @@ export default function SsoSettingsPage() {
     }
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
-    setErrorMessage(null);
-    setSuccessMessage(null);
-
-    const domains = allowedDomains
+  const parseDomains = () =>
+    allowedDomains
       .split(",")
       .map((d) => d.trim().toLowerCase())
       .filter(Boolean);
 
-    if (domains.length === 0) {
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    if (parseDomains().length === 0) {
       setErrorMessage(t("ssoDomainsRequired"));
-      setIsSaving(false);
       return;
     }
+    if (enforceSso && !enabled) {
+      setErrorMessage(t("ssoEnforceNeedsEnabled"));
+      return;
+    }
+    if (enforceSso && !config?.enforceSso) {
+      setConfirmEnforce(true);
+      return;
+    }
+    void saveConfig();
+  };
+
+  const saveConfig = async () => {
+    setIsSaving(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    const domains = parseDomains();
 
     try {
       const client = getApiClient();
@@ -158,11 +183,15 @@ export default function SsoSettingsPage() {
       const rejected = (field: string) =>
         problem?.errors?.some((issue) => issue.field === field) ?? false;
       setErrorMessage(
-        rejected("allowedDomains")
-          ? t("ssoDomainsTaken")
-          : rejected("issuerUrl")
-            ? t("ssoIssuerUrlInvalid")
-            : t("ssoSaveError"),
+        problem?.code === SSO_BREAK_GLASS_REQUIRED_CODE
+          ? t("ssoEnforceBreakGlassError")
+          : rejected("enforceSso")
+            ? t("ssoEnforceNeedsEnabled")
+            : rejected("allowedDomains")
+              ? t("ssoDomainsTaken")
+              : rejected("issuerUrl")
+                ? t("ssoIssuerUrlInvalid")
+                : t("ssoSaveError"),
       );
     } finally {
       setIsSaving(false);
@@ -472,6 +501,18 @@ export default function SsoSettingsPage() {
                 </Button>
               </div>
             </form>
+            <ConfirmDialog
+              open={confirmEnforce}
+              onOpenChange={setConfirmEnforce}
+              title={t("ssoEnforceConfirmTitle")}
+              description={t("ssoEnforceConfirmBody", {
+                count: config?.activePersonalAccessTokens ?? 0,
+              })}
+              confirmText={t("ssoEnforceConfirm")}
+              cancelText={tCommon("cancel")}
+              isLoading={isSaving}
+              onConfirm={saveConfig}
+            />
           </div>
 
           {/* Callback URI Info Card */}

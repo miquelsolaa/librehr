@@ -320,6 +320,11 @@ registry.registerPath({
       description: "Invalid credentials",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
+    403: {
+      description:
+        "SSO_REQUIRED: the password is correct, but every organization of the account requires single sign-on (AUTH-004)",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
   },
 });
 
@@ -452,6 +457,11 @@ registry.registerPath({
         "FORBIDDEN, or LICENSE_REQUIRED without a Business licence that grants sso (LIC-003)",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
+    409: {
+      description:
+        "SSO_BREAK_GLASS_REQUIRED: SSO is required, but no admin of the organization has two-factor authentication to keep password sign-in (AUTH-004)",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
   },
 });
 
@@ -515,6 +525,47 @@ registry.registerPath({
     403: {
       description:
         "LICENSE_REQUIRED without a Business licence that grants sso (LIC-003)",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    429: {
+      description: "Too many requests",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    429: {
+      description: "Too many requests",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    502: {
+      description:
+        "SSO_UNAVAILABLE: the identity provider's discovery document could not be read",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/v1/sso/callback",
+  summary:
+    "OIDC redirect URI (browser navigation). Verifies state, PKCE and the id_token, then opens a session pinned to the configuration's organization. Business edition (AUTH-004)",
+  request: {
+    query: z.object({
+      state: z.string().optional(),
+      code: z.string().optional(),
+      error: z.string().optional(),
+    }),
+  },
+  responses: {
+    302: {
+      description: `Always a redirect to the web app: /{locale}/sso/complete on success, /{locale}/sign-in#sso_challenge=... when local 2FA is required, or /{locale}/sign-in?sso_error=CODE with one of ${SsoErrorCodeSchema.options.join(", ")}`,
+    },
+    403: {
+      description:
+        "LICENSE_REQUIRED without a Business licence that grants sso (LIC-003)",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    404: {
+      description: "SSO_DISABLED",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
     429: {
@@ -688,6 +739,11 @@ registry.registerPath({
     200: {
       description: "Employee terminated successfully",
       content: { "application/json": { schema: EmployeeProfileSchema } },
+    },
+    409: {
+      description:
+        "SSO_BREAK_GLASS_REQUIRED: the employee is the last admin with two-factor authentication of an organization that requires single sign-on (AUTH-004)",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
   },
 });
@@ -937,6 +993,16 @@ registry.registerPath({
     200: {
       description: "Invitation accepted and session created",
       content: { "application/json": { schema: SessionResponseSchema } },
+    },
+    403: {
+      description:
+        "SSO_REQUIRED: the invitation was accepted, but the organization requires single sign-on, so no password session is opened (AUTH-004)",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    409: {
+      description:
+        "SSO_BREAK_GLASS_REQUIRED: accepting would demote the last admin with two-factor authentication of an organization that requires single sign-on; nothing is accepted (AUTH-004)",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
   },
 });

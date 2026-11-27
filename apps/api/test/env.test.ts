@@ -97,6 +97,25 @@ describe("loadEnv (DOC-004, AUTH-001)", () => {
     expect(msg).not.toContain("my_dev_password");
   });
 
+  it("reads STORAGE_LOCAL_DIR and only accepts the local storage driver", () => {
+    const dev = loadEnv({ NODE_ENV: "development" });
+    expect(dev.STORAGE_DRIVER).toBe("local");
+    expect(dev.STORAGE_LOCAL_DIR).toBe("./data/storage");
+    expect(
+      loadEnv({ NODE_ENV: "development", STORAGE_LOCAL_DIR: "" })
+        .STORAGE_LOCAL_DIR,
+    ).toBe("./data/storage");
+    const prod = loadEnv({
+      ...strongProdEnv,
+      STORAGE_DRIVER: "local",
+      STORAGE_LOCAL_DIR: "/data/storage",
+    });
+    expect(prod.STORAGE_LOCAL_DIR).toBe("/data/storage");
+    expect(
+      errorMessage(() => loadEnv({ ...strongProdEnv, STORAGE_DRIVER: "s3" })),
+    ).toContain("STORAGE_DRIVER");
+  });
+
   it("keeps private webhook targets off by default", () => {
     const env = loadEnv(strongProdEnv);
     expect(env.WEBHOOKS_ALLOW_PRIVATE).toBe(false);

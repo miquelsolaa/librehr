@@ -61,6 +61,12 @@ export const sessions = pgTable(
     }).notNull(),
     ipAddress: text("ip_address"),
     userAgent: text("user_agent"),
+    // AUTH-004: how the session was authenticated (0041); 'sso' sessions
+    // survive "Require SSO" in their organization, 'password' ones do not.
+    authMethod: text("auth_method")
+      .$type<"password" | "sso">()
+      .notNull()
+      .default("password"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .defaultNow()
       .notNull(),

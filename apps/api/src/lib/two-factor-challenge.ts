@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import type { AuthMethod } from "../ports/auth.js";
 
 /** How long a 2FA challenge stays valid after the first factor passed. */
 export const CHALLENGE_TTL_MS = 5 * 60 * 1000;
@@ -21,6 +22,12 @@ export interface TwoFactorChallenge {
    * pinned to it. Absent after password sign-in: default membership.
    */
   organizationId?: string | undefined;
+  /**
+   * "sso" when the first factor was single sign-on: the session opened after
+   * the second factor is then an SSO session, which "Require SSO" admits
+   * (AUTH-004). Absent after password sign-in.
+   */
+  authMethod?: AuthMethod | undefined;
 }
 
 /**
@@ -38,6 +45,7 @@ export function createChallengeToken(
     ...(challenge.organizationId
       ? { organizationId: challenge.organizationId }
       : {}),
+    ...(challenge.authMethod === "sso" ? { authMethod: "sso" } : {}),
     exp: now + CHALLENGE_TTL_MS,
   });
   const b64Payload = Buffer.from(payload).toString("base64url");
@@ -78,12 +86,17 @@ export function verifyChallengeToken(
       Buffer.from(b64Payload, "base64url").toString("utf-8"),
     );
     if (typeof payload !== "object" || payload === null) return null;
-    const { userId, organizationId, exp } = payload as Record<string, unknown>;
+    const { userId, organizationId, authMethod, exp } = payload as Record<
+      string,
+      unknown
+    >;
     if (typeof userId !== "string" || typeof exp !== "number") return null;
     if (now > exp) return null;
-    return typeof organizationId === "string"
-      ? { userId, organizationId }
-      : { userId };
+    return {
+      userId,
+      ...(typeof organizationId === "string" ? { organizationId } : {}),
+      ...(authMethod === "sso" ? { authMethod: "sso" as const } : {}),
+    };
   } catch {
     return null;
   }

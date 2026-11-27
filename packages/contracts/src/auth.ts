@@ -174,23 +174,37 @@ export const SsoConfigSchema = z.object({
   redirectUri: z.string().url().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
+  /**
+   * AUTH-004: unexpired personal access tokens in the organization. "Require
+   * SSO" leaves them working, so the confirmation shows how many there are.
+   * Returned by the Business edition routes only.
+   */
+  activePersonalAccessTokens: z.number().int().nonnegative().optional(),
 });
 export type SsoConfig = z.infer<typeof SsoConfigSchema>;
 
-export const SaveSsoConfigRequestSchema = z.object({
-  provider: SsoProviderSchema,
-  clientId: z.string().min(1, "Client ID is required"),
-  /**
-   * Write-only. Omit it to keep the stored secret; required for the first
-   * configuration and whenever the provider, client id or issuer changes.
-   * It is stored encrypted and never returned.
-   */
-  clientSecret: z.string().min(1, "Client Secret is required").optional(),
-  issuerUrl: z.string().min(1, "Issuer URL is required"),
-  enabled: z.boolean().default(true),
-  enforceSso: z.boolean().default(false),
-  allowedDomains: z.array(z.string()).min(1, "At least one domain is required"),
-});
+export const SaveSsoConfigRequestSchema = z
+  .object({
+    provider: SsoProviderSchema,
+    clientId: z.string().min(1, "Client ID is required"),
+    /**
+     * Write-only. Omit it to keep the stored secret; required for the first
+     * configuration and whenever the provider, client id or issuer changes.
+     * It is stored encrypted and never returned.
+     */
+    clientSecret: z.string().min(1, "Client Secret is required").optional(),
+    issuerUrl: z.string().min(1, "Issuer URL is required"),
+    enabled: z.boolean().default(true),
+    enforceSso: z.boolean().default(false),
+    allowedDomains: z
+      .array(z.string())
+      .min(1, "At least one domain is required"),
+  })
+  .refine((config) => !config.enforceSso || config.enabled, {
+    // AUTH-004: requiring SSO while SSO is off would leave members no way in.
+    message: "Single sign-on must be enabled to require it",
+    path: ["enforceSso"],
+  });
 export type SaveSsoConfigRequest = z.infer<typeof SaveSsoConfigRequestSchema>;
 
 export const SsoAuthorizeRequestSchema = z.object({
@@ -233,3 +247,18 @@ export const SsoErrorCodeSchema = z.enum([
   "SSO_UNAVAILABLE",
 ]);
 export type SsoErrorCode = z.infer<typeof SsoErrorCodeSchema>;
+
+/**
+ * problem+json `code` (403) when a password session is refused because the
+ * organization requires single sign-on (AUTH-004). Sign-in, 2FA verify and
+ * invitation accept answer it only after the password verified; the body
+ * never names the organization. The client should offer "Continue with SSO".
+ */
+export const SSO_REQUIRED_CODE = "SSO_REQUIRED";
+
+/**
+ * problem+json `code` (409) when "Require SSO" is saved for an organization
+ * with no break-glass account: an admin with two-factor authentication, who
+ * keeps password sign-in if the identity provider fails (AUTH-004).
+ */
+export const SSO_BREAK_GLASS_REQUIRED_CODE = "SSO_BREAK_GLASS_REQUIRED";

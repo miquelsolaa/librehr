@@ -55,6 +55,7 @@ const PROD_HINT = "generate one with `openssl rand -base64 32`";
 
 const DEV_BETTER_AUTH_URL = "http://localhost:3001";
 const DEV_APP_URL = "http://localhost:3000";
+const DEV_STORAGE_LOCAL_DIR = "./data/storage";
 
 /**
  * Roles that must never serve requests: the migration/owner role and the
@@ -195,6 +196,18 @@ const RawEnvSchema = z
       (v) => (v === "" ? undefined : v),
       z.coerce.number().int().min(0).max(10).default(0),
     ),
+    // Only the local driver exists; refuse anything else instead of
+    // silently writing documents to the local disk.
+    STORAGE_DRIVER: z.preprocess(
+      (v) => (v === "" ? undefined : v),
+      z.enum(["local"]).default("local"),
+    ),
+    // Where the local driver keeps document files. The compose file mounts
+    // the storage volume here; relative paths resolve against the cwd.
+    STORAGE_LOCAL_DIR: z.preprocess(
+      (v) => (typeof v === "string" ? v.trim() || undefined : v),
+      z.string().default(DEV_STORAGE_LOCAL_DIR),
+    ),
   })
   .superRefine((env, ctx) => {
     for (const key of ["DATABASE_URL", "DATABASE_MIGRATION_URL"] as const) {
@@ -288,6 +301,8 @@ export interface ApiEnv {
   CORS_ORIGINS: string[];
   WEBHOOKS_ALLOW_PRIVATE: boolean;
   TRUST_PROXY: number;
+  STORAGE_DRIVER: "local";
+  STORAGE_LOCAL_DIR: string;
   LIBREHR_LICENSE_KEY?: string | undefined;
   LIBREHR_LICENSE_PUBLIC_KEY?: string | undefined;
 }
@@ -350,6 +365,8 @@ export function loadEnv(envInput?: Record<string, string | undefined>): ApiEnv {
     CORS_ORIGINS: parsed.CORS_ORIGINS,
     WEBHOOKS_ALLOW_PRIVATE: parsed.WEBHOOKS_ALLOW_PRIVATE,
     TRUST_PROXY: parsed.TRUST_PROXY,
+    STORAGE_DRIVER: parsed.STORAGE_DRIVER,
+    STORAGE_LOCAL_DIR: parsed.STORAGE_LOCAL_DIR,
     ...(parsed.LIBREHR_LICENSE_KEY
       ? { LIBREHR_LICENSE_KEY: parsed.LIBREHR_LICENSE_KEY }
       : {}),
