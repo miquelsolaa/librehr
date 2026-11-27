@@ -8,6 +8,8 @@ All legal and regulatory revisions affecting LibreHR are tracked here.
 - **Defaults pending counsel:** the default periods are the maintainers' recommendation and are **not yet confirmed by counsel**. Counsel's sign-off will be recorded here as its own dated entry before any period is used as a basis for deletion.
 - **Time-records floor (Estatuto de los Trabajadores art. 34.9):** working-time records must be kept four years, so `time_records` cannot be configured below 1461 days. The floor is a database CHECK, not only an application rule.
 - **Nothing is deleted:** this change stores configuration and counts eligible records only. No tenant-scoped record is deleted or anonymised.
+- **Daily dry-run report (`retention.run` audit action):** the `retention.enforce` worker job runs daily per organization, counts the records past each period in the organization's time zone and writes one `retention.run` audit entry holding dates and counts only (no names, titles or file names). `statutory_documents` is reported as a hold (`heldBack`), never as eligible.
+- **Instance-wide sweep of password reset links:** the new `retention.sweep-global` job deletes `password_reset_tokens` rows older than 30 days (the retention documented with migration 0040) once per UTC day. This is the only deletion that runs; nothing tenant-scoped is deleted yet.
 
 ## [2026-11-26] - Vacation carry-over: pending legal review of ET art. 38.3
 

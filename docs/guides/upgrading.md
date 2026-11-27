@@ -248,8 +248,9 @@ Once the new worker starts:
 - `time.close-day` reminds employees of missing clock-outs for the last 2
   closed days;
 - `audit.verify-chain` verifies the time-record chains daily;
-- `retention.enforce` runs daily as a dry run and dead-letters until ADM-005
-  ships;
+- `retention.enforce` runs daily as a dry-run report (counts and one audit
+  entry per organization; it deletes nothing), and `retention.sweep-global`
+  deletes password reset links older than 30 days once a day;
 - `leave.accrue` does **not** run unless you opt in by listing it in
   `SCHEDULER_JOBS`
   (`time.close-day,audit.verify-chain,retention.enforce,leave.accrue`). Its

@@ -5,6 +5,7 @@ import { handleEmailSend } from "./queues/email.send.js";
 import { handleLeaveAccrue } from "./queues/leave.accrue.js";
 import { handleTimeCloseDay } from "./queues/time.close-day.js";
 import { handleRetentionEnforce } from "./queues/retention.enforce.js";
+import { handleRetentionSweepGlobal } from "./queues/retention.sweep-global.js";
 import { handleAuditVerifyChain } from "./queues/audit.verify-chain.js";
 import { handleSchedulerTick } from "./queues/scheduler.tick.js";
 import { createSmtpMailer } from "./lib/smtp-mailer.js";
@@ -68,7 +69,10 @@ async function startWorker() {
     handleLeaveAccrue(job, { sql, logger }),
   );
   await register("retention.enforce", (job) =>
-    handleRetentionEnforce(job, logger),
+    handleRetentionEnforce(job, { sql, logger }),
+  );
+  await register("retention.sweep-global", (job) =>
+    handleRetentionSweepGlobal(job, { sql, logger }),
   );
   await register("audit.verify-chain", (job) =>
     handleAuditVerifyChain(job, {
