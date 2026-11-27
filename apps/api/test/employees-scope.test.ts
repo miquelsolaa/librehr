@@ -65,6 +65,9 @@ const sql = scriptedSql((text, params) => {
     const target = [admin, employee].find((p) => params.includes(p.employeeId));
     return target ? [profileRow(target)] : [];
   }
+  // ORG-007: the directory resolves today's business date for memberships.
+  if (text.includes("COALESCE(l.timezone, o.timezone)"))
+    return [{ timezone: "Europe/Madrid" }];
   if (text.includes("COUNT(*)::text as count")) return [{ count: "1" }];
   if (text.includes("FROM employees e") && text.includes("LIMIT ? OFFSET ?")) {
     return [
