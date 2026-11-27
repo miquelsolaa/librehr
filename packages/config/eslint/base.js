@@ -2,6 +2,7 @@ import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import { boundaryConfigs } from "./boundaries.js";
 import { designSystemConfigs } from "./design-system.js";
+import { maxLinesConfigs } from "./max-lines.js";
 
 export const baseConfig = tseslint.config(
   js.configs.recommended,
@@ -32,6 +33,8 @@ export const baseConfig = tseslint.config(
   ...boundaryConfigs,
   // Type scale and other DESIGN.md rules for UI code; see design-system.js.
   ...designSystemConfigs,
+  // File-size ratchet (AGENTS.md section 4); see max-lines.js.
+  ...maxLinesConfigs,
 );
 
 export default baseConfig;

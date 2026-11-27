@@ -85,9 +85,35 @@ export async function downloadTimeExport(
   });
   if (params.employeeId) search.set("employeeId", params.employeeId);
 
-  const res = await fetch(`${API_BASE_URL}/v1/time/export?${search}`, {
-    credentials: "include",
-  });
+  // Same name the API sends, for when Content-Disposition is not readable.
+  const suffix = params.employeeId ? `-${params.employeeId.slice(0, 8)}` : "";
+  return fetchExportFile(
+    `${API_BASE_URL}/v1/time/export?${search}`,
+    `registro-jornada-${params.startDate}-${params.endDate}${suffix}.${params.format}`,
+  );
+}
+
+/**
+ * Issue #38: downloads a finished background export. Same headers and errors
+ * as `downloadTimeExport`; only its requester may download it.
+ */
+export async function downloadTimeExportJob(job: {
+  exportId: string;
+  format: "csv" | "pdf";
+  periodStart: string;
+  periodEnd: string;
+}): Promise<TimeExportFile> {
+  return fetchExportFile(
+    `${API_BASE_URL}/v1/time/exports/${encodeURIComponent(job.exportId)}/download`,
+    `registro-jornada-${job.periodStart}-${job.periodEnd}.${job.format}`,
+  );
+}
+
+async function fetchExportFile(
+  url: string,
+  fallback: string,
+): Promise<TimeExportFile> {
+  const res = await fetch(url, { credentials: "include" });
   if (!res.ok) {
     let problem: unknown;
     try {
@@ -97,10 +123,6 @@ export async function downloadTimeExport(
     }
     throw problem;
   }
-
-  // Same name the API sends, for when Content-Disposition is not readable.
-  const suffix = params.employeeId ? `-${params.employeeId.slice(0, 8)}` : "";
-  const fallback = `registro-jornada-${params.startDate}-${params.endDate}${suffix}.${params.format}`;
   return {
     blob: await res.blob(),
     exportId: res.headers.get("X-Export-Id") ?? "",

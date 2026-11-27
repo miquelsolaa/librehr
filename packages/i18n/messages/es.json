@@ -40,6 +40,7 @@
     "ssoDomainLabel": "Dominio corporativo o correo",
     "ssoContinueButton": "Continuar con SSO",
     "ssoNotFound": "No se ha encontrado ninguna configuración SSO activa para este dominio.",
+    "ssoRequired": "Tu organización inicia sesión con inicio de sesión único. Continúa con SSO.",
     "ssoDomainPlaceholder": "empresa.es",
     "forgotPasswordLink": "¿Has olvidado la contraseña?",
     "forgotTitle": "Restablece la contraseña",
@@ -403,7 +404,12 @@
     "ssoEnabledLabel": "Habilitar inicio de sesión SSO",
     "ssoEnabledHint": "Permite a los usuarios acceder mediante el proveedor corporativo.",
     "ssoEnforceLabel": "Forzar SSO obligatorio",
-    "ssoEnforceHint": "Bloquea el acceso con contraseña convencional para los dominios configurados.",
+    "ssoEnforceHint": "Las personas de esta organización deben iniciar sesión con SSO. Los administradores con verificación en dos pasos pueden seguir usando su contraseña.",
+    "ssoEnforceNeedsEnabled": "Activa el inicio de sesión único antes de hacerlo obligatorio.",
+    "ssoEnforceBreakGlassError": "Para hacer obligatorio el SSO, al menos un administrador necesita la verificación en dos pasos, así alguien podrá entrar si el proveedor de identidad falla.",
+    "ssoEnforceConfirmTitle": "¿Hacer obligatorio el inicio de sesión único?",
+    "ssoEnforceConfirmBody": "Se cerrará la sesión de las personas que no usen SSO. Los administradores con verificación en dos pasos podrán seguir entrando con contraseña. {count, plural, =0 {No hay tokens de acceso personal activos en esta organización.} one {# token de acceso personal activo sigue funcionando.} other {# tokens de acceso personal activos siguen funcionando.}}",
+    "ssoEnforceConfirm": "Hacer obligatorio el SSO",
     "saveSsoButton": "Guardar Configuración SSO",
     "ssoSavedSuccess": "Configuración SSO guardada correctamente.",
     "ssoSaveError": "Error al guardar la configuración SSO.",
@@ -460,7 +466,8 @@
     "twoFactorDisableInvalidCode": "El código no es válido. Revisa tu aplicación autenticadora e inténtalo de nuevo.",
     "twoFactorDisableSessionExpired": "Tu sesión ha caducado. Vuelve a iniciar sesión para cambiar la configuración de seguridad.",
     "twoFactorDisableForbidden": "No tienes permiso para cambiar la autenticación en dos pasos de esta cuenta.",
-    "twoFactorDisableRateLimited": "Demasiados intentos. Espera unos minutos e inténtalo de nuevo."
+    "twoFactorDisableRateLimited": "Demasiados intentos. Espera unos minutos e inténtalo de nuevo.",
+    "twoFactorDisableBreakGlass": "Eres el único administrador con verificación en dos pasos de una organización que exige inicio de sesión único. Actívala antes para otro administrador."
   },
   "setup": {
     "title": "Bienvenido a LibreHR",
@@ -674,6 +681,14 @@
     "missingClockOut": {
       "title": "Falta el fichaje de salida",
       "body": "Tu registro de jornada del {date} sigue abierto. Solicita una corrección con la hora en que terminaste."
+    },
+    "timeExportReady": {
+      "title": "Exportación del registro de jornada lista",
+      "body": "La exportación del registro de jornada del {start} al {end} ya se puede descargar hasta el {until}."
+    },
+    "timeExportFailed": {
+      "title": "No se ha podido generar la exportación",
+      "body": "La exportación del registro de jornada del {start} al {end} no se ha podido generar. Inténtalo de nuevo o pide un periodo más corto."
     }
   },
   "timeTracking": {
@@ -837,6 +852,29 @@
     "kioskBackspace": "Borrar el último dígito",
     "exportErrorTooLarge": "Esta exportación es demasiado grande. Elige un periodo más corto o exporta a los empleados de uno en uno.",
     "exportErrorRateLimited": "Demasiadas exportaciones en poco tiempo. Espera un minuto y vuelve a intentarlo.",
+    "exportErrorTooLargeAsync": "Esta exportación es demasiado grande para generarla ahora. Puedes generarla en segundo plano más abajo.",
+    "exportErrorInProgress": "Ya tienes una exportación en segundo plano en curso, o la organización tiene demasiadas. Espera a que termine.",
+    "exportErrorNotReady": "Esta exportación todavía no está lista.",
+    "exportErrorExpired": "Esta descarga ha caducado y el archivo se ha eliminado. Vuelve a generar la exportación.",
+    "exportErrorEmpty": "Nadie tenía contrato durante este periodo, así que no hay nada que exportar.",
+    "exportJobsTitle": "Exportaciones en segundo plano",
+    "exportJobsHelp": "Las exportaciones grandes de la organización se generan en segundo plano. El documento refleja los registros del momento en que se genera, no del momento en que lo pides. Recibirás una notificación cuando esté lista, solo tú puedes descargarla y el archivo se elimina cuando caduca. Su ID y su hash se conservan en el registro de auditoría.",
+    "exportJobsOffer": "Genera esta exportación en segundo plano:",
+    "exportJobsQueueCsv": "Generar CSV en segundo plano",
+    "exportJobsQueuePdf": "Generar PDF en segundo plano",
+    "exportJobsLoadFailed": "No se han podido cargar tus exportaciones en segundo plano.",
+    "exportJobsEmpty": "No tienes exportaciones en segundo plano.",
+    "exportJobsPeriod": "{start} – {end} · {format}",
+    "exportJobsExpires": "Disponible hasta el {date}",
+    "exportJobsDownload": "Descargar",
+    "exportJobsStatusQueued": "En cola",
+    "exportJobsStatusRunning": "Generando",
+    "exportJobsStatusReady": "Lista",
+    "exportJobsStatusFailed": "Error",
+    "exportJobsStatusExpired": "Caducada",
+    "exportJobsFailedTooLarge": "El archivo es demasiado grande. Solicita un periodo más corto.",
+    "exportJobsFailedForbidden": "Ya no tienes acceso a los registros de la organización.",
+    "exportJobsFailedGeneric": "Algo ha fallado al generarlo. Puedes volver a solicitarlo.",
     "monthNavigation": "Mes",
     "closureBannerTitle": "Mes cerrado el {date}",
     "closureBannerDescription": "Estos totales se congelaron al cerrar el mes. Las correcciones se siguen aceptando y aparecen a continuación.",
@@ -1222,6 +1260,17 @@
     "carryoverOn": "Activado: se arrastran hasta {days, plural, one {# día} other {# días}}, disfrutables durante {months, plural, one {# mes} other {# meses}} del año siguiente.",
     "carryoverOff": "Desactivado: se arrastra todo el saldo y nunca caduca.",
     "carryoverSave": "Guardar regla de arrastre",
+    "carryoverLegalPendingTitle": "Pendiente de revisión legal.",
+    "carryoverLegalPending": "La forma en que LibreHR aplica el art. 38.3 del ET (qué permisos protegen las vacaciones y durante cuánto tiempo) aún no la ha confirmado un abogado laboralista. Revisa tu convenio colectivo y pide asesoramiento jurídico antes de confiar en las pérdidas y caducidades.",
+    "carryoverConfirmTitle": "¿Activar el límite de arrastre?",
+    "carryoverConfirmIntro": "Las personas con la política «{policy}» pueden perder días de vacaciones al cierre del año. Lee qué pasará antes de activarlo.",
+    "carryoverConfirmCap": "En cada cierre de año se arrastra como máximo {days, plural, one {# día} other {# días}}; el resto del saldo se pierde.",
+    "carryoverConfirmExpiry": "Los días arrastrados no disfrutados al final del mes {months} del año siguiente caducan.",
+    "carryoverConfirmProtected": "Las personas con incapacidad temporal, embarazo, parto, adopción o lactancia el año cerrado o el anterior conservan todo su saldo (art. 38.3 del ET).",
+    "carryoverConfirmLateLeave": "Los permisos aprobados después de un cierre no se tienen en cuenta: tendrás que restituir esos días con un ajuste.",
+    "carryoverConfirmAck": "He revisado nuestro convenio colectivo y entiendo que las personas pueden perder días.",
+    "carryoverConfirmCancel": "Cancelar",
+    "carryoverConfirmSubmit": "Activar el límite",
     "save": "Guardar",
     "saved": "Guardado."
   }
