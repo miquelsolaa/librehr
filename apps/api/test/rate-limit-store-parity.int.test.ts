@@ -78,11 +78,37 @@ const scenarios: Array<[string, Scenario]> = [
       expect(results).toEqual([
         { allowed: true },
         { allowed: true },
-        { allowed: true },
+        // The attempt that locks the key carries the lock's token.
+        { allowed: true, lockToken: expect.any(String) },
         { allowed: false, lockedMs: 300_000 },
       ]);
       setNow(T0 + 300_000);
       expect(await store.reserveAttempt("r", p)).toEqual({ allowed: true });
+    },
+  ],
+  [
+    "releases by decrementing, and lifts only the releasing attempt's lock (#178)",
+    async (store) => {
+      const p = { ...policy, limit: 3 };
+      await store.reserveAttempt("d", p);
+      await store.reserveAttempt("d", p);
+      await store.release("d", p);
+      expect(await store.reserveAttempt("d", p)).toEqual({ allowed: true });
+      const setter = await store.reserveAttempt("d", p);
+      expect(setter).toEqual({ allowed: true, lockToken: expect.any(String) });
+      expect((await store.reserveAttempt("d", p)).allowed).toBe(false);
+      await store.release("d", p, "not-this-lock");
+      expect(await store.lockedFor(["d"])).toBe(300_000);
+      await store.release("d", p, setter.allowed ? setter.lockToken : "");
+      expect(await store.lockedFor(["d"])).toBe(0);
+      // Back to limit - 1: the next attempt locks again.
+      expect(await store.reserveAttempt("d", p)).toEqual({
+        allowed: true,
+        lockToken: expect.any(String),
+      });
+      // Releasing a missing key does not create it.
+      await store.release("none", p, "1");
+      expect(await store.reserveAttempt("none", p)).toEqual({ allowed: true });
     },
   ],
   [
@@ -92,7 +118,10 @@ const scenarios: Array<[string, Scenario]> = [
       await store.reserveAttempt("c", p);
       await store.reset("c");
       expect(await store.reserveAttempt("c", p)).toEqual({ allowed: true });
-      expect(await store.reserveAttempt("c", p)).toEqual({ allowed: true });
+      expect(await store.reserveAttempt("c", p)).toEqual({
+        allowed: true,
+        lockToken: expect.any(String),
+      });
       expect((await store.reserveAttempt("c", p)).allowed).toBe(false);
     },
   ],

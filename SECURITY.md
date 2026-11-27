@@ -12,7 +12,9 @@ We take the security of LibreHR and personal HR data seriously.
 If you believe you have found a security vulnerability:
 
 1. **Do not disclose it publicly or open a public GitHub issue.**
-2. Send an email to `security@librehr.dev` with:
+2. Report it privately through GitHub private vulnerability reporting: open the repository's
+   **Security** tab and choose **Report a vulnerability**
+   (<https://github.com/miquelsolaa/librehr/security/advisories/new>). Include:
    - Type of vulnerability
    - Step-by-step instructions or proof-of-concept to reproduce
    - Potential impact on tenant isolation or personal data
