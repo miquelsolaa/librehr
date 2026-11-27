@@ -388,7 +388,9 @@ describe("FailureLockout", () => {
   });
 
   it("releases a reservation in its own namespace, lifting the lock it set (#178)", async () => {
-    const store = memoryRateLimitStore();
+    // Fixed clock: with the real one, a millisecond tick between calls makes
+    // the remaining lock time 299_999 and the exact assertions flaky.
+    const store = memoryRateLimitStore(() => 0);
     const pins = new FailureLockout({ name: "kiosk.pin", store, ...policy });
     const tfa = new FailureLockout({ name: "auth.2fa", store, ...policy });
     const setter = await pins.reserve("ip", 1);
