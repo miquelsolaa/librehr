@@ -221,6 +221,33 @@ export function peakAllocationDuring(
   return peak;
 }
 
+/**
+ * Departments a person works in on a date: the primary department first,
+ * then every secondary department membership active that day, without
+ * duplicates. Leave coverage and blackouts are checked against all of them
+ * (LEA-007, ADR 0008 D6). Group memberships (projects, areas) are left out.
+ *
+ * @example
+ * departmentIdsOn(
+ *   "d1",
+ *   [{ departmentId: "d2", groupId: null, startDate: "2026-03-01", endDate: null }],
+ *   "2026-03-01",
+ * ); // => ["d1", "d2"]
+ */
+export function departmentIdsOn(
+  primaryDepartmentId: string | null,
+  memberships: readonly (MembershipPeriod & MembershipTargetRef)[],
+  date: string,
+): string[] {
+  const ids = primaryDepartmentId === null ? [] : [primaryDepartmentId];
+  for (const m of activeMembershipsOn(memberships, date)) {
+    if (m.departmentId !== null && !ids.includes(m.departmentId)) {
+      ids.push(m.departmentId);
+    }
+  }
+  return ids;
+}
+
 export interface PrimaryChangePlan<T> {
   /** Secondaries to end on `endDate` (the day before the change). */
   toEnd: { membership: T; endDate: string }[];
