@@ -460,7 +460,13 @@
     "twoFactorDisableInvalidCode": "El código no es válido. Revisa tu aplicación autenticadora e inténtalo de nuevo.",
     "twoFactorDisableSessionExpired": "Tu sesión ha caducado. Vuelve a iniciar sesión para cambiar la configuración de seguridad.",
     "twoFactorDisableForbidden": "No tienes permiso para cambiar la autenticación en dos pasos de esta cuenta.",
-    "twoFactorDisableRateLimited": "Demasiados intentos. Espera unos minutos e inténtalo de nuevo."
+    "twoFactorDisableRateLimited": "Demasiados intentos. Espera unos minutos e inténtalo de nuevo.",
+    "leadVisibilityLabel": "Qué ven los responsables de sus miembros",
+    "leadVisibilityHint": "Se aplica a los responsables de departamentos, proyectos y áreas respecto a las personas que pertenecen a ellos además de su departamento principal. Nunca permite editar, aprobar ni ver datos sensibles.",
+    "leadVisibilityOff": "Nada más allá de su rol",
+    "leadVisibilityCalendar": "Ausencias en el calendario del equipo, sin su tipo",
+    "leadVisibilityProfile": "Ausencias y la ficha del directorio",
+    "leadVisibilityLoadError": "No se ha podido cargar este ajuste. Recarga la página para volver a intentarlo."
   },
   "setup": {
     "title": "Bienvenido a LibreHR",

@@ -264,6 +264,54 @@ describe("lead visibility and department documents (ORG-007)", () => {
       expect((await profile(b.peer.employeeId)).status).toBe(404);
     });
 
+    // The profile page lists memberships, so a lead allowed the profile can
+    // read them, in directory shape: no role label, no end reason.
+    it("lists a member's memberships to a lead only with profile", async () => {
+      await db.sql`
+        UPDATE employee_memberships SET role = 'analyst'
+        WHERE employee_id = ${a.report.employeeId}`;
+      const list = (id: string | undefined) =>
+        app.request(`/v1/employees/${id}/memberships`, { headers: as(a.peer) });
+      for (const value of ["off", "calendar"]) {
+        expect((await setVisibility(value)).status).toBe(200);
+        expect((await list(a.report.employeeId)).status).toBe(403);
+      }
+      expect((await setVisibility("profile")).status).toBe(200);
+      const res = await list(a.report.employeeId);
+      expect(res.status).toBe(200);
+      const rows = (await res.json()) as {
+        targetName: string;
+        role: string | null;
+        endReason: string | null;
+      }[];
+      expect(rows.map((r) => r.targetName).sort()).toEqual(["Apollo", "Sales"]);
+      for (const row of rows)
+        expect(row).toMatchObject({ role: null, endReason: null });
+      // Ended members, non-members and other tenants stay out of reach.
+      expect((await list(emp["olga"])).status).toBe(403);
+      expect((await list(emp["pete"])).status).toBe(403);
+      expect((await list(b.peer.employeeId)).status).toBe(404);
+      // An admin still sees the role label.
+      const full = await app.request(
+        `/v1/employees/${a.report.employeeId}/memberships`,
+        { headers: as(a.admin) },
+      );
+      expect(JSON.stringify(await full.json())).toContain("analyst");
+      // Reading never extends to writing.
+      const add = await app.request(
+        `/v1/employees/${a.report.employeeId}/memberships`,
+        {
+          method: "POST",
+          headers: as(a.peer, true),
+          body: JSON.stringify({
+            groupId: randomUUID(),
+            startDate: "2030-01-01",
+          }),
+        },
+      );
+      expect(add.status).toBe(403);
+    });
+
     it("grants no write, approval or other read as a lead", async () => {
       expect((await setVisibility("profile")).status).toBe(200);
       const patch = await app.request(`/v1/employees/${emp["mia"]}`, {
@@ -284,7 +332,6 @@ describe("lead visibility and department documents (ORG-007)", () => {
       for (const path of [
         `/v1/leave/balance?employeeId=${emp["mia"]}`,
         `/v1/people/${emp["mia"]}/emergency-contacts`,
-        `/v1/employees/${emp["mia"]}/memberships`,
       ]) {
         const res = await app.request(path, { headers: as(a.peer) });
         expect(res.status, path).toBe(403);

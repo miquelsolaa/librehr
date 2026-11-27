@@ -460,7 +460,13 @@
     "twoFactorDisableInvalidCode": "That code is not valid. Check your authenticator app and try again.",
     "twoFactorDisableSessionExpired": "Your session has expired. Sign in again to change your security settings.",
     "twoFactorDisableForbidden": "You are not allowed to change two-factor authentication for this account.",
-    "twoFactorDisableRateLimited": "Too many attempts. Wait a few minutes and try again."
+    "twoFactorDisableRateLimited": "Too many attempts. Wait a few minutes and try again.",
+    "leadVisibilityLabel": "What leads see of their members",
+    "leadVisibilityHint": "Applies to leads of departments, projects and areas for people who belong to them besides their primary department. It never allows editing, approving or seeing sensitive data.",
+    "leadVisibilityOff": "Nothing beyond their role",
+    "leadVisibilityCalendar": "Absences in the team calendar, without their type",
+    "leadVisibilityProfile": "Absences and the directory profile",
+    "leadVisibilityLoadError": "This setting could not be loaded. Reload the page to try again."
   },
   "setup": {
     "title": "Welcome to LibreHR",
