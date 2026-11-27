@@ -11,6 +11,7 @@ import {
 } from "@librehr/contracts";
 import {
   validateDocumentFile,
+  sanitizeDocumentFilename,
   matchBulkPayslips,
   renderDocumentTemplate,
 } from "@librehr/core";
@@ -474,7 +475,9 @@ export function createDocumentRoutes(sql: Sql, storagePort: StoragePort) {
                 const encryptedPayload = encryptEnvelope(
                   buffer.toString("base64"),
                 );
-                const storageKey = `orgs/${user.organizationId}/payslips/${match.matchedEmployeeId}/${match.periodYearMonth ?? "general"}-${match.filename}`;
+                // The client names the file; never let it pick the path.
+                const safeFilename = sanitizeDocumentFilename(match.filename);
+                const storageKey = `orgs/${user.organizationId}/payslips/${match.matchedEmployeeId}/${match.periodYearMonth ?? "general"}-${safeFilename}`;
                 await storagePort.put(
                   storageKey,
                   Buffer.from(encryptedPayload, "utf-8"),
@@ -492,7 +495,7 @@ export function createDocumentRoutes(sql: Sql, storagePort: StoragePort) {
                   description: `Bulk uploaded payslip for ${match.periodYearMonth ?? "period"}`,
                   audienceType: "individual",
                   createdById: user.id,
-                  filename: match.filename,
+                  filename: safeFilename,
                   mimeType: fileObj.mimeType || "application/pdf",
                   sizeBytes: buffer.length,
                   sha256Hash,

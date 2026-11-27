@@ -43,6 +43,43 @@ All LibreHR database migrations are designed to be forward-only and safe to run 
    curl -f http://localhost:3001/readyz
    ```
 
+## Document files move to the storage volume (`STORAGE_LOCAL_DIR`)
+
+Earlier releases ignored `STORAGE_LOCAL_DIR`: the API wrote uploaded document
+files to `./data/storage` under its working directory, which in the container
+is `/app/data/storage`, outside the `librehr_storage` volume. Files there are
+lost whenever the container is recreated. The API now writes to
+`STORAGE_LOCAL_DIR` (`/data/storage` in the bundled compose file, the volume),
+and the image creates that directory owned by the API user.
+
+A volume created by an earlier release is owned by `root`, so the API cannot
+write to it. The API checks this at start and exits with "Storage directory is
+not writable by the API user" (it logs only the path and the error code)
+instead of failing later on the first upload. Before you recreate the `api`
+container, save any files the old container holds; then fix the ownership
+with a one-off container of the new image and start it:
+
+```bash
+# Before upgrading, with the old container still running
+# (prints an error if there is nothing to save):
+docker compose --env-file .env -f infra/compose/docker-compose.yml \
+  cp api:/app/data/storage ./librehr-storage-copy
+# Pull the new image, then fix the volume ownership (and restore the saved
+# files, if the first command saved any) before starting the API:
+docker compose --env-file .env -f infra/compose/docker-compose.yml pull api
+docker compose --env-file .env -f infra/compose/docker-compose.yml \
+  run --rm --no-deps --user root -v "$PWD/librehr-storage-copy:/restore:ro" \
+  --entrypoint sh api -c \
+  'cp -a /restore/. /data/storage/ 2>/dev/null; chown -R librehr:nodejs /data/storage'
+docker compose --env-file .env -f infra/compose/docker-compose.yml up -d
+```
+
+The copy holds employee documents: delete it once the files are back in the
+volume. A document whose file was already lost still has its database row;
+downloading it answers "not found". Outside Docker, set `STORAGE_LOCAL_DIR`
+to the directory that already holds your files (by default `./data/storage`
+relative to where the API starts), or move them there.
+
 ## Enabling 2FA revokes personal access tokens (migration 0039)
 
 From this release, enabling two-factor authentication ends the account's
