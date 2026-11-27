@@ -507,6 +507,8 @@
     "roleEmployee": "Employee",
     "roleManager": "Manager",
     "roleAdmin": "Administrator",
+    "departmentLabel": "Primary department",
+    "departmentPlaceholder": "Choose a department",
     "sendInvite": "Send Invitation",
     "inviteSent": "Invitation sent successfully!",
     "errorTitle": "Invitation error",

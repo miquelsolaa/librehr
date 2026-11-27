@@ -12,6 +12,8 @@ export interface InvitationRow {
   expiresAt: Date;
   /** TIM-008: access end date for the membership (auditors only). */
   accessExpiresAt: Date | null;
+  /** ORG-007: primary department of the employee created on accept. */
+  departmentId: string | null;
   invitedById: string | null;
   acceptedAt: Date | null;
   createdAt: Date;
@@ -24,10 +26,13 @@ export interface CreateInvitationData {
   invitedById?: string | null | undefined;
   expiresInDays?: number | undefined;
   accessExpiresAt?: Date | null | undefined;
+  departmentId?: string | null | undefined;
 }
 
 export interface AcceptedInvitation {
   accessExpiresAt: Date | null;
+  /** Null for auditors, or when the department was deleted since. */
+  departmentId: string | null;
   createdAt: Date;
 }
 
@@ -42,18 +47,20 @@ export class InvitationRepository {
 
     const rows = await tx<Omit<InvitationRow, "token">[]>`
       INSERT INTO invitations (
-        email, role, token, expires_at, invited_by_id, access_expires_at
+        email, role, token, expires_at, invited_by_id, access_expires_at,
+        department_id
       ) VALUES (
         ${data.email.toLowerCase().trim()},
         ${data.role ?? "employee"},
         ${hashBearerToken(token)},
         ${expiresAt},
         ${data.invitedById ?? null},
-        ${data.accessExpiresAt ?? null}
+        ${data.accessExpiresAt ?? null},
+        ${data.departmentId ?? null}
       )
       RETURNING id, organization_id as "organizationId", email, role,
                 expires_at as "expiresAt", access_expires_at as "accessExpiresAt",
-                invited_by_id as "invitedById", accepted_at as "acceptedAt",
+                department_id as "departmentId", invited_by_id as "invitedById", accepted_at as "acceptedAt",
                 created_at as "createdAt", updated_at as "updatedAt"
     `;
 
@@ -79,7 +86,8 @@ export class InvitationRepository {
       WHERE id = ${id}
         AND accepted_at IS NULL
         AND (access_expires_at IS NULL OR access_expires_at > now())
-      RETURNING access_expires_at AS "accessExpiresAt", created_at AS "createdAt"
+      RETURNING access_expires_at AS "accessExpiresAt",
+                department_id AS "departmentId", created_at AS "createdAt"
     `;
     return rows[0] ?? null;
   }

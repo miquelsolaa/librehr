@@ -62,6 +62,12 @@ const invalidDates = () =>
     detail: "End date must not precede start date",
   });
 
+const alreadyEnded = () =>
+  new ConflictError({
+    code: "MEMBERSHIP_ALREADY_ENDED",
+    detail: "This membership has already been ended",
+  });
+
 const membershipNotFound = () =>
   new NotFoundError({
     code: "MEMBERSHIP_NOT_FOUND",
@@ -239,6 +245,13 @@ export function createMembershipRoutes(sql: Sql) {
           const existing = await memberships.listForEmployee(tx, id);
           const current = existing.find((m) => m.id === membershipId);
           if (!current) throw membershipNotFound();
+          // A row ended through /end is history: its dates, ended_by and
+          // end_reason stay consistent. Role and allocation may still change.
+          if (
+            current.endedBy &&
+            (body.startDate !== undefined || body.endDate !== undefined)
+          )
+            throw alreadyEnded();
           const merged = {
             ...current,
             startDate: body.startDate ?? current.startDate,
@@ -284,11 +297,7 @@ export function createMembershipRoutes(sql: Sql) {
         async (tx, user) => {
           const current = await memberships.findById(tx, id, membershipId);
           if (!current) throw membershipNotFound();
-          if (current.endedBy)
-            throw new ConflictError({
-              code: "MEMBERSHIP_ALREADY_ENDED",
-              detail: "This membership has already been ended",
-            });
+          if (current.endedBy) throw alreadyEnded();
           if (body.endDate < current.startDate) throw invalidDates();
           const row = await memberships.end(tx, id, membershipId, {
             endDate: body.endDate,

@@ -25,6 +25,7 @@ import { hashPassword, verifyPassword } from "../lib/password.js";
 import { invitationEmail } from "../lib/invitation-email.js";
 import { logger } from "../middleware/logger.js";
 import { resolveAuditorAccessEnd } from "../lib/auditor-access.js";
+import { requireDepartmentInTenant } from "../lib/primary-department.js";
 import {
   setSessionCookie,
   type SessionCookieOptions,
@@ -117,11 +118,17 @@ export function createInvitationRoutes(
                 await auditorRepo.window(tx),
               );
 
+        // ORG-007 (ADR 0008 decision 13): the invited employee's primary
+        // department, checked against this tenant (schema: auditors none).
+        if (parse.data.departmentId !== undefined)
+          await requireDepartmentInTenant(tx, parse.data.departmentId);
+
         const invite = await invitationRepo.create(tx, {
           email: parse.data.email,
           role: parse.data.role,
           invitedById: user.id,
           accessExpiresAt,
+          departmentId: parse.data.departmentId ?? null,
         });
 
         // No PII in audit metadata: the invitation id identifies the invitee.
@@ -391,7 +398,8 @@ export function createInvitationRoutes(
             firstName,
             lastName,
             email: user.email,
-            departmentId: null,
+            // Null only when the department was deleted since the invite.
+            departmentId: accepted.departmentId,
           });
         }
 
