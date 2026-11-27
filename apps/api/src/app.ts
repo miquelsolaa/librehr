@@ -37,6 +37,7 @@ import {
   TIME_EXPORT_EXPOSED_HEADERS,
 } from "./routes/time-export.js";
 import { createTimeExportEmployeesRoutes } from "./routes/time-export-employees.js";
+import { createTimeExportJobRoutes } from "./routes/time-export-jobs.js";
 import { createTimeCorrectionRoutes } from "./routes/time-corrections.js";
 import { createTimeClosureRoutes } from "./routes/time-closures.js";
 import { createApprovalRoutes } from "./routes/approvals.js";
@@ -72,6 +73,11 @@ import type { LicenseState } from "@librehr/contracts";
 import { createCorsOriginMatcher } from "./lib/cors-origin.js";
 import type { HostResolver } from "./lib/outbound-url.js";
 import type { OutboundSender } from "./lib/outbound-request.js";
+import { createOidcHttpClient, type OidcHttpClient } from "./lib/oidc-http.js";
+import { createCompleteSignIn } from "./lib/complete-sign-in.js";
+import { challengeSecret } from "./lib/two-factor-challenge.js";
+import { createRateLimiter } from "./middleware/rate-limit.js";
+import { UserRepository } from "@librehr/db";
 import {
   createPostgresRateLimitStore,
   type RateLimitStore,
@@ -111,6 +117,10 @@ export interface AppDependencies {
         maxEmployeeDays?: number | undefined;
         rateLimit?: { windowMs: number; max: number } | undefined;
         pickerRateLimit?: { windowMs: number; max: number } | undefined;
+        /** Background export cap (default OFFICIAL_EXPORT_ASYNC_MAX_EMPLOYEE_DAYS). */
+        asyncMaxEmployeeDays?: number | undefined;
+        /** Rate limit of /v1/time/exports (default 30 per minute per user). */
+        jobsRateLimit?: { windowMs: number; max: number } | undefined;
       }
     | undefined;
   /** Overrides of the password reset limits (AUTH-001, tests). */
@@ -148,6 +158,11 @@ export interface AppConfig {
   resolveHost: HostResolver | undefined;
   /** Sender for outbound webhook requests; tests inject a fake. */
   sendWebhook: OutboundSender | undefined;
+  /**
+   * HTTP client for identity providers (AUTH-004); tests inject an
+   * in-process fake. Defaults to the guarded client of lib/oidc-http.ts.
+   */
+  oidcHttp: OidcHttpClient | undefined;
 }
 
 /**
@@ -174,6 +189,7 @@ export function resolveAppConfig(
       nodeEnv !== "production" && (config.webhooksAllowPrivate ?? false),
     resolveHost: config.resolveHost,
     sendWebhook: config.sendWebhook,
+    oidcHttp: config.oidcHttp,
   };
 }
 
@@ -314,7 +330,17 @@ export function createApp(deps: AppDependencies) {
       timeChainKey,
       trustProxy: deps.trustProxy,
       maxEmployeeDays: deps.timeExport?.maxEmployeeDays,
+      asyncMaxEmployeeDays: deps.timeExport?.asyncMaxEmployeeDays,
       rateLimit: deps.timeExport?.rateLimit,
+    }),
+  );
+  app.route(
+    "/v1",
+    createTimeExportJobRoutes(deps.sql, {
+      rateLimitStore,
+      trustProxy: deps.trustProxy,
+      asyncMaxEmployeeDays: deps.timeExport?.asyncMaxEmployeeDays,
+      rateLimit: deps.timeExport?.jobsRateLimit,
     }),
   );
   app.route(
@@ -367,12 +393,36 @@ export function createApp(deps: AppDependencies) {
 
   // 4b. Edition and Business extensions (ADR 0004, LIC-001..003)
   app.route("/v1", createEditionRoutes(deps.license ?? communityLicense()));
+  const userRepo = new UserRepository();
   mountBusinessRoutes(app, deps.extensions ?? [], {
     sql: deps.sql,
     requireAuth,
     publicApiUrl: config.publicApiUrl,
     ssoEnabled: config.ssoEnabled,
     createError: (init) => new AppError(init),
+    appUrl: config.appUrl,
+    rateLimit: (name, limit) =>
+      createRateLimiter({
+        name: `ext.${name}`,
+        store: rateLimitStore,
+        windowMs: limit.windowMs,
+        max: limit.max,
+        trustProxy: deps.trustProxy,
+        account: limit.account,
+      }),
+    oidcHttp:
+      config.oidcHttp ??
+      // Same development escape hatch as webhooks (never in production).
+      createOidcHttpClient({
+        allowPrivate: config.webhooksAllowPrivate,
+        resolve: config.resolveHost,
+      }),
+    completeSignIn: createCompleteSignIn({
+      authPort: deps.authPort,
+      findUser: (userId) => userRepo.findById(deps.sql, userId),
+      challengeSecret: challengeSecret(deps.sessionSecret),
+      cookie: { nodeEnv: deps.nodeEnv, trustProxy: deps.trustProxy },
+    }),
   });
 
   // 5. RFC 9457 Problem Details Error Handler

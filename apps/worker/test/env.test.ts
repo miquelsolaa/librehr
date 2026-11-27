@@ -176,4 +176,36 @@ describe("worker env", () => {
       expect(() => loadWorkerEnv({ NODE_ENV: "test", [key]: value })).toThrow();
     });
   });
+
+  describe("background time exports (TIM-006)", () => {
+    it("keeps files 7 days and caps them at 100 MB", () => {
+      expect(loadWorkerEnv({ NODE_ENV: "test" }).TIME_EXPORT).toEqual({
+        fileTtlHours: 168,
+        maxFileBytes: 100 * 1024 * 1024,
+      });
+    });
+
+    it("reads the TTL and size cap; empty values are the defaults", () => {
+      expect(
+        loadWorkerEnv({
+          NODE_ENV: "test",
+          TIME_EXPORT_FILE_TTL_HOURS: "24",
+          TIME_EXPORT_MAX_FILE_MB: "",
+        }).TIME_EXPORT,
+      ).toEqual({
+        fileTtlHours: 24,
+        maxFileBytes: 100 * 1024 * 1024,
+      });
+    });
+
+    it.each([
+      ["TIME_EXPORT_FILE_TTL_HOURS", "0"],
+      ["TIME_EXPORT_FILE_TTL_HOURS", "721"],
+      ["TIME_EXPORT_FILE_TTL_HOURS", "1.5"],
+      ["TIME_EXPORT_MAX_FILE_MB", "0"],
+      ["TIME_EXPORT_MAX_FILE_MB", "lots"],
+    ])("rejects %s=%s", (key, value) => {
+      expect(() => loadWorkerEnv({ NODE_ENV: "test", [key]: value })).toThrow();
+    });
+  });
 });

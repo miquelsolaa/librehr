@@ -35,13 +35,24 @@ export interface RateLimitStore {
   ): Promise<void>;
   /**
    * Atomically counts an attempt before it is verified, refused while the
-   * key is locked; the attempt reaching `limit` locks it. Clear the key with
-   * `reset` when the attempt succeeds.
+   * key is locked; the attempt reaching `limit` locks it (and returns a
+   * `lockToken`). Clear the key with `reset` when the attempt succeeds, or
+   * `release` the attempt when the key is a shared budget.
    */
   reserveAttempt(
     key: string,
     policy: FailurePolicy,
   ): Promise<AttemptReservation>;
+  /**
+   * Gives back one reserved attempt: decrements the count, and lifts the
+   * lock only if `lockToken` is the lock that reservation set (the count
+   * then goes back to `limit - 1`). A missing key is a no-op.
+   */
+  release(
+    key: string,
+    policy: Pick<FailurePolicy, "limit">,
+    lockToken?: string,
+  ): Promise<void>;
   /** Clears a key after a successful attempt. */
   reset(key: string): Promise<void>;
 }
@@ -146,6 +157,9 @@ export function createPostgresRateLimitStore(
     },
     reserveAttempt(key, policy) {
       return repo.reserveAttempt(sql, hash(key), policy, dbNow());
+    },
+    async release(key, policy, lockToken) {
+      await repo.release(sql, hash(key), policy, lockToken);
     },
     async reset(key) {
       await repo.remove(sql, hash(key));

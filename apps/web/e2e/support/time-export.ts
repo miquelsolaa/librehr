@@ -8,6 +8,13 @@ export const EMPLOYEE_ID = "00000000-0000-4000-8000-000000000002";
 export const REPORT_ID = "00000000-0000-4000-8000-000000000003";
 export const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 
+/**
+ * The synchronous export only. A `**\/v1/time/export**` glob would also catch
+ * the background exports (`/v1/time/exports...`) the page lists for admins.
+ */
+export const SYNC_EXPORT_URL = (url: URL): boolean =>
+  url.pathname === "/v1/time/export";
+
 export interface PickerItem {
   id: string;
   name: string;
@@ -47,7 +54,7 @@ export async function mockJsonExport(
   page: Page,
   requests: URL[],
 ): Promise<void> {
-  await mockRoute(page, "**/v1/time/export**", (route) => {
+  await mockRoute(page, SYNC_EXPORT_URL, (route) => {
     requests.push(new URL(route.request().url()));
     return route.fulfill({
       json: {

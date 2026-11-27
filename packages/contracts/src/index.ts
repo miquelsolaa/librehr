@@ -10,6 +10,7 @@ export * from "./employees.js";
 export * from "./employment-history.js";
 export * from "./leave.js";
 export * from "./time.js";
+export * from "./time-export-jobs.js";
 export * from "./time-closures.js";
 export * from "./documents.js";
 export * from "./notifications.js";
