@@ -21,8 +21,7 @@ import { OidcError } from "./errors.js";
 
 /**
  * AUTH-004 OIDC single sign-on (Business edition, LIC-003). Mounted by the
- * API only when the licence grants `sso`; SSO_ENABLED still gates it until
- * the web app finishes the sign-in.
+ * API only when the licence grants `sso`; the licence is the only gate.
  */
 export const ssoExtension: EeApiExtension = {
   feature: "sso",
@@ -34,20 +33,6 @@ function registerSsoRoutes(router: Hono, context: EeExtensionContext): void {
   const ssoRepo = new SsoRepository();
   const identityRepo = new IdentityRepository();
   const auditRepo = new AuditRepository();
-
-  if (!context.ssoEnabled) {
-    const disabled = () => {
-      throw createError({
-        status: 404,
-        title: "Not Found",
-        code: "SSO_DISABLED",
-        detail: "Single sign-on is not available on this instance",
-      });
-    };
-    router.all("/", disabled);
-    router.all("/*", disabled);
-    return;
-  }
 
   const redirectUri = new URL(
     "/v1/sso/callback",

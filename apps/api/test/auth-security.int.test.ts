@@ -84,7 +84,6 @@ describe("Enterprise Auth & Security Hardening API (AUTH-003, AUTH-004, DOC-007)
     authPort,
     // SSO (AUTH-004) is a Business feature (LIC-003).
     ...businessEdition(),
-    config: { ssoEnabled: true },
   });
 
   it("does not issue a two-factor challenge without a configured signing secret", async () => {

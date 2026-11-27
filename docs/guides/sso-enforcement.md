@@ -7,15 +7,15 @@ with a password. It is part of LibreHR Business (`ee/`, `LIC-003`).
 ## When it applies
 
 An organization requires SSO when its SSO configuration is switched on and
-"Require SSO" is checked. The instance applies it only when both hold:
+"Require SSO" is checked. The instance applies it only while the licence
+grants `sso`; there is no environment variable to switch it on or off.
+Without such a licence the setting is stored but has no effect: members sign
+in with their password as before, and nothing is deleted.
 
-- the licence grants `sso`, and
-- `SSO_ENABLED=true`.
-
-Otherwise the setting is stored but has no effect: members sign in with
-their password as before, and nothing is deleted. Keep `SSO_ENABLED` off
-until the OIDC callback (issue #34) is available; before that, nobody can
-open an SSO session, so only break-glass admins (below) could sign in.
+`SSO_ENABLED` is retired and ignored if still set. It used to be the
+operator's emergency switch for enforcement; use the recovery paths below
+instead. (Comments in migration `0041_sso_enforcement.sql` still mention it;
+migrations are forward-only and are not edited.)
 
 ## Decided per membership, never by email domain
 
@@ -76,16 +76,45 @@ taken away. These answer `409 SSO_BREAK_GLASS_REQUIRED` and change nothing:
 
 Give a second admin two-factor authentication first. The rule applies to
 the stored setting even when enforcement is inactive on the instance, so it
-cannot lock members out once the licence or `SSO_ENABLED` comes back.
+cannot lock members out once the licence comes back.
 
 ## Operator recovery
 
-When no break-glass admin can sign in:
+When no break-glass admin can sign in, in this order:
 
-- Set `SSO_ENABLED=false` and restart the API. Enforcement stops on the
-  whole instance; the stored setting is kept.
-- Or reset an admin's password with the recover-account CLI
-  (`apps/api/src/cli/recover-account.ts`), then sign in as break-glass if
-  that admin has two-factor authentication.
-- Without a licence, an admin can still switch the stored configuration off
-  (`POST /v1/sso/config/disable`), which also lifts "Require SSO".
+1. **Break-glass admin.** Any `admin` of the organization with two-factor
+   authentication signs in with password and TOTP code, then unchecks
+   "Require SSO" in **Settings -> Single Sign-On**. This is audited
+   (`auth.sso.break_glass`, `sso_config.updated`).
+2. **Recover an admin.** Reset an admin's password with the recover-account
+   CLI (`apps/api/src/cli/recover-account.ts`), then sign in as break-glass
+   if that admin has two-factor authentication.
+3. **Lift the requirement in the database.** As a last resort, the operator
+   switches "Require SSO" off for one organization with SQL, connected as the
+   database owner (`librehr_owner`, the role that runs migrations). Find the
+   organization's id first (`SELECT id, name FROM organizations;`). The
+   tables use row-level security, so the statement sets the organization
+   for the transaction, and it records the change in the audit log:
+
+   ```sql
+   BEGIN;
+   SELECT set_config('app.current_org', '<organization-id>', true);
+   UPDATE sso_configurations
+      SET enforce_sso = false, updated_at = now()
+    WHERE organization_id = '<organization-id>' AND enforce_sso;
+   INSERT INTO audit_log (organization_id, action, resource_type, metadata)
+   VALUES ('<organization-id>', 'sso_config.updated', 'sso_configurations',
+           '{"enforceSso": false, "previousEnforceSso": true, "source": "operator_sql"}');
+   COMMIT;
+   ```
+
+   Check that the `UPDATE` reports `UPDATE 1` before committing; otherwise
+   run `ROLLBACK;`. Password sessions of the organization work again at once
+   (enforcement is checked at lookup) and nothing else changes. Note in your
+   own operations log who ran it and why. Admins then fix the identity
+   provider and give a second admin two-factor authentication before
+   requiring SSO again.
+
+Without a licence granting `sso`, enforcement is already inert; an admin can
+also switch the stored configuration off (`POST /v1/sso/config/disable`),
+which lifts "Require SSO" as well.

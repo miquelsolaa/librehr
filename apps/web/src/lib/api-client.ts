@@ -29,6 +29,11 @@ export function getApiClient(): LibreHrApiClient {
   return apiClient;
 }
 
+/** Absolute URL of an API path as the browser reaches it. Browser only. */
+export function apiUrl(path: string): string {
+  return new URL(path, API_BASE_URL || window.location.origin).toString();
+}
+
 export interface TimeExportFileParams {
   format: "csv" | "pdf";
   startDate: string;

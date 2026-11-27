@@ -175,6 +175,29 @@ https://hr.example.com/v1/sso/callback
 
 That is `APP_URL` (equal to `BETTER_AUTH_URL`) followed by `/v1/sso/callback`.
 There is no `/api` prefix: the proxy forwards `/v1/*` to the API unchanged.
+Settings > Single Sign-On shows the exact value the API sends.
+
+Single sign-on (`AUTH-004`) is a Business feature: a licence granting `sso`
+is the only switch. `SSO_ENABLED` is no longer read and can be removed from
+your `.env`. When you configure a provider:
+
+- The issuer must be `https` and its OpenID discovery document must be
+  reachable from the API (the same outbound guard as webhooks refuses
+  internal addresses).
+- For Microsoft Entra ID, use your tenant's issuer,
+  `https://login.microsoftonline.com/<tenant-id>/v2.0`. Multi-tenant issuers
+  (`/common`, `/organizations`, `/consumers`) are refused.
+- People must already be members of the organization (invite them first,
+  `AUTH-005`); single sign-on does not create accounts. Their email domain
+  must be in the allowed domains, and the provider must mark the email as
+  verified. Members with two-factor authentication still enter their code.
+- A person who is also an active member of another organization on this
+  instance cannot sign in with single sign-on: their password and second
+  factors are shared across organizations, so one organization's provider
+  must not act for them. They keep signing in with their email and password.
+- An email domain can be enabled for single sign-on by one organization only.
+  Saving an enabled configuration whose allowed domains another
+  organization already uses is refused.
 
 ---
 

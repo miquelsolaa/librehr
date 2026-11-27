@@ -23,8 +23,8 @@ export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 export interface BetterAuthAdapterOptions {
   /**
    * AUTH-004 "Require SSO" is active on this instance: the licence grants
-   * `sso` and SSO_ENABLED is true (see lib/sso-enforcement.ts). When false,
-   * organizations' enforce_sso settings are stored but have no effect.
+   * `sso` (see lib/sso-enforcement.ts). When false, organizations'
+   * enforce_sso settings are stored but have no effect.
    */
   ssoEnforcement?: boolean | undefined;
 }
