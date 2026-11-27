@@ -8,10 +8,26 @@ import { FileSpreadsheet } from "lucide-react";
 import { PageHeader } from "@librehr/ui";
 import { getStoredSession } from "@/lib/auth";
 import { apiClient } from "@/lib/api-client";
+import { HeadcountBreakdown } from "@/components/headcount-breakdown";
 import {
   HeadcountReportResponseSchema,
   type HeadcountReportResponse,
 } from "@librehr/contracts";
+
+// ORG-007: optional headcount breakdown by department or group.
+const BREAKDOWNS = {
+  none: undefined,
+  departmentPrimary: { groupBy: "department", basis: "primary" },
+  departmentMembership: { groupBy: "department", basis: "membership" },
+  group: { groupBy: "group", basis: "membership" },
+} as const;
+type BreakdownChoice = keyof typeof BREAKDOWNS;
+const BREAKDOWN_LABELS = {
+  none: "breakdownNone",
+  departmentPrimary: "breakdownDepartmentPrimary",
+  departmentMembership: "breakdownDepartmentMembership",
+  group: "breakdownGroup",
+} as const;
 
 export default function ReportsPage() {
   const t = useTranslations("reports");
@@ -21,6 +37,7 @@ export default function ReportsPage() {
   );
   const [startDate, setStartDate] = React.useState("");
   const [endDate, setEndDate] = React.useState("");
+  const [breakdown, setBreakdown] = React.useState<BreakdownChoice>("none");
   const [headcount, setHeadcount] =
     React.useState<HeadcountReportResponse | null>(null);
   const [headcountError, setHeadcountError] = React.useState(false);
@@ -40,7 +57,11 @@ export default function ReportsPage() {
     try {
       setHeadcount(
         HeadcountReportResponseSchema.parse(
-          await apiClient.getHeadcountReport(startDate, endDate),
+          await apiClient.getHeadcountReport(
+            startDate,
+            endDate,
+            BREAKDOWNS[breakdown],
+          ),
         ),
       );
     } catch {
@@ -55,16 +76,18 @@ export default function ReportsPage() {
     setExporting(true);
     setExportError(false);
     try {
+      const loaded = headcount.breakdown;
       const csv = await apiClient.exportHeadcountCsv(
         headcount.periodStart,
         headcount.periodEnd,
+        loaded && { groupBy: loaded.groupBy, basis: loaded.basis },
       );
       const url = URL.createObjectURL(
         new Blob([csv], { type: "text/csv;charset=utf-8" }),
       );
       const link = document.createElement("a");
       link.href = url;
-      link.download = `headcount-${headcount.periodStart}-${headcount.periodEnd}.csv`;
+      link.download = `headcount-${loaded ? `${loaded.groupBy}-` : ""}${headcount.periodStart}-${headcount.periodEnd}.csv`;
       link.click();
       URL.revokeObjectURL(url);
     } catch {
@@ -135,6 +158,26 @@ export default function ReportsPage() {
                   required
                 />
               </label>
+              <label className="grid gap-1 text-sm">
+                {t("breakdownLabel")}
+                <select
+                  className="min-h-11 rounded-input border border-border bg-background p-2"
+                  value={breakdown}
+                  onChange={(event) => {
+                    setBreakdown(event.target.value as BreakdownChoice);
+                    setHeadcount(null);
+                    setHeadcountError(false);
+                  }}
+                >
+                  {(Object.keys(BREAKDOWNS) as BreakdownChoice[]).map(
+                    (choice) => (
+                      <option key={choice} value={choice}>
+                        {t(BREAKDOWN_LABELS[choice])}
+                      </option>
+                    ),
+                  )}
+                </select>
+              </label>
               <button
                 className="min-h-11 rounded-input bg-primary px-4 text-primary-foreground"
                 type="submit"
@@ -178,6 +221,9 @@ export default function ReportsPage() {
                     </div>
                   ))}
                 </dl>
+                {headcount.breakdown && (
+                  <HeadcountBreakdown breakdown={headcount.breakdown} />
+                )}
                 <button
                   type="button"
                   onClick={downloadHeadcount}

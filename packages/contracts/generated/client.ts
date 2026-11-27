@@ -890,13 +890,14 @@ export class LibreHrApiClient {
   }
 
   // Reports & Insights (M5)
-  async getHeadcountReport(startDate: string, endDate: string): Promise<HeadcountReportResponse> {
-    const params = new URLSearchParams({ startDate, endDate });
+  // ORG-007: an optional breakdown by department or group (projects, areas).
+  async getHeadcountReport(startDate: string, endDate: string, breakdown?: { groupBy: 'department' | 'group'; basis?: 'primary' | 'membership' }): Promise<HeadcountReportResponse> {
+    const params = new URLSearchParams({ startDate, endDate, ...breakdown });
     return this.request<HeadcountReportResponse>(`/v1/reports/headcount?${params}`);
   }
 
-  async exportHeadcountCsv(startDate: string, endDate: string): Promise<string> {
-    const params = new URLSearchParams({ startDate, endDate });
+  async exportHeadcountCsv(startDate: string, endDate: string, breakdown?: { groupBy: 'department' | 'group'; basis?: 'primary' | 'membership' }): Promise<string> {
+    const params = new URLSearchParams({ startDate, endDate, ...breakdown });
     return this.request<string>(`/v1/reports/headcount/export?${params}`, undefined, true);
   }
 

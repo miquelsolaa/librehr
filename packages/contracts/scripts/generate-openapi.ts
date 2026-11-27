@@ -2165,6 +2165,8 @@ registry.registerPath({
   method: "get",
   path: "/v1/reports/headcount",
   summary: "Get an administrator-only headcount report",
+  description:
+    "ORG-007: with `groupBy`, the response carries `breakdown`: headcount and FTE per department (`basis` primary, the default, or membership) or per project and area (membership basis only), on the period end date. On the membership basis one person can count in several rows (`totalsOverlap`).",
   request: { query: HeadcountReportQuerySchema },
   responses: {
     200: {
@@ -2174,7 +2176,7 @@ registry.registerPath({
       },
     },
     400: {
-      description: "Invalid dates",
+      description: "Invalid dates, groupBy or basis",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
     403: {
@@ -2191,6 +2193,8 @@ registry.registerPath({
   method: "get",
   path: "/v1/reports/headcount/export",
   summary: "Download an administrator-only headcount report as CSV",
+  description:
+    "ORG-007: with `groupBy`, one row per department or group (`as_of,basis,totals_overlap,group_type,group_id,group_name,headcount,fte`) instead of the period summary.",
   request: { query: HeadcountReportQuerySchema },
   responses: {
     200: {
@@ -2198,7 +2202,7 @@ registry.registerPath({
       content: { "text/csv": { schema: z.string() } },
     },
     400: {
-      description: "Invalid dates",
+      description: "Invalid dates, groupBy or basis",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
     403: {
@@ -3444,13 +3448,14 @@ export class LibreHrApiClient {
   }
 
   // Reports & Insights (M5)
-  async getHeadcountReport(startDate: string, endDate: string): Promise<HeadcountReportResponse> {
-    const params = new URLSearchParams({ startDate, endDate });
+  // ORG-007: an optional breakdown by department or group (projects, areas).
+  async getHeadcountReport(startDate: string, endDate: string, breakdown?: { groupBy: 'department' | 'group'; basis?: 'primary' | 'membership' }): Promise<HeadcountReportResponse> {
+    const params = new URLSearchParams({ startDate, endDate, ...breakdown });
     return this.request<HeadcountReportResponse>(\`/v1/reports/headcount?\${params}\`);
   }
 
-  async exportHeadcountCsv(startDate: string, endDate: string): Promise<string> {
-    const params = new URLSearchParams({ startDate, endDate });
+  async exportHeadcountCsv(startDate: string, endDate: string, breakdown?: { groupBy: 'department' | 'group'; basis?: 'primary' | 'membership' }): Promise<string> {
+    const params = new URLSearchParams({ startDate, endDate, ...breakdown });
     return this.request<string>(\`/v1/reports/headcount/export?\${params}\`, undefined, true);
   }
 

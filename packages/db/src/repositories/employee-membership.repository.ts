@@ -88,6 +88,17 @@ const selectRows = (tx: TenantTx) => tx`
     ON g.id = m.group_id AND g.organization_id = m.organization_id
 `;
 
+/** ORG-007: a membership as the org chart draws it (dotted line to a lead). */
+export interface OrgChartMembershipRow {
+  employeeId: string;
+  type: "department" | OrgGroupKind;
+  id: string;
+  name: string;
+  allocationPercent: number | null;
+  leadEmployeeId: string | null;
+  leadName: string | null;
+}
+
 export class EmployeeMembershipRepository {
   /** Every membership of an employee, current and past, newest first. */
   async listForEmployee(
@@ -253,5 +264,39 @@ export class EmployeeMembershipRepository {
       ORDER BY e.id
     `;
     return rows.map((r) => r.id);
+  }
+
+  /**
+   * ORG-007 (ORG-004): every membership active on `date` (the organization's
+   * business date), with the lead of its department or group, for the org
+   * chart's dotted lines. Directory fields only.
+   */
+  async listActiveForOrgChart(
+    tx: TenantTx,
+    date: string,
+  ): Promise<OrgChartMembershipRow[]> {
+    const orgId = tx.__tenantContext.organizationId;
+    return tx<OrgChartMembershipRow[]>`
+      SELECT m.employee_id as "employeeId",
+             coalesce(g.kind, 'department') as type,
+             coalesce(m.department_id, m.group_id) as id,
+             coalesce(d.name, g.name) as name,
+             m.allocation_percent::float8 as "allocationPercent",
+             l.id as "leadEmployeeId",
+             CASE WHEN l.id IS NULL THEN NULL
+                  ELSE CONCAT(l.first_name, ' ', l.last_name) END as "leadName"
+      FROM employee_memberships m
+      LEFT JOIN departments d
+        ON d.id = m.department_id AND d.organization_id = m.organization_id
+      LEFT JOIN org_groups g
+        ON g.id = m.group_id AND g.organization_id = m.organization_id
+      LEFT JOIN employees l
+        ON l.id = coalesce(d.lead_employee_id, g.lead_employee_id)
+       AND l.organization_id = m.organization_id
+      WHERE m.organization_id = ${orgId}
+        AND m.start_date <= ${date}::date
+        AND (m.end_date IS NULL OR m.end_date >= ${date}::date)
+      ORDER BY type, name, id
+    `;
   }
 }
