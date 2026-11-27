@@ -62,6 +62,8 @@ describe("balance totals explain the balance (LEA-005, #116)", () => {
     fc.assert(
       fc.property(ledger, (entries) => {
         for (const b of balancesByLeaveType(entries)) {
+          // `+ 0` turns the -0 that Math.round gives for tiny negative
+          // sums into 0, so toBe (Object.is) compares the value only.
           const explained =
             Math.round(
               (b.totalAccrued -
@@ -70,7 +72,9 @@ describe("balance totals explain the balance (LEA-005, #116)", () => {
                 b.totalAdjustments -
                 b.totalExpired) *
                 100,
-            ) / 100;
+            ) /
+              100 +
+            0;
           // Usage is reported as |amount|: holds when usage is negative.
           const positiveUsage = entries.some(
             (e) =>
