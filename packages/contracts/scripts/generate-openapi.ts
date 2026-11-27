@@ -315,6 +315,11 @@ registry.registerPath({
       description: "Invalid credentials",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
+    403: {
+      description:
+        "SSO_REQUIRED: the password is correct, but every organization of the account requires single sign-on (AUTH-004)",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
   },
 });
 
@@ -449,6 +454,11 @@ registry.registerPath({
     403: {
       description:
         "FORBIDDEN, or LICENSE_REQUIRED without a Business licence that grants sso (LIC-003)",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    409: {
+      description:
+        "SSO_BREAK_GLASS_REQUIRED: SSO is required, but no admin of the organization has two-factor authentication to keep password sign-in (AUTH-004)",
       content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
   },
@@ -641,6 +651,11 @@ registry.registerPath({
     200: {
       description: "Employee terminated successfully",
       content: { "application/json": { schema: EmployeeProfileSchema } },
+    },
+    409: {
+      description:
+        "SSO_BREAK_GLASS_REQUIRED: the employee is the last admin with two-factor authentication of an organization that requires single sign-on (AUTH-004)",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
   },
 });
@@ -890,6 +905,16 @@ registry.registerPath({
     200: {
       description: "Invitation accepted and session created",
       content: { "application/json": { schema: SessionResponseSchema } },
+    },
+    403: {
+      description:
+        "SSO_REQUIRED: the invitation was accepted, but the organization requires single sign-on, so no password session is opened (AUTH-004)",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
+    },
+    409: {
+      description:
+        "SSO_BREAK_GLASS_REQUIRED: accepting would demote the last admin with two-factor authentication of an organization that requires single sign-on; nothing is accepted (AUTH-004)",
+      content: { "application/problem+json": { schema: ProblemDetailsSchema } },
     },
   },
 });
