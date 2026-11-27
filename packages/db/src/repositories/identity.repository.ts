@@ -1,10 +1,28 @@
 import type { Sql } from "postgres";
 import { jsonStringArray } from "./json-array.js";
 import { hashBearerToken } from "../crypto/token-hash.js";
+import type { TenantTx } from "../with-tenant.js";
+import {
+  ssoBeginLogin,
+  ssoConsume,
+  ssoResolveUser,
+  type SsoConsumeResult,
+  type SsoLoginRequestInput,
+  type SsoResolveResult,
+} from "./sso-login.repository.js";
+
+export {
+  SSO_LOGIN_REQUEST_TTL_SECONDS,
+  type SsoConsumeResult,
+  type SsoLocale,
+  type SsoLoginRequestInput,
+  type SsoResolveOutcome,
+  type SsoResolveResult,
+} from "./sso-login.repository.js";
 
 /**
  * Identity lookups that run before a tenant context exists. They go through
- * the SECURITY DEFINER functions of migrations 0019/0020, the only way the runtime
+ * the SECURITY DEFINER functions of migrations 0019/0020/0044, the only way the runtime
  * role (NOBYPASSRLS) can read these tenant tables without `withTenant`.
  *
  * Callers pass raw session and invitation tokens; only their SHA-256 digest
@@ -16,6 +34,19 @@ export interface MembershipLookup {
   role: string;
 }
 
+/** How a session was authenticated (sessions.auth_method, migration 0041). */
+export type SessionAuthMethod = "password" | "sso";
+
+/**
+ * Outcome of binding a new session (AUTH-004). `ssoRequired` means every
+ * active membership was skipped because its organization requires single
+ * sign-on for password sessions; `breakGlass` means the session opened in
+ * such an organization as an admin with TOTP enabled.
+ */
+export type SessionBinding =
+  | (MembershipLookup & { ssoRequired: false; breakGlass: boolean })
+  | { ssoRequired: true };
+
 export interface SessionLookup {
   userId: string;
   email: string;
@@ -24,6 +55,13 @@ export interface SessionLookup {
   organizationId: string;
   role: string;
   expiresAt: Date;
+  authMethod: SessionAuthMethod;
+  /**
+   * False when the session is a password session and its organization
+   * requires SSO (the user is not a break-glass admin). Computed as if
+   * enforcement were active; the caller decides whether it is.
+   */
+  passwordAllowed: boolean;
 }
 
 export interface PersonalAccessTokenLookup {
@@ -78,16 +116,52 @@ export class IdentityRepository {
    * (oldest by created_at, then id). Keyed by the session token, never by a
    * bare user id (migration 0020). Returns null when the session is unknown or
    * expired, or the user has no active membership there.
+   *
+   * With `enforceSso` (AUTH-004, migration 0041), a password session skips
+   * memberships of organizations that require single sign-on, unless the
+   * user is a break-glass admin there.
    */
   async bindSessionOrganization(
     sql: Sql,
     token: string,
-  ): Promise<MembershipLookup | null> {
-    const rows = await sql<MembershipLookup[]>`
-      SELECT organization_id AS "organizationId", role
-      FROM librehr_auth_session_bind_org(${hashBearerToken(token)})
+    options: { enforceSso?: boolean | undefined } = {},
+  ): Promise<SessionBinding | null> {
+    const rows = await sql<
+      {
+        organizationId: string | null;
+        role: string | null;
+        ssoRequired: boolean;
+        breakGlass: boolean;
+      }[]
+    >`
+      SELECT organization_id AS "organizationId", role,
+             sso_required AS "ssoRequired", break_glass AS "breakGlass"
+      FROM librehr_auth_session_bind_org(
+        ${hashBearerToken(token)}, ${options.enforceSso ?? false}
+      )
     `;
-    return rows[0] ?? null;
+    const row = rows[0];
+    if (!row) return null;
+    if (row.ssoRequired) return { ssoRequired: true };
+    if (!row.organizationId || !row.role) return null;
+    return {
+      organizationId: row.organizationId,
+      role: row.role,
+      ssoRequired: false,
+      breakGlass: row.breakGlass,
+    };
+  }
+
+  /**
+   * AUTH-004: whether the session's user is the last break-glass admin (an
+   * active admin with TOTP) of any organization that requires SSO, across
+   * all their memberships (migration 0041). Keyed by the session token.
+   */
+  async isLastBreakGlassAdmin(sql: Sql, token: string): Promise<boolean> {
+    const rows = await sql<{ last: boolean }[]>`
+      SELECT librehr_auth_last_break_glass(${hashBearerToken(token)}) AS last
+    `;
+    return rows[0]?.last ?? false;
   }
 
   async session(sql: Sql, token: string): Promise<SessionLookup | null> {
@@ -95,8 +169,9 @@ export class IdentityRepository {
       SELECT user_id AS "userId", email, name,
              two_factor_enabled AS "twoFactorEnabled",
              organization_id AS "organizationId", role,
-             expires_at AS "expiresAt"
-      FROM librehr_auth_session(${hashBearerToken(token)})
+             expires_at AS "expiresAt", auth_method AS "authMethod",
+             password_allowed AS "passwordAllowed"
+      FROM librehr_auth_session_v2(${hashBearerToken(token)})
     `;
     return rows[0] ?? null;
   }
@@ -138,5 +213,49 @@ export class IdentityRepository {
     return row
       ? { ...row, allowedDomains: stringArray(row.allowedDomains) }
       : null;
+  }
+
+  /**
+   * The domains of `domains` (normalized: trimmed, lower case, no leading
+   * '@') that an enabled SSO configuration of another organization already
+   * allows (AUTH-004, migration 0044). Call inside `withTenant` for the
+   * organization that wants them. Never says which organization.
+   */
+  async ssoDomainsTaken(
+    tx: TenantTx,
+    domains: readonly string[],
+  ): Promise<string[]> {
+    const normalized = [
+      ...new Set(
+        domains
+          .map((d) => d.trim().toLowerCase().replace(/^@/, ""))
+          .filter((d) => d.length > 0),
+      ),
+    ].sort();
+    const taken: string[] = [];
+    for (const domain of normalized) {
+      const [row] = await tx<{ taken: boolean }[]>`
+        SELECT librehr_auth_sso_domain_taken(${domain}) AS taken`;
+      if (row?.taken) taken.push(domain);
+    }
+    return taken;
+  }
+
+  /** Stores a started SSO sign-in (AUTH-004); see sso-login.repository.ts. */
+  async ssoBeginLogin(sql: Sql, input: SsoLoginRequestInput): Promise<void> {
+    return ssoBeginLogin(sql, input);
+  }
+
+  /** Spends the sign-in request for `state` once; see sso-login.repository.ts. */
+  async ssoConsume(sql: Sql, state: string): Promise<SsoConsumeResult> {
+    return ssoConsume(sql, state);
+  }
+
+  /** Maps a verified identity to a member; see sso-login.repository.ts. */
+  async ssoResolveUser(
+    sql: Sql,
+    input: { state: string; issuer: string; subject: string; email: string },
+  ): Promise<SsoResolveResult> {
+    return ssoResolveUser(sql, input);
   }
 }
